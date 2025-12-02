@@ -7,7 +7,7 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers } from 'lucide-react';
+import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Animated Number Counter Component
@@ -970,6 +970,16 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
         if (isPinned) setIsExpanded(true);
     }, [isPinned]);
     
+    // ESC key to close pinned tooltip
+    useEffect(() => {
+        if (!isPinned || !onClose) return;
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [isPinned, onClose]);
+    
     if (!active || !payload || !payload.length) return null;
     
     const data = payload[0]?.payload;
@@ -1047,40 +1057,27 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
 
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.92, y: -8 }}
+            initial={isPinned ? false : { opacity: 0, scale: 0.92, y: -8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -8 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
             className={cn(
-                "relative bg-white/95 dark:bg-slate-900/95 rounded-xl md:rounded-2xl shadow-2xl border-2 border-purple-200/50 dark:border-purple-500/30 p-3 md:p-5 backdrop-blur-2xl overflow-hidden",
+                "relative overflow-hidden",
                 isPinned 
-                    ? "min-w-[300px] sm:min-w-[360px] max-w-[95vw] sm:max-w-[480px]" 
-                    : "min-w-[260px] sm:min-w-[280px] max-w-[95vw] sm:max-w-[420px]"
+                    ? "bg-transparent p-3 md:p-4" 
+                    : "bg-white/95 dark:bg-slate-900/95 rounded-xl md:rounded-2xl shadow-2xl border-2 border-purple-200/50 dark:border-purple-500/30 p-3 md:p-5 backdrop-blur-2xl min-w-[260px] sm:min-w-[280px] max-w-[95vw] sm:max-w-[420px]"
             )}
             onMouseMoveCapture={stopEvent}
             onWheelCapture={stopEvent}
             onClick={stopEvent}
         >
-            {/* Close button when pinned */}
-            {isPinned && onClose && (
-                <motion.button
-                    type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onClose();
-                    }}
-                    className="absolute -top-2 -right-2 z-30 h-7 w-7 rounded-full bg-gradient-to-br from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 border-2 border-white dark:border-gray-900 shadow-lg flex items-center justify-center text-white font-bold transition-all"
-                    whileHover={{ scale: 1.1, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
-                    aria-label="Close tooltip"
-                >
-                    <span className="text-sm leading-none">×</span>
-                </motion.button>
+            {/* Animated gradient background - only for hover tooltip */}
+            {!isPinned && (
+                <>
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.05),transparent_50%)] pointer-events-none" />
+                </>
             )}
-            
-            {/* Animated gradient background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.05),transparent_50%)] pointer-events-none" />
             
             {/* Content wrapper */}
             <div className="relative z-10">
@@ -2730,40 +2727,74 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         <AnimatePresence>
                             {pinnedTooltip && (
                                 <motion.div 
-                                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+                                    className="fixed inset-0 z-[100] flex items-center justify-center p-4"
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     onClick={() => setPinnedTooltip(null)}
                                 >
+                                    {/* Backdrop with gradient */}
+                                    <motion.div 
+                                        className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-purple-900/20 backdrop-blur-md"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                    />
+                                    
+                                    {/* Modal Container */}
                                     <motion.div
-                                        className="relative max-w-[95vw] sm:max-w-[500px] max-h-[80vh] overflow-auto"
-                                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                        className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]"
+                                        initial={{ opacity: 0, scale: 0.85, y: 40 }}
                                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                        transition={{ type: "spring", stiffness: 350, damping: 28 }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <CustomTooltip 
-                                            active={true}
-                                            payload={eventKeys.map((ek, idx) => {
-                                                const event = events.find(e => String(e.eventId) === ek.eventId);
-                                                const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
-                                                return {
-                                                    dataKey: `${ek.eventKey}_count`,
-                                                    name: ek.eventName,
-                                                    value: pinnedTooltip.dataPoint[`${ek.eventKey}_count`] || 0,
-                                                    color,
-                                                    stroke: color,
-                                                    payload: pinnedTooltip.dataPoint
-                                                };
-                                            }).filter(p => p.value > 0)}
-                                            label={pinnedTooltip.label}
-                                            events={events} 
-                                            eventKeys={eventKeys}
-                                            isPinned={true}
-                                            onClose={() => setPinnedTooltip(null)}
-                                        />
+                                        {/* Floating Close Button - Outside the card */}
+                                        <motion.button
+                                            type="button"
+                                            onClick={() => setPinnedTooltip(null)}
+                                            className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                            whileHover={{ scale: 1.1, rotate: 90 }}
+                                            whileTap={{ scale: 0.9 }}
+                                            aria-label="Close details"
+                                        >
+                                            <X className="h-5 w-5" />
+                                        </motion.button>
+                                        
+                                        {/* Card Content */}
+                                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                            {/* Decorative header gradient */}
+                                            <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+                                            
+                                            <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                <CustomTooltip 
+                                                    active={true}
+                                                    payload={eventKeys.map((ek, idx) => {
+                                                        const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                        const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                        return {
+                                                            dataKey: `${ek.eventKey}_count`,
+                                                            name: ek.eventName,
+                                                            value: pinnedTooltip.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                            color,
+                                                            stroke: color,
+                                                            payload: pinnedTooltip.dataPoint
+                                                        };
+                                                    }).filter(p => p.value > 0)}
+                                                    label={pinnedTooltip.label}
+                                                    events={events} 
+                                                    eventKeys={eventKeys}
+                                                    isPinned={true}
+                                                    onClose={() => setPinnedTooltip(null)}
+                                                />
+                                            </div>
+                                            
+                                            {/* Footer hint */}
+                                            <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-gray-800 text-center">
+                                                <span className="text-xs text-muted-foreground">Click outside or press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px] font-mono mx-1">ESC</kbd> to close</span>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 </motion.div>
                             )}
