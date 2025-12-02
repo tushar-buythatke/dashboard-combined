@@ -305,25 +305,28 @@ export function AnalyticsLayout() {
             </header>
 
             <div className="flex-1 flex overflow-hidden">
-                <ProfileSidebar
-                    featureId={selectedFeatureId}
-                    selectedProfileId={selectedProfileId}
-                    onSelectProfile={(id) => {
-                        setSelectedProfileId(id);
-                        setIsCreatingProfile(false);
-                    }}
-                    onCreateProfile={() => {
-                        setIsCreatingProfile(true);
-                        setSelectedProfileId(null);
-                    }}
-                    refreshTrigger={sidebarRefreshTrigger}
-                />
+                {/* Fixed Profile Sidebar - Always Visible */}
+                <div className="w-72 xl:w-80 border-r border-border/40 bg-background flex-shrink-0">
+                    <ProfileSidebar
+                        featureId={selectedFeatureId}
+                        selectedProfileId={selectedProfileId}
+                        onSelectProfile={(id) => {
+                            setSelectedProfileId(id);
+                            setIsCreatingProfile(false);
+                        }}
+                        onCreateProfile={() => {
+                            setIsCreatingProfile(true);
+                            setSelectedProfileId(null);
+                        }}
+                        refreshTrigger={sidebarRefreshTrigger}
+                    />
+                </div>
 
-                <main className="flex-1 overflow-auto relative">
+                <main className="flex-1 overflow-auto relative min-w-0">
                     {/* Subtle dot pattern background */}
                     <div className="absolute inset-0 bg-dot-pattern opacity-30 pointer-events-none" />
                     
-                    <div className="relative z-10 p-3 lg:p-6">
+                    <div className="relative z-10 p-4 lg:p-6">
                         {isCreatingProfile ? (
                             <motion.div
                                 key="builder"

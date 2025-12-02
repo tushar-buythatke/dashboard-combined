@@ -149,8 +149,8 @@ const CollapsibleLegend = ({
     );
 };
 
-// Left Sidebar Navigation Component
-const LeftSidebarNav = ({ 
+// Left Sidebar Navigation Component (unused)
+const _LeftSidebarNav = ({ 
     profileName, 
     panels, 
     activePanelId, 
@@ -1553,26 +1553,34 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         }
     }, [loading, profile, events]);
 
-    // Mark pending refresh when filters or date range change (don't auto-refresh)
+    // Auto-refresh when filters or date range change
     useEffect(() => {
         if (!loading && profile && events.length > 0 && graphData.length > 0) {
-            // Only mark as pending if we already have data (i.e., after initial load)
-            setPendingRefresh(true);
+            // Automatically refresh main panel when filters change
+            setPendingRefresh(false);
+            if (profile.panels.length > 0) {
+                refreshPanelData(profile.panels[0].panelId);
+            }
         }
-    }, [filters, dateRange]);
+    }, [filters, dateRange, loading, profile, events, graphData, refreshPanelData]);
 
-    // Auto-refresh (user-configurable, 0 = disabled by default)
+    // Auto-refresh main panel (user-configurable, 0 = disabled by default)
     useEffect(() => {
-        if (autoRefreshMinutes <= 0) return;
-        const interval = setInterval(loadData, autoRefreshMinutes * 60 * 1000);
+        if (autoRefreshMinutes <= 0 || !profile || profile.panels.length === 0) return;
+        const interval = setInterval(() => {
+            refreshPanelData(profile.panels[0].panelId);
+        }, autoRefreshMinutes * 60 * 1000);
         return () => clearInterval(interval);
-    }, [autoRefreshMinutes, loadData]);
+    }, [autoRefreshMinutes, profile, refreshPanelData]);
     
-    // Manual refresh trigger for top filters
+    // Manual refresh trigger for main panel only (first panel)
     const handleApplyFilters = useCallback(() => {
         setPendingRefresh(false);
-        loadData();
-    }, [loadData]);
+        if (profile && profile.panels.length > 0) {
+            // Only refresh the first/main panel
+            refreshPanelData(profile.panels[0].panelId);
+        }
+    }, [profile, refreshPanelData]);
 
     const handleFilterChange = (type: keyof FilterState, values: string[]) => {
         const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
@@ -1613,28 +1621,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         return acc;
     }, {} as Record<string, { total: number; success: number; }>);
     
-    // Show sidebar if multiple panels
-    const showSidebar = profile.panels.length > 1;
-
     return (
         <>
-            {/* Left Sidebar Navigation */}
-            {showSidebar && (
-                <LeftSidebarNav
-                    profileName={profile.profileName}
-                    panels={profile.panels.map(p => ({ 
-                        panelId: p.panelId, 
-                        panelName: p.panelName,
-                        chartType: (p as any).filterConfig?.graphType 
-                    }))}
-                    activePanelId={activePanelId}
-                    onJumpToPanel={handleJumpToPanel}
-                    panelStats={panelStats}
-                />
-            )}
             
             <motion.div 
-                className={cn("space-y-6", showSidebar && "ml-16 lg:ml-64")}
+                className="space-y-4"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
@@ -1839,25 +1830,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         ) : (
                                             <RefreshCw className="mr-2 h-4 w-4" />
                                         )}
-                                        {pendingRefresh ? 'Apply Changes' : 'Refresh Data'}
-                                        {pendingRefresh && (
-                                            <motion.span 
-                                                className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full"
-                                                animate={{ scale: [1, 1.2, 1] }}
-                                                transition={{ duration: 1, repeat: Infinity }}
-                                            />
-                                        )}
+                                        Refresh Main Panel
                                     </Button>
                                 </motion.div>
-                                {pendingRefresh && (
-                                    <motion.span 
-                                        className="text-xs text-amber-600 dark:text-amber-400"
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                    >
-                                        Filters changed - click to apply
-                                    </motion.span>
-                                )}
                             </div>
                             
                             <div className="flex items-center gap-2">

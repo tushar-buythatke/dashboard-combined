@@ -322,7 +322,7 @@ export function ProfileSidebar({
             </AnimatePresence>
             
             {/* Desktop Sidebar */}
-            <div className="hidden lg:flex w-72 xl:w-80 border-r border-border/40 bg-background flex-col h-full">
+            <div className="hidden lg:flex flex-col h-full w-full">
                 <SidebarContent />
             </div>
         </>
