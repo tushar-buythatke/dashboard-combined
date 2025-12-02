@@ -950,10 +950,10 @@ const ExpandedPieChartModal = ({
                 </DialogHeader>
                 
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-6 p-6 max-h-[70vh] overflow-y-auto">
-                    {/* Large Pie Chart - 2 columns */}
-                    <div className="md:col-span-2 h-[380px] flex items-center justify-center bg-gray-50/50 dark:bg-gray-800/20 rounded-2xl p-4">
+                    {/* Large Pie Chart - 3 columns for better visibility */}
+                    <div className="md:col-span-3 h-[450px] flex items-center justify-center bg-gray-50/50 dark:bg-gray-800/20 rounded-2xl p-8">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart margin={{ top: 20, right: 20, bottom: 40, left: 20 }}>
+                            <PieChart margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
                                 <defs>
                                     {PIE_COLORS.map((color, index) => (
                                         <linearGradient key={index} id={`expandedPieGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
@@ -966,8 +966,8 @@ const ExpandedPieChartModal = ({
                                     data={pieData.data}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={110}
+                                    innerRadius={80}
+                                    outerRadius={150}
                                     paddingAngle={3}
                                     dataKey="value"
                                     strokeWidth={2}
@@ -992,8 +992,8 @@ const ExpandedPieChartModal = ({
                         </ResponsiveContainer>
                     </div>
                     
-                    {/* Detailed Stats Table - 3 columns */}
-                    <div className="md:col-span-3 space-y-3">
+                    {/* Detailed Stats Table - 2 columns */}
+                    <div className="md:col-span-2 space-y-3">
                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Breakdown</h3>
                         <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2">
                             {sortedData.map((item: any, index: number) => {
@@ -1133,6 +1133,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         sources: [],    // Empty = all sources
         events: []      // Empty = all events
     });
+
+    // Individual panel filter change tracking
+    const [panelFilterChanges, setPanelFilterChanges] = useState<Record<string, boolean>>({});
 
     // Chart data - now stored per panel
     const [graphData, setGraphData] = useState<any[]>([]);
@@ -1371,24 +1374,31 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             const panelConfig = (panel as any).filterConfig;
             const userPanelFilters = panelFiltersState[panelId];
             
-            // Priority: User's panel-specific filters > Global filters > Panel config defaults
+            console.log(`🔍 DEBUG - Panel Config:`, panelConfig);
+            console.log(`👤 DEBUG - User Panel Filters:`, userPanelFilters);
+            
+            // FIXED: Each panel is completely independent
+            // Use panel-specific filters if available, otherwise use panel config defaults
             const panelFilters: FilterState = {
                 events: userPanelFilters?.events?.length > 0 
                     ? userPanelFilters.events 
-                    : (filters.events.length > 0 ? filters.events : (panelConfig?.events || [])),
+                    : (panelConfig?.events || []),
                 platforms: userPanelFilters?.platforms?.length > 0 
                     ? userPanelFilters.platforms 
-                    : (filters.platforms.length > 0 ? filters.platforms : (panelConfig?.platforms || [])),
+                    : (panelConfig?.platforms || []),
                 pos: userPanelFilters?.pos?.length > 0 
                     ? userPanelFilters.pos 
-                    : (filters.pos.length > 0 ? filters.pos : (panelConfig?.pos || [])),
+                    : (panelConfig?.pos || []),
                 sources: userPanelFilters?.sources?.length > 0 
                     ? userPanelFilters.sources 
-                    : (filters.sources.length > 0 ? filters.sources : (panelConfig?.sources || []))
+                    : (panelConfig?.sources || [])
             };
             const panelDateRange = panelDateRanges[panelId] || dateRange;
             
-            console.log(`Refreshing panel ${panelId} with filters:`, panelFilters);
+            console.log(`🔄 PANEL REFRESH - Panel ID: ${panelId}`);
+            console.log(`📊 Panel filters being applied:`, panelFilters);
+            console.log(`🌐 Global filters state:`, filters);
+            console.log(`📅 Panel date range:`, panelDateRange);
 
             const graphResponse = await apiService.getGraphData(
                 panelFilters.events,
@@ -1550,19 +1560,28 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         // After that, user must click "Apply Filters" button
         if (!loading && profile && events.length > 0 && graphData.length === 0) {
             loadData();
+            // Clear pending refresh after initial load
+            setPendingRefresh(false);
+            // Clear all panel filter changes after initial load
+            setPanelFilterChanges({});
         }
-    }, [loading, profile, events]);
+    }, [loading, profile, events, loadData]);
 
-    // Auto-refresh when filters or date range change
+    // Set pending refresh when filters or date range change
     useEffect(() => {
         if (!loading && profile && events.length > 0 && graphData.length > 0) {
-            // Automatically refresh main panel when filters change
-            setPendingRefresh(false);
-            if (profile.panels.length > 0) {
-                refreshPanelData(profile.panels[0].panelId);
+            // Mark that filters have changed and need to be applied
+            setPendingRefresh(true);
+            // Mark all panels as having filter changes
+            if (profile?.panels) {
+                const changes: Record<string, boolean> = {};
+                profile.panels.forEach(panel => {
+                    changes[panel.panelId] = true;
+                });
+                setPanelFilterChanges(changes);
             }
         }
-    }, [filters, dateRange, loading, profile, events, graphData, refreshPanelData]);
+    }, [filters, dateRange, loading, profile, events, graphData]);
 
     // Auto-refresh main panel (user-configurable, 0 = disabled by default)
     useEffect(() => {
@@ -1579,12 +1598,50 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         if (profile && profile.panels.length > 0) {
             // Only refresh the first/main panel
             refreshPanelData(profile.panels[0].panelId);
+            // Clear the filter change state for the main panel
+            setPanelFilterChanges(prev => ({
+                ...prev,
+                [profile.panels[0].panelId]: false
+            }));
         }
     }, [profile, refreshPanelData]);
 
+    // Individual panel refresh function
+    const handlePanelRefresh = useCallback((panelId: string) => {
+        refreshPanelData(panelId);
+        // Clear the filter change state for this specific panel
+        setPanelFilterChanges(prev => ({
+            ...prev,
+            [panelId]: false
+        }));
+    }, [refreshPanelData]);
+
     const handleFilterChange = (type: keyof FilterState, values: string[]) => {
         const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+        
+        // Update the main panel's filter state (first panel)
+        if (profile?.panels && profile.panels.length > 0) {
+            const mainPanelId = profile.panels[0].panelId;
+            
+            // Update panel-specific filters for the main panel
+            setPanelFiltersState(prev => ({
+                ...prev,
+                [mainPanelId]: {
+                    ...prev[mainPanelId],
+                    [type]: numericValues
+                }
+            }));
+            
+            // Mark that this panel's filters have changed
+            setPanelFilterChanges(prev => ({
+                ...prev,
+                [mainPanelId]: true
+            }));
+        }
+        
+        // Also update global state for backward compatibility (but this won't be used)
         setFilters(prev => ({ ...prev, [type]: numericValues }));
+        setPendingRefresh(true);
     };
 
     if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
@@ -1700,10 +1757,28 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 selected={{ from: dateRange.from, to: dateRange.to }}
                                 onSelect={(range) => {
                                     if (range?.from) {
-                                        setDateRange({ 
+                                        const newDateRange = { 
                                             from: range.from, 
                                             to: range.to || range.from 
-                                        });
+                                        };
+                                        setDateRange(newDateRange);
+                                        
+                                        // Update the main panel's date range
+                                        if (profile?.panels && profile.panels.length > 0) {
+                                            const mainPanelId = profile.panels[0].panelId;
+                                            setPanelDateRanges(prev => ({
+                                                ...prev,
+                                                [mainPanelId]: newDateRange
+                                            }));
+                                            
+                                            // Mark that this panel's filters have changed
+                                            setPanelFilterChanges(prev => ({
+                                                ...prev,
+                                                [mainPanelId]: true
+                                            }));
+                                        }
+                                        
+                                        setPendingRefresh(true);
                                     }
                                 }}
                                 numberOfMonths={2}
@@ -1712,14 +1787,23 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         </PopoverContent>
                     </Popover>
                     <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button variant="outline" size="sm" onClick={loadData} disabled={dataLoading}>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleApplyFilters} 
+                            disabled={dataLoading}
+                            className={cn(
+                                "transition-all duration-300",
+                                pendingRefresh && "border-amber-400 text-amber-600 hover:bg-amber-50"
+                            )}
+                        >
                             <motion.div
                                 animate={dataLoading ? { rotate: 360 } : {}}
                                 transition={{ duration: 1, repeat: dataLoading ? Infinity : 0, ease: "linear" }}
                             >
                                 <RefreshCw className="mr-2 h-4 w-4" />
                             </motion.div>
-                            Refresh
+                            {pendingRefresh ? "Apply" : "Refresh"}
                         </Button>
                     </motion.div>
                 </motion.div>
@@ -1744,15 +1828,33 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
             >
-                <Card className="border-2 border-primary/20 overflow-hidden group hover:border-primary/40 transition-colors">
+                <Card className={cn(
+                    "border-2 overflow-hidden group transition-all duration-300",
+                    pendingRefresh 
+                        ? "border-amber-400 bg-amber-50/50 dark:bg-amber-950/20 shadow-lg shadow-amber-500/20" 
+                        : "border-primary/20 hover:border-primary/40"
+                )}>
                     <CardHeader className="pb-3">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <motion.span 
-                                className="w-2 h-2 rounded-full bg-primary"
+                                className={cn(
+                                    "w-2 h-2 rounded-full",
+                                    pendingRefresh ? "bg-amber-500" : "bg-primary"
+                                )}
                                 animate={{ scale: [1, 1.2, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
+                                transition={{ duration: pendingRefresh ? 1 : 2, repeat: Infinity }}
                             />
                             Filters
+                            {pendingRefresh && (
+                                <motion.span 
+                                    className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
+                                    initial={{ opacity: 0, scale: 0 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ type: "spring", stiffness: 500 }}
+                                >
+                                    Changed
+                                </motion.span>
+                            )}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -1765,7 +1867,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
                                 <MultiSelectDropdown
                                     options={platformOptions}
-                                    selected={filters.platforms.map(id => id.toString())}
+                                    selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
                                     onChange={(values) => handleFilterChange('platforms', values)}
                                     placeholder="Select platforms"
                                 />
@@ -1778,7 +1880,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
                                 <MultiSelectDropdown
                                     options={posOptions}
-                                    selected={filters.pos.map(id => id.toString())}
+                                    selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
                                     onChange={(values) => handleFilterChange('pos', values)}
                                     placeholder="Select POS"
                                 />
@@ -1791,7 +1893,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
                                 <MultiSelectDropdown
                                     options={sourceOptions}
-                                    selected={filters.sources.map(id => id.toString())}
+                                    selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
                                     onChange={(values) => handleFilterChange('sources', values)}
                                     placeholder="Select sources"
                                 />
@@ -1804,7 +1906,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">Event</Label>
                                 <MultiSelectDropdown
                                     options={eventOptions}
-                                    selected={filters.events.map(id => id.toString())}
+                                    selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.events || []) : []).map(id => id.toString())}
                                     onChange={(values) => handleFilterChange('events', values)}
                                     placeholder="Select events"
                                 />
@@ -1818,7 +1920,12 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     <Button 
                                         onClick={handleApplyFilters} 
                                         disabled={dataLoading}
-                                        className={`relative ${pendingRefresh ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+                                        className={cn(
+                                            "relative transition-all duration-300",
+                                            pendingRefresh 
+                                                ? "bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30 animate-pulse" 
+                                                : "bg-primary hover:bg-primary/90"
+                                        )}
                                     >
                                         {dataLoading ? (
                                             <motion.div
@@ -1830,7 +1937,14 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         ) : (
                                             <RefreshCw className="mr-2 h-4 w-4" />
                                         )}
-                                        Refresh Main Panel
+                                        {pendingRefresh ? "Apply Filters!" : "Refresh This Panel"}
+                                        {pendingRefresh && (
+                                            <motion.div
+                                                className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
+                                                animate={{ scale: [1, 1.2, 1] }}
+                                                transition={{ duration: 1, repeat: Infinity }}
+                                            />
+                                        )}
                                     </Button>
                                 </motion.div>
                             </div>
@@ -2781,17 +2895,29 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             </span>
                                         </div>
                                         <Button
-                                            onClick={() => refreshPanelData(panel.panelId)}
+                                            onClick={() => handlePanelRefresh(panel.panelId)}
                                             disabled={isPanelLoading}
                                             size="sm"
-                                            className="bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white shadow-md"
+                                            className={cn(
+                                                "relative transition-all duration-300 shadow-md",
+                                                panelFilterChanges[panel.panelId]
+                                                    ? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30 animate-pulse"
+                                                    : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
+                                            )}
                                         >
                                             {isPanelLoading ? (
                                                 <RefreshCw className="w-4 h-4 animate-spin mr-1.5" />
                                             ) : (
                                                 <RefreshCw className="w-4 h-4 mr-1.5" />
                                             )}
-                                            Refresh Panel
+                                            {panelFilterChanges[panel.panelId] ? "Apply Filters!" : "Refresh Panel"}
+                                            {panelFilterChanges[panel.panelId] && (
+                                                <motion.div
+                                                    className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
+                                                    animate={{ scale: [1, 1.2, 1] }}
+                                                    transition={{ duration: 1, repeat: Infinity }}
+                                                />
+                                            )}
                                         </Button>
                                     </div>
                                     
