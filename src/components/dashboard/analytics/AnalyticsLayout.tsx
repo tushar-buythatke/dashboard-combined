@@ -7,7 +7,7 @@ import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { AnalyticsLogin } from './AnalyticsLogin';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X } from 'lucide-react';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
 import {
@@ -30,7 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { mockService } from '@/services/mockData';
 import { getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
-import { DotPattern, FloatingOrbs, WaveBackground } from '@/components/ui/animated-background';
+import { DotPattern, WaveBackground } from '@/components/ui/animated-background';
 
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated } = useAnalyticsAuth();
@@ -52,6 +52,9 @@ export function AnalyticsLayout() {
     
     // Sidebar collapse state
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    
+    // Mobile sidebar visibility
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     
     const isAdmin = user?.role === 0;
     
@@ -295,8 +298,19 @@ export function AnalyticsLayout() {
             animate={{ opacity: 1 }}
             className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-purple-50/20 dark:to-purple-950/5 relative"
         >
-            <header className="border-b border-border/50 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between bg-card/80 backdrop-blur-sm z-10 shadow-sm">
+            <header className="sticky top-0 border-b border-border/50 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between bg-card/95 backdrop-blur-md z-50 shadow-sm">
                 <div className="flex items-center gap-2 lg:gap-4">
+                    {/* Mobile Menu Button */}
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="md:hidden">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => setMobileSidebarOpen(true)}
+                            className="hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8 w-8"
+                        >
+                            <Menu className="h-4 w-4" />
+                        </Button>
+                    </motion.div>
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                         <Button 
                             variant="ghost" 
@@ -373,10 +387,60 @@ export function AnalyticsLayout() {
                 </div>
             </header>
 
-            <div className="flex-1 flex overflow-hidden">
-                {/* Collapsible Profile Sidebar */}
+            <div className="flex-1 flex overflow-hidden h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-4rem)]">
+                {/* Mobile Sidebar Overlay */}
+                <AnimatePresence>
+                    {mobileSidebarOpen && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                                onClick={() => setMobileSidebarOpen(false)}
+                            />
+                            <motion.div
+                                initial={{ x: -280 }}
+                                animate={{ x: 0 }}
+                                exit={{ x: -280 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                className="fixed left-0 top-14 bottom-0 w-[280px] bg-background border-r border-border/40 z-50 md:hidden overflow-hidden"
+                            >
+                                <div className="absolute top-2 right-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setMobileSidebarOpen(false)}
+                                        className="h-8 w-8"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <ProfileSidebar
+                                    featureId={selectedFeatureId}
+                                    selectedProfileId={selectedProfileId}
+                                    onSelectProfile={(id) => {
+                                        setSelectedProfileId(id);
+                                        setIsCreatingProfile(false);
+                                        setMobileSidebarOpen(false);
+                                    }}
+                                    onCreateProfile={() => {
+                                        setIsCreatingProfile(true);
+                                        setSelectedProfileId(null);
+                                        setMobileSidebarOpen(false);
+                                    }}
+                                    refreshTrigger={sidebarRefreshTrigger}
+                                    isCollapsed={false}
+                                    onToggleCollapse={() => {}}
+                                />
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+
+                {/* Desktop Sidebar - Hidden on mobile */}
                 <motion.div 
-                    className="border-r border-border/40 bg-background flex-shrink-0"
+                    className="hidden md:block border-r border-border/40 bg-background flex-shrink-0 h-full overflow-hidden"
                     animate={{ width: sidebarCollapsed ? 60 : 280 }}
                     transition={{ duration: 0.2, ease: 'easeInOut' }}
                 >

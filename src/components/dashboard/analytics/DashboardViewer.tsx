@@ -134,20 +134,25 @@ const CollapsibleLegend = ({
             }
         });
         
-        const successRate = total > 0 ? (success / total) * 100 : 0;
+        // For error events: success is actually error count
+        const errorCount = isErrorEvent ? success : (total - success);
+        const successCount = isErrorEvent ? (total - success) : success;
+        const errorRate = total > 0 ? (errorCount / total) * 100 : 0;
+        const successRate = total > 0 ? (successCount / total) * 100 : 0;
         const meanDelay = delayCount > 0 ? avgDelay / delayCount : 0;
         
         acc[eventKey] = { 
             total, 
-            success, 
-            fail: total - success, 
+            successCount,
+            errorCount,
             successRate,
+            errorRate,
             isErrorEvent,
             isAvgEvent,
             avgDelay: meanDelay
         };
         return acc;
-    }, {} as Record<string, { total: number; success: number; fail: number; successRate: number; isErrorEvent: boolean; isAvgEvent: boolean; avgDelay: number }>);
+    }, {} as Record<string, { total: number; successCount: number; errorCount: number; successRate: number; errorRate: number; isErrorEvent: boolean; isAvgEvent: boolean; avgDelay: number }>);
     
     // Format delay time based on feature (Price Alert = minutes, others = seconds)
     const formatDelay = (delayMs: number, featureId?: number) => {
@@ -163,93 +168,91 @@ const CollapsibleLegend = ({
     };
     
     return (
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-gray-50/80 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-wrap items-center gap-1.5 md:gap-2 px-2 md:px-4 py-2 md:py-2.5 bg-gray-50/80 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0, isErrorEvent: false, isAvgEvent: false, avgDelay: 0 };
+                const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0, errorRate: 0, isErrorEvent: false, isAvgEvent: false, avgDelay: 0 };
                 const isSelected = selectedEventKey === eventKeyInfo.eventKey;
                 
-                // For error events: high success rate = bad (more errors)
-                // For normal events: high success rate = good
-                const displayRate = stats.isErrorEvent ? (100 - stats.successRate) : stats.successRate;
-                const rateColor = stats.isErrorEvent 
-                    ? (stats.successRate <= 20 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
-                       stats.successRate <= 50 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
-                       "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400")
-                    : (stats.successRate >= 80 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
-                       stats.successRate >= 50 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
-                       "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400");
+                // Color based on error rate (low error = green, high error = red)
+                const rateColor = stats.errorRate <= 10 
+                    ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" 
+                    : stats.errorRate <= 30 
+                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" 
+                        : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400";
                 
                 return (
                     <motion.div 
                         key={eventKeyInfo.eventKey}
                         id={`legend-${eventKeyInfo.eventKey}`}
                         className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all",
+                            "flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all whitespace-nowrap",
                             isSelected 
                                 ? "border-purple-500 ring-2 ring-purple-500/30 scale-105" 
-                                : "border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50"
+                                : "border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50 active:scale-95"
                         )}
                         onClick={() => onEventClick?.(eventKeyInfo.eventKey)}
                         whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        whileTap={{ scale: 0.96 }}
                     >
                         <div 
-                            className="w-3 h-3 rounded-full shadow-inner flex-shrink-0" 
+                            className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shadow-inner flex-shrink-0" 
                             style={{ backgroundColor: color }}
                         />
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[100px]">
+                        <span className="text-[11px] md:text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[80px] md:max-w-[100px]">
                             {eventKeyInfo.eventName}
                         </span>
-                        <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                        <span className="text-[11px] md:text-xs font-semibold text-gray-900 dark:text-white">
                             {stats.total.toLocaleString()}
                         </span>
                         
-                        {/* Show error indicator for error events */}
-                        {stats.isErrorEvent && (
-                            <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-red-500 text-white">
-                                ERR
-                            </span>
-                        )}
-                        
                         {/* Show delay time for avg events */}
                         {stats.isAvgEvent && stats.avgDelay > 0 ? (
-                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
-                                ⏱ {formatDelay(stats.avgDelay, event?.feature)}
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 flex items-center gap-0.5">
+                                <Clock className="w-2.5 h-2.5" />
+                                {formatDelay(stats.avgDelay, event?.feature)}
                             </span>
                         ) : (
-                            <span className={cn(
-                                "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                                rateColor
-                            )}>
-                                {stats.isErrorEvent 
-                                    ? `${stats.successRate.toFixed(0)}% err` 
-                                    : `${displayRate.toFixed(0)}%`}
-                            </span>
+                            <>
+                                {/* Show error indicator for error events */}
+                                {stats.isErrorEvent && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/90 text-white shadow-sm">
+                                        ERR
+                                    </span>
+                                )}
+                                <span className={cn(
+                                    "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                                    rateColor
+                                )}>
+                                    {stats.successRate.toFixed(0)}%
+                                </span>
+                            </>
                         )}
                     </motion.div>
                 );
             })}
             {eventKeys.length > maxVisibleItems && (
-                <Button
-                    variant="ghost"
-                    size="sm"
+                <motion.button
                     onClick={onToggle}
-                    className="h-7 px-2 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20"
+                    className="flex items-center gap-1 h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-md transition-colors whitespace-nowrap"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                 >
                     {isExpanded ? (
                         <>
-                            <ChevronUp className="w-3 h-3 mr-1" />
-                            Show less
+                            <ChevronUp className="w-3 h-3" />
+                            <span className="hidden sm:inline">Show less</span>
+                            <span className="sm:hidden">Less</span>
                         </>
                     ) : (
                         <>
-                            <ChevronDown className="w-3 h-3 mr-1" />
-                            +{hiddenCount} more
+                            <ChevronDown className="w-3 h-3" />
+                            <span className="hidden sm:inline">+{hiddenCount} more</span>
+                            <span className="sm:hidden">+{hiddenCount}</span>
                         </>
                     )}
-                </Button>
+                </motion.button>
             )}
         </div>
     );
@@ -578,9 +581,9 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
     };
 
     return (
-        <Card className="border-2 border-cyan-100 dark:border-cyan-500/20 bg-gradient-to-br from-cyan-50/30 to-blue-50/20 dark:from-cyan-500/5 dark:to-blue-500/5 overflow-hidden">
-            <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+        <Card className="border-2 border-cyan-100 dark:border-cyan-500/20 bg-gradient-to-br from-cyan-50/30 to-blue-50/20 dark:from-cyan-500/5 dark:to-blue-500/5 overflow-hidden shadow-md">
+            <CardHeader className="pb-3 px-3 md:px-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                     <div className="flex items-center gap-3">
                         <motion.div 
                             className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg"
@@ -589,13 +592,13 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                             <Clock className="h-5 w-5 text-white" />
                         </motion.div>
                         <div>
-                            <CardTitle className="text-base font-semibold text-foreground flex items-center gap-2">
+                            <CardTitle className="text-sm md:text-base font-semibold text-foreground flex items-center gap-2 flex-wrap">
                                 Hourly Insights
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300 font-normal">
                                     {availableHours.length} hours tracked
                                 </span>
                             </CardTitle>
-                            <div className="text-xs text-muted-foreground mt-0.5">
+                            <div className="text-[11px] md:text-xs text-muted-foreground mt-0.5">
                                 {selectedEventKey 
                                     ? `Showing data for: ${eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName || selectedEventKey}`
                                     : 'Analyze event distribution across different hours of the day'}
@@ -604,10 +607,10 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                     </div>
                     {/* Event Type Filter - Pills for <=3 events, Dropdown for more */}
                     {eventKeys.length > 0 && (
-                        <div className="flex items-center">
+                        <div className="flex items-center w-full sm:w-auto">
                             {eventKeys.length <= 3 ? (
                                 // Pill-style for 3 or fewer events
-                                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 gap-0.5">
+                                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 gap-0.5 w-full sm:w-auto">
                                     {eventKeys.map((eventKeyInfo, index) => {
                                         const isSelected = selectedEventKey === eventKeyInfo.eventKey || (selectedEventKey === null && index === 0);
                                         // Auto-select first event if none selected
@@ -619,7 +622,7 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                                                 key={eventKeyInfo.eventKey}
                                                 onClick={() => setSelectedEventKey(eventKeyInfo.eventKey)}
                                                 className={cn(
-                                                    "px-3 py-1.5 text-[11px] font-medium rounded-full transition-all duration-200",
+                                                    "flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-medium rounded-full transition-all duration-200 text-center",
                                                     isSelected
                                                         ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
                                                         : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50"
@@ -657,13 +660,13 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
             
             <CardContent className="pt-0 space-y-4">
                 {/* Overall Summary Row */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border border-blue-200/50 dark:border-blue-500/20">
                         <div className="flex items-center gap-1 mb-1">
                             <Activity className="h-3 w-3 text-blue-500" />
                             <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium uppercase">Total Events</span>
                         </div>
-                        <div className="text-lg font-bold text-blue-600">{overallTotal.toLocaleString()}</div>
+                        <div className="text-base md:text-lg font-bold text-blue-600">{overallTotal.toLocaleString()}</div>
                         <div className="text-[10px] text-muted-foreground">{selectedEventKey ? eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName : 'All events'}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-green-500/5 border border-emerald-200/50 dark:border-emerald-500/20">
@@ -707,7 +710,7 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                             </div>
                         </div>
                     </div>
-                    <div className="h-32">
+                    <div className="h-24 md:h-32">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart
                                 data={availableHours.map(hour => ({
@@ -817,31 +820,31 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-3">
-                        <div className="text-center p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-2xl font-bold text-blue-600">{selectedStats.total.toLocaleString()}</div>
-                            <div className="text-[10px] text-muted-foreground uppercase font-medium">Total Events</div>
-                            <div className="text-[9px] text-blue-500 mt-1">Sum of all events at {formatHourShort(selectedHour)}</div>
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
+                            <div className="text-xl sm:text-2xl font-bold text-blue-600">{selectedStats.total.toLocaleString()}</div>
+                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Total Events</div>
+                            <div className="text-[8px] sm:text-[9px] text-blue-500 mt-1">Sum of all events at {formatHourShort(selectedHour)}</div>
                         </div>
-                        <div className="text-center p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-2xl font-bold text-emerald-600">{selectedStats.success.toLocaleString()}</div>
-                            <div className="text-[10px] text-muted-foreground uppercase font-medium">Successful</div>
-                            <div className="text-[9px] text-emerald-500 mt-1">Events completed OK</div>
+                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
+                            <div className="text-xl sm:text-2xl font-bold text-emerald-600">{selectedStats.success.toLocaleString()}</div>
+                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Successful</div>
+                            <div className="text-[8px] sm:text-[9px] text-emerald-500 mt-1">Events completed OK</div>
                         </div>
-                        <div className="text-center p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-2xl font-bold text-red-600">{selectedStats.fail.toLocaleString()}</div>
-                            <div className="text-[10px] text-muted-foreground uppercase font-medium">Failed</div>
-                            <div className="text-[9px] text-red-500 mt-1">Events with errors</div>
+                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
+                            <div className="text-xl sm:text-2xl font-bold text-red-600">{selectedStats.fail.toLocaleString()}</div>
+                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Failed</div>
+                            <div className="text-[8px] sm:text-[9px] text-red-500 mt-1">Events with errors</div>
                         </div>
-                        <div className="text-center p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-2xl font-bold text-purple-600">{selectedSuccessRate.toFixed(1)}%</div>
-                            <div className="text-[10px] text-muted-foreground uppercase font-medium">Success Rate</div>
-                            <div className="text-[9px] text-purple-500 mt-1">Success / Total</div>
+                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
+                            <div className="text-xl sm:text-2xl font-bold text-purple-600">{selectedSuccessRate.toFixed(1)}%</div>
+                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Success Rate</div>
+                            <div className="text-[8px] sm:text-[9px] text-purple-500 mt-1">Success / Total</div>
                         </div>
                     </div>
 
                     <div className="mt-3 pt-3 border-t border-cyan-200/50 dark:border-cyan-500/20">
-                        <div className="grid grid-cols-3 gap-3 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-center">
                             <div>
                                 <div className="text-xs text-muted-foreground">Data Points</div>
                                 <div className="text-sm font-semibold text-foreground">{selectedStats.count} occurrences</div>
@@ -862,8 +865,8 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                 </div>
 
                 {/* Insights Footer */}
-                <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-[10px] text-muted-foreground">
-                    <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-[10px] text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                         <span className="flex items-center gap-1">
                             <div className="w-2 h-2 rounded-full bg-amber-400"></div>
                             Peak: {formatHourShort(peakHour)} ({peakTotal.toLocaleString()})
@@ -909,7 +912,7 @@ const PieTooltip = ({ active, payload, totalValue }: any) => {
     
     const data = payload[0]?.payload;
     if (!data) return null;
-    
+
     const percentage = totalValue > 0 ? ((data.value / totalValue) * 100).toFixed(1) : '0';
     const percentageNum = parseFloat(percentage);
     
@@ -958,143 +961,280 @@ const PieTooltip = ({ active, payload, totalValue }: any) => {
 
 // Custom tooltip component - shows per-event success/fail percentages
 // Now shows a condensed view with option to expand for more details
-const CustomTooltip = ({ active, payload, label, events: _events = [], eventKeys: _eventKeys = [] }: any) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+// isPinned = true means it was clicked and should auto-expand + show close button
+const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKeys = [], isPinned = false, onClose }: any) => {
+    const [isExpanded, setIsExpanded] = useState(isPinned);
+    
+    // Auto-expand when pinned
+    useEffect(() => {
+        if (isPinned) setIsExpanded(true);
+    }, [isPinned]);
     
     if (!active || !payload || !payload.length) return null;
     
     const data = payload[0]?.payload;
     if (!data) return null;
+
+    // Build maps for quick lookup from eventKey -> EventConfig
+    const eventKeyToConfig = new Map<string, EventConfig>();
+    (eventKeys as EventKeyInfo[]).forEach((ek: EventKeyInfo) => {
+        const cfg = (allEvents as EventConfig[]).find(e => String(e.eventId) === ek.eventId);
+        if (cfg) {
+            eventKeyToConfig.set(ek.eventKey, cfg);
+        }
+    });
+
+    const formatDelay = (delayMs: number, featureId?: number) => {
+        if (!delayMs || delayMs <= 0) return null;
+        // Feature 1 = Price Alert (minutes), others (e.g. Spend/Auto-coupon) in seconds
+        if (featureId === 1) {
+            const minutes = delayMs / 60000;
+            return `${minutes.toFixed(1)}m`;
+        }
+        const seconds = delayMs / 1000;
+        return `${seconds.toFixed(1)}s`;
+    };
     
-    // Get per-event data from payload with success/fail info
+    // Get per-event data from payload with success/fail/delay info
     const eventDataItems = payload.map((item: any) => {
-        const eventKey = item.dataKey?.replace('_count', '') || '';
+        const rawKey: string = item.dataKey || '';
+        const eventKey = rawKey.replace('_count', '') || '';
+        const cfg = eventKeyToConfig.get(eventKey);
+
         const eventCount = item.value || 0;
-        const eventSuccess = data[`${eventKey}_success`] || 0;
+        const eventSuccessRaw = data[`${eventKey}_success`] || 0;
         const eventFail = data[`${eventKey}_fail`] || 0;
-        const successRate = eventCount > 0 ? ((eventSuccess / eventCount) * 100) : 0;
-        
+        const isErrorEvent = cfg?.isErrorEvent === 1;
+        const isAvgEvent = cfg?.isAvgEvent === 1;
+        const avgDelayMs = isAvgEvent ? (data[`${eventKey}_avgDelay`] || 0) : 0;
+
+        // For error events: successRaw is actually the ERROR count, fail is non-error count
+        // For normal events: successRaw is success count, fail is failure count
+        const errorCount = isErrorEvent ? eventSuccessRaw : eventFail;
+        const successCount = isErrorEvent ? eventFail : eventSuccessRaw;
+        const errorRate = eventCount > 0 ? ((errorCount / eventCount) * 100) : 0;
+        const successRate = eventCount > 0 ? ((successCount / eventCount) * 100) : 0;
+
         return {
             name: item.name,
             count: eventCount,
-            success: eventSuccess,
-            fail: eventFail,
+            successCount,
+            errorCount,
             successRate,
+            errorRate,
             color: item.color || item.stroke,
-            dataKey: item.dataKey
+            dataKey: item.dataKey,
+            isErrorEvent,
+            isAvgEvent,
+            featureId: cfg?.feature,
+            delayLabel: isAvgEvent ? formatDelay(avgDelayMs, cfg?.feature) : null,
         };
     }).filter((item: any) => item.count !== undefined && item.count > 0);
     
     // Calculate totals
     const totalCount = eventDataItems.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
-    const totalSuccess = eventDataItems.reduce((sum: number, item: any) => sum + (item.success || 0), 0);
-    const totalFail = eventDataItems.reduce((sum: number, item: any) => sum + (item.fail || 0), 0);
+    const totalSuccess = eventDataItems.reduce((sum: number, item: any) => sum + (item.successCount || 0), 0);
+    const totalErrors = eventDataItems.reduce((sum: number, item: any) => sum + (item.errorCount || 0), 0);
     const overallSuccessRate = totalCount > 0 ? ((totalSuccess / totalCount) * 100) : 0;
     
-    // Show only first 3 events in collapsed view
+    // Show only first 3 events in collapsed view, or all when expanded/pinned
     const visibleItems = isExpanded ? eventDataItems : eventDataItems.slice(0, 3);
     const hiddenCount = eventDataItems.length - 3;
     
+    const stopEvent = (e: React.SyntheticEvent) => {
+        e.stopPropagation();
+    };
+
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            initial={{ opacity: 0, scale: 0.92, y: -8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-purple-100 dark:border-purple-500/20 p-4 backdrop-blur-xl"
-            style={{ minWidth: isExpanded ? '320px' : '260px', maxWidth: '400px', maxHeight: isExpanded ? '500px' : '300px', overflow: 'auto' }}
+            exit={{ opacity: 0, scale: 0.95, y: -8 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className={cn(
+                "relative bg-white/95 dark:bg-slate-900/95 rounded-xl md:rounded-2xl shadow-2xl border-2 border-purple-200/50 dark:border-purple-500/30 p-3 md:p-5 backdrop-blur-2xl overflow-hidden",
+                isPinned 
+                    ? "min-w-[300px] sm:min-w-[360px] max-w-[95vw] sm:max-w-[480px]" 
+                    : "min-w-[260px] sm:min-w-[280px] max-w-[95vw] sm:max-w-[420px]"
+            )}
+            onMouseMoveCapture={stopEvent}
+            onWheelCapture={stopEvent}
+            onClick={stopEvent}
         >
+            {/* Close button when pinned */}
+            {isPinned && onClose && (
+                <motion.button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onClose();
+                    }}
+                    className="absolute -top-2 -right-2 z-30 h-7 w-7 rounded-full bg-gradient-to-br from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 border-2 border-white dark:border-gray-900 shadow-lg flex items-center justify-center text-white font-bold transition-all"
+                    whileHover={{ scale: 1.1, rotate: 90 }}
+                    whileTap={{ scale: 0.9 }}
+                    aria-label="Close tooltip"
+                >
+                    <span className="text-sm leading-none">×</span>
+                </motion.button>
+            )}
+            
+            {/* Animated gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-blue-500/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(168,85,247,0.05),transparent_50%)] pointer-events-none" />
+            
+            {/* Content wrapper */}
+            <div className="relative z-10">
             {/* Header */}
-            <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-2">
-                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
-                        <CalendarIcon className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                        <div className="font-bold text-base text-foreground">{label}</div>
-                        <div className="text-[10px] text-muted-foreground">{eventDataItems.length} events</div>
+            <div className="flex items-center justify-between gap-2 md:gap-3 mb-3 md:mb-4 pb-3 md:pb-4 border-b-2 border-gray-100/80 dark:border-gray-800/80">
+                <div className="flex items-center gap-2 md:gap-3">
+                    <motion.div 
+                        className="h-9 w-9 md:h-11 md:w-11 rounded-lg md:rounded-xl bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30"
+                        whileHover={{ rotate: 5, scale: 1.05 }}
+                        transition={{ type: "spring", stiffness: 400 }}
+                    >
+                        <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                    </motion.div>
+                    <div className="min-w-0 flex-1">
+                        <div className="font-bold text-sm md:text-base text-foreground leading-tight truncate">{label}</div>
+                        <div className="text-[10px] md:text-[11px] text-muted-foreground font-medium mt-0.5">{eventDataItems.length} event{eventDataItems.length !== 1 ? 's' : ''}</div>
                     </div>
                 </div>
                 {/* Overall stats */}
-                <div className="text-right">
-                    <div className="text-lg font-bold text-foreground">{totalCount.toLocaleString()}</div>
+                <div className="text-right flex-shrink-0">
+                    <motion.div 
+                        className="text-xl md:text-2xl font-extrabold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                    >
+                        {totalCount.toLocaleString()}
+                    </motion.div>
                     <div className={cn(
-                        "text-xs font-medium px-2 py-0.5 rounded-full",
+                        "text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-sm mt-1",
                         overallSuccessRate >= 90 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
                         overallSuccessRate >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
                         "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
                     )}>
-                        {overallSuccessRate.toFixed(0)}% success
+                        {overallSuccessRate.toFixed(0)}%
                     </div>
                 </div>
             </div>
             
-            {/* Per-Event Data with Success/Fail */}
-            <div className="space-y-2">
+            {/* Click to expand hint when not pinned */}
+            {!isPinned && eventDataItems.length > 0 && (
+                <div className="text-[9px] text-center text-muted-foreground mb-2 opacity-70">
+                    💡 Click on chart to lock & expand details
+                </div>
+            )}
+            
+            {/* Per-Event Data with Success/Fail / Delay */}
+            <div className={cn(
+                "space-y-2 md:space-y-2.5 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-purple-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-thumb]:bg-purple-700",
+                isPinned ? "max-h-[300px] md:max-h-[400px]" : "max-h-60 md:max-h-72"
+            )}>
                 {visibleItems.map((item: any, index: number) => (
-                    <div key={index} className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/50">
-                        <div className="flex items-center justify-between mb-1">
-                            <div className="flex items-center gap-2">
+                    <motion.div 
+                        key={index} 
+                        className="p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-800/30 border border-gray-200/50 dark:border-gray-700/30 hover:border-purple-300 dark:hover:border-purple-500/40 transition-all"
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03 }}
+                        whileHover={{ scale: 1.02, y: -1 }}
+                    >
+                        <div className="flex items-center justify-between mb-1.5 md:mb-2">
+                            <div className="flex items-center gap-2 md:gap-2.5 min-w-0 flex-1">
                                 <div 
-                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                                    className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 shadow-sm ring-2 ring-white dark:ring-gray-900" 
                                     style={{ backgroundColor: item.color }}
                                 />
-                                <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">{item.name}</span>
+                                <span className="text-xs md:text-sm font-bold text-foreground truncate">{item.name}</span>
                             </div>
-                            <span className="text-sm font-bold text-foreground">{item.count?.toLocaleString()}</span>
+                            <span className="text-sm md:text-base font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent flex-shrink-0">{item.count?.toLocaleString()}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px]">
-                            <span className="flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                <span className="text-green-600 dark:text-green-400 font-medium">{item.success?.toLocaleString()}</span>
-                            </span>
-                            <span className="flex items-center gap-1">
-                                <XCircle className="w-3 h-3 text-red-500" />
-                                <span className="text-red-600 dark:text-red-400 font-medium">{item.fail?.toLocaleString()}</span>
-                            </span>
+                        <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-[11px] flex-wrap">
+                            {item.isAvgEvent && item.delayLabel ? (
+                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold">
+                                    <Clock className="w-3 h-3" />
+                                    {item.delayLabel}
+                                </span>
+                            ) : (
+                                <>
+                                    <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-50 dark:bg-green-500/10">
+                                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                        <span className="font-semibold text-green-700 dark:text-green-400">
+                                            {item.successCount?.toLocaleString()}
+                                        </span>
+                                    </span>
+                                    <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-50 dark:bg-red-500/10">
+                                        <XCircle className="w-3 h-3 text-red-500" />
+                                        <span className="font-semibold text-red-700 dark:text-red-400">
+                                            {item.errorCount?.toLocaleString()}
+                                        </span>
+                                    </span>
+                                </>
+                            )}
                             <span className={cn(
-                                "ml-auto font-bold px-1.5 py-0.5 rounded-full text-[9px]",
-                                item.successRate >= 90 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
-                                item.successRate >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
-                                "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+                                "ml-auto font-bold px-2 py-1 rounded-md text-[10px]",
+                                item.errorRate <= 10
+                                    ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
+                                    : item.errorRate <= 30
+                                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400"
+                                        : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
                             )}>
                                 {item.successRate.toFixed(0)}%
                             </span>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
             
             {/* Expand/Collapse Button */}
             {eventDataItems.length > 3 && (
-                <button
+                <motion.button
                     onClick={(e) => {
                         e.stopPropagation();
                         setIsExpanded(!isExpanded);
                     }}
-                    className="w-full mt-2 py-2 px-3 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 text-xs font-medium hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors flex items-center justify-center gap-1"
+                    className="w-full mt-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 text-purple-700 dark:text-purple-300 text-xs font-semibold hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-500/20 dark:hover:to-violet-500/20 transition-all flex items-center justify-center gap-1.5 border border-purple-200/50 dark:border-purple-500/30 shadow-sm"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                 >
                     {isExpanded ? (
                         <>
-                            <ChevronUp className="w-3 h-3" />
+                            <ChevronUp className="w-3.5 h-3.5" />
                             Show Less
                         </>
                     ) : (
                         <>
-                            <ChevronDown className="w-3 h-3" />
-                            Show {hiddenCount} More Events
+                            <ChevronDown className="w-3.5 h-3.5" />
+                            +{hiddenCount} More Event{hiddenCount !== 1 ? 's' : ''}
                         </>
                     )}
-                </button>
+                </motion.button>
             )}
             
             {/* Footer with totals */}
-            <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>Total: <span className="font-bold text-foreground">{totalCount.toLocaleString()}</span></span>
-                    <div className="flex items-center gap-2">
-                        <span className="text-green-600 dark:text-green-400">✓ {totalSuccess.toLocaleString()}</span>
-                        <span className="text-red-600 dark:text-red-400">✗ {totalFail.toLocaleString()}</span>
+            <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t-2 border-gray-100/80 dark:border-gray-800/80">
+                <div className="flex items-center justify-between text-xs md:text-sm">
+                    <span className="text-muted-foreground font-medium">Total: <span className="font-extrabold text-foreground">{totalCount.toLocaleString()}</span></span>
+                    <div className="flex items-center gap-3">
+                        <motion.span 
+                            className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md md:rounded-lg bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-semibold"
+                            whileHover={{ scale: 1.05 }}
+                        >
+                            <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" />
+                            {totalSuccess.toLocaleString()}
+                        </motion.span>
+                        <motion.span 
+                            className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md md:rounded-lg bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 font-semibold"
+                            whileHover={{ scale: 1.05 }}
+                        >
+                            <XCircle className="w-3 h-3 md:w-4 md:h-4" />
+                            {totalErrors.toLocaleString()}
+                        </motion.span>
                     </div>
                 </div>
+            </div>
             </div>
         </motion.div>
     );
@@ -1315,6 +1455,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
     const [panelSelectedEventKey, setPanelSelectedEventKey] = useState<Record<string, string | null>>({});
     const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+    // Pinned tooltip for main chart - stores the data point to show in expanded view
+    const [pinnedTooltip, setPinnedTooltip] = useState<{ dataPoint: any; label: string } | null>(null);
     
     // Configurable auto-refresh (in minutes, 0 = disabled)
     const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
@@ -1330,6 +1473,18 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         }
     }, []);
 
+    // Close pinned tooltip on Esc
+    useEffect(() => {
+        if (!pinnedTooltip) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                setPinnedTooltip(null);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [pinnedTooltip]);
+
     // Function to toggle panel legend
     const togglePanelLegend = useCallback((panelId: string) => {
         setPanelLegendExpanded(prev => ({
@@ -1343,7 +1498,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         setSelectedEventKey(prev => prev === eventKey ? null : eventKey);
     }, []);
     
-    // Function to handle graph point click - select event and scroll to legend
+    // Function to handle graph point click - select event and scroll to legend (used only from pills now)
     const handleGraphPointClick = useCallback((eventKey: string) => {
         // Set the selected event
         setSelectedEventKey(eventKey);
@@ -1354,7 +1509,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             const legendElement = document.getElementById(`legend-${eventKey}`);
             if (legendElement) {
                 legendElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Add a brief highlight animation
                 legendElement.classList.add('ring-4', 'ring-purple-400');
                 setTimeout(() => {
                     legendElement.classList.remove('ring-4', 'ring-purple-400');
@@ -1396,6 +1550,17 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         }, 100);
     }, []);
 
+    const handlePanelChartClick = useCallback((panelId: string, chartState: any) => {
+        if (!chartState || !chartState.activePayload || chartState.activePayload.length === 0) return;
+        const firstSeries = chartState.activePayload[0];
+        const dataKey = typeof firstSeries.dataKey === 'string' ? firstSeries.dataKey : '';
+        if (!dataKey || !dataKey.endsWith('_count')) return;
+        const eventKey = dataKey.replace(/_count$/, '');
+        if (eventKey) {
+            handlePanelGraphPointClick(panelId, eventKey);
+        }
+    }, [handlePanelGraphPointClick]);
+
     // Function to update panel-specific filter
     const updatePanelFilter = useCallback((panelId: string, filterType: keyof FilterState, values: number[]) => {
         setPanelFiltersState(prev => ({
@@ -1405,6 +1570,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 [filterType]: values
             }
         }));
+        // Mark that this panel's filters have changed so APPLY banner shows
+        setPanelFilterChanges(prev => ({
+            ...prev,
+            [panelId]: true
+        }));
     }, []);
 
     // Function to update panel date range
@@ -1412,6 +1582,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         setPanelDateRanges(prev => ({
             ...prev,
             [panelId]: { from, to }
+        }));
+        // Mark that this panel's filters have changed so APPLY banner shows
+        setPanelFilterChanges(prev => ({
+            ...prev,
+            [panelId]: true
         }));
     }, []);
 
@@ -2116,7 +2291,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             <motion.div 
                                 className="space-y-2"
                                 whileHover={{ scale: 1.02 }}
@@ -2261,7 +2436,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             </motion.div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {/* Total Count Card */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -2514,9 +2689,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
             >
-                <Card className="border-2 border-purple-100 dark:border-purple-500/20 overflow-hidden">
-                    <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
+                <Card className="border-2 border-purple-100 dark:border-purple-500/20 overflow-hidden shadow-lg">
+                    <CardHeader className="pb-2 px-3 md:px-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                             <div className="flex items-center gap-3">
                                 <motion.div 
                                     className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/20"
@@ -2524,17 +2699,19 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 >
                                     <BarChart3 className="h-5 w-5 text-white" />
                                 </motion.div>
-                                <div>
-                                    <CardTitle className="text-lg">Event Trends</CardTitle>
+                                <div className="flex-1 min-w-0">
+                                    <CardTitle className="text-base md:text-lg">Event Trends</CardTitle>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        Hover over data points for detailed insights
+                                        {/* Mobile: Click • Desktop: Hover */}
+                                        <span className="hidden md:inline">Hover over data points for insights</span>
+                                        <span className="md:hidden">Tap data points for insights</span>
                                     </p>
                                 </div>
                             </div>
                             {/* Event count indicator moved to CollapsibleLegend which now shows per-event stats */}
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
                         {/* Collapsible Legend - Outside the chart */}
                         {eventKeys.length > 0 && (
                             <CollapsibleLegend 
@@ -2548,12 +2725,73 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 onEventClick={handleEventClick}
                             />
                         )}
-                        <div className="h-[520px] w-full">
+
+                        {/* Pinned Tooltip Overlay - Rendered outside chart for persistence */}
+                        <AnimatePresence>
+                            {pinnedTooltip && (
+                                <motion.div 
+                                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setPinnedTooltip(null)}
+                                >
+                                    <motion.div
+                                        className="relative max-w-[95vw] sm:max-w-[500px] max-h-[80vh] overflow-auto"
+                                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                                        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <CustomTooltip 
+                                            active={true}
+                                            payload={eventKeys.map((ek, idx) => {
+                                                const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                return {
+                                                    dataKey: `${ek.eventKey}_count`,
+                                                    name: ek.eventName,
+                                                    value: pinnedTooltip.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                    color,
+                                                    stroke: color,
+                                                    payload: pinnedTooltip.dataPoint
+                                                };
+                                            }).filter(p => p.value > 0)}
+                                            label={pinnedTooltip.label}
+                                            events={events} 
+                                            eventKeys={eventKeys}
+                                            isPinned={true}
+                                            onClose={() => setPinnedTooltip(null)}
+                                        />
+                                    </motion.div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer">
                             {graphData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     {/* Check if profile has bar chart type */}
                                     {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
-                                        <BarChart data={graphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }} barCategoryGap="15%">
+                                        <BarChart
+                                            data={graphData}
+                                            margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
+                                            barCategoryGap="15%"
+                                            onClick={(chartState: any) => {
+                                                console.log('BarChart onClick triggered:', chartState);
+                                                if (chartState && chartState.activeIndex !== undefined) {
+                                                    const index = parseInt(chartState.activeIndex);
+                                                    const dataPoint = graphData[index];
+                                                    if (dataPoint) {
+                                                        setPinnedTooltip({ 
+                                                            dataPoint, 
+                                                            label: chartState.activeLabel || dataPoint.date || '' 
+                                                        });
+                                                    }
+                                                }
+                                            }}
+                                        >
                                             <defs>
                                                 {/* Dynamic gradients for each event */}
                                                 {eventKeys.map((eventKeyInfo, index) => {
@@ -2604,7 +2842,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         maxBarSize={40}
                                                         opacity={selectedEventKey && selectedEventKey !== eventKey ? 0.4 : 1}
                                                         cursor="pointer"
-                                                        onClick={() => handleGraphPointClick(eventKey)}
                                                     />
                                                 );
                                             }) : (
@@ -2619,7 +2856,23 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             )}
                                         </BarChart>
                                     ) : (
-                                        <AreaChart data={graphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                        <AreaChart
+                                            data={graphData}
+                                            margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
+                                            onClick={(chartState: any) => {
+                                                console.log('AreaChart onClick triggered:', chartState);
+                                                if (chartState && chartState.activeIndex !== undefined) {
+                                                    const index = parseInt(chartState.activeIndex);
+                                                    const dataPoint = graphData[index];
+                                                    if (dataPoint) {
+                                                        setPinnedTooltip({ 
+                                                            dataPoint, 
+                                                            label: chartState.activeLabel || dataPoint.date || '' 
+                                                        });
+                                                    }
+                                                }
+                                            }}
+                                        >
                                             <defs>
                                                 {/* Dynamic gradients for each event */}
                                                 {eventKeys.map((eventKeyInfo, index) => {
@@ -2681,14 +2934,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         fillOpacity={selectedEventKey && selectedEventKey !== eventKey ? 0.3 : 1} 
                                                         fill={`url(#areaColor_${eventKey})`}
                                                         dot={false}
-                                                        activeDot={{ 
+                                                        activeDot={{
                                                             r: 8, 
                                                             fill: color, 
                                                             stroke: '#fff', 
                                                             strokeWidth: 3,
                                                             filter: 'url(#glow)',
                                                             cursor: 'pointer',
-                                                            onClick: () => handleGraphPointClick(eventKey)
                                                         }}
                                                     />
                                                 );
@@ -2755,7 +3007,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 
                 return (
                     <motion.div 
-                        className={cn("grid gap-4", gridClass)}
+                        className={cn("grid gap-3 md:gap-4", gridClass)}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.55 }}
@@ -3317,7 +3569,12 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     {pGraphData.length > 0 ? (
                                         <ResponsiveContainer width="100%" height="100%">
                                             {panelGraphType === 'bar' ? (
-                                                <BarChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }} barCategoryGap="15%">
+                                                <BarChart
+                                                    data={pGraphData}
+                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                    barCategoryGap="15%"
+                                                    onClick={(state) => handlePanelChartClick(panel.panelId, state)}
+                                                >
                                                     <defs>
                                                         {/* Dynamic gradients for each event in this panel */}
                                                         {pEventKeys.map((eventKeyInfo, index) => {
