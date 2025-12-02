@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import type { DashboardProfile } from '@/types/analytics';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { DashboardProfile, Feature } from '@/types/analytics';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { AnalyticsLogin } from './AnalyticsLogin';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check } from 'lucide-react';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
 import {
@@ -17,15 +18,23 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mockService } from '@/services/mockData';
+import { getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
 import { DotPattern, FloatingOrbs, WaveBackground } from '@/components/ui/animated-background';
 
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated } = useAnalyticsAuth();
+    const { organizations, selectedOrganization, setSelectedOrganization } = useOrganization();
     const { mode, toggleMode } = useTheme();
     const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -36,12 +45,48 @@ export function AnalyticsLayout() {
     // New Dashboard Config Modal
     const [showNewConfigModal, setShowNewConfigModal] = useState(false);
     const [newConfigName, setNewConfigName] = useState('');
-    const [newConfigFeature, setNewConfigFeature] = useState('price_alert');
+    const [newConfigFeature, setNewConfigFeature] = useState('1');
+    
+    // Available features from API
+    const [availableFeatures, setAvailableFeatures] = useState<Feature[]>([]);
     
     // Sidebar collapse state
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     
     const isAdmin = user?.role === 0;
+    
+    // Load features from API when organization changes
+    useEffect(() => {
+        const loadFeatures = async () => {
+            try {
+                const features = await mockService.getFeatures(selectedOrganization?.id ?? 0);
+                setAvailableFeatures(features);
+                // Set default feature to first one if available
+                if (features.length > 0 && !selectedFeatureId) {
+                    setNewConfigFeature(features[0].id);
+                }
+            } catch (error) {
+                console.error('Failed to load features:', error);
+            }
+        };
+        loadFeatures();
+    }, [selectedOrganization?.id]);
+    
+    // When organization changes, reset selection
+    useEffect(() => {
+        if (selectedOrganization) {
+            setSelectedFeatureId(null);
+            setSelectedProfileId(null);
+            setFeatureSelectorKey(prev => prev + 1);
+        }
+    }, [selectedOrganization?.id]);
+    
+    // When a feature is selected, auto-set the new config feature to match
+    useEffect(() => {
+        if (selectedFeatureId) {
+            setNewConfigFeature(selectedFeatureId);
+        }
+    }, [selectedFeatureId]);
 
     const handleProfileSaved = () => {
         setSidebarRefreshTrigger(prev => prev + 1);
@@ -82,7 +127,8 @@ export function AnalyticsLayout() {
         setSidebarRefreshTrigger(prev => prev + 1);
         setShowNewConfigModal(false);
         setNewConfigName('');
-        setNewConfigFeature('price_alert');
+        // Reset to selected feature or first available
+        setNewConfigFeature(selectedFeatureId || availableFeatures[0]?.id || '1');
     };
 
     if (!isAuthenticated) {
@@ -114,9 +160,30 @@ export function AnalyticsLayout() {
                             <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                         </motion.div>
                         <div className="flex flex-col">
-                            <span className="font-bold text-sm lg:text-lg text-foreground leading-tight">
-                                Buyhatke Internal
-                            </span>
+                            {/* Organization Selector Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="flex items-center gap-1.5 font-bold text-sm lg:text-lg text-foreground leading-tight hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+                                        <Building2 className="h-4 w-4 text-purple-500" />
+                                        {selectedOrganization?.name || 'Select Organization'}
+                                        <ChevronDown className="h-3 w-3 opacity-50" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-56">
+                                    {organizations.map((org) => (
+                                        <DropdownMenuItem
+                                            key={org.id}
+                                            onClick={() => setSelectedOrganization(org)}
+                                            className="flex items-center justify-between cursor-pointer"
+                                        >
+                                            <span>{org.name}</span>
+                                            {selectedOrganization?.id === org.id && (
+                                                <Check className="h-4 w-4 text-purple-600" />
+                                            )}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             <span className="text-[10px] lg:text-xs text-purple-600 dark:text-purple-400 font-medium hidden sm:block">
                                 Analytics Dashboard
                             </span>
@@ -198,9 +265,11 @@ export function AnalyticsLayout() {
                                         <SelectValue placeholder="Select feature" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="price_alert">Price Alert (PA)</SelectItem>
-                                        <SelectItem value="auto_coupon">Auto-Coupon (AC)</SelectItem>
-                                        <SelectItem value="spend_lens">Spend-Lens (SPEND)</SelectItem>
+                                        {availableFeatures.map(feature => (
+                                            <SelectItem key={feature.id} value={feature.id}>
+                                                {feature.name} ({getFeatureShortName(feature.id)})
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -251,12 +320,10 @@ export function AnalyticsLayout() {
                         </motion.div>
                         <div className="flex items-center gap-1 lg:gap-2">
                             <span className="font-semibold text-foreground text-sm lg:text-base">
-                                {selectedFeatureId === 'price_alert' ? 'Price Alert' :
-                                    selectedFeatureId === 'auto_coupon' ? 'Auto-Coupon' :
-                                        selectedFeatureId === 'spend_lens' ? 'Spend-Lens' : 'Analytics'}
+                                {selectedFeatureId ? getFeatureName(selectedFeatureId) : 'Analytics'}
                             </span>
                             <span className="text-xs text-muted-foreground hidden md:inline">
-                                — Buyhatke Internal
+                                — {selectedOrganization?.name || 'Organization'}
                             </span>
                         </div>
                     </div>
@@ -396,7 +463,7 @@ export function AnalyticsLayout() {
                     <DialogHeader>
                         <DialogTitle>Create New Dashboard Config</DialogTitle>
                         <DialogDescription>
-                            Create a new dashboard configuration. Choose a feature type and give it a name.
+                            Create a new dashboard configuration for {getFeatureName(selectedFeatureId || newConfigFeature)}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -404,23 +471,19 @@ export function AnalyticsLayout() {
                             <Label htmlFor="config-name-2">Configuration Name</Label>
                             <Input
                                 id="config-name-2"
-                                placeholder="e.g., Price Alert - Production"
+                                placeholder={`e.g., ${getFeatureName(selectedFeatureId || newConfigFeature)} - Production`}
                                 value={newConfigName}
                                 onChange={(e) => setNewConfigName(e.target.value)}
                             />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="feature-type-2">Feature Type</Label>
-                            <Select value={newConfigFeature} onValueChange={setNewConfigFeature}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select feature" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="price_alert">Price Alert (PA)</SelectItem>
-                                    <SelectItem value="auto_coupon">Auto-Coupon (AC)</SelectItem>
-                                    <SelectItem value="spend_lens">Spend-Lens (SPEND)</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label>Feature Type</Label>
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 border">
+                                <span className="font-medium">{getFeatureName(selectedFeatureId || newConfigFeature)}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                                    {getFeatureShortName(selectedFeatureId || newConfigFeature)}
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>

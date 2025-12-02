@@ -35,36 +35,81 @@ export interface SiteDetail {
 // Cache for site details
 let cachedSiteDetails: SiteDetail[] | null = null;
 
-// Feature to featureId mapping for new API
-export const FEATURE_ID_MAP: Record<string, number> = {
-    'price_alert': 1,
-    'auto_coupon': 2,
-    'spend_lens': 3,
-    'spidy': 4,
-    'PA': 1,
-    'AC': 2,
-    'SPEND': 3
+// ============ DYNAMIC FEATURE DATA ============
+// Cached features from API
+let cachedFeatures: FeatureInfo[] | null = null;
+let featuresFetchPromise: Promise<FeatureInfo[]> | null = null;
+let cachedFeaturesOrgId: number | null = null; // Track which org the cached features are for
+
+// Cached organizations from API
+let cachedOrganizations: OrganizationInfo[] | null = null;
+let organizationsFetchPromise: Promise<OrganizationInfo[]> | null = null;
+
+// Dynamic feature maps (populated from API)
+let dynamicFeatureNames: Record<number, string> = {};
+let dynamicFeatureShortNames: Record<string, string> = {};
+
+// Dynamic color palette for features
+const FEATURE_COLORS = [
+    { bg: 'bg-blue-100 dark:bg-blue-500/20', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-200 dark:border-blue-500/30', icon: 'text-blue-400' },
+    { bg: 'bg-emerald-100 dark:bg-emerald-500/20', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-200 dark:border-emerald-500/30', icon: 'text-emerald-400' },
+    { bg: 'bg-amber-100 dark:bg-amber-500/20', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-500/30', icon: 'text-amber-400' },
+    { bg: 'bg-pink-100 dark:bg-pink-500/20', text: 'text-pink-700 dark:text-pink-300', border: 'border-pink-200 dark:border-pink-500/30', icon: 'text-pink-400' },
+    { bg: 'bg-purple-100 dark:bg-purple-500/20', text: 'text-purple-700 dark:text-purple-300', border: 'border-purple-200 dark:border-purple-500/30', icon: 'text-purple-400' },
+    { bg: 'bg-cyan-100 dark:bg-cyan-500/20', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-500/30', icon: 'text-cyan-400' },
+    { bg: 'bg-rose-100 dark:bg-rose-500/20', text: 'text-rose-700 dark:text-rose-300', border: 'border-rose-200 dark:border-rose-500/30', icon: 'text-rose-400' },
+    { bg: 'bg-indigo-100 dark:bg-indigo-500/20', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-500/30', icon: 'text-indigo-400' },
+    { bg: 'bg-teal-100 dark:bg-teal-500/20', text: 'text-teal-700 dark:text-teal-300', border: 'border-teal-200 dark:border-teal-500/30', icon: 'text-teal-400' },
+    { bg: 'bg-orange-100 dark:bg-orange-500/20', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-500/30', icon: 'text-orange-400' },
+];
+
+// Get feature color by index (cycles through colors)
+export const getFeatureColor = (featureId: string | number): typeof FEATURE_COLORS[0] => {
+    const id = typeof featureId === 'string' ? parseInt(featureId) : featureId;
+    // Find index in cached features, or use id directly
+    const index = cachedFeatures?.findIndex(f => f.id === id) ?? (id - 1);
+    return FEATURE_COLORS[Math.abs(index) % FEATURE_COLORS.length];
 };
 
-// Feature names for display (featureId -> display name)
-export const FEATURE_NAMES: Record<number, string> = {
-    1: 'Price Alert',
-    2: 'Auto Coupons',
-    3: 'Spend Calculator',
-    4: 'Spidy'
+// Get feature name dynamically
+export const getFeatureName = (featureId: number | string): string => {
+    const id = typeof featureId === 'string' ? parseInt(featureId) : featureId;
+    if (isNaN(id)) return String(featureId);
+    return dynamicFeatureNames[id] || `Feature ${id}`;
 };
 
-// Feature short names for labels
-export const FEATURE_SHORT_NAMES: Record<string, string> = {
-    'price_alert': 'PA',
-    'auto_coupon': 'AC',
-    'spend_lens': 'SPEND',
-    'spidy': 'SPIDY',
-    '1': 'PA',
-    '2': 'AC',
-    '3': 'SPEND',
-    '4': 'SPIDY'
+// Get feature short name dynamically
+export const getFeatureShortName = (featureId: string): string => {
+    return dynamicFeatureShortNames[featureId] || featureId.toUpperCase().slice(0, 4);
 };
+
+// Update dynamic feature data (called after fetching from API)
+export const updateFeatureData = (features: FeatureInfo[]) => {
+    cachedFeatures = features;
+    dynamicFeatureNames = {};
+    dynamicFeatureShortNames = {};
+    features.forEach(f => {
+        dynamicFeatureNames[f.id] = f.name;
+        // Generate short names: "Price Alert" -> "PA", "Auto Coupons" -> "AC"
+        const shortName = f.name.split(' ').map(w => w[0]?.toUpperCase() || '').join('');
+        dynamicFeatureShortNames[f.id.toString()] = shortName;
+    });
+};
+
+// Get cached features (returns null if not loaded yet)
+export const getCachedFeatures = (): FeatureInfo[] | null => cachedFeatures;
+
+// Clear features cache (call when organization changes)
+export const clearFeaturesCache = () => {
+    cachedFeatures = null;
+    featuresFetchPromise = null;
+    cachedFeaturesOrgId = null;
+    dynamicFeatureNames = {};
+    dynamicFeatureShortNames = {};
+};
+
+// Get cached organizations
+export const getCachedOrganizations = (): OrganizationInfo[] | null => cachedOrganizations;
 
 // Reverse mappings for display
 export const PLATFORM_NAMES: Record<number, string> = {
@@ -149,6 +194,19 @@ interface FeaturesListAPIResponse {
     };
 }
 
+interface OrganizationsListAPIResponse {
+    status: number;
+    message: string;
+    data: {
+        organizationMap: Record<string, string>;
+    };
+}
+
+export interface OrganizationInfo {
+    id: number;
+    name: string;
+}
+
 export interface FeatureInfo {
     id: number;
     name: string;
@@ -191,12 +249,12 @@ export class APIService {
 
     /**
      * Fetch events list for a feature from API
-     * @param feature - 'price_alert', 'auto_coupon', 'spend_lens', 'PA', 'AC', or 'SPEND'
+     * @param feature - Feature ID (numeric string like "1", "2", etc.)
      * @param organizationId - Organization ID (default: 0)
      */
     async getEventsList(feature: string, organizationId: number = 0): Promise<EventConfig[]> {
-        // Convert feature to numeric featureId
-        const featureId = FEATURE_ID_MAP[feature] || FEATURE_ID_MAP['price_alert'] || 1;
+        // Convert feature to numeric featureId - now expects numeric string IDs directly
+        const featureId = parseInt(feature) || 1;
         
         console.log(`📋 Fetching events list for feature: ${feature} -> featureId: ${featureId}, orgId: ${organizationId}`);
         
@@ -244,43 +302,72 @@ export class APIService {
     }
 
     /**
-     * Fetch features list from API
+     * Fetch features list from API (with caching per organization)
      * @param organizationId - Organization ID (default: 0)
      */
     async getFeaturesList(organizationId: number = 0): Promise<FeatureInfo[]> {
-        console.log(`📋 Fetching features list for orgId: ${organizationId}`);
-        
-        try {
-            // Use /api proxy to avoid CORS issues
-            const response = await fetch(
-                `${API_BASE_URL}/featuresList?organizationId=${organizationId}`
-            );
-
-            if (!response.ok) {
-                console.error(`❌ Features API HTTP error: ${response.status} ${response.statusText}`);
-                throw new Error(`Failed to fetch features: ${response.statusText}`);
-            }
-
-            const result: FeaturesListAPIResponse = await response.json();
-            console.log(`📋 Features API response:`, result);
-
-            if (result.status !== 1) {
-                console.error(`❌ Features API returned error:`, result);
-                throw new Error(result.message || 'Failed to fetch features');
-            }
-
-            // Transform to FeatureInfo format
-            const features = Object.entries(result.data.featureMap).map(([id, name]) => ({
-                id: parseInt(id),
-                name: name
-            }));
-            
-            console.log(`✅ Loaded ${features.length} features`);
-            return features;
-        } catch (error) {
-            console.error(`❌ Failed to fetch features:`, error);
-            throw error;
+        // If cached for same org, return cached
+        if (cachedFeatures && cachedFeaturesOrgId === organizationId) {
+            console.log(`📋 Returning cached features for org ${organizationId} (${cachedFeatures.length} features)`);
+            return cachedFeatures;
         }
+        
+        // If org changed, clear cache
+        if (cachedFeaturesOrgId !== null && cachedFeaturesOrgId !== organizationId) {
+            console.log(`📋 Organization changed from ${cachedFeaturesOrgId} to ${organizationId}, clearing cache`);
+            clearFeaturesCache();
+        }
+        
+        // If already fetching for same org, return the existing promise
+        if (featuresFetchPromise && cachedFeaturesOrgId === organizationId) {
+            console.log(`📋 Waiting for existing features fetch...`);
+            return featuresFetchPromise;
+        }
+        
+        console.log(`📋 Fetching features list for orgId: ${organizationId}`);
+        cachedFeaturesOrgId = organizationId;
+        
+        // Create and store the promise
+        featuresFetchPromise = (async () => {
+            try {
+                // Use /api proxy to avoid CORS issues
+                const response = await fetch(
+                    `${API_BASE_URL}/featuresList?organizationId=${organizationId}`
+                );
+
+                if (!response.ok) {
+                    console.error(`❌ Features API HTTP error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Failed to fetch features: ${response.statusText}`);
+                }
+
+                const result: FeaturesListAPIResponse = await response.json();
+                console.log(`📋 Features API response:`, result);
+
+                if (result.status !== 1) {
+                    console.error(`❌ Features API returned error:`, result);
+                    throw new Error(result.message || 'Failed to fetch features');
+                }
+
+                // Transform to FeatureInfo format
+                const features = Object.entries(result.data.featureMap).map(([id, name]) => ({
+                    id: parseInt(id),
+                    name: name
+                }));
+                
+                // Cache and update dynamic data
+                cachedFeatures = features;
+                updateFeatureData(features);
+                
+                console.log(`✅ Loaded ${features.length} features`);
+                return features;
+            } catch (error) {
+                console.error(`❌ Failed to fetch features:`, error);
+                featuresFetchPromise = null; // Reset so it can be retried
+                throw error;
+            }
+        })();
+        
+        return featuresFetchPromise;
     }
 
     /**
@@ -560,6 +647,63 @@ export class APIService {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    }
+
+    /**
+     * Fetch organizations list from API (with caching)
+     */
+    async getOrganizationsList(): Promise<OrganizationInfo[]> {
+        // Return cached if available
+        if (cachedOrganizations) {
+            console.log(`🏢 Returning cached organizations (${cachedOrganizations.length} orgs)`);
+            return cachedOrganizations;
+        }
+        
+        // If already fetching, return the existing promise
+        if (organizationsFetchPromise) {
+            console.log(`🏢 Waiting for existing organizations fetch...`);
+            return organizationsFetchPromise;
+        }
+        
+        console.log(`🏢 Fetching organizations list`);
+        
+        // Create and store the promise
+        organizationsFetchPromise = (async () => {
+            try {
+                const response = await fetch(`${API_BASE_URL}/organizationsList`);
+
+                if (!response.ok) {
+                    console.error(`❌ Organizations API HTTP error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Failed to fetch organizations: ${response.statusText}`);
+                }
+
+                const result: OrganizationsListAPIResponse = await response.json();
+                console.log(`🏢 Organizations API response:`, result);
+
+                if (result.status !== 1) {
+                    console.error(`❌ Organizations API returned error:`, result);
+                    throw new Error(result.message || 'Failed to fetch organizations');
+                }
+
+                // Transform to OrganizationInfo format
+                const organizations = Object.entries(result.data.organizationMap).map(([id, name]) => ({
+                    id: parseInt(id),
+                    name: name
+                }));
+                
+                // Cache the result
+                cachedOrganizations = organizations;
+                
+                console.log(`✅ Loaded ${organizations.length} organizations`);
+                return organizations;
+            } catch (error) {
+                console.error(`❌ Failed to fetch organizations:`, error);
+                organizationsFetchPromise = null; // Reset so it can be retried
+                throw error;
+            }
+        })();
+        
+        return organizationsFetchPromise;
     }
 }
 

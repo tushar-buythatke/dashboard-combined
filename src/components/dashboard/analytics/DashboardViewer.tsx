@@ -94,7 +94,9 @@ const CollapsibleLegend = ({
     isExpanded, 
     onToggle,
     maxVisibleItems = 4,
-    graphData = []
+    graphData = [],
+    selectedEventKey = null,
+    onEventClick
 }: { 
     eventKeys: EventKeyInfo[]; 
     events: EventConfig[]; 
@@ -102,6 +104,8 @@ const CollapsibleLegend = ({
     onToggle: () => void;
     maxVisibleItems?: number;
     graphData?: any[];
+    selectedEventKey?: string | null;
+    onEventClick?: (eventKey: string) => void;
 }) => {
     if (!eventKeys || eventKeys.length === 0) return null;
     
@@ -111,27 +115,85 @@ const CollapsibleLegend = ({
     // Calculate per-event totals and success rates from graphData
     const eventStats = eventKeys.reduce((acc, eventKeyInfo) => {
         const eventKey = eventKeyInfo.eventKey;
+        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+        const isErrorEvent = event?.isErrorEvent === 1;
+        const isAvgEvent = event?.isAvgEvent === 1;
+        
         let total = 0;
         let success = 0;
+        let avgDelay = 0;
+        let delayCount = 0;
+        
         graphData.forEach((item: any) => {
             total += item[`${eventKey}_count`] || 0;
             success += item[`${eventKey}_success`] || 0;
+            // For avg events, calculate average delay
+            if (isAvgEvent && item[`${eventKey}_avgDelay`]) {
+                avgDelay += item[`${eventKey}_avgDelay`];
+                delayCount++;
+            }
         });
+        
         const successRate = total > 0 ? (success / total) * 100 : 0;
-        acc[eventKey] = { total, success, fail: total - success, successRate };
+        const meanDelay = delayCount > 0 ? avgDelay / delayCount : 0;
+        
+        acc[eventKey] = { 
+            total, 
+            success, 
+            fail: total - success, 
+            successRate,
+            isErrorEvent,
+            isAvgEvent,
+            avgDelay: meanDelay
+        };
         return acc;
-    }, {} as Record<string, { total: number; success: number; fail: number; successRate: number }>);
+    }, {} as Record<string, { total: number; success: number; fail: number; successRate: number; isErrorEvent: boolean; isAvgEvent: boolean; avgDelay: number }>);
+    
+    // Format delay time based on feature (Price Alert = minutes, others = seconds)
+    const formatDelay = (delayMs: number, featureId?: number) => {
+        if (featureId === 1) {
+            // Price Alert - show in minutes
+            const minutes = delayMs / 60000;
+            return `${minutes.toFixed(1)}m`;
+        } else {
+            // Auto-Coupon, Spend - show in seconds
+            const seconds = delayMs / 1000;
+            return `${seconds.toFixed(1)}s`;
+        }
+    };
     
     return (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-gray-50/80 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0 };
+                const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0, isErrorEvent: false, isAvgEvent: false, avgDelay: 0 };
+                const isSelected = selectedEventKey === eventKeyInfo.eventKey;
+                
+                // For error events: high success rate = bad (more errors)
+                // For normal events: high success rate = good
+                const displayRate = stats.isErrorEvent ? (100 - stats.successRate) : stats.successRate;
+                const rateColor = stats.isErrorEvent 
+                    ? (stats.successRate <= 20 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
+                       stats.successRate <= 50 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
+                       "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400")
+                    : (stats.successRate >= 80 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
+                       stats.successRate >= 50 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
+                       "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400");
+                
                 return (
-                    <div 
+                    <motion.div 
                         key={eventKeyInfo.eventKey}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-700"
+                        id={`legend-${eventKeyInfo.eventKey}`}
+                        className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all",
+                            isSelected 
+                                ? "border-purple-500 ring-2 ring-purple-500/30 scale-105" 
+                                : "border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50"
+                        )}
+                        onClick={() => onEventClick?.(eventKeyInfo.eventKey)}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                     >
                         <div 
                             className="w-3 h-3 rounded-full shadow-inner flex-shrink-0" 
@@ -143,15 +205,30 @@ const CollapsibleLegend = ({
                         <span className="text-xs font-semibold text-gray-900 dark:text-white">
                             {stats.total.toLocaleString()}
                         </span>
-                        <span className={cn(
-                            "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
-                            stats.successRate >= 80 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
-                            stats.successRate >= 50 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
-                            "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
-                        )}>
-                            {stats.successRate.toFixed(0)}%
-                        </span>
-                    </div>
+                        
+                        {/* Show error indicator for error events */}
+                        {stats.isErrorEvent && (
+                            <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-red-500 text-white">
+                                ERR
+                            </span>
+                        )}
+                        
+                        {/* Show delay time for avg events */}
+                        {stats.isAvgEvent && stats.avgDelay > 0 ? (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
+                                ⏱ {formatDelay(stats.avgDelay, event?.feature)}
+                            </span>
+                        ) : (
+                            <span className={cn(
+                                "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                                rateColor
+                            )}>
+                                {stats.isErrorEvent 
+                                    ? `${stats.successRate.toFixed(0)}% err` 
+                                    : `${displayRate.toFixed(0)}%`}
+                            </span>
+                        )}
+                    </motion.div>
                 );
             })}
             {eventKeys.length > maxVisibleItems && (
@@ -1234,7 +1311,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     // Panel navigation and UI state
     const [activePanelId, setActivePanelId] = useState<string | null>(null);
     const [mainLegendExpanded, setMainLegendExpanded] = useState(false);
+    const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
+    const [panelSelectedEventKey, setPanelSelectedEventKey] = useState<Record<string, string | null>>({});
     const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
     
     // Configurable auto-refresh (in minutes, 0 = disabled)
@@ -1257,6 +1336,64 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             ...prev,
             [panelId]: !prev[panelId]
         }));
+    }, []);
+    
+    // Function to handle event click in legend - toggle selection
+    const handleEventClick = useCallback((eventKey: string) => {
+        setSelectedEventKey(prev => prev === eventKey ? null : eventKey);
+    }, []);
+    
+    // Function to handle graph point click - select event and scroll to legend
+    const handleGraphPointClick = useCallback((eventKey: string) => {
+        // Set the selected event
+        setSelectedEventKey(eventKey);
+        // Expand the legend if it's collapsed
+        setMainLegendExpanded(true);
+        // Scroll to the legend item after a short delay to ensure it's rendered
+        setTimeout(() => {
+            const legendElement = document.getElementById(`legend-${eventKey}`);
+            if (legendElement) {
+                legendElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Add a brief highlight animation
+                legendElement.classList.add('ring-4', 'ring-purple-400');
+                setTimeout(() => {
+                    legendElement.classList.remove('ring-4', 'ring-purple-400');
+                }, 1500);
+            }
+        }, 100);
+    }, []);
+    
+    // Function to handle panel event click - toggle selection
+    const handlePanelEventClick = useCallback((panelId: string, eventKey: string) => {
+        setPanelSelectedEventKey(prev => ({
+            ...prev,
+            [panelId]: prev[panelId] === eventKey ? null : eventKey
+        }));
+    }, []);
+    
+    // Function to handle panel graph point click - select event and scroll to legend
+    const handlePanelGraphPointClick = useCallback((panelId: string, eventKey: string) => {
+        // Set the selected event for this panel
+        setPanelSelectedEventKey(prev => ({
+            ...prev,
+            [panelId]: eventKey
+        }));
+        // Expand the panel legend if it's collapsed
+        setPanelLegendExpanded(prev => ({
+            ...prev,
+            [panelId]: true
+        }));
+        // Scroll to the legend item after a short delay
+        setTimeout(() => {
+            const legendElement = document.getElementById(`legend-${eventKey}`);
+            if (legendElement) {
+                legendElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                legendElement.classList.add('ring-4', 'ring-purple-400');
+                setTimeout(() => {
+                    legendElement.classList.remove('ring-4', 'ring-purple-400');
+                }, 1500);
+            }
+        }, 100);
     }, []);
 
     // Function to update panel-specific filter
@@ -2407,6 +2544,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
                                 maxVisibleItems={5}
                                 graphData={graphData}
+                                selectedEventKey={selectedEventKey}
+                                onEventClick={handleEventClick}
                             />
                         )}
                         <div className="h-[520px] w-full">
@@ -2454,14 +2593,18 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             />
                                             {/* Dynamic bars for each event */}
                                             {eventKeys.length > 0 ? eventKeys.map((eventKeyInfo) => {
+                                                const eventKey = eventKeyInfo.eventKey;
                                                 return (
                                                     <Bar 
-                                                        key={`bar_${eventKeyInfo.eventKey}`}
-                                                        dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                        key={`bar_${eventKey}`}
+                                                        dataKey={`${eventKey}_count`}
                                                         name={eventKeyInfo.eventName}
-                                                        fill={`url(#barColor_${eventKeyInfo.eventKey})`}
+                                                        fill={`url(#barColor_${eventKey})`}
                                                         radius={[3, 3, 0, 0]}
                                                         maxBarSize={40}
+                                                        opacity={selectedEventKey && selectedEventKey !== eventKey ? 0.4 : 1}
+                                                        cursor="pointer"
+                                                        onClick={() => handleGraphPointClick(eventKey)}
                                                     />
                                                 );
                                             }) : (
@@ -2526,23 +2669,26 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             {eventKeys.length > 0 ? eventKeys.map((eventKeyInfo, index) => {
                                                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                const eventKey = eventKeyInfo.eventKey;
                                                 return (
                                                     <Area 
-                                                        key={`area_${eventKeyInfo.eventKey}`}
+                                                        key={`area_${eventKey}`}
                                                         type="monotone" 
-                                                        dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                        dataKey={`${eventKey}_count`}
                                                         name={eventKeyInfo.eventName}
                                                         stroke={color} 
-                                                        strokeWidth={2.5}
-                                                        fillOpacity={1} 
-                                                        fill={`url(#areaColor_${eventKeyInfo.eventKey})`}
+                                                        strokeWidth={selectedEventKey === eventKey ? 4 : 2.5}
+                                                        fillOpacity={selectedEventKey && selectedEventKey !== eventKey ? 0.3 : 1} 
+                                                        fill={`url(#areaColor_${eventKey})`}
                                                         dot={false}
                                                         activeDot={{ 
-                                                            r: 6, 
+                                                            r: 8, 
                                                             fill: color, 
                                                             stroke: '#fff', 
-                                                            strokeWidth: 2,
-                                                            filter: 'url(#glow)'
+                                                            strokeWidth: 3,
+                                                            filter: 'url(#glow)',
+                                                            cursor: 'pointer',
+                                                            onClick: () => handleGraphPointClick(eventKey)
                                                         }}
                                                     />
                                                 );
@@ -3163,6 +3309,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         onToggle={() => togglePanelLegend(panel.panelId)}
                                         maxVisibleItems={4}
                                         graphData={pGraphData}
+                                        selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                        onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
                                     />
                                 )}
                                 <div className="h-[520px]">
@@ -3205,14 +3353,19 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={pEventKeys} />} />
                                                     {/* Dynamic bars for each event */}
                                                     {pEventKeys.length > 0 ? pEventKeys.map((eventKeyInfo) => {
+                                                        const eventKey = eventKeyInfo.eventKey;
+                                                        const panelSelectedKey = panelSelectedEventKey[panel.panelId];
                                                         return (
                                                             <Bar 
-                                                                key={`bar_${panel.panelId}_${eventKeyInfo.eventKey}`}
-                                                                dataKey={`${eventKeyInfo.eventKey}_count`} 
+                                                                key={`bar_${panel.panelId}_${eventKey}`}
+                                                                dataKey={`${eventKey}_count`} 
                                                                 name={eventKeyInfo.eventName}
-                                                                fill={`url(#barColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                fill={`url(#barColor_${panel.panelId}_${eventKey})`}
                                                                 radius={[3, 3, 0, 0]}
                                                                 maxBarSize={20}
+                                                                opacity={panelSelectedKey && panelSelectedKey !== eventKey ? 0.4 : 1}
+                                                                cursor="pointer"
+                                                                onClick={() => handlePanelGraphPointClick(panel.panelId, eventKey)}
                                                             />
                                                         );
                                                     }) : (
@@ -3273,23 +3426,27 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     {pEventKeys.length > 0 ? pEventKeys.map((eventKeyInfo, index) => {
                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                        const eventKey = eventKeyInfo.eventKey;
+                                                        const panelSelectedKey = panelSelectedEventKey[panel.panelId];
                                                         return (
                                                             <Area 
-                                                                key={`area_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                key={`area_${panel.panelId}_${eventKey}`}
                                                                 type="monotone"
-                                                                dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                                dataKey={`${eventKey}_count`}
                                                                 name={eventKeyInfo.eventName}
                                                                 stroke={color}
-                                                                strokeWidth={2.5}
-                                                                fillOpacity={1}
-                                                                fill={`url(#areaColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                strokeWidth={panelSelectedKey === eventKey ? 4 : 2.5}
+                                                                fillOpacity={panelSelectedKey && panelSelectedKey !== eventKey ? 0.3 : 1}
+                                                                fill={`url(#areaColor_${panel.panelId}_${eventKey})`}
                                                                 dot={{ fill: color, strokeWidth: 0, r: 3 }}
                                                                 activeDot={{ 
-                                                                    r: 6, 
+                                                                    r: 8, 
                                                                     fill: color, 
                                                                     stroke: 'white', 
-                                                                    strokeWidth: 2,
-                                                                    filter: `url(#glow_${panel.panelId})`
+                                                                    strokeWidth: 3,
+                                                                    filter: `url(#glow_${panel.panelId})`,
+                                                                    cursor: 'pointer',
+                                                                    onClick: () => handlePanelGraphPointClick(panel.panelId, eventKey)
                                                                 }}
                                                             />
                                                         );

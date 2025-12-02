@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { Feature, DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
+import { getFeatureShortName, getFeatureName, getFeatureColor } from '@/services/apiService';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Tag, Calculator, Layers, ArrowRight, Sparkles, Zap } from 'lucide-react';
+import { BarChart3, Layers, ArrowRight, Sparkles, Zap } from 'lucide-react';
 
 interface FeatureSelectorProps {
     onSelectFeature: (featureId: string) => void;
@@ -18,15 +20,18 @@ interface FeatureWithConfigs extends Feature {
 }
 
 export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
+    const { selectedOrganization } = useOrganization();
     const [features, setFeatures] = useState<FeatureWithConfigs[]>([]);
     const [loading, setLoading] = useState(true);
     const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
     useEffect(() => {
         const loadFeatures = async () => {
+            setLoading(true);
             try {
-                // Load base features
-                const baseFeatures = await mockService.getFeatures();
+                // Load base features for the selected organization
+                const orgId = selectedOrganization?.id ?? 0;
+                const baseFeatures = await mockService.getFeatures(orgId);
                 
                 // Load all profiles to find custom configs
                 const allProfiles: DashboardProfile[] = [];
@@ -39,8 +44,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                 const customConfigs: FeatureWithConfigs[] = allProfiles.map(profile => ({
                     id: profile.profileId, // Use profileId as the feature ID for navigation
                     name: profile.profileName,
-                    description: `Custom ${profile.featureId === 'price_alert' ? 'Price Alert' : 
-                        profile.featureId === 'auto_coupon' ? 'Auto-Coupon' : 'Spend-Lens'} configuration`,
+                    description: `Custom ${getFeatureName(profile.featureId)} configuration`,
                     isCustomConfig: true,
                     profileId: profile.profileId,
                     baseFeatureId: profile.featureId
@@ -55,35 +59,26 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             }
         };
         loadFeatures();
-    }, []);
+    }, [selectedOrganization?.id]);
 
+    // Dynamic icon - uses color from API-based palette
     const getIcon = (id: string, isCustom?: boolean) => {
         if (isCustom) {
             return <Layers className="h-10 w-10 text-purple-400" />;
         }
-        switch (id) {
-            case 'price_alert': return <BarChart3 className="h-10 w-10 text-blue-400" />;
-            case 'auto_coupon': return <Tag className="h-10 w-10 text-emerald-400" />;
-            case 'spend_lens': return <Calculator className="h-10 w-10 text-amber-400" />;
-            default: return <BarChart3 className="h-10 w-10 text-purple-400" />;
-        }
+        // Get dynamic color based on feature ID
+        const color = getFeatureColor(id);
+        return <BarChart3 className={`h-10 w-10 ${color.icon}`} />;
     };
 
+    // Dynamic badge with colors from API-based palette
     const getFeatureTypeBadge = (baseFeatureId?: string) => {
         if (!baseFeatureId) return null;
-        const typeColors: Record<string, string> = {
-            'price_alert': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-500/30',
-            'auto_coupon': 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30',
-            'spend_lens': 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/30'
-        };
-        const typeNames: Record<string, string> = {
-            'price_alert': 'PA',
-            'auto_coupon': 'AC',
-            'spend_lens': 'SPEND'
-        };
+        const color = getFeatureColor(baseFeatureId);
+        const shortName = getFeatureShortName(baseFeatureId);
         return (
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${typeColors[baseFeatureId] || 'bg-gray-100 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300'}`}>
-                {typeNames[baseFeatureId] || baseFeatureId}
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${color.bg} ${color.text} ${color.border}`}>
+                {shortName}
             </span>
         );
     };

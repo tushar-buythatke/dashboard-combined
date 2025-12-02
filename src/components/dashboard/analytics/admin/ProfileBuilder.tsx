@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { DashboardProfile, PanelConfig, EventConfig } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
-import { apiService, PLATFORMS, SOURCES, FEATURE_NAMES, FEATURE_SHORT_NAMES, FEATURE_ID_MAP } from '@/services/apiService';
+import { apiService, PLATFORMS, SOURCES, getFeatureName, getFeatureShortName } from '@/services/apiService';
 import type { SiteDetail } from '@/services/apiService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -381,7 +381,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         className="text-lg font-bold w-64"
                     />
                     <span className="text-sm text-muted-foreground">
-                        Feature: {FEATURE_NAMES[FEATURE_ID_MAP[featureId] || parseInt(featureId)] || featureId}
+                        Feature: {getFeatureName(featureId)}
                     </span>
                 </div>
                 <div className="flex gap-2">
@@ -540,7 +540,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                         {/* Filter Configuration */}
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted/20 rounded-lg">
                                             <div className="space-y-2">
-                                                <Label>Events ({FEATURE_SHORT_NAMES[featureId] || featureId})</Label>
+                                                <Label>Events ({getFeatureShortName(featureId)})</Label>
                                                 <MultiSelectDropdown
                                                     options={eventOptions}
                                                     selected={panel.filters.events.map(id => id.toString())}

@@ -5,12 +5,15 @@ import type {
     Alert,
     LoginResponse
 } from '../types/analytics';
+import { apiService, updateFeatureData } from './apiService';
+import type { FeatureInfo } from './apiService';
 
-// Mock Data Constants
-const FEATURES: Feature[] = [
-    { id: 'price_alert', name: 'Price Alert', description: 'Monitor price changes across platforms' },
-    { id: 'auto_coupon', name: 'Auto-Coupon', description: 'Track coupon application rates' },
-    { id: 'spend_lens', name: 'Spend-Lens', description: 'Analyze spending patterns' },
+// Fallback features if API fails
+const FALLBACK_FEATURES: Feature[] = [
+    { id: '1', name: 'Price Alert', description: 'Monitor price changes across platforms' },
+    { id: '2', name: 'Auto Coupons', description: 'Track coupon application rates' },
+    { id: '3', name: 'Spend Calculator', description: 'Analyze spending patterns' },
+    { id: '4', name: 'Spidy', description: 'Spidy tracking' },
 ];
 
 const MOCK_ALERTS: Alert[] = [
@@ -162,8 +165,27 @@ class MockService {
         return { success: false, user: null as any, message: 'Invalid credentials' };
     }
 
-    async getFeatures(): Promise<Feature[]> {
-        return FEATURES;
+    async getFeatures(organizationId: number = 0): Promise<Feature[]> {
+        try {
+            // Fetch features from API for the specified organization
+            const apiFeatures: FeatureInfo[] = await apiService.getFeaturesList(organizationId);
+            
+            // Update the dynamic feature data for use elsewhere
+            updateFeatureData(apiFeatures);
+            
+            // Transform to Feature format
+            const features: Feature[] = apiFeatures.map(f => ({
+                id: f.id.toString(), // Use numeric ID as string
+                name: f.name,
+                description: `${f.name} analytics and tracking`
+            }));
+            
+            console.log('✅ Loaded features from API:', features);
+            return features;
+        } catch (error) {
+            console.error('❌ Failed to load features from API, using fallback:', error);
+            return FALLBACK_FEATURES;
+        }
     }
 
     async getProfiles(featureId: string): Promise<DashboardProfile[]> {
