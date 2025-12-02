@@ -6,6 +6,7 @@ import type { SiteDetail } from '@/services/apiService';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -86,41 +87,69 @@ const MiniSparkline = ({ data, color, height = 30 }: { data: number[]; color: st
     );
 };
 
-// Collapsible Legend Component - Smart dropdown for multiple events
+// Collapsible Legend Component - Smart dropdown for multiple events with success/failure stats
 const CollapsibleLegend = ({ 
     eventKeys, 
     events, 
     isExpanded, 
     onToggle,
-    maxVisibleItems = 4 
+    maxVisibleItems = 4,
+    graphData = []
 }: { 
     eventKeys: EventKeyInfo[]; 
     events: EventConfig[]; 
     isExpanded: boolean;
     onToggle: () => void;
     maxVisibleItems?: number;
+    graphData?: any[];
 }) => {
     if (!eventKeys || eventKeys.length === 0) return null;
     
     const visibleItems = isExpanded ? eventKeys : eventKeys.slice(0, maxVisibleItems);
     const hiddenCount = eventKeys.length - maxVisibleItems;
     
+    // Calculate per-event totals and success rates from graphData
+    const eventStats = eventKeys.reduce((acc, eventKeyInfo) => {
+        const eventKey = eventKeyInfo.eventKey;
+        let total = 0;
+        let success = 0;
+        graphData.forEach((item: any) => {
+            total += item[`${eventKey}_count`] || 0;
+            success += item[`${eventKey}_success`] || 0;
+        });
+        const successRate = total > 0 ? (success / total) * 100 : 0;
+        acc[eventKey] = { total, success, fail: total - success, successRate };
+        return acc;
+    }, {} as Record<string, { total: number; success: number; fail: number; successRate: number }>);
+    
     return (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-gray-50/80 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0 };
                 return (
                     <div 
                         key={eventKeyInfo.eventKey}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-700"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border border-gray-100 dark:border-gray-700"
                     >
                         <div 
-                            className="w-3 h-3 rounded-full shadow-inner" 
+                            className="w-3 h-3 rounded-full shadow-inner flex-shrink-0" 
                             style={{ backgroundColor: color }}
                         />
-                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
+                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[100px]">
                             {eventKeyInfo.eventName}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                            {stats.total.toLocaleString()}
+                        </span>
+                        <span className={cn(
+                            "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                            stats.successRate >= 80 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
+                            stats.successRate >= 50 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
+                            "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+                        )}>
+                            {stats.successRate.toFixed(0)}%
                         </span>
                     </div>
                 );
@@ -358,13 +387,18 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
 };
 
 // Hourly stats card component - uses existing graph data (only shown for ≤7 day ranges)
-function HourlyStatsCard({ graphData, isHourly }: { graphData: any[]; isHourly: boolean }) {
+// Now supports event-type-wise filtering
+function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: any[]; isHourly: boolean; eventKeys?: EventKeyInfo[] }) {
     const [selectedHour, setSelectedHour] = useState(new Date().getHours());
+    const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null); // null = show all events, else specific event key
     
     // Don't show if not hourly data or no data
     if (!isHourly || !graphData || graphData.length === 0) return null;
 
-    // Group data by hour and calculate hourly totals
+    // Get the active event key for filtering
+    const activeEventKey = selectedEventKey;
+
+    // Group data by hour and calculate hourly totals (filtered by event if selected)
     const hourlyStats = new Map<number, { total: number; success: number; fail: number; count: number; dates: string[] }>();
     
     graphData.forEach((item: any) => {
@@ -389,10 +423,23 @@ function HourlyStatsCard({ graphData, isHourly }: { graphData: any[]; isHourly: 
         }
         
         const existing = hourlyStats.get(hour) || { total: 0, success: 0, fail: 0, count: 0, dates: [] };
+        
+        // If a specific event is selected, use that event's data; otherwise use overall totals
+        let itemTotal = 0, itemSuccess = 0, itemFail = 0;
+        if (activeEventKey) {
+            itemTotal = item[`${activeEventKey}_count`] || 0;
+            itemSuccess = item[`${activeEventKey}_success`] || 0;
+            itemFail = item[`${activeEventKey}_fail`] || 0;
+        } else {
+            itemTotal = item.count || 0;
+            itemSuccess = item.successCount || 0;
+            itemFail = item.failCount || 0;
+        }
+        
         hourlyStats.set(hour, {
-            total: existing.total + (item.count || 0),
-            success: existing.success + (item.successCount || 0),
-            fail: existing.fail + (item.failCount || 0),
+            total: existing.total + itemTotal,
+            success: existing.success + itemSuccess,
+            fail: existing.fail + itemFail,
             count: existing.count + 1,
             dates: [...existing.dates, item.date || '']
         });
@@ -401,9 +448,17 @@ function HourlyStatsCard({ graphData, isHourly }: { graphData: any[]; isHourly: 
     // Get sorted hours that have data
     const availableHours = Array.from(hourlyStats.keys()).sort((a, b) => a - b);
     
-    // Calculate overall stats
-    const overallTotal = graphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
-    const overallSuccess = graphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
+    // Calculate overall stats (filtered by event if selected)
+    let overallTotal = 0, overallSuccess = 0;
+    if (activeEventKey) {
+        graphData.forEach((d: any) => {
+            overallTotal += d[`${activeEventKey}_count`] || 0;
+            overallSuccess += d[`${activeEventKey}_success`] || 0;
+        });
+    } else {
+        overallTotal = graphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
+        overallSuccess = graphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
+    }
     const overallSuccessRate = overallTotal > 0 ? (overallSuccess / overallTotal) * 100 : 0;
     
     // Find peak and lowest hours
@@ -464,10 +519,62 @@ function HourlyStatsCard({ graphData, isHourly }: { graphData: any[]; isHourly: 
                                 </span>
                             </CardTitle>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                                Analyze event distribution across different hours of the day
+                                {selectedEventKey 
+                                    ? `Showing data for: ${eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName || selectedEventKey}`
+                                    : 'Analyze event distribution across different hours of the day'}
                             </div>
                         </div>
                     </div>
+                    {/* Event Type Filter - Pills for <=3 events, Dropdown for more */}
+                    {eventKeys.length > 0 && (
+                        <div className="flex items-center">
+                            {eventKeys.length <= 3 ? (
+                                // Pill-style for 3 or fewer events
+                                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 gap-0.5">
+                                    {eventKeys.map((eventKeyInfo, index) => {
+                                        const isSelected = selectedEventKey === eventKeyInfo.eventKey || (selectedEventKey === null && index === 0);
+                                        // Auto-select first event if none selected
+                                        if (selectedEventKey === null && index === 0) {
+                                            setTimeout(() => setSelectedEventKey(eventKeyInfo.eventKey), 0);
+                                        }
+                                        return (
+                                            <motion.button
+                                                key={eventKeyInfo.eventKey}
+                                                onClick={() => setSelectedEventKey(eventKeyInfo.eventKey)}
+                                                className={cn(
+                                                    "px-3 py-1.5 text-[11px] font-medium rounded-full transition-all duration-200",
+                                                    isSelected
+                                                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
+                                                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50"
+                                                )}
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                {eventKeyInfo.eventName}
+                                            </motion.button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                // Dropdown for more than 3 events
+                                <Select
+                                    value={selectedEventKey || eventKeys[0]?.eventKey || ''}
+                                    onValueChange={(value) => setSelectedEventKey(value)}
+                                >
+                                    <SelectTrigger className="w-[180px] h-8 text-xs bg-white dark:bg-gray-800 border-cyan-200 dark:border-cyan-500/30">
+                                        <SelectValue placeholder="Select event" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {eventKeys.map((eventKeyInfo) => (
+                                            <SelectItem key={eventKeyInfo.eventKey} value={eventKeyInfo.eventKey} className="text-xs">
+                                                {eventKeyInfo.eventName}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        </div>
+                    )}
                 </div>
             </CardHeader>
             
@@ -480,7 +587,7 @@ function HourlyStatsCard({ graphData, isHourly }: { graphData: any[]; isHourly: 
                             <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium uppercase">Total Events</span>
                         </div>
                         <div className="text-lg font-bold text-blue-600">{overallTotal.toLocaleString()}</div>
-                        <div className="text-[10px] text-muted-foreground">All hours combined</div>
+                        <div className="text-[10px] text-muted-foreground">{selectedEventKey ? eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName : 'All events'}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-green-500/5 border border-emerald-200/50 dark:border-emerald-500/20">
                         <div className="flex items-center gap-1 mb-1">
@@ -772,133 +879,144 @@ const PieTooltip = ({ active, payload, totalValue }: any) => {
     );
 };
 
-// Custom tooltip component with rich data visualization
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Custom tooltip component - shows per-event success/fail percentages
+// Now shows a condensed view with option to expand for more details
 const CustomTooltip = ({ active, payload, label, events: _events = [], eventKeys: _eventKeys = [] }: any) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    
     if (!active || !payload || !payload.length) return null;
     
     const data = payload[0]?.payload;
     if (!data) return null;
     
-    const totalCount = data.count || 0;
-    const totalSuccess = data.successCount || 0;
-    const successRate = totalCount > 0 ? ((totalSuccess / totalCount) * 100).toFixed(1) : '0';
+    // Get per-event data from payload with success/fail info
+    const eventDataItems = payload.map((item: any) => {
+        const eventKey = item.dataKey?.replace('_count', '') || '';
+        const eventCount = item.value || 0;
+        const eventSuccess = data[`${eventKey}_success`] || 0;
+        const eventFail = data[`${eventKey}_fail`] || 0;
+        const successRate = eventCount > 0 ? ((eventSuccess / eventCount) * 100) : 0;
+        
+        return {
+            name: item.name,
+            count: eventCount,
+            success: eventSuccess,
+            fail: eventFail,
+            successRate,
+            color: item.color || item.stroke,
+            dataKey: item.dataKey
+        };
+    }).filter((item: any) => item.count !== undefined && item.count > 0);
     
-    // Get per-event data from payload
-    const eventDataItems = payload.map((item: any) => ({
-        name: item.name,
-        value: item.value,
-        color: item.color || item.stroke,
-        dataKey: item.dataKey
-    })).filter((item: any) => item.value !== undefined);
+    // Calculate totals
+    const totalCount = eventDataItems.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+    const totalSuccess = eventDataItems.reduce((sum: number, item: any) => sum + (item.success || 0), 0);
+    const totalFail = eventDataItems.reduce((sum: number, item: any) => sum + (item.fail || 0), 0);
+    const overallSuccessRate = totalCount > 0 ? ((totalSuccess / totalCount) * 100) : 0;
+    
+    // Show only first 3 events in collapsed view
+    const visibleItems = isExpanded ? eventDataItems : eventDataItems.slice(0, 3);
+    const hiddenCount = eventDataItems.length - 3;
     
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-purple-100 dark:border-purple-500/20 p-4 min-w-[280px] backdrop-blur-xl"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-purple-100 dark:border-purple-500/20 p-4 backdrop-blur-xl"
+            style={{ minWidth: isExpanded ? '320px' : '260px', maxWidth: '400px', maxHeight: isExpanded ? '500px' : '300px', overflow: 'auto' }}
         >
             {/* Header */}
-            <div className="flex items-center gap-2 mb-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
-                    <CalendarIcon className="h-5 w-5 text-white" />
+            <div className="flex items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                        <CalendarIcon className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                        <div className="font-bold text-base text-foreground">{label}</div>
+                        <div className="text-[10px] text-muted-foreground">{eventDataItems.length} events</div>
+                    </div>
                 </div>
-                <div>
-                    <div className="font-bold text-lg text-foreground">{label}</div>
-                    <div className="text-xs text-muted-foreground">Event Analytics</div>
+                {/* Overall stats */}
+                <div className="text-right">
+                    <div className="text-lg font-bold text-foreground">{totalCount.toLocaleString()}</div>
+                    <div className={cn(
+                        "text-xs font-medium px-2 py-0.5 rounded-full",
+                        overallSuccessRate >= 90 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
+                        overallSuccessRate >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
+                        "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+                    )}>
+                        {overallSuccessRate.toFixed(0)}% success
+                    </div>
                 </div>
             </div>
             
-            {/* Per-Event Data */}
-            <div className="space-y-2 mb-3">
-                {eventDataItems.map((item: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                        <div className="flex items-center gap-2">
-                            <div 
-                                className="w-3 h-3 rounded-full" 
-                                style={{ backgroundColor: item.color }}
-                            />
-                            <span className="text-sm font-medium text-foreground">{item.name}</span>
+            {/* Per-Event Data with Success/Fail */}
+            <div className="space-y-2">
+                {visibleItems.map((item: any, index: number) => (
+                    <div key={index} className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                                <div 
+                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                                    style={{ backgroundColor: item.color }}
+                                />
+                                <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">{item.name}</span>
+                            </div>
+                            <span className="text-sm font-bold text-foreground">{item.count?.toLocaleString()}</span>
                         </div>
-                        <span className="text-sm font-bold text-foreground">{item.value?.toLocaleString() || 0}</span>
+                        <div className="flex items-center gap-2 text-[10px]">
+                            <span className="flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                <span className="text-green-600 dark:text-green-400 font-medium">{item.success?.toLocaleString()}</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                                <XCircle className="w-3 h-3 text-red-500" />
+                                <span className="text-red-600 dark:text-red-400 font-medium">{item.fail?.toLocaleString()}</span>
+                            </span>
+                            <span className={cn(
+                                "ml-auto font-bold px-1.5 py-0.5 rounded-full text-[9px]",
+                                item.successRate >= 90 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
+                                item.successRate >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
+                                "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+                            )}>
+                                {item.successRate.toFixed(0)}%
+                            </span>
+                        </div>
                     </div>
                 ))}
             </div>
             
-            {/* Overall Stats Grid */}
-            <div className="grid grid-cols-3 gap-2 mb-3">
-                <motion.div 
-                    className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/10 rounded-xl p-2.5 text-center"
-                    whileHover={{ scale: 1.02 }}
+            {/* Expand/Collapse Button */}
+            {eventDataItems.length > 3 && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setIsExpanded(!isExpanded);
+                    }}
+                    className="w-full mt-2 py-2 px-3 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-300 text-xs font-medium hover:bg-purple-100 dark:hover:bg-purple-500/20 transition-colors flex items-center justify-center gap-1"
                 >
-                    <Activity className="h-4 w-4 text-blue-500 mx-auto mb-1" />
-                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                        {totalCount.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-blue-600/70 dark:text-blue-400/70 uppercase tracking-wide">Total</div>
-                </motion.div>
-                
-                <motion.div 
-                    className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-500/10 dark:to-emerald-500/10 rounded-xl p-2.5 text-center"
-                    whileHover={{ scale: 1.02 }}
-                >
-                    <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto mb-1" />
-                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                        {totalSuccess.toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-green-600/70 dark:text-green-400/70 uppercase tracking-wide">Success</div>
-                </motion.div>
-                
-                <motion.div 
-                    className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-500/10 dark:to-orange-500/10 rounded-xl p-2.5 text-center"
-                    whileHover={{ scale: 1.02 }}
-                >
-                    <XCircle className="h-4 w-4 text-red-500 mx-auto mb-1" />
-                    <div className="text-lg font-bold text-red-600 dark:text-red-400">
-                        {(data.failCount || 0).toLocaleString()}
-                    </div>
-                    <div className="text-[10px] text-red-600/70 dark:text-red-400/70 uppercase tracking-wide">Failed</div>
-                </motion.div>
-            </div>
-            
-            {/* Success Rate Bar */}
-            <div className="mb-3">
-                <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs font-medium text-muted-foreground">Success Rate</span>
-                    <span className="text-xs font-bold text-green-600 dark:text-green-400">{successRate}%</span>
-                </div>
-                <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                    <motion.div 
-                        className="h-full bg-gradient-to-r from-green-400 to-emerald-500 rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${successRate}%` }}
-                        transition={{ duration: 0.5, ease: "easeOut" }}
-                    />
-                </div>
-            </div>
-            
-            {/* Trend Indicator */}
-            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                    {parseFloat(successRate) >= 90 ? (
+                    {isExpanded ? (
                         <>
-                            <TrendingUp className="h-4 w-4 text-green-500" />
-                            <span className="text-xs font-medium text-green-600 dark:text-green-400">Healthy</span>
-                        </>
-                    ) : parseFloat(successRate) >= 70 ? (
-                        <>
-                            <Activity className="h-4 w-4 text-amber-500" />
-                            <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Moderate</span>
+                            <ChevronUp className="w-3 h-3" />
+                            Show Less
                         </>
                     ) : (
                         <>
-                            <TrendingDown className="h-4 w-4 text-red-500" />
-                            <span className="text-xs font-medium text-red-600 dark:text-red-400">Needs Attention</span>
+                            <ChevronDown className="w-3 h-3" />
+                            Show {hiddenCount} More Events
                         </>
                     )}
-                </div>
-                <div className="text-[10px] text-muted-foreground">
-                    {data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : ''}
+                </button>
+            )}
+            
+            {/* Footer with totals */}
+            <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>Total: <span className="font-bold text-foreground">{totalCount.toLocaleString()}</span></span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-green-600 dark:text-green-400">✓ {totalSuccess.toLocaleString()}</span>
+                        <span className="text-red-600 dark:text-red-400">✗ {totalFail.toLocaleString()}</span>
+                    </div>
                 </div>
             </div>
         </motion.div>
@@ -928,130 +1046,71 @@ const ExpandedPieChartModal = ({
     
     return (
         <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden p-0">
-                <DialogHeader className="p-6 pb-4 border-b bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-500/5 dark:to-violet-500/5">
+            <DialogContent className="max-w-2xl w-[90vw]">
+                <DialogHeader className="pb-4">
                     <DialogTitle className="flex items-center gap-3">
-                        <motion.div 
-                            className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg"
-                            animate={{ rotate: [0, 5, -5, 0] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                        >
-                            {pieData.type === 'platform' && <Activity className="h-6 w-6 text-white" />}
-                            {pieData.type === 'pos' && <Target className="h-6 w-6 text-white" />}
-                            {pieData.type === 'source' && <Zap className="h-6 w-6 text-white" />}
-                        </motion.div>
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                            {pieData.type === 'platform' && <Activity className="h-5 w-5 text-white" />}
+                            {pieData.type === 'pos' && <Target className="h-5 w-5 text-white" />}
+                            {pieData.type === 'source' && <Zap className="h-5 w-5 text-white" />}
+                        </div>
                         <div>
-                            <span className="text-xl font-bold">{pieData.title} Distribution</span>
-                            <p className="text-sm text-muted-foreground font-normal mt-0.5">
-                                {pieData.data.length} categories • {total.toLocaleString()} total events
+                            <span className="text-lg font-bold">{pieData.title} Distribution</span>
+                            <p className="text-sm text-muted-foreground font-normal">
+                                {sortedData.length} categories • {total.toLocaleString()} total
                             </p>
                         </div>
                     </DialogTitle>
                 </DialogHeader>
                 
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-6 p-6 max-h-[70vh] overflow-y-auto">
-                    {/* Large Pie Chart - 3 columns for better visibility */}
-                    <div className="md:col-span-3 h-[450px] flex items-center justify-center bg-gray-50/50 dark:bg-gray-800/20 rounded-2xl p-8">
+                <div className="flex flex-col md:flex-row gap-6">
+                    {/* Pie Chart */}
+                    <div className="h-[300px] w-full md:w-1/2">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart margin={{ top: 40, right: 40, bottom: 40, left: 40 }}>
-                                <defs>
-                                    {PIE_COLORS.map((color, index) => (
-                                        <linearGradient key={index} id={`expandedPieGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor={color} stopOpacity={1} />
-                                            <stop offset="100%" stopColor={color} stopOpacity={0.7} />
-                                        </linearGradient>
-                                    ))}
-                                </defs>
+                            <PieChart>
                                 <Pie
-                                    data={pieData.data}
+                                    data={sortedData}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={80}
-                                    outerRadius={150}
-                                    paddingAngle={3}
+                                    innerRadius={60}
+                                    outerRadius={100}
+                                    paddingAngle={2}
                                     dataKey="value"
                                     strokeWidth={2}
-                                    stroke="rgba(255,255,255,0.9)"
+                                    stroke="#fff"
                                 >
-                                    {pieData.data.map((_: any, index: number) => (
-                                        <Cell 
-                                            key={`cell-${index}`} 
-                                            fill={`url(#expandedPieGradient-${index % PIE_COLORS.length})`}
-                                        />
+                                    {sortedData.map((_: any, index: number) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                     ))}
                                 </Pie>
                                 <Tooltip content={<PieTooltip totalValue={total} />} />
-                                <Legend 
-                                    iconType="circle" 
-                                    iconSize={10} 
-                                    layout="horizontal" 
-                                    verticalAlign="bottom"
-                                    wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }}
-                                />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
                     
-                    {/* Detailed Stats Table - 2 columns */}
-                    <div className="md:col-span-2 space-y-3">
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Breakdown</h3>
-                        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-2">
-                            {sortedData.map((item: any, index: number) => {
-                                const percentage = ((item.value / total) * 100).toFixed(1);
-                                return (
-                                    <motion.div
-                                        key={item.name}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
-                                    >
-                                        <div 
-                                            className="w-4 h-4 rounded-full shadow-sm flex-shrink-0"
-                                            style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-sm truncate">{item.name}</div>
-                                            <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-1.5 overflow-hidden">
-                                                <motion.div
-                                                    className="h-full rounded-full"
-                                                    style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${percentage}%` }}
-                                                    transition={{ duration: 0.5, delay: index * 0.05 }}
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="text-right flex-shrink-0 min-w-[80px]">
-                                            <div className="font-bold text-sm">{item.value.toLocaleString()}</div>
-                                            <div className="text-xs text-muted-foreground">{percentage}%</div>
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
-                        </div>
-                        
-                        {/* Summary Stats */}
-                        <div className="grid grid-cols-3 gap-2 pt-3 border-t">
-                            <div className="text-center p-2 rounded-lg bg-purple-50 dark:bg-purple-500/10">
-                                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
-                                    {pieData.data.length}
+                    {/* Breakdown List */}
+                    <div className="flex-1 space-y-2 max-h-[300px] overflow-y-auto">
+                        {sortedData.map((item: any, index: number) => {
+                            const percentage = ((item.value / total) * 100).toFixed(1);
+                            return (
+                                <div
+                                    key={item.name}
+                                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
+                                >
+                                    <div 
+                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <span className="text-sm font-medium">{item.name}</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-sm font-bold">{item.value.toLocaleString()}</span>
+                                        <span className="text-xs text-muted-foreground ml-2">({percentage}%)</span>
+                                    </div>
                                 </div>
-                                <div className="text-[10px] text-muted-foreground uppercase">Categories</div>
-                            </div>
-                            <div className="text-center p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10">
-                                <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                                    {total >= 1000000 ? `${(total/1000000).toFixed(1)}M` : total >= 1000 ? `${(total/1000).toFixed(1)}k` : total}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground uppercase">Total</div>
-                            </div>
-                            <div className="text-center p-2 rounded-lg bg-green-50 dark:bg-green-500/10">
-                                <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                                    {sortedData[0]?.name?.slice(0, 8) || '-'}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground uppercase">Top</div>
-                            </div>
-                        </div>
+                            );
+                        })}
                     </div>
                 </div>
             </DialogContent>
@@ -1103,6 +1162,27 @@ const EVENT_COLORS = [
 ];
 
 const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
+
+// Utility function to combine duplicate entries (like multiple "Unknown") in pie chart data
+const combinePieChartDuplicates = (data: any[]): any[] => {
+    if (!data || data.length === 0) return [];
+    
+    const combinedMap = new Map<string, number>();
+    data.forEach(item => {
+        const name = item.name || 'Unknown';
+        combinedMap.set(name, (combinedMap.get(name) || 0) + (item.value || 0));
+    });
+    
+    return Array.from(combinedMap.entries()).map(([name, value]) => ({ name, value }));
+};
+
+// Utility function to check if pie chart should be displayed
+// Returns false if there's only 1 item (100% share) - no point showing that
+const shouldShowPieChart = (data: any[]): boolean => {
+    if (!data || data.length === 0) return false;
+    const combinedData = combinePieChartDuplicates(data);
+    return combinedData.length > 1;
+};
 
 export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerProps) {
     const [profile, setProfile] = useState<DashboardProfile | null>(null);
@@ -1160,6 +1240,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     // Configurable auto-refresh (in minutes, 0 = disabled)
     const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
     const [pendingRefresh, setPendingRefresh] = useState<boolean>(false);
+    const initialLoadComplete = useRef<boolean>(false);
 
     // Function to jump to a panel
     const handleJumpToPanel = useCallback((panelId: string) => {
@@ -1279,6 +1360,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     // Helper function to process graph response into display format
     // Now creates separate data series per event for proper bifurcation
     const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[]) => {
+        console.log('📊 processGraphData called with:', {
+            responseDataLength: graphResponse?.data?.length || 0,
+            startDate,
+            endDate,
+            eventsListLength: eventsList?.length || 0
+        });
+        
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
 
@@ -1355,6 +1443,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             };
         });
 
+        console.log('📊 processGraphData result:', {
+            sortedDataLength: sortedData.length,
+            eventKeysCount: eventKeysInData.length,
+            sampleData: sortedData.length > 0 ? sortedData[0] : null,
+            eventKeys: eventKeysInData
+        });
+
         return {
             data: sortedData,
             eventKeys: eventKeysInData
@@ -1420,6 +1515,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
             const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events);
 
+            console.log(`✅ PANEL ${panelId} - Processed data:`, {
+                dataLength: processedResult.data.length,
+                eventKeysCount: processedResult.eventKeys.length,
+                pieData: pieResponse ? 'received' : 'null'
+            });
+
+            // Update panelsDataMap for this panel
             setPanelsDataMap(prev => {
                 const newMap = new Map(prev);
                 newMap.set(panelId, {
@@ -1434,6 +1536,21 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 });
                 return newMap;
             });
+
+            // CRITICAL: If this is the first/main panel, also update the legacy state variables
+            // The main panel UI uses these directly, not panelsDataMap
+            if (profile.panels[0]?.panelId === panelId) {
+                console.log(`🔄 Updating main panel state variables with:`, {
+                    graphDataLength: processedResult.data.length,
+                    eventKeysCount: processedResult.eventKeys?.length || 0,
+                    pieDataKeys: pieResponse ? Object.keys(pieResponse) : []
+                });
+                setGraphData(processedResult.data);
+                setEventKeys(processedResult.eventKeys || []);
+                setPieChartData(pieResponse);
+                setLastUpdated(new Date());
+                console.log(`✅ Main panel state variables updated!`);
+            }
         } catch (err) {
             console.error(`Failed to refresh panel ${panelId}:`, err);
             setPanelsDataMap(prev => {
@@ -1564,12 +1681,16 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             setPendingRefresh(false);
             // Clear all panel filter changes after initial load
             setPanelFilterChanges({});
+            // Mark initial load as complete after a short delay
+            setTimeout(() => {
+                initialLoadComplete.current = true;
+            }, 500);
         }
     }, [loading, profile, events, loadData]);
 
-    // Set pending refresh when filters or date range change
+    // Set pending refresh when filters or date range change (only after initial load)
     useEffect(() => {
-        if (!loading && profile && events.length > 0 && graphData.length > 0) {
+        if (!loading && profile && events.length > 0 && graphData.length > 0 && initialLoadComplete.current) {
             // Mark that filters have changed and need to be applied
             setPendingRefresh(true);
             // Mark all panels as having filter changes
@@ -1581,7 +1702,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 setPanelFilterChanges(changes);
             }
         }
-    }, [filters, dateRange, loading, profile, events, graphData]);
+    }, [filters, dateRange]);
 
     // Auto-refresh main panel (user-configurable, 0 = disabled by default)
     useEffect(() => {
@@ -1916,14 +2037,21 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         {/* Apply Filters Button and Auto-refresh Config */}
                         <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border/50">
                             <div className="flex items-center gap-4">
-                                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                                {/* Prominent Apply Filters button with clear visual cue */}
+                                <motion.div 
+                                    whileHover={{ scale: 1.03 }} 
+                                    whileTap={{ scale: 0.97 }}
+                                    animate={pendingRefresh ? { scale: [1, 1.02, 1] } : {}}
+                                    transition={pendingRefresh ? { duration: 1.5, repeat: Infinity } : {}}
+                                >
                                     <Button 
                                         onClick={handleApplyFilters} 
                                         disabled={dataLoading}
+                                        size="lg"
                                         className={cn(
-                                            "relative transition-all duration-300",
+                                            "relative transition-all duration-300 font-semibold",
                                             pendingRefresh 
-                                                ? "bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30 animate-pulse" 
+                                                ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300" 
                                                 : "bg-primary hover:bg-primary/90"
                                         )}
                                     >
@@ -1932,21 +2060,32 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 animate={{ rotate: 360 }}
                                                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                                             >
-                                                <RefreshCw className="mr-2 h-4 w-4" />
+                                                <RefreshCw className="mr-2 h-5 w-5" />
                                             </motion.div>
                                         ) : (
-                                            <RefreshCw className="mr-2 h-4 w-4" />
+                                            <RefreshCw className={cn("mr-2 h-5 w-5", pendingRefresh && "animate-spin")} />
                                         )}
-                                        {pendingRefresh ? "Apply Filters!" : "Refresh This Panel"}
+                                        {pendingRefresh ? "⚡ APPLY CHANGES" : "Refresh This Panel"}
                                         {pendingRefresh && (
                                             <motion.div
-                                                className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
-                                                animate={{ scale: [1, 1.2, 1] }}
-                                                transition={{ duration: 1, repeat: Infinity }}
-                                            />
+                                                className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                                                animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
+                                                transition={{ duration: 0.8, repeat: Infinity }}
+                                            >
+                                                !
+                                            </motion.div>
                                         )}
                                     </Button>
                                 </motion.div>
+                                {pendingRefresh && (
+                                    <motion.span 
+                                        className="text-sm text-red-600 dark:text-red-400 font-medium"
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                    >
+                                        Filters changed! Click to update data.
+                                    </motion.span>
+                                )}
                             </div>
                             
                             <div className="flex items-center gap-2">
@@ -2255,29 +2394,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     </p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                {/* Quick Stats Pills */}
-                                <div className="hidden md:flex items-center gap-2">
-                                    <motion.div 
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20"
-                                        whileHover={{ scale: 1.05 }}
-                                    >
-                                        <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                                            {totalCount.toLocaleString()} total
-                                        </span>
-                                    </motion.div>
-                                    <motion.div 
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20"
-                                        whileHover={{ scale: 1.05 }}
-                                    >
-                                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                                        <span className="text-xs font-medium text-green-700 dark:text-green-300">
-                                            {totalCount > 0 ? ((totalSuccess / totalCount) * 100).toFixed(1) : 0}% success
-                                        </span>
-                                    </motion.div>
-                                </div>
-                            </div>
+                            {/* Event count indicator moved to CollapsibleLegend which now shows per-event stats */}
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -2289,6 +2406,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 isExpanded={mainLegendExpanded}
                                 onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
                                 maxVisibleItems={5}
+                                graphData={graphData}
                             />
                         )}
                         <div className="h-[520px] w-full">
@@ -2466,311 +2584,280 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 </Card>
             </motion.div>
 
-            {/* Hourly Stats Card - shown below Event Trends for ≤7 day ranges when enabled */}
+            {/* Pie Charts - Shown above Hourly Insights, hidden if only 1 item (100% share) */}
+            {(() => {
+                // Process pie chart data - combine duplicates and filter out single-item charts
+                const platformData = pieChartData?.platform ? combinePieChartDuplicates(pieChartData.platform) : [];
+                const posData = pieChartData?.pos ? combinePieChartDuplicates(pieChartData.pos) : [];
+                const sourceData = pieChartData?.source ? combinePieChartDuplicates(pieChartData.source) : [];
+                
+                const showPlatform = shouldShowPieChart(pieChartData?.platform);
+                const showPos = shouldShowPieChart(pieChartData?.pos);
+                const showSource = shouldShowPieChart(pieChartData?.source);
+                
+                const visibleCount = [showPlatform, showPos, showSource].filter(Boolean).length;
+                
+                // If no pie charts to show, return null
+                if (visibleCount === 0) return null;
+                
+                // Dynamic grid class based on visible charts
+                const gridClass = visibleCount === 1 
+                    ? "grid-cols-1 max-w-md mx-auto" 
+                    : visibleCount === 2 
+                        ? "grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto" 
+                        : "grid-cols-1 md:grid-cols-3";
+                
+                return (
+                    <motion.div 
+                        className={cn("grid gap-4", gridClass)}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.55 }}
+                    >
+                        {/* Platform Distribution */}
+                        {showPlatform && (
+                            <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
+                                <Card className="border-2 border-indigo-100 dark:border-indigo-500/20 bg-gradient-to-br from-indigo-50/50 to-violet-50/30 dark:from-indigo-500/5 dark:to-violet-500/5 overflow-hidden group">
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <motion.div 
+                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md"
+                                                    whileHover={{ rotate: 15 }}
+                                                >
+                                                    <Activity className="h-4 w-4 text-white" />
+                                                </motion.div>
+                                                <CardTitle className="text-sm font-semibold text-foreground">Platform</CardTitle>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <motion.span 
+                                                    className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                >
+                                                    {platformData.length} types
+                                                </motion.span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
+                                                    onClick={() => openExpandedPie('platform', 'Platform', platformData)}
+                                                >
+                                                    <Maximize2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="h-52">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie
+                                                        data={platformData}
+                                                        cx="50%"
+                                                        cy="45%"
+                                                        innerRadius={35}
+                                                        outerRadius={65}
+                                                        paddingAngle={2}
+                                                        dataKey="value"
+                                                        strokeWidth={2}
+                                                        stroke="#fff"
+                                                    >
+                                                        {platformData.map((_: any, index: number) => (
+                                                            <Cell 
+                                                                key={`platform-cell-${index}`} 
+                                                                fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                            />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip 
+                                                        content={<PieTooltip 
+                                                            totalValue={platformData.reduce((acc: number, item: any) => acc + item.value, 0)} 
+                                                            category="Platform"
+                                                        />}
+                                                    />
+                                                    <Legend 
+                                                        iconType="circle"
+                                                        iconSize={8} 
+                                                        layout="horizontal" 
+                                                        verticalAlign="bottom"
+                                                        wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                    />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+
+                        {/* POS Distribution */}
+                        {showPos && (
+                            <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
+                                <Card className="border-2 border-emerald-100 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-500/5 dark:to-teal-500/5 overflow-hidden group">
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <motion.div 
+                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md"
+                                                    whileHover={{ rotate: 15 }}
+                                                >
+                                                    <Target className="h-4 w-4 text-white" />
+                                                </motion.div>
+                                                <CardTitle className="text-sm font-semibold text-foreground">POS</CardTitle>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <motion.span 
+                                                    className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                >
+                                                    {posData.length} types
+                                                </motion.span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
+                                                    onClick={() => openExpandedPie('pos', 'POS', posData)}
+                                                >
+                                                    <Maximize2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="h-52">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie
+                                                        data={posData}
+                                                        cx="50%"
+                                                        cy="45%"
+                                                        innerRadius={35}
+                                                        outerRadius={65}
+                                                        paddingAngle={2}
+                                                        dataKey="value"
+                                                        strokeWidth={2}
+                                                        stroke="#fff"
+                                                    >
+                                                        {posData.map((_: any, index: number) => (
+                                                            <Cell 
+                                                                key={`pos-cell-${index}`} 
+                                                                fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                            />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip 
+                                                        content={<PieTooltip 
+                                                            totalValue={posData.reduce((acc: number, item: any) => acc + item.value, 0)} 
+                                                            category="POS"
+                                                        />}
+                                                    />
+                                                    <Legend 
+                                                        iconType="circle"
+                                                        iconSize={8} 
+                                                        layout="horizontal" 
+                                                        verticalAlign="bottom"
+                                                        wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                    />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+
+                        {/* Source Distribution */}
+                        {showSource && (
+                            <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
+                                <Card className="border-2 border-amber-100 dark:border-amber-500/20 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-500/5 dark:to-orange-500/5 overflow-hidden group">
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <motion.div 
+                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md"
+                                                    whileHover={{ rotate: 15 }}
+                                                >
+                                                    <Zap className="h-4 w-4 text-white" />
+                                                </motion.div>
+                                                <CardTitle className="text-sm font-semibold text-foreground">Source</CardTitle>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <motion.span 
+                                                    className="text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                >
+                                                    {sourceData.length} types
+                                                </motion.span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+                                                    onClick={() => openExpandedPie('source', 'Source', sourceData)}
+                                                >
+                                                    <Maximize2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="h-52">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <PieChart>
+                                                    <Pie
+                                                        data={sourceData}
+                                                        cx="50%"
+                                                        cy="45%"
+                                                        innerRadius={35}
+                                                        outerRadius={65}
+                                                        paddingAngle={2}
+                                                        dataKey="value"
+                                                        strokeWidth={2}
+                                                        stroke="#fff"
+                                                    >
+                                                        {sourceData.map((_: any, index: number) => (
+                                                            <Cell 
+                                                                key={`source-cell-${index}`} 
+                                                                fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                            />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip 
+                                                        content={<PieTooltip 
+                                                            totalValue={sourceData.reduce((acc: number, item: any) => acc + item.value, 0)} 
+                                                            category="Source"
+                                                        />}
+                                                    />
+                                                    <Legend 
+                                                        iconType="circle"
+                                                        iconSize={8} 
+                                                        layout="horizontal" 
+                                                        verticalAlign="bottom"
+                                                        wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                    />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </motion.div>
+                        )}
+                    </motion.div>
+                );
+            })()}
+
+            {/* Hourly Stats Card - shown below Pie Charts for ≤7 day ranges when enabled */}
             {isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && (
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.55 }}
+                    transition={{ delay: 0.6 }}
                 >
-                    <HourlyStatsCard graphData={graphData} isHourly={isHourly} />
+                    <HourlyStatsCard graphData={graphData} isHourly={isHourly} eventKeys={eventKeys} />
                 </motion.div>
             )}
-
-            {/* Pie Charts */}
-            <motion.div 
-                className="grid grid-cols-1 md:grid-cols-3 gap-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-            >
-                {/* Platform Distribution */}
-                <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
-                    <Card className="border-2 border-indigo-100 dark:border-indigo-500/20 bg-gradient-to-br from-indigo-50/50 to-violet-50/30 dark:from-indigo-500/5 dark:to-violet-500/5 overflow-hidden group">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <motion.div 
-                                        className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md"
-                                        whileHover={{ rotate: 15 }}
-                                    >
-                                        <Activity className="h-4 w-4 text-white" />
-                                    </motion.div>
-                                    <CardTitle className="text-sm font-semibold text-foreground">Platform</CardTitle>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {pieChartData?.platform?.length > 0 && (
-                                        <>
-                                            <motion.span 
-                                                className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                            >
-                                                {pieChartData.platform.length} types
-                                            </motion.span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
-                                                onClick={() => openExpandedPie('platform', 'Platform', pieChartData.platform)}
-                                            >
-                                                <Maximize2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="h-52">
-                                {pieChartData?.platform?.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <defs>
-                                                {PIE_COLORS.map((color, index) => (
-                                                    <linearGradient key={index} id={`pieGradient-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stopColor={color} stopOpacity={0.9} />
-                                                        <stop offset="100%" stopColor={color} stopOpacity={0.6} />
-                                                    </linearGradient>
-                                                ))}
-                                            </defs>
-                                            <Pie
-                                                data={pieChartData.platform}
-                                                cx="50%"
-                                                cy="45%"
-                                                innerRadius={35}
-                                                outerRadius={65}
-                                                paddingAngle={4}
-                                                dataKey="value"
-                                                strokeWidth={2}
-                                                stroke="rgba(255,255,255,0.8)"
-                                            >
-                                                {pieChartData.platform.map((_: any, index: number) => (
-                                                    <Cell 
-                                                        key={`cell-${index}`} 
-                                                        fill={`url(#pieGradient-${index % PIE_COLORS.length})`}
-                                                        className="transition-all duration-200 hover:opacity-80"
-                                                    />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip 
-                                                content={<PieTooltip 
-                                                    totalValue={pieChartData.platform.reduce((acc: number, item: any) => acc + item.value, 0)} 
-                                                    category="Platform"
-                                                />}
-                                            />
-                                            <Legend 
-                                                iconType="circle"
-                                                iconSize={8} 
-                                                layout="horizontal" 
-                                                verticalAlign="bottom"
-                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                        <motion.div
-                                            animate={{ rotate: [0, 360] }}
-                                            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                                            className="opacity-20 mb-2"
-                                        >
-                                            <Activity className="h-10 w-10" />
-                                        </motion.div>
-                                        <span className="text-sm">No data</span>
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                {/* POS Distribution */}
-                <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
-                    <Card className="border-2 border-emerald-100 dark:border-emerald-500/20 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-500/5 dark:to-teal-500/5 overflow-hidden group">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <motion.div 
-                                        className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md"
-                                        whileHover={{ rotate: 15 }}
-                                    >
-                                        <Target className="h-4 w-4 text-white" />
-                                    </motion.div>
-                                    <CardTitle className="text-sm font-semibold text-foreground">POS</CardTitle>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {pieChartData?.pos?.length > 0 && (
-                                        <>
-                                            <motion.span 
-                                                className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                            >
-                                                {pieChartData.pos.length} types
-                                            </motion.span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
-                                                onClick={() => openExpandedPie('pos', 'POS', pieChartData.pos)}
-                                            >
-                                                <Maximize2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="h-52">
-                                {pieChartData?.pos?.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={pieChartData.pos}
-                                                cx="50%"
-                                                cy="45%"
-                                                innerRadius={35}
-                                                outerRadius={65}
-                                                paddingAngle={4}
-                                                dataKey="value"
-                                                strokeWidth={2}
-                                                stroke="rgba(255,255,255,0.8)"
-                                            >
-                                                {pieChartData.pos.map((_: any, index: number) => (
-                                                    <Cell 
-                                                        key={`cell-${index}`} 
-                                                        fill={`url(#pieGradient-${index % PIE_COLORS.length})`}
-                                                        className="transition-all duration-200 hover:opacity-80"
-                                                    />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip 
-                                                content={<PieTooltip 
-                                                    totalValue={pieChartData.pos.reduce((acc: number, item: any) => acc + item.value, 0)} 
-                                                    category="POS"
-                                                />}
-                                            />
-                                            <Legend 
-                                                iconType="circle"
-                                                iconSize={8} 
-                                                layout="horizontal" 
-                                                verticalAlign="bottom"
-                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                        <motion.div
-                                            animate={{ rotate: [0, 360] }}
-                                            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                                            className="opacity-20 mb-2"
-                                        >
-                                            <Target className="h-10 w-10" />
-                                        </motion.div>
-                                        <span className="text-sm">No data</span>
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-
-                {/* Source Distribution */}
-                <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
-                    <Card className="border-2 border-amber-100 dark:border-amber-500/20 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-500/5 dark:to-orange-500/5 overflow-hidden group">
-                        <CardHeader className="pb-2">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <motion.div 
-                                        className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md"
-                                        whileHover={{ rotate: 15 }}
-                                    >
-                                        <Zap className="h-4 w-4 text-white" />
-                                    </motion.div>
-                                    <CardTitle className="text-sm font-semibold text-foreground">Source</CardTitle>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {pieChartData?.source?.length > 0 && (
-                                        <>
-                                            <motion.span 
-                                                className="text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                            >
-                                                {pieChartData.source.length} types
-                                            </motion.span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7 hover:bg-amber-100 dark:hover:bg-amber-500/20"
-                                                onClick={() => openExpandedPie('source', 'Source', pieChartData.source)}
-                                            >
-                                                <Maximize2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="h-52">
-                                {pieChartData?.source?.length > 0 ? (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <PieChart>
-                                            <Pie
-                                                data={pieChartData.source}
-                                                cx="50%"
-                                                cy="45%"
-                                                innerRadius={35}
-                                                outerRadius={65}
-                                                paddingAngle={4}
-                                                dataKey="value"
-                                                strokeWidth={2}
-                                                stroke="rgba(255,255,255,0.8)"
-                                            >
-                                                {pieChartData.source.map((_: any, index: number) => (
-                                                    <Cell 
-                                                        key={`cell-${index}`} 
-                                                        fill={`url(#pieGradient-${index % PIE_COLORS.length})`}
-                                                        className="transition-all duration-200 hover:opacity-80"
-                                                    />
-                                                ))}
-                                            </Pie>
-                                            <Tooltip 
-                                                content={<PieTooltip 
-                                                    totalValue={pieChartData.source.reduce((acc: number, item: any) => acc + item.value, 0)} 
-                                                    category="Source"
-                                                />}
-                                            />
-                                            <Legend 
-                                                iconType="circle"
-                                                iconSize={8} 
-                                                layout="horizontal" 
-                                                verticalAlign="bottom"
-                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                                            />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                        <motion.div
-                                            animate={{ rotate: [0, 360] }}
-                                            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                                            className="opacity-20 mb-2"
-                                        >
-                                            <Zap className="h-10 w-10" />
-                                        </motion.div>
-                                        <span className="text-sm">No data</span>
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
-            </motion.div>
 
             {/* Additional Panels (if profile has more than one panel) */}
             {profile.panels.length > 1 && profile.panels.slice(1).map((panel, panelIndex) => {
@@ -2890,35 +2977,39 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         <div className="flex items-center gap-2">
                                             <Filter className="w-4 h-4 text-purple-500" />
                                             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Panel Filters</span>
-                                            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                                                Resets on refresh
-                                            </span>
                                         </div>
-                                        <Button
-                                            onClick={() => handlePanelRefresh(panel.panelId)}
-                                            disabled={isPanelLoading}
-                                            size="sm"
-                                            className={cn(
-                                                "relative transition-all duration-300 shadow-md",
-                                                panelFilterChanges[panel.panelId]
-                                                    ? "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/30 animate-pulse"
-                                                    : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
-                                            )}
+                                        <motion.div
+                                            animate={panelFilterChanges[panel.panelId] ? { scale: [1, 1.02, 1] } : {}}
+                                            transition={panelFilterChanges[panel.panelId] ? { duration: 1.5, repeat: Infinity } : {}}
                                         >
-                                            {isPanelLoading ? (
-                                                <RefreshCw className="w-4 h-4 animate-spin mr-1.5" />
-                                            ) : (
-                                                <RefreshCw className="w-4 h-4 mr-1.5" />
-                                            )}
-                                            {panelFilterChanges[panel.panelId] ? "Apply Filters!" : "Refresh Panel"}
-                                            {panelFilterChanges[panel.panelId] && (
-                                                <motion.div
-                                                    className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"
-                                                    animate={{ scale: [1, 1.2, 1] }}
-                                                    transition={{ duration: 1, repeat: Infinity }}
-                                                />
-                                            )}
-                                        </Button>
+                                            <Button
+                                                onClick={() => handlePanelRefresh(panel.panelId)}
+                                                disabled={isPanelLoading}
+                                                size="sm"
+                                                className={cn(
+                                                    "relative transition-all duration-300 shadow-md font-semibold",
+                                                    panelFilterChanges[panel.panelId]
+                                                        ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
+                                                        : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
+                                                )}
+                                            >
+                                                {isPanelLoading ? (
+                                                    <RefreshCw className="w-4 h-4 animate-spin mr-1.5" />
+                                                ) : (
+                                                    <RefreshCw className={cn("w-4 h-4 mr-1.5", panelFilterChanges[panel.panelId] && "animate-spin")} />
+                                                )}
+                                                {panelFilterChanges[panel.panelId] ? "⚡ APPLY" : "Refresh"}
+                                                {panelFilterChanges[panel.panelId] && (
+                                                    <motion.div
+                                                        className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                                                        animate={{ scale: [1, 1.3, 1] }}
+                                                        transition={{ duration: 0.8, repeat: Infinity }}
+                                                    >
+                                                        !
+                                                    </motion.div>
+                                                )}
+                                            </Button>
+                                        </motion.div>
                                     </div>
                                     
                                     {/* Date Range Picker for Panel */}
@@ -3071,6 +3162,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         isExpanded={panelLegendExpanded[panel.panelId] || false}
                                         onToggle={() => togglePanelLegend(panel.panelId)}
                                         maxVisibleItems={4}
+                                        graphData={pGraphData}
                                     />
                                 )}
                                 <div className="h-[520px]">
@@ -3220,23 +3312,25 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             </CardContent>
                         </Card>
 
-                        {/* Panel Hourly Stats Card - shown for ≤7 day ranges when enabled */}
-                        {isHourly && pGraphData.length > 0 && panelConfig?.showHourlyStats !== false && (
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.3 * (panelIndex + 1) }}
-                            >
-                                <HourlyStatsCard graphData={pGraphData} isHourly={isHourly} />
-                            </motion.div>
-                        )}
-
-                        {/* Panel Pie Charts */}
-                        {panel.visualizations.pieCharts.some(p => p.enabled) && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {panel.visualizations.pieCharts.filter(p => p.enabled).map((pieConfig) => {
-                                    const pieType = pieConfig.type as 'platform' | 'pos' | 'source';
-                                    const pieData = pPieData?.[pieType];
+                        {/* Panel Pie Charts - shown ABOVE Hourly Insights */}
+                        {panel.visualizations.pieCharts.some(p => p.enabled) && (() => {
+                            // Process pie data for additional panels - combine duplicates and filter hidden
+                            const processedPieConfigs = panel.visualizations.pieCharts.filter(p => p.enabled).map((pieConfig) => {
+                                const pieType = pieConfig.type as 'platform' | 'pos' | 'source';
+                                const rawPieData = pPieData?.[pieType];
+                                const combinedPieData = combinePieChartDuplicates(rawPieData || []);
+                                const showChart = shouldShowPieChart(combinedPieData);
+                                return { pieConfig, pieType, pieData: combinedPieData, showChart };
+                            }).filter(item => item.showChart);
+                            
+                            // Dynamic grid based on visible charts
+                            const gridCols = processedPieConfigs.length === 1 ? 'md:grid-cols-1 max-w-md mx-auto' : 
+                                            processedPieConfigs.length === 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' : 
+                                            'md:grid-cols-3';
+                            
+                            return processedPieConfigs.length > 0 ? (
+                            <div className={cn("grid grid-cols-1 gap-4", gridCols)}>
+                                {processedPieConfigs.map(({ pieConfig, pieType, pieData }) => {
                                     const pieTotal = pieData?.reduce((acc: number, item: any) => acc + item.value, 0) || 0;
                                     
                                     const iconMap = {
@@ -3302,14 +3396,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         {pieData?.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <PieChart>
-                                                                    <defs>
-                                                                        {PIE_COLORS.map((color, index) => (
-                                                                            <linearGradient key={index} id={`pieGradient-${panel.panelId}-${pieType}-${index}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="0%" stopColor={color} stopOpacity={0.9} />
-                                                                                <stop offset="100%" stopColor={color} stopOpacity={0.6} />
-                                                                            </linearGradient>
-                                                                        ))}
-                                                                    </defs>
                                                                     <Pie
                                                                         data={pieData}
                                                                         cx="50%"
@@ -3324,7 +3410,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                         {pieData.map((_: any, index: number) => (
                                                                             <Cell 
                                                                                 key={`cell-${index}`} 
-                                                                                fill={`url(#pieGradient-${panel.panelId}-${pieType}-${index % PIE_COLORS.length})`}
+                                                                                fill={PIE_COLORS[index % PIE_COLORS.length]}
                                                                             />
                                                                         ))}
                                                                     </Pie>
@@ -3351,6 +3437,18 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     );
                                 })}
                             </div>
+                            ) : null;
+                        })()}
+
+                        {/* Panel Hourly Stats Card - shown BELOW Pie Charts for ≤7 day ranges when enabled */}
+                        {isHourly && pGraphData.length > 0 && panelConfig?.showHourlyStats !== false && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 * (panelIndex + 1) }}
+                            >
+                                <HourlyStatsCard graphData={pGraphData} isHourly={isHourly} eventKeys={pEventKeys} />
+                            </motion.div>
                         )}
                     </motion.div>
                 );

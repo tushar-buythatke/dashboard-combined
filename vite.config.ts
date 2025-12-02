@@ -18,6 +18,12 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '/feature-tracking/dashboard'),
         secure: false
       },
+      '/pos-api': {
+        target: 'https://search-new.bitbns.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/pos-api/, '/buyhatkeAdDashboard/ads'),
+        secure: false
+      },
     },
   },
 })

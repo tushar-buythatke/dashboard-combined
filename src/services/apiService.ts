@@ -35,11 +35,35 @@ export interface SiteDetail {
 // Cache for site details
 let cachedSiteDetails: SiteDetail[] | null = null;
 
-// Feature to API key mapping
-export const FEATURE_API_MAP: Record<string, string> = {
+// Feature to featureId mapping for new API
+export const FEATURE_ID_MAP: Record<string, number> = {
+    'price_alert': 1,
+    'auto_coupon': 2,
+    'spend_lens': 3,
+    'spidy': 4,
+    'PA': 1,
+    'AC': 2,
+    'SPEND': 3
+};
+
+// Feature names for display (featureId -> display name)
+export const FEATURE_NAMES: Record<number, string> = {
+    1: 'Price Alert',
+    2: 'Auto Coupons',
+    3: 'Spend Calculator',
+    4: 'Spidy'
+};
+
+// Feature short names for labels
+export const FEATURE_SHORT_NAMES: Record<string, string> = {
     'price_alert': 'PA',
     'auto_coupon': 'AC',
-    'spend_lens': 'SPEND'
+    'spend_lens': 'SPEND',
+    'spidy': 'SPIDY',
+    '1': 'PA',
+    '2': 'AC',
+    '3': 'SPEND',
+    '4': 'SPIDY'
 };
 
 // Reverse mappings for display
@@ -106,8 +130,28 @@ interface EventsListAPIResponse {
     status: number;
     message: string;
     data: {
-        eventMap: Record<string, string>;
+        eventMap: Record<string, {
+            id: number;
+            eventName: string;
+            feature: number;
+            org: number;
+            isErrorEvent: number;
+            isAvgEvent: number;
+        }>;
     };
+}
+
+interface FeaturesListAPIResponse {
+    status: number;
+    message: string;
+    data: {
+        featureMap: Record<string, string>;
+    };
+}
+
+export interface FeatureInfo {
+    id: number;
+    name: string;
 }
 
 // Critical Alerts API interfaces
@@ -147,35 +191,96 @@ export class APIService {
 
     /**
      * Fetch events list for a feature from API
-     * @param feature - 'PA', 'AC', or 'SPEND'
+     * @param feature - 'price_alert', 'auto_coupon', 'spend_lens', 'PA', 'AC', or 'SPEND'
+     * @param organizationId - Organization ID (default: 0)
      */
-    async getEventsList(feature: string): Promise<EventConfig[]> {
-        // Convert feature ID to API key if needed
-        const apiFeature = FEATURE_API_MAP[feature] || feature;
+    async getEventsList(feature: string, organizationId: number = 0): Promise<EventConfig[]> {
+        // Convert feature to numeric featureId
+        const featureId = FEATURE_ID_MAP[feature] || FEATURE_ID_MAP['price_alert'] || 1;
         
-        const response = await fetch(`${API_BASE_URL}/eventsList?feature=${apiFeature}`);
+        console.log(`📋 Fetching events list for feature: ${feature} -> featureId: ${featureId}, orgId: ${organizationId}`);
+        
+        try {
+            // Use /api proxy to avoid CORS issues
+            const response = await fetch(
+                `${API_BASE_URL}/eventsList?featureId=${featureId}&organizationId=${organizationId}`
+            );
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch events: ${response.statusText}`);
+            if (!response.ok) {
+                console.error(`❌ Events API HTTP error: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to fetch events: ${response.statusText}`);
+            }
+
+            const result: EventsListAPIResponse = await response.json();
+            console.log(`📋 Events API response:`, result);
+
+            if (result.status !== 1) {
+                console.error(`❌ Events API returned error:`, result);
+                throw new Error(result.message || 'Failed to fetch events');
+            }
+
+            // Transform to EventConfig format
+            const colors = [
+                '#4ECDC4', '#FF6B6B', '#FFE66D', '#1A535C', '#FF9F1C',
+                '#2EC4B6', '#E71D36', '#95E1D3', '#F38181', '#FCE38A', '#EAFFD0'
+            ];
+
+            const events = Object.entries(result.data.eventMap).map(([id, eventData]: [string, any], index) => ({
+                eventId: id, // Numeric string ID like "1", "2", etc.
+                eventName: eventData.eventName,
+                color: colors[index % colors.length],
+                feature: eventData.feature,
+                org: eventData.org,
+                isErrorEvent: eventData.isErrorEvent,
+                isAvgEvent: eventData.isAvgEvent
+            }));
+            
+            console.log(`✅ Loaded ${events.length} events`);
+            return events;
+        } catch (error) {
+            console.error(`❌ Failed to fetch events:`, error);
+            throw error;
         }
+    }
 
-        const result: EventsListAPIResponse = await response.json();
+    /**
+     * Fetch features list from API
+     * @param organizationId - Organization ID (default: 0)
+     */
+    async getFeaturesList(organizationId: number = 0): Promise<FeatureInfo[]> {
+        console.log(`📋 Fetching features list for orgId: ${organizationId}`);
+        
+        try {
+            // Use /api proxy to avoid CORS issues
+            const response = await fetch(
+                `${API_BASE_URL}/featuresList?organizationId=${organizationId}`
+            );
 
-        if (result.status !== 1) {
-            throw new Error(result.message || 'Failed to fetch events');
+            if (!response.ok) {
+                console.error(`❌ Features API HTTP error: ${response.status} ${response.statusText}`);
+                throw new Error(`Failed to fetch features: ${response.statusText}`);
+            }
+
+            const result: FeaturesListAPIResponse = await response.json();
+            console.log(`📋 Features API response:`, result);
+
+            if (result.status !== 1) {
+                console.error(`❌ Features API returned error:`, result);
+                throw new Error(result.message || 'Failed to fetch features');
+            }
+
+            // Transform to FeatureInfo format
+            const features = Object.entries(result.data.featureMap).map(([id, name]) => ({
+                id: parseInt(id),
+                name: name
+            }));
+            
+            console.log(`✅ Loaded ${features.length} features`);
+            return features;
+        } catch (error) {
+            console.error(`❌ Failed to fetch features:`, error);
+            throw error;
         }
-
-        // Transform to EventConfig format
-        const colors = [
-            '#4ECDC4', '#FF6B6B', '#FFE66D', '#1A535C', '#FF9F1C',
-            '#2EC4B6', '#E71D36', '#95E1D3', '#F38181', '#FCE38A', '#EAFFD0'
-        ];
-
-        return Object.entries(result.data.eventMap).map(([id, name], index) => ({
-            eventId: id, // Numeric string ID like "1", "2", etc.
-            eventName: name,
-            color: colors[index % colors.length]
-        }));
     }
 
     /**
@@ -187,8 +292,11 @@ export class APIService {
             return this.siteDetailsCache;
         }
 
+        console.log(`📋 Fetching site details for POS options`);
+
         try {
-            const response = await fetch('https://search-new.bitbns.com/buyhatkeAdDashboard/ads/siteDetails');
+            // Use /pos-api proxy to avoid CORS issues
+            const response = await fetch('/pos-api/siteDetails');
 
             if (!response.ok) {
                 throw new Error(`Failed to fetch site details: ${response.statusText}`);

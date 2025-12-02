@@ -38,6 +38,9 @@ export function AnalyticsLayout() {
     const [newConfigName, setNewConfigName] = useState('');
     const [newConfigFeature, setNewConfigFeature] = useState('price_alert');
     
+    // Sidebar collapse state
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    
     const isAdmin = user?.role === 0;
 
     const handleProfileSaved = () => {
@@ -95,7 +98,6 @@ export function AnalyticsLayout() {
             >
                 {/* Background effects */}
                 <DotPattern />
-                <FloatingOrbs />
                 <WaveBackground />
                 
                 <header className="border-b border-border/50 p-3 lg:p-4 flex justify-between items-center bg-card/80 backdrop-blur-sm shadow-sm relative z-10">
@@ -305,8 +307,12 @@ export function AnalyticsLayout() {
             </header>
 
             <div className="flex-1 flex overflow-hidden">
-                {/* Fixed Profile Sidebar - Always Visible */}
-                <div className="w-72 xl:w-80 border-r border-border/40 bg-background flex-shrink-0">
+                {/* Collapsible Profile Sidebar */}
+                <motion.div 
+                    className="border-r border-border/40 bg-background flex-shrink-0"
+                    animate={{ width: sidebarCollapsed ? 60 : 280 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                >
                     <ProfileSidebar
                         featureId={selectedFeatureId}
                         selectedProfileId={selectedProfileId}
@@ -319,8 +325,10 @@ export function AnalyticsLayout() {
                             setSelectedProfileId(null);
                         }}
                         refreshTrigger={sidebarRefreshTrigger}
+                        isCollapsed={sidebarCollapsed}
+                        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                     />
-                </div>
+                </motion.div>
 
                 <main className="flex-1 overflow-auto relative min-w-0">
                     {/* Subtle dot pattern background */}

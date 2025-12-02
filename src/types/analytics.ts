@@ -38,6 +38,10 @@ export interface EventConfig {
     eventId: string;
     eventName: string;
     color: string;
+    feature?: number;
+    org?: number;
+    isErrorEvent?: number;
+    isAvgEvent?: number;
 }
 
 export type AggregationMethod = 'sum' | 'average' | 'count';
