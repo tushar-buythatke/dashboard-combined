@@ -149,42 +149,162 @@ const CollapsibleLegend = ({
     );
 };
 
-// Panel Navigation/Jump Links Component
-const PanelNavigation = ({ panels, activePanelId, onJumpToPanel }: { 
-    panels: Array<{ panelId: string; panelName: string; }>; 
+// Left Sidebar Navigation Component
+const LeftSidebarNav = ({ 
+    profileName, 
+    panels, 
+    activePanelId, 
+    onJumpToPanel,
+    panelStats 
+}: { 
+    profileName: string;
+    panels: Array<{ panelId: string; panelName: string; chartType?: string; }>; 
     activePanelId: string | null;
     onJumpToPanel: (panelId: string) => void;
+    panelStats?: Record<string, { total: number; success: number; }>;
 }) => {
-    if (panels.length <= 1) return null;
+    const [collapsed, setCollapsed] = useState(false);
+    
+    const getChartIcon = (chartType?: string) => {
+        switch (chartType) {
+            case 'bar': return <BarChart3 className="w-4 h-4" />;
+            case 'line': return <TrendingUp className="w-4 h-4" />;
+            default: return <Layers className="w-4 h-4" />;
+        }
+    };
     
     return (
         <motion.div 
-            className="sticky top-4 z-40 mb-6"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
+            className={cn(
+                "fixed left-0 top-20 h-[calc(100vh-5rem)] z-50 transition-all duration-300",
+                collapsed ? "w-16" : "w-64"
+            )}
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.3 }}
         >
-            <div className="flex items-center gap-2 p-3 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md rounded-xl shadow-lg border border-purple-200 dark:border-purple-500/30">
-                <Navigation className="w-4 h-4 text-purple-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Jump to:</span>
-                <div className="flex flex-wrap gap-2">
-                    {panels.map((panel, index) => (
+            <div className="h-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-r border-gray-200 dark:border-gray-700 shadow-xl flex flex-col">
+                {/* Header with Profile Name */}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                        {!collapsed && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex-1 min-w-0"
+                            >
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+                                        <Target className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div className="truncate">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Configuration</p>
+                                        <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{profileName}</h3>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
                         <Button
-                            key={panel.panelId}
-                            variant={activePanelId === panel.panelId ? "default" : "outline"}
+                            variant="ghost"
                             size="sm"
-                            onClick={() => onJumpToPanel(panel.panelId)}
-                            className={cn(
-                                "h-8 px-3 text-xs font-medium transition-all",
-                                activePanelId === panel.panelId 
-                                    ? "bg-purple-600 text-white shadow-md"
-                                    : "hover:bg-purple-100 dark:hover:bg-purple-500/20"
-                            )}
+                            onClick={() => setCollapsed(!collapsed)}
+                            className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
-                            <Layers className="w-3 h-3 mr-1.5" />
-                            Panel {index + 1}
+                            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                         </Button>
-                    ))}
+                    </div>
                 </div>
+                
+                {/* Panel Navigation */}
+                <div className="flex-1 overflow-y-auto py-2">
+                    {!collapsed && (
+                        <div className="px-4 py-2">
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                                <Navigation className="w-3 h-3" />
+                                Panels ({panels.length})
+                            </p>
+                        </div>
+                    )}
+                    
+                    <div className="space-y-1 px-2">
+                        {panels.map((panel, index) => {
+                            const isActive = activePanelId === panel.panelId;
+                            const stats = panelStats?.[panel.panelId];
+                            
+                            return (
+                                <motion.button
+                                    key={panel.panelId}
+                                    onClick={() => onJumpToPanel(panel.panelId)}
+                                    className={cn(
+                                        "w-full text-left rounded-lg transition-all duration-200 group",
+                                        collapsed ? "p-2" : "p-3",
+                                        isActive 
+                                            ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 shadow-sm" 
+                                            : "hover:bg-gray-100 dark:hover:bg-gray-800/50 border border-transparent"
+                                    )}
+                                    whileHover={{ scale: collapsed ? 1.05 : 1.01 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className={cn(
+                                            "flex items-center justify-center rounded-lg transition-colors",
+                                            collapsed ? "w-10 h-10" : "w-8 h-8",
+                                            isActive 
+                                                ? "bg-purple-500 text-white shadow-md" 
+                                                : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 group-hover:text-purple-600"
+                                        )}>
+                                            <span className="text-sm font-bold">{index + 1}</span>
+                                        </div>
+                                        
+                                        {!collapsed && (
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    {getChartIcon(panel.chartType)}
+                                                    <span className={cn(
+                                                        "font-medium truncate text-sm",
+                                                        isActive ? "text-purple-700 dark:text-purple-300" : "text-gray-700 dark:text-gray-300"
+                                                    )}>
+                                                        {panel.panelName || `Panel ${index + 1}`}
+                                                    </span>
+                                                </div>
+                                                {stats && (
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <span className="text-xs text-gray-500">
+                                                            {stats.total.toLocaleString()} events
+                                                        </span>
+                                                        {stats.success > 0 && (
+                                                            <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-0.5">
+                                                                <CheckCircle2 className="w-3 h-3" />
+                                                                {Math.round((stats.success / stats.total) * 100)}%
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        
+                                        {!collapsed && isActive && (
+                                            <motion.div
+                                                className="w-1.5 h-8 rounded-full bg-purple-500"
+                                                layoutId="activePanelIndicator"
+                                            />
+                                        )}
+                                    </div>
+                                </motion.button>
+                            );
+                        })}
+                    </div>
+                </div>
+                
+                {/* Footer */}
+                {!collapsed && (
+                    <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <Zap className="w-3 h-3 text-amber-500" />
+                            <span>Click to jump to panel</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </motion.div>
     );
@@ -1248,13 +1368,27 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         setPanelLoading(prev => ({ ...prev, [panelId]: true }));
 
         try {
-            const panelFilters = panelFiltersState[panelId] || {
-                events: [],
-                platforms: [],
-                pos: [],
-                sources: []
+            const panelConfig = (panel as any).filterConfig;
+            const userPanelFilters = panelFiltersState[panelId];
+            
+            // Priority: User's panel-specific filters > Global filters > Panel config defaults
+            const panelFilters: FilterState = {
+                events: userPanelFilters?.events?.length > 0 
+                    ? userPanelFilters.events 
+                    : (filters.events.length > 0 ? filters.events : (panelConfig?.events || [])),
+                platforms: userPanelFilters?.platforms?.length > 0 
+                    ? userPanelFilters.platforms 
+                    : (filters.platforms.length > 0 ? filters.platforms : (panelConfig?.platforms || [])),
+                pos: userPanelFilters?.pos?.length > 0 
+                    ? userPanelFilters.pos 
+                    : (filters.pos.length > 0 ? filters.pos : (panelConfig?.pos || [])),
+                sources: userPanelFilters?.sources?.length > 0 
+                    ? userPanelFilters.sources 
+                    : (filters.sources.length > 0 ? filters.sources : (panelConfig?.sources || []))
             };
             const panelDateRange = panelDateRanges[panelId] || dateRange;
+            
+            console.log(`Refreshing panel ${panelId} with filters:`, panelFilters);
 
             const graphResponse = await apiService.getGraphData(
                 panelFilters.events,
@@ -1307,7 +1441,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         } finally {
             setPanelLoading(prev => ({ ...prev, [panelId]: false }));
         }
-    }, [profile, events, panelFiltersState, panelDateRanges, dateRange, processGraphData]);
+    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData]);
 
     // Load chart data for all panels
     const loadData = useCallback(async () => {
@@ -1323,13 +1457,27 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             for (const panel of profile.panels) {
                 const panelConfig = (panel as any).filterConfig;
                 
-                // Determine filters for this panel
-                const panelFilters: FilterState = panelConfig ? {
-                    events: panelConfig.events || [],
-                    platforms: panelConfig.platforms || [],
-                    pos: panelConfig.pos || [],
-                    sources: panelConfig.sources || []
-                } : filters; // Fall back to global filters if no panel config
+                // FIXED: User's global filters ALWAYS override panel defaults
+                // If user has selected specific values, use those
+                // If user hasn't selected anything (empty array), use panel defaults OR all
+                const panelFilters: FilterState = {
+                    events: filters.events.length > 0 
+                        ? filters.events 
+                        : (panelConfig?.events || []),
+                    platforms: filters.platforms.length > 0 
+                        ? filters.platforms 
+                        : (panelConfig?.platforms || []),
+                    pos: filters.pos.length > 0 
+                        ? filters.pos 
+                        : (panelConfig?.pos || []),
+                    sources: filters.sources.length > 0 
+                        ? filters.sources 
+                        : (panelConfig?.sources || [])
+                };
+                
+                console.log(`Panel ${panel.panelId} - Using filters:`, panelFilters);
+                console.log(`User filters:`, filters);
+                console.log(`Panel config:`, panelConfig);
                 
                 try {
                     const graphResponse = await apiService.getGraphData(
@@ -1452,14 +1600,45 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         : filters.events.map(id => 
             events.find(e => parseInt(e.eventId) === id)?.eventName || `Event ${id}`
         );
+    
+    // Calculate panel stats for sidebar
+    const panelStats = profile.panels.reduce((acc, panel) => {
+        const data = panelsDataMap.get(panel.panelId);
+        if (data?.graphData) {
+            acc[panel.panelId] = {
+                total: data.graphData.reduce((sum, d) => sum + (d.count || 0), 0),
+                success: data.graphData.reduce((sum, d) => sum + (d.successCount || 0), 0)
+            };
+        }
+        return acc;
+    }, {} as Record<string, { total: number; success: number; }>);
+    
+    // Show sidebar if multiple panels
+    const showSidebar = profile.panels.length > 1;
 
     return (
-        <motion.div 
-            className="space-y-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-        >
+        <>
+            {/* Left Sidebar Navigation */}
+            {showSidebar && (
+                <LeftSidebarNav
+                    profileName={profile.profileName}
+                    panels={profile.panels.map(p => ({ 
+                        panelId: p.panelId, 
+                        panelName: p.panelName,
+                        chartType: (p as any).filterConfig?.graphType 
+                    }))}
+                    activePanelId={activePanelId}
+                    onJumpToPanel={handleJumpToPanel}
+                    panelStats={panelStats}
+                />
+            )}
+            
+            <motion.div 
+                className={cn("space-y-6", showSidebar && "ml-16 lg:ml-64")}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
             {/* Header */}
             <motion.div 
                 className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
@@ -1639,6 +1818,78 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     placeholder="Select events"
                                 />
                             </motion.div>
+                        </div>
+                        
+                        {/* Apply Filters Button and Auto-refresh Config */}
+                        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border/50">
+                            <div className="flex items-center gap-4">
+                                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                                    <Button 
+                                        onClick={handleApplyFilters} 
+                                        disabled={dataLoading}
+                                        className={`relative ${pendingRefresh ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+                                    >
+                                        {dataLoading ? (
+                                            <motion.div
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                            >
+                                                <RefreshCw className="mr-2 h-4 w-4" />
+                                            </motion.div>
+                                        ) : (
+                                            <RefreshCw className="mr-2 h-4 w-4" />
+                                        )}
+                                        {pendingRefresh ? 'Apply Changes' : 'Refresh Data'}
+                                        {pendingRefresh && (
+                                            <motion.span 
+                                                className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full"
+                                                animate={{ scale: [1, 1.2, 1] }}
+                                                transition={{ duration: 1, repeat: Infinity }}
+                                            />
+                                        )}
+                                    </Button>
+                                </motion.div>
+                                {pendingRefresh && (
+                                    <motion.span 
+                                        className="text-xs text-amber-600 dark:text-amber-400"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                    >
+                                        Filters changed - click to apply
+                                    </motion.span>
+                                )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                                <Label className="text-xs text-muted-foreground whitespace-nowrap">Auto-refresh:</Label>
+                                <select
+                                    value={autoRefreshMinutes}
+                                    onChange={(e) => setAutoRefreshMinutes(Number(e.target.value))}
+                                    className="h-8 px-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <option value={0}>Disabled</option>
+                                    <option value={1}>1 min</option>
+                                    <option value={2}>2 min</option>
+                                    <option value={5}>5 min</option>
+                                    <option value={10}>10 min</option>
+                                    <option value={15}>15 min</option>
+                                    <option value={30}>30 min</option>
+                                </select>
+                                {autoRefreshMinutes > 0 && (
+                                    <motion.span 
+                                        className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                    >
+                                        <motion.div
+                                            className="w-2 h-2 rounded-full bg-green-500"
+                                            animate={{ opacity: [1, 0.5, 1] }}
+                                            transition={{ duration: 1, repeat: Infinity }}
+                                        />
+                                        Active
+                                    </motion.span>
+                                )}
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -2432,15 +2683,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 </motion.div>
             </motion.div>
 
-            {/* Panel Navigation - Jump Links */}
-            {profile.panels.length > 1 && (
-                <PanelNavigation 
-                    panels={profile.panels.map(p => ({ panelId: p.panelId, panelName: p.panelName }))}
-                    activePanelId={activePanelId}
-                    onJumpToPanel={handleJumpToPanel}
-                />
-            )}
-
             {/* Additional Panels (if profile has more than one panel) */}
             {profile.panels.length > 1 && profile.panels.slice(1).map((panel, panelIndex) => {
                 const panelData = panelsDataMap.get(panel.panelId);
@@ -3020,5 +3262,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 pieData={expandedPie}
             />
         </motion.div>
+        </>
     );
 }
