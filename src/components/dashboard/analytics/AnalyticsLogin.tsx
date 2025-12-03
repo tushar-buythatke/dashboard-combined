@@ -57,7 +57,7 @@ const WaveBackground = () => (
 
 // Floating particles
 const FloatingParticles = () => (
-    <>
+    <div className="absolute inset-0 pointer-events-none">
         {[...Array(12)].map((_, i) => (
             <motion.div
                 key={i}
@@ -80,7 +80,7 @@ const FloatingParticles = () => (
                 }}
             />
         ))}
-    </>
+    </div>
 );
 
 export function AnalyticsLogin() {
@@ -222,16 +222,6 @@ export function AnalyticsLogin() {
                                         required
                                         className="h-12 bg-white dark:bg-slate-800/50 border-purple-200/60 dark:border-purple-500/20 text-foreground placeholder:text-muted-foreground/60 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
                                     />
-                                    <AnimatePresence>
-                                        {focusedField === 'username' && (
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: '100%' }}
-                                                exit={{ width: 0 }}
-                                                className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-purple-500 to-violet-500 rounded-full"
-                                            />
-                                        )}
-                                    </AnimatePresence>
                                 </div>
                             </motion.div>
                             
@@ -266,16 +256,6 @@ export function AnalyticsLogin() {
                                         required
                                         className="h-12 bg-white dark:bg-slate-800/50 border-purple-200/60 dark:border-purple-500/20 text-foreground placeholder:text-muted-foreground/60 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
                                     />
-                                    <AnimatePresence>
-                                        {focusedField === 'password' && (
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: '100%' }}
-                                                exit={{ width: 0 }}
-                                                className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-purple-500 to-violet-500 rounded-full"
-                                            />
-                                        )}
-                                    </AnimatePresence>
                                 </div>
                             </motion.div>
                             
