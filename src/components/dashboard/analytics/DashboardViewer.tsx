@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, Fragment } from 'react';
 import { motion, AnimatePresence, useSpring, useMotionValue, useInView } from 'framer-motion';
 import type { DashboardProfile, EventConfig } from '@/types/analytics';
 import { apiService, PLATFORMS, SOURCES } from '@/services/apiService';
@@ -7,7 +7,7 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X } from 'lucide-react';
+import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Animated Number Counter Component
@@ -154,16 +154,19 @@ const CollapsibleLegend = ({
         return acc;
     }, {} as Record<string, { total: number; successCount: number; errorCount: number; successRate: number; errorRate: number; isErrorEvent: boolean; isAvgEvent: boolean; avgDelay: number }>);
     
-    // Format delay time based on feature (Price Alert = minutes, others = seconds)
-    const formatDelay = (delayMs: number, featureId?: number) => {
+    // Format delay time based on feature
+    // Price Alert (feature 1) = value is already in MINUTES
+    // Auto-Coupon, Spend (others) = value is already in SECONDS
+    const formatDelay = (delayValue: number, featureId?: number) => {
+        if (!delayValue || delayValue <= 0) return '0';
         if (featureId === 1) {
-            // Price Alert - show in minutes
-            const minutes = delayMs / 60000;
-            return `${minutes.toFixed(1)}m`;
+            // Price Alert - value is in minutes
+            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}h`;
+            return `${delayValue.toFixed(1)}m`;
         } else {
-            // Auto-Coupon, Spend - show in seconds
-            const seconds = delayMs / 1000;
-            return `${seconds.toFixed(1)}s`;
+            // Auto-Coupon, Spend - value is in seconds
+            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}m`;
+            return `${delayValue.toFixed(1)}s`;
         }
     };
     
@@ -563,16 +566,18 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
     const overallAvgDelay = delayCount > 0 ? overallDelay / delayCount : 0;
     
     // Format delay based on event type
-    const formatDelay = (delayMs: number) => {
-        if (!delayMs || delayMs <= 0) return '0';
+    // Price alerts (feature 1) = value is already in MINUTES
+    // Others (Spend, Auto-coupon) = value is already in SECONDS
+    const formatDelay = (delayValue: number) => {
+        if (!delayValue || delayValue <= 0) return '0';
         if (isPriceAlert) {
-            const minutes = delayMs / 60000;
-            if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
-            return `${minutes.toFixed(1)}m`;
+            // Value is in minutes
+            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}h`;
+            return `${delayValue.toFixed(1)}m`;
         } else {
-            const seconds = delayMs / 1000;
-            if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
-            return `${seconds.toFixed(1)}s`;
+            // Value is in seconds
+            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}m`;
+            return `${delayValue.toFixed(1)}s`;
         }
     };
     
@@ -799,13 +804,13 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                     axisLine={false}
                                     tickFormatter={(v) => {
                                         if (isAvgEvent) {
-                                            // Format as time delay
+                                            // Format as time delay - values are already in minutes (Price Alert) or seconds (others)
                                             if (isPriceAlert) {
-                                                const minutes = v / 60000;
-                                                return minutes >= 60 ? `${(minutes / 60).toFixed(0)}h` : `${minutes.toFixed(0)}m`;
+                                                // Value is already in minutes
+                                                return v >= 60 ? `${(v / 60).toFixed(0)}h` : `${v.toFixed(0)}m`;
                                             } else {
-                                                const seconds = v / 1000;
-                                                return seconds >= 60 ? `${(seconds / 60).toFixed(0)}m` : `${seconds.toFixed(0)}s`;
+                                                // Value is already in seconds
+                                                return v >= 60 ? `${(v / 60).toFixed(0)}m` : `${v.toFixed(0)}s`;
                                             }
                                         }
                                         return v >= 1000 ? `${(v/1000).toFixed(0)}k` : v;
@@ -1074,15 +1079,16 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
         }
     });
 
-    const formatDelay = (delayMs: number, featureId?: number) => {
-        if (!delayMs || delayMs <= 0) return null;
-        // Feature 1 = Price Alert (minutes), others (e.g. Spend/Auto-coupon) in seconds
+    const formatDelay = (delayValue: number, featureId?: number) => {
+        if (!delayValue || delayValue <= 0) return null;
+        // Feature 1 = Price Alert (value is already in MINUTES)
+        // Others (Spend/Auto-coupon) = value is already in SECONDS
         if (featureId === 1) {
-            const minutes = delayMs / 60000;
-            return `${minutes.toFixed(1)}m`;
+            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}h`;
+            return `${delayValue.toFixed(1)}m`;
         }
-        const seconds = delayMs / 1000;
-        return `${seconds.toFixed(1)}s`;
+        if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}m`;
+        return `${delayValue.toFixed(1)}s`;
     };
     
     // Get per-event data from payload with success/fail/delay info
@@ -1118,6 +1124,7 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
             isAvgEvent,
             featureId: cfg?.feature,
             delayLabel: isAvgEvent ? formatDelay(avgDelayMs, cfg?.feature) : null,
+            avgDelayRaw: avgDelayMs,
         };
     }).filter((item: any) => item.count !== undefined && item.count > 0);
     
@@ -1126,6 +1133,15 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
     const totalSuccess = eventDataItems.reduce((sum: number, item: any) => sum + (item.successCount || 0), 0);
     const totalErrors = eventDataItems.reduce((sum: number, item: any) => sum + (item.errorCount || 0), 0);
     const overallSuccessRate = totalCount > 0 ? ((totalSuccess / totalCount) * 100) : 0;
+    
+    // Check if all events are isAvg (for time delay display)
+    const allAvgEvents = eventDataItems.length > 0 && eventDataItems.every((item: any) => item.isAvgEvent);
+    const avgDelayTotal = allAvgEvents 
+        ? eventDataItems.reduce((sum: number, item: any) => sum + (item.avgDelayRaw || 0), 0) / eventDataItems.length
+        : 0;
+    // Get feature from first avg event for formatting
+    const avgFeatureId = allAvgEvents ? eventDataItems[0]?.featureId : null;
+    const formattedAvgDelay = allAvgEvents ? formatDelay(avgDelayTotal, avgFeatureId) : null;
     
     // Show only first 3 events in collapsed view, or all when expanded/pinned
     const visibleItems = isExpanded ? eventDataItems : eventDataItems.slice(0, 3);
@@ -1165,26 +1181,40 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
             <div className="flex items-center justify-between gap-2 md:gap-3 mb-3 md:mb-4 pb-3 md:pb-4 border-b-2 border-gray-100/80 dark:border-gray-800/80">
                 <div className="flex items-center gap-2 md:gap-3">
                     <motion.div 
-                        className="h-9 w-9 md:h-11 md:w-11 rounded-lg md:rounded-xl bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30"
+                        className={cn(
+                            "h-9 w-9 md:h-11 md:w-11 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg",
+                            allAvgEvents 
+                                ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-amber-500/30"
+                                : "bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600 shadow-purple-500/30"
+                        )}
                         whileHover={{ rotate: 5, scale: 1.05 }}
                         transition={{ type: "spring", stiffness: 400 }}
                     >
-                        <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                        {allAvgEvents ? (
+                            <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                        ) : (
+                            <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                        )}
                     </motion.div>
                     <div className="min-w-0 flex-1">
                         <div className="font-bold text-sm md:text-base text-foreground leading-tight truncate">{label}</div>
                         <div className="text-[10px] md:text-[11px] text-muted-foreground font-medium mt-0.5">{eventDataItems.length} event{eventDataItems.length !== 1 ? 's' : ''}</div>
                     </div>
                 </div>
-                {/* Overall stats */}
+                {/* Overall stats - show formatted delay for isAvg events */}
                 <div className="text-right flex-shrink-0">
                     <motion.div 
-                        className="text-xl md:text-2xl font-extrabold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent"
+                        className={cn(
+                            "text-xl md:text-2xl font-extrabold bg-clip-text text-transparent",
+                            allAvgEvents 
+                                ? "bg-gradient-to-r from-amber-600 to-orange-600"
+                                : "bg-gradient-to-r from-purple-600 to-violet-600"
+                        )}
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: 0.1 }}
                     >
-                        {totalCount.toLocaleString()}
+                        {allAvgEvents && formattedAvgDelay ? formattedAvgDelay : totalCount.toLocaleString()}
                     </motion.div>
                     <div className={cn(
                         "text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-sm mt-1",
@@ -1226,13 +1256,20 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
                                 />
                                 <span className="text-xs md:text-sm font-bold text-foreground truncate">{item.name}</span>
                             </div>
-                            <span className="text-sm md:text-base font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent flex-shrink-0">{item.count?.toLocaleString()}</span>
+                            {/* For isAvg events, show formatted delay instead of raw count */}
+                            {item.isAvgEvent && item.delayLabel ? (
+                                <span className="text-sm md:text-base font-extrabold text-amber-600 dark:text-amber-400 flex-shrink-0 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {item.delayLabel}
+                                </span>
+                            ) : (
+                                <span className="text-sm md:text-base font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent flex-shrink-0">{item.count?.toLocaleString()}</span>
+                            )}
                         </div>
                         <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-[11px] flex-wrap">
                             {item.isAvgEvent && item.delayLabel ? (
-                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold">
-                                    <Clock className="w-3 h-3" />
-                                    {item.delayLabel}
+                                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold">
+                                    Avg Delay: {item.delayLabel}
                                 </span>
                             ) : (
                                 <>
@@ -1293,7 +1330,14 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
             {/* Footer with totals */}
             <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t-2 border-gray-100/80 dark:border-gray-800/80">
                 <div className="flex items-center justify-between text-xs md:text-sm">
-                    <span className="text-muted-foreground font-medium">Total: <span className="font-extrabold text-foreground">{totalCount.toLocaleString()}</span></span>
+                    {allAvgEvents && formattedAvgDelay ? (
+                        <span className="text-muted-foreground font-medium flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Avg Delay: <span className="font-extrabold text-amber-600 dark:text-amber-400">{formattedAvgDelay}</span>
+                        </span>
+                    ) : (
+                        <span className="text-muted-foreground font-medium">Total: <span className="font-extrabold text-foreground">{totalCount.toLocaleString()}</span></span>
+                    )}
                     <div className="flex items-center gap-3">
                         <motion.span 
                             className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md md:rounded-lg bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-semibold"
@@ -1519,6 +1563,30 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const [eventKeys, setEventKeys] = useState<EventKeyInfo[]>([]);
     const [pieChartData, setPieChartData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+    
+    // Critical Alerts state - Fully independent panel
+    const [criticalAlerts, setCriticalAlerts] = useState<any[]>([]);
+    const [alertsLoading, setAlertsLoading] = useState(false);
+    const [alertsExpanded, setAlertsExpanded] = useState(false);
+    const [alertsPage, setAlertsPage] = useState(0);
+    const [alertsPanelCollapsed, setAlertsPanelCollapsed] = useState(false);
+    
+    // Alert-specific filters (independent from main dashboard)
+    const [alertFilters, setAlertFilters] = useState<{
+        events: number[];
+        platforms: string[];
+        pos: number[];
+        sources: string[];
+    }>({
+        events: [],
+        platforms: [],
+        pos: [],
+        sources: []
+    });
+    const [alertDateRange, setAlertDateRange] = useState<{ from: Date; to: Date }>({
+        from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        to: new Date()
+    });
     
     // Multiple panels data storage
     const [panelsDataMap, setPanelsDataMap] = useState<Map<string, PanelData>>(new Map());
@@ -2079,6 +2147,37 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         }
     }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr]);
 
+    // Load critical alerts - uses alert-specific filters (independent)
+    const loadAlerts = useCallback(async (expanded: boolean = false) => {
+        if (!profile || events.length === 0) return;
+        
+        setAlertsLoading(true);
+        try {
+            // Use alert-specific filters, fall back to all events if empty
+            const eventIds = alertFilters.events.length > 0 
+                ? alertFilters.events 
+                : events.map(e => parseInt(e.eventId));
+            
+            const limit = expanded ? 20 : 10;
+            const alerts = await apiService.getCriticalAlerts(
+                eventIds,
+                alertFilters.platforms.length > 0 ? alertFilters.platforms : [],
+                alertFilters.pos.length > 0 ? alertFilters.pos : [],
+                alertFilters.sources.length > 0 ? alertFilters.sources : [],
+                alertDateRange.from,
+                alertDateRange.to,
+                limit,
+                alertsPage
+            );
+            setCriticalAlerts(alerts);
+        } catch (err) {
+            console.error('Failed to load critical alerts:', err);
+            setCriticalAlerts([]);
+        } finally {
+            setAlertsLoading(false);
+        }
+    }, [profile, events, alertFilters, alertDateRange, alertsPage]);
+
     // Load chart data for all panels
     const loadData = useCallback(async () => {
         if (!profile || events.length === 0) return;
@@ -2212,6 +2311,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         // After that, user must click "Apply Filters" button
         if (!loading && profile && events.length > 0 && graphData.length === 0) {
             loadData();
+            loadAlerts(); // Load critical alerts too
             // Clear pending refresh after initial load
             setPendingRefresh(false);
             // Clear all panel filter changes after initial load
@@ -2221,7 +2321,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 initialLoadComplete.current = true;
             }, 500);
         }
-    }, [loading, profile, events, loadData]);
+    }, [loading, profile, events, loadData, loadAlerts]);
 
     // Set pending refresh when filters or date range change (only after initial load)
     useEffect(() => {
@@ -2350,28 +2450,32 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
     // Detect event types for dual Y-axis rendering
     const hasAvgEvents = eventKeys.some(ek => ek.isAvgEvent === 1);
-    const hasNormalEvents = eventKeys.some(ek => ek.isAvgEvent !== 1);
+    const hasErrorEvents = eventKeys.some(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
+    const hasNormalEvents = eventKeys.some(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
     const hasMixedEventTypes = hasAvgEvents && hasNormalEvents;
     
-    // Separate event keys by type for dual Y-axis
+    // Separate event keys by type
+    // Events with BOTH isAvg and isError go to isAvg (time delay charts)
     const avgEventKeys = eventKeys.filter(ek => ek.isAvgEvent === 1);
-    const normalEventKeys = eventKeys.filter(ek => ek.isAvgEvent !== 1);
+    const errorEventKeys = eventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
+    const normalEventKeys = eventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
 
-    // Format delay value based on event feature (price alerts = minutes, others = seconds)
+    // Format delay value based on event feature
+    // Price Alert (feature 1) = value is already in MINUTES
+    // Spend/Auto-coupon (others) = value is already in SECONDS
     const formatDelayValue = (value: number, eventKey?: EventKeyInfo) => {
         if (!value || value <= 0) return '0';
         // Find the event config to get feature
         const eventConfig = events.find(e => String(e.eventId) === eventKey?.eventId);
         const featureId = eventConfig?.feature;
-        // Feature 1 = Price Alert (minutes), others (Spend/Auto-coupon) in seconds
         if (featureId === 1) {
-            const minutes = value / 60000;
-            if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
-            return `${minutes.toFixed(1)}m`;
+            // Value is already in minutes
+            if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+            return `${value.toFixed(1)}m`;
         }
-        const seconds = value / 1000;
-        if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
-        return `${seconds.toFixed(1)}s`;
+        // Value is already in seconds
+        if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+        return `${value.toFixed(1)}s`;
     };
     
     return (
@@ -2518,7 +2622,398 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 )}
             </AnimatePresence>
 
-            {/* Filters with Multi-Select */}
+            {/* ==================== CRITICAL ALERTS PANEL (Panel 0) ==================== */}
+            {/* Fully independent, collapsible panel with its own filters */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="relative"
+            >
+                <Card className={cn(
+                    "border-2 overflow-hidden transition-all duration-300",
+                    alertsPanelCollapsed 
+                        ? "border-red-200/50 dark:border-red-500/20" 
+                        : "border-red-300 dark:border-red-500/40 shadow-lg shadow-red-500/10"
+                )}>
+                    {/* Collapsed Header Bar */}
+                    <div 
+                        className={cn(
+                            "flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-300",
+                            alertsPanelCollapsed 
+                                ? "bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/10" 
+                                : "bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/30 dark:to-orange-900/20"
+                        )}
+                        onClick={() => setAlertsPanelCollapsed(!alertsPanelCollapsed)}
+                    >
+                        <div className="flex items-center gap-3">
+                            <motion.div 
+                                className={cn(
+                                    "h-10 w-10 rounded-xl flex items-center justify-center shadow-lg",
+                                    criticalAlerts.length > 0 
+                                        ? "bg-gradient-to-br from-red-500 to-orange-600" 
+                                        : "bg-gradient-to-br from-green-500 to-emerald-600"
+                                )}
+                                animate={criticalAlerts.length > 0 ? { scale: [1, 1.1, 1] } : {}}
+                                transition={{ duration: 2, repeat: Infinity }}
+                            >
+                                {criticalAlerts.length > 0 ? (
+                                    <Bell className="h-5 w-5 text-white" />
+                                ) : (
+                                    <CheckCircle2 className="h-5 w-5 text-white" />
+                                )}
+                            </motion.div>
+                            <div>
+                                <h2 className="text-lg font-bold flex items-center gap-2">
+                                    <span className="bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                                        Critical Alerts Monitor
+                                    </span>
+                                    <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                        Panel 0
+                                    </span>
+                                </h2>
+                                <p className="text-xs text-muted-foreground">
+                                    {criticalAlerts.length > 0 ? (
+                                        <span className="flex items-center gap-1">
+                                            <motion.span 
+                                                className="inline-block w-2 h-2 rounded-full bg-red-500"
+                                                animate={{ opacity: [1, 0.3, 1] }}
+                                                transition={{ duration: 1, repeat: Infinity }}
+                                            />
+                                            {criticalAlerts.length} active alert{criticalAlerts.length !== 1 ? 's' : ''} require attention
+                                        </span>
+                                    ) : (
+                                        <span className="text-green-600 dark:text-green-400">✓ All systems operating normally</span>
+                                    )}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {criticalAlerts.length > 0 && (
+                                <motion.div 
+                                    className="px-3 py-1.5 rounded-full bg-red-500 text-white text-sm font-bold shadow-lg"
+                                    animate={{ scale: [1, 1.05, 1] }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                >
+                                    {criticalAlerts.length}
+                                </motion.div>
+                            )}
+                            <motion.div
+                                animate={{ rotate: alertsPanelCollapsed ? 0 : 180 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                            </motion.div>
+                        </div>
+                    </div>
+
+                    {/* Expandable Content */}
+                    <AnimatePresence>
+                        {!alertsPanelCollapsed && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="overflow-hidden"
+                            >
+                                {/* Alert Filters Section */}
+                                <div className="px-4 py-3 bg-white/50 dark:bg-gray-800/30 border-b border-red-100 dark:border-red-500/20">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Filter className="h-4 w-4 text-muted-foreground" />
+                                        <span className="text-sm font-medium">Alert Filters</span>
+                                        <span className="text-xs text-muted-foreground">(Independent from dashboard)</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                                        {/* Date Range */}
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">Date Range</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" size="sm" className="w-full justify-start text-xs h-9">
+                                                        <CalendarIcon className="mr-2 h-3 w-3" />
+                                                        {alertDateRange.from.toLocaleDateString()} - {alertDateRange.to.toLocaleDateString()}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar
+                                                        mode="range"
+                                                        selected={{ from: alertDateRange.from, to: alertDateRange.to }}
+                                                        onSelect={(range) => {
+                                                            if (range?.from && range?.to) {
+                                                                setAlertDateRange({ from: range.from, to: range.to });
+                                                            }
+                                                        }}
+                                                        numberOfMonths={2}
+                                                        initialFocus
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+
+                                        {/* Platform Filter */}
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">Platform</Label>
+                                            <select
+                                                value={alertFilters.platforms.length === 1 ? alertFilters.platforms[0] : ''}
+                                                onChange={(e) => setAlertFilters(prev => ({
+                                                    ...prev,
+                                                    platforms: e.target.value ? [e.target.value] : []
+                                                }))}
+                                                className="w-full h-9 px-2 text-xs rounded-md border border-input bg-background"
+                                            >
+                                                <option value="">All Platforms</option>
+                                                {PLATFORMS.map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* POS Filter */}
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">POS</Label>
+                                            <select
+                                                value={alertFilters.pos.length === 1 ? alertFilters.pos[0] : ''}
+                                                onChange={(e) => setAlertFilters(prev => ({
+                                                    ...prev,
+                                                    pos: e.target.value ? [parseInt(e.target.value)] : []
+                                                }))}
+                                                className="w-full h-9 px-2 text-xs rounded-md border border-input bg-background"
+                                            >
+                                                <option value="">All POS</option>
+                                                {siteDetails.map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Event Filter */}
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">Event</Label>
+                                            <select
+                                                value={alertFilters.events.length === 1 ? alertFilters.events[0] : ''}
+                                                onChange={(e) => setAlertFilters(prev => ({
+                                                    ...prev,
+                                                    events: e.target.value ? [parseInt(e.target.value)] : []
+                                                }))}
+                                                className="w-full h-9 px-2 text-xs rounded-md border border-input bg-background"
+                                            >
+                                                <option value="">All Events</option>
+                                                {events.map(e => (
+                                                    <option key={e.eventId} value={e.eventId}>{e.eventName}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Refresh Button */}
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-muted-foreground">&nbsp;</Label>
+                                            <Button 
+                                                onClick={() => loadAlerts(alertsExpanded)}
+                                                disabled={alertsLoading}
+                                                size="sm"
+                                                className="w-full h-9 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600"
+                                            >
+                                                {alertsLoading ? (
+                                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <RefreshCw className="h-4 w-4 mr-1" />
+                                                        Refresh Alerts
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Alerts Content */}
+                                <CardContent className="pt-4">
+                                    {alertsLoading ? (
+                                        <div className="flex flex-col items-center justify-center py-8">
+                                            <RefreshCw className="h-8 w-8 animate-spin text-red-500 mb-2" />
+                                            <p className="text-sm text-muted-foreground">Loading alerts...</p>
+                                        </div>
+                                    ) : criticalAlerts.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-8">
+                                            <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
+                                                <CheckCircle2 className="h-8 w-8 text-green-500" />
+                                            </div>
+                                            <p className="text-lg font-semibold text-green-600 dark:text-green-400">No Critical Alerts</p>
+                                            <p className="text-sm text-muted-foreground">All monitored metrics are within expected thresholds</p>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Alert Stats Summary */}
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                                <div className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-500/30">
+                                                    <div className="text-2xl font-bold text-red-600">{criticalAlerts.length}</div>
+                                                    <div className="text-xs text-muted-foreground">Total Alerts</div>
+                                                </div>
+                                                <div className="px-3 py-2 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-500/30">
+                                                    <div className="text-2xl font-bold text-orange-600">
+                                                        {new Set(criticalAlerts.map(a => a.pos)).size}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">Affected POS</div>
+                                                </div>
+                                                <div className="px-3 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-500/30">
+                                                    <div className="text-2xl font-bold text-purple-600">
+                                                        {new Set(criticalAlerts.map(a => a.eventId)).size}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">Event Types</div>
+                                                </div>
+                                                <div className="px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-500/30">
+                                                    <div className="text-2xl font-bold text-blue-600">
+                                                        {new Set(criticalAlerts.map(a => a.details?.metric)).size}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground">Metrics</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Alerts List */}
+                                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                                                {criticalAlerts.slice(0, alertsExpanded ? 20 : 5).map((alert, idx) => {
+                                                    const eventName = alert.details?.eventName || `Event ${alert.eventId}`;
+                                                    const posName = siteDetails.find(s => s.id === alert.pos)?.name || `POS ${alert.pos}`;
+                                                    const timestamp = new Date(alert.details?.timestamp || alert.create_time);
+                                                    const currentValue = alert.details?.currentValue;
+                                                    const expectedValue = alert.details?.expectedValue;
+                                                    const threshold = alert.details?.threshold;
+                                                    const metric = alert.details?.metric || 'unknown';
+                                                    const deviation = expectedValue ? Math.abs(((currentValue - expectedValue) / expectedValue) * 100).toFixed(1) : null;
+                                                    
+                                                    return (
+                                                        <motion.div
+                                                            key={alert.id}
+                                                            initial={{ opacity: 0, x: -20 }}
+                                                            animate={{ opacity: 1, x: 0 }}
+                                                            transition={{ delay: idx * 0.05 }}
+                                                            className="group relative p-3 rounded-xl bg-white dark:bg-gray-800/80 border border-red-200 dark:border-red-500/30 hover:shadow-lg hover:border-red-300 dark:hover:border-red-500/50 transition-all duration-200"
+                                                        >
+                                                            {/* Priority indicator */}
+                                                            <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-gradient-to-b from-red-500 to-orange-500" />
+                                                            
+                                                            <div className="flex items-start justify-between gap-4 pl-2">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                        <motion.div 
+                                                                            className="h-2.5 w-2.5 rounded-full bg-red-500"
+                                                                            animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+                                                                            transition={{ duration: 1.5, repeat: Infinity }}
+                                                                        />
+                                                                        <span className="font-semibold text-sm">{eventName}</span>
+                                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
+                                                                            {posName}
+                                                                        </span>
+                                                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 font-medium">
+                                                                            {metric}
+                                                                        </span>
+                                                                        {deviation && (
+                                                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300 font-medium">
+                                                                                ↑ {deviation}% deviation
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    
+                                                                    <div className="grid grid-cols-3 gap-4 mt-2 text-xs">
+                                                                        <div>
+                                                                            <span className="text-muted-foreground">Current: </span>
+                                                                            <span className="font-bold text-red-600">{currentValue?.toLocaleString()}</span>
+                                                                        </div>
+                                                                        {expectedValue && (
+                                                                            <div>
+                                                                                <span className="text-muted-foreground">Expected: </span>
+                                                                                <span className="font-medium text-green-600">{Math.round(expectedValue).toLocaleString()}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {threshold && (
+                                                                            <div>
+                                                                                <span className="text-muted-foreground">Threshold: </span>
+                                                                                <span className="font-medium text-orange-600">{Math.round(threshold).toLocaleString()}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                
+                                                                <div className="text-right shrink-0">
+                                                                    <div className="text-xs font-medium text-muted-foreground">
+                                                                        {timestamp.toLocaleDateString()}
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">
+                                                                        {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </motion.div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Pagination & View Controls */}
+                                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-red-100 dark:border-red-500/20">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setAlertsExpanded(!alertsExpanded);
+                                                        if (!alertsExpanded) {
+                                                            loadAlerts(true);
+                                                        }
+                                                    }}
+                                                >
+                                                    {alertsExpanded ? (
+                                                        <>
+                                                            <ChevronUp className="h-4 w-4 mr-1" />
+                                                            Show Less
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ChevronDown className="h-4 w-4 mr-1" />
+                                                            Show More ({criticalAlerts.length - 5} more)
+                                                        </>
+                                                    )}
+                                                </Button>
+                                                
+                                                {alertsExpanded && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={alertsPage === 0}
+                                                            onClick={() => {
+                                                                setAlertsPage(Math.max(0, alertsPage - 1));
+                                                                loadAlerts(true);
+                                                            }}
+                                                        >
+                                                            <ChevronLeft className="h-4 w-4" />
+                                                        </Button>
+                                                        <span className="text-sm text-muted-foreground px-2">
+                                                            Page {alertsPage + 1}
+                                                        </span>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            disabled={criticalAlerts.length < 20}
+                                                            onClick={() => {
+                                                                setAlertsPage(alertsPage + 1);
+                                                                loadAlerts(true);
+                                                            }}
+                                                        >
+                                                            <ChevronRight className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+                                </CardContent>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </Card>
+            </motion.div>
+
+            {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -3419,15 +3914,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 });
                                                 if (!value || value <= 0) return '0';
                                                 if (hasPriceAlert) {
-                                                    // Price alerts - value is in ms, show as minutes
-                                                    const minutes = value / 60000;
-                                                    if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
-                                                    return `${minutes.toFixed(1)}m`;
+                                                    // Price alerts - value is already in MINUTES
+                                                    if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                    return `${value.toFixed(1)}m`;
                                                 } else {
-                                                    // Others - value is in ms, show as seconds
-                                                    const seconds = value / 1000;
-                                                    if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
-                                                    return `${seconds.toFixed(1)}s`;
+                                                    // Others - value is already in SECONDS
+                                                    if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                    return `${value.toFixed(1)}s`;
                                                 }
                                             }}
                                             dx={-10}
@@ -3470,6 +3963,133 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     <Clock className="h-12 w-12 mb-3 opacity-30" />
                                     <p className="text-sm">
                                         {dataLoading ? 'Loading delay data...' : 'No delay data available'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </motion.div>
+            )}
+
+            {/* Error Events Chart - For isError Events Only (not isAvg) */}
+            {errorEventKeys.length > 0 && (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+            >
+                <Card className="border-2 border-red-100 dark:border-red-500/20 overflow-hidden shadow-lg">
+                    <CardHeader className="pb-2 px-3 md:px-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                            <div className="flex items-center gap-3">
+                                <motion.div 
+                                    className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/20"
+                                    whileHover={{ scale: 1.05, rotate: 5 }}
+                                >
+                                    <AlertTriangle className="h-5 w-5 text-white" />
+                                </motion.div>
+                                <div className="flex-1 min-w-0">
+                                    <CardTitle className="text-base md:text-lg">Error Event Tracking</CardTitle>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        <span className="hidden md:inline">Error vs Non-Error counts • Red = Errors, Green = OK</span>
+                                        <span className="md:hidden">Error tracking for isError events</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
+                        {/* Collapsible Legend - Only error events */}
+                        {errorEventKeys.length > 0 && (
+                            <CollapsibleLegend 
+                                eventKeys={errorEventKeys}
+                                events={events}
+                                isExpanded={mainLegendExpanded}
+                                onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
+                                maxVisibleItems={5}
+                                graphData={graphData}
+                                selectedEventKey={selectedEventKey}
+                                onEventClick={handleEventClick}
+                            />
+                        )}
+
+                        <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
+                            {graphData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart
+                                        data={graphData}
+                                        margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
+                                    >
+                                        <defs>
+                                            {/* Error gradient (red) */}
+                                            <linearGradient id="errorGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
+                                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05}/>
+                                            </linearGradient>
+                                            {/* Success gradient (green) */}
+                                            <linearGradient id="okGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                        <XAxis 
+                                            dataKey="date" 
+                                            tick={<CustomXAxisTick isHourly={isHourly} />}
+                                            axisLine={{ stroke: '#e5e7eb' }}
+                                            tickLine={false}
+                                            height={50}
+                                            interval={Math.floor(graphData.length / 8)}
+                                        />
+                                        <YAxis 
+                                            tick={{ fill: '#ef4444', fontSize: 10 }} 
+                                            axisLine={false} 
+                                            tickLine={false}
+                                            tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                        />
+                                        <Tooltip 
+                                            content={<CustomTooltip events={events} eventKeys={errorEventKeys} />}
+                                            cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                        />
+                                        {/* For error events: success = error count, fail = non-error count */}
+                                        {errorEventKeys.map((eventKeyInfo) => {
+                                            const eventKey = eventKeyInfo.eventKey;
+                                            return (
+                                                <React.Fragment key={`error_main_${eventKey}`}>
+                                                    <Area 
+                                                        type="monotone"
+                                                        dataKey={`${eventKey}_success`}
+                                                        name={`${eventKeyInfo.eventName} (Errors)`}
+                                                        stroke="#ef4444"
+                                                        strokeWidth={2.5}
+                                                        fill="url(#errorGradient)"
+                                                        dot={false}
+                                                        activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
+                                                    />
+                                                    <Area 
+                                                        type="monotone"
+                                                        dataKey={`${eventKey}_fail`}
+                                                        name={`${eventKeyInfo.eventName} (OK)`}
+                                                        stroke="#22c55e"
+                                                        strokeWidth={2}
+                                                        fill="url(#okGradient)"
+                                                        dot={false}
+                                                        activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
+                                                    />
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                    <AlertTriangle className="h-12 w-12 mb-3 opacity-30" />
+                                    <p className="text-sm">
+                                        {dataLoading ? 'Loading error data...' : 'No error data available'}
                                     </p>
                                 </div>
                             )}
@@ -3777,8 +4397,22 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 const pTotalSuccess = pGraphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
                 const pTotalFail = pGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
 
-                // Dropdown options for this panel's filters
-                const pEventOptions = events.map(e => ({ value: e.eventId, label: e.eventName }));
+                // Dropdown options for this panel's filters (with isError/isAvg badges)
+                const pEventOptions = events.map(e => {
+                    let label = e.eventName;
+                    const tags: string[] = [];
+                    if (e.isErrorEvent === 1) tags.push('[isError]');
+                    if (e.isAvgEvent === 1) tags.push('[isAvg]');
+                    if (tags.length > 0) {
+                        label = `${e.eventName} ${tags.join(' ')}`;
+                    }
+                    return { 
+                        value: e.eventId, 
+                        label,
+                        isErrorEvent: e.isErrorEvent === 1,
+                        isAvgEvent: e.isAvgEvent === 1
+                    };
+                });
                 const pPlatformOptions = PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }));
                 const pPosOptions = siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }));
                 const pSourceOptions = SOURCES.map(s => ({ value: s.id.toString(), label: s.name }));
@@ -4037,191 +4671,344 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             </Card>
                         </div>
 
-                        {/* Panel Chart - with Event Bifurcation */}
-                        <Card className="border-2 border-violet-100 dark:border-violet-500/20">
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                        <Activity className="w-4 h-4 text-purple-500" />
-                                        Event Trends
-                                    </CardTitle>
-                                    <span className="text-xs text-muted-foreground">{pEventKeys.length} events</span>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {/* Collapsible Legend for Panel */}
-                                {pEventKeys.length > 0 && (
-                                    <CollapsibleLegend 
-                                        eventKeys={pEventKeys}
-                                        events={events}
-                                        isExpanded={panelLegendExpanded[panel.panelId] || false}
-                                        onToggle={() => togglePanelLegend(panel.panelId)}
-                                        maxVisibleItems={4}
-                                        graphData={pGraphData}
-                                        selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
-                                        onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                    />
-                                )}
-                                <div className="h-[520px]">
-                                    {pGraphData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            {panelGraphType === 'bar' ? (
-                                                <BarChart
-                                                    data={pGraphData}
-                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-                                                    barCategoryGap="15%"
-                                                    onClick={(state) => handlePanelChartClick(panel.panelId, state)}
-                                                >
-                                                    <defs>
-                                                        {/* Dynamic gradients for each event in this panel */}
-                                                        {pEventKeys.map((eventKeyInfo, index) => {
-                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                            return (
-                                                                <linearGradient key={`barGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`barColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop offset="0%" stopColor={color} stopOpacity={1}/>
-                                                                    <stop offset="100%" stopColor={color} stopOpacity={0.7}/>
-                                                                </linearGradient>
-                                                            );
-                                                        })}
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                    <XAxis 
-                                                        dataKey="date" 
-                                                        tick={<CustomXAxisTick />}
-                                                        axisLine={{ stroke: '#e5e7eb' }}
-                                                        tickLine={false}
-                                                        height={45}
-                                                        interval={Math.floor(pGraphData.length / 6)}
-                                                    />
-                                                    <YAxis 
-                                                        tick={{ fill: '#6b7280', fontSize: 10 }} 
-                                                        axisLine={false} 
-                                                        tickLine={false}
-                                                        tickFormatter={(value) => {
-                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                            return value;
-                                                        }}
-                                                    />
-                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pEventKeys} />} />
-                                                    {/* Dynamic bars for each event */}
-                                                    {pEventKeys.length > 0 ? pEventKeys.map((eventKeyInfo) => {
-                                                        const eventKey = eventKeyInfo.eventKey;
-                                                        const panelSelectedKey = panelSelectedEventKey[panel.panelId];
-                                                        return (
-                                                            <Bar 
-                                                                key={`bar_${panel.panelId}_${eventKey}`}
-                                                                dataKey={`${eventKey}_count`} 
-                                                                name={eventKeyInfo.eventName}
-                                                                fill={`url(#barColor_${panel.panelId}_${eventKey})`}
-                                                                radius={[3, 3, 0, 0]}
-                                                                maxBarSize={20}
-                                                                opacity={panelSelectedKey && panelSelectedKey !== eventKey ? 0.4 : 1}
-                                                                cursor="pointer"
-                                                                onClick={() => handlePanelGraphPointClick(panel.panelId, eventKey)}
-                                                            />
-                                                        );
-                                                    }) : (
-                                                        <>
-                                                            <Bar dataKey="count" name="Total" fill="#8b5cf6" radius={[3, 3, 0, 0]} maxBarSize={25} />
-                                                            <Bar dataKey="successCount" name="Success" fill="#22c55e" radius={[3, 3, 0, 0]} maxBarSize={25} />
-                                                            <Bar dataKey="failCount" name="Fail" fill="#ef4444" radius={[3, 3, 0, 0]} maxBarSize={25} />
-                                                        </>
+                        {/* Separate event keys by type for this panel */}
+                        {(() => {
+                            // Events with BOTH isAvg and isError go to isAvg
+                            const pAvgEventKeys = pEventKeys.filter(ek => ek.isAvgEvent === 1);
+                            const pErrorEventKeys = pEventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
+                            const pNormalEventKeys = pEventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+                            
+                            // Helper function to format delay for this panel
+                            const formatPanelDelay = (value: number, eventKeyInfo?: EventKeyInfo) => {
+                                if (!value || value <= 0) return '0';
+                                const eventConfig = events.find(e => String(e.eventId) === eventKeyInfo?.eventId);
+                                const featureId = eventConfig?.feature;
+                                if (featureId === 1) {
+                                    if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                    return `${value.toFixed(1)}m`;
+                                }
+                                if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                return `${value.toFixed(1)}s`;
+                            };
+                            
+                            return (
+                                <>
+                                    {/* Panel Chart - Normal Events (count) */}
+                                    {pNormalEventKeys.length > 0 && (
+                                        <Card className="border-2 border-violet-100 dark:border-violet-500/20">
+                                            <CardHeader className="pb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                                        <Activity className="w-4 h-4 text-purple-500" />
+                                                        Event Trends (Count)
+                                                    </CardTitle>
+                                                    <span className="text-xs text-muted-foreground">{pNormalEventKeys.length} events</span>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-4">
+                                                <CollapsibleLegend 
+                                                    eventKeys={pNormalEventKeys}
+                                                    events={events}
+                                                    isExpanded={panelLegendExpanded[panel.panelId] || false}
+                                                    onToggle={() => togglePanelLegend(panel.panelId)}
+                                                    maxVisibleItems={4}
+                                                    graphData={pGraphData}
+                                                    selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                    onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                />
+                                                <div className="h-[400px]">
+                                                    {pGraphData.length > 0 ? (
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                <defs>
+                                                                    {pNormalEventKeys.map((eventKeyInfo, index) => {
+                                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                        return (
+                                                                            <linearGradient key={`normalGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                                                                                <stop offset="95%" stopColor={color} stopOpacity={0.02}/>
+                                                                            </linearGradient>
+                                                                        );
+                                                                    })}
+                                                                </defs>
+                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                <YAxis 
+                                                                    tick={{ fill: '#6b7280', fontSize: 10 }} 
+                                                                    axisLine={false} 
+                                                                    tickLine={false}
+                                                                    tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                                                />
+                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} />
+                                                                {pNormalEventKeys.map((eventKeyInfo, index) => {
+                                                                    const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                    const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                    return (
+                                                                        <Area 
+                                                                            key={`normal_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                            type="monotone"
+                                                                            dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                                            name={eventKeyInfo.eventName}
+                                                                            stroke={color}
+                                                                            strokeWidth={2.5}
+                                                                            fill={`url(#normalColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                            dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                        />
+                                                                    );
+                                                                })}
+                                                            </AreaChart>
+                                                        </ResponsiveContainer>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
                                                     )}
-                                                </BarChart>
-                                            ) : (
-                                                <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
-                                                    <defs>
-                                                        {/* Dynamic gradients for each event in this panel */}
-                                                        {pEventKeys.map((eventKeyInfo, index) => {
-                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                            return (
-                                                                <linearGradient key={`areaGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`areaColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
-                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.02}/>
-                                                                </linearGradient>
-                                                            );
-                                                        })}
-                                                        {/* Glow filters */}
-                                                        <filter id={`glow_${panel.panelId}`}>
-                                                            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                                                            <feMerge>
-                                                                <feMergeNode in="coloredBlur"/>
-                                                                <feMergeNode in="SourceGraphic"/>
-                                                            </feMerge>
-                                                        </filter>
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                    <XAxis 
-                                                        dataKey="date" 
-                                                        tick={<CustomXAxisTick />}
-                                                        axisLine={{ stroke: '#e5e7eb' }}
-                                                        tickLine={false}
-                                                        height={45}
-                                                        interval={Math.floor(pGraphData.length / 6)}
-                                                    />
-                                                    <YAxis 
-                                                        tick={{ fill: '#6b7280', fontSize: 10 }} 
-                                                        axisLine={false} 
-                                                        tickLine={false}
-                                                        tickFormatter={(value) => {
-                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                            return value;
-                                                        }}
-                                                    />
-                                                    <Tooltip 
-                                                        content={<CustomTooltip events={events} eventKeys={pEventKeys} />}
-                                                        cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
-                                                    />
-                                                    {/* Dynamic areas for each event */}
-                                                    {pEventKeys.length > 0 ? pEventKeys.map((eventKeyInfo, index) => {
-                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                        const eventKey = eventKeyInfo.eventKey;
-                                                        const panelSelectedKey = panelSelectedEventKey[panel.panelId];
-                                                        return (
-                                                            <Area 
-                                                                key={`area_${panel.panelId}_${eventKey}`}
-                                                                type="monotone"
-                                                                dataKey={`${eventKey}_count`}
-                                                                name={eventKeyInfo.eventName}
-                                                                stroke={color}
-                                                                strokeWidth={panelSelectedKey === eventKey ? 4 : 2.5}
-                                                                fillOpacity={panelSelectedKey && panelSelectedKey !== eventKey ? 0.3 : 1}
-                                                                fill={`url(#areaColor_${panel.panelId}_${eventKey})`}
-                                                                dot={{ fill: color, strokeWidth: 0, r: 3 }}
-                                                                activeDot={{ 
-                                                                    r: 8, 
-                                                                    fill: color, 
-                                                                    stroke: 'white', 
-                                                                    strokeWidth: 3,
-                                                                    filter: `url(#glow_${panel.panelId})`,
-                                                                    cursor: 'pointer',
-                                                                    onClick: () => handlePanelGraphPointClick(panel.panelId, eventKey)
-                                                                }}
-                                                            />
-                                                        );
-                                                    }) : (
-                                                        <>
-                                                            <Area type="monotone" dataKey="count" name="Total" stroke="#8b5cf6" strokeWidth={2} fillOpacity={0.3} fill="#8b5cf6" />
-                                                            <Area type="monotone" dataKey="successCount" name="Success" stroke="#22c55e" strokeWidth={2} fillOpacity={0.3} fill="#22c55e" />
-                                                            <Area type="monotone" dataKey="failCount" name="Fail" stroke="#ef4444" strokeWidth={2} fillOpacity={0.3} fill="#ef4444" />
-                                                        </>
-                                                    )}
-                                                </AreaChart>
-                                            )}
-                                        </ResponsiveContainer>
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                                            {panelData?.loading ? 'Loading...' : panelData?.error || 'No data available'}
-                                        </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
                                     )}
-                                </div>
-                            </CardContent>
-                        </Card>
+
+                                    {/* Panel Chart - isAvg Events (Time Delay) */}
+                                    {pAvgEventKeys.length > 0 && (
+                                        <Card className="border-2 border-amber-100 dark:border-amber-500/20">
+                                            <CardHeader className="pb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-4 h-4 text-amber-500" />
+                                                        <CardTitle className="text-base font-semibold">Time Delay Trends</CardTitle>
+                                                    </div>
+                                                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-4">
+                                                <CollapsibleLegend 
+                                                    eventKeys={pAvgEventKeys}
+                                                    events={events}
+                                                    isExpanded={panelLegendExpanded[`${panel.panelId}_avg`] || false}
+                                                    onToggle={() => togglePanelLegend(`${panel.panelId}_avg`)}
+                                                    maxVisibleItems={4}
+                                                    graphData={pGraphData}
+                                                    selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                    onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                />
+                                                <div className="h-[400px]">
+                                                    {pGraphData.length > 0 ? (
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                <defs>
+                                                                    {pAvgEventKeys.map((eventKeyInfo, index) => {
+                                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                        return (
+                                                                            <linearGradient key={`avgGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <stop offset="5%" stopColor={color} stopOpacity={0.4}/>
+                                                                                <stop offset="95%" stopColor={color} stopOpacity={0.05}/>
+                                                                            </linearGradient>
+                                                                        );
+                                                                    })}
+                                                                </defs>
+                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                <YAxis 
+                                                                    tick={{ fill: '#f59e0b', fontSize: 10 }} 
+                                                                    axisLine={false} 
+                                                                    tickLine={false}
+                                                                    tickFormatter={(value) => {
+                                                                        if (!value || value <= 0) return '0';
+                                                                        const hasPriceAlert = pAvgEventKeys.some(ek => {
+                                                                            const ev = events.find(e => String(e.eventId) === ek.eventId);
+                                                                            return ev?.feature === 1;
+                                                                        });
+                                                                        if (hasPriceAlert) {
+                                                                            if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                                            return `${value.toFixed(1)}m`;
+                                                                        }
+                                                                        if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                                        return `${value.toFixed(1)}s`;
+                                                                    }}
+                                                                />
+                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} />
+                                                                {pAvgEventKeys.map((eventKeyInfo, index) => {
+                                                                    const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                    const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                    return (
+                                                                        <Area 
+                                                                            key={`avg_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                            type="monotone"
+                                                                            dataKey={`${eventKeyInfo.eventKey}_avgDelay`}
+                                                                            name={eventKeyInfo.eventName}
+                                                                            stroke={color}
+                                                                            strokeWidth={2.5}
+                                                                            fill={`url(#avgColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                            dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                        />
+                                                                    );
+                                                                })}
+                                                            </AreaChart>
+                                                        </ResponsiveContainer>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+
+                                    {/* Panel Chart - isError Events (Error Tracking) */}
+                                    {pErrorEventKeys.length > 0 && (
+                                        <Card className="border-2 border-red-100 dark:border-red-500/20">
+                                            <CardHeader className="pb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                                                        <CardTitle className="text-base font-semibold">Error Event Trends</CardTitle>
+                                                    </div>
+                                                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-4">
+                                                <CollapsibleLegend 
+                                                    eventKeys={pErrorEventKeys}
+                                                    events={events}
+                                                    isExpanded={panelLegendExpanded[`${panel.panelId}_error`] || false}
+                                                    onToggle={() => togglePanelLegend(`${panel.panelId}_error`)}
+                                                    maxVisibleItems={4}
+                                                    graphData={pGraphData}
+                                                    selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                    onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                />
+                                                <div className="h-[400px]">
+                                                    {pGraphData.length > 0 ? (
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                <defs>
+                                                                    {pErrorEventKeys.map((eventKeyInfo, index) => (
+                                                                        <linearGradient key={`errorGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
+                                                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05}/>
+                                                                        </linearGradient>
+                                                                    ))}
+                                                                    <linearGradient id={`errorSuccessGrad_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
+                                                                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                                                                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05}/>
+                                                                    </linearGradient>
+                                                                </defs>
+                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                <YAxis 
+                                                                    tick={{ fill: '#ef4444', fontSize: 10 }} 
+                                                                    axisLine={false} 
+                                                                    tickLine={false}
+                                                                    tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                                                />
+                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} />
+                                                                {pErrorEventKeys.map((eventKeyInfo, index) => {
+                                                                    const eventKey = eventKeyInfo.eventKey;
+                                                                    return (
+                                                                        <React.Fragment key={`error_frag_${panel.panelId}_${eventKey}`}>
+                                                                            {/* Error count (red) */}
+                                                                            <Area 
+                                                                                type="monotone"
+                                                                                dataKey={`${eventKey}_success`}
+                                                                                name={`${eventKeyInfo.eventName} (Errors)`}
+                                                                                stroke="#ef4444"
+                                                                                strokeWidth={2.5}
+                                                                                fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
+                                                                                dot={{ fill: '#ef4444', strokeWidth: 0, r: 3 }}
+                                                                            />
+                                                                            {/* Non-error count (green) */}
+                                                                            <Area 
+                                                                                type="monotone"
+                                                                                dataKey={`${eventKey}_fail`}
+                                                                                name={`${eventKeyInfo.eventName} (OK)`}
+                                                                                stroke="#22c55e"
+                                                                                strokeWidth={2}
+                                                                                fill={`url(#errorSuccessGrad_${panel.panelId})`}
+                                                                                dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
+                                                                            />
+                                                                        </React.Fragment>
+                                                                    );
+                                                                })}
+                                                            </AreaChart>
+                                                        </ResponsiveContainer>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+
+                                    {/* Fallback - All events in one chart if no type separation */}
+                                    {pNormalEventKeys.length === 0 && pAvgEventKeys.length === 0 && pErrorEventKeys.length === 0 && pEventKeys.length > 0 && (
+                                        <Card className="border-2 border-violet-100 dark:border-violet-500/20">
+                                            <CardHeader className="pb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                                        <Activity className="w-4 h-4 text-purple-500" />
+                                                        Event Trends
+                                                    </CardTitle>
+                                                    <span className="text-xs text-muted-foreground">{pEventKeys.length} events</span>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-4">
+                                                <CollapsibleLegend 
+                                                    eventKeys={pEventKeys}
+                                                    events={events}
+                                                    isExpanded={panelLegendExpanded[panel.panelId] || false}
+                                                    onToggle={() => togglePanelLegend(panel.panelId)}
+                                                    maxVisibleItems={4}
+                                                    graphData={pGraphData}
+                                                    selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                    onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                />
+                                                <div className="h-[400px]">
+                                                    {pGraphData.length > 0 ? (
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                <defs>
+                                                                    {pEventKeys.map((eventKeyInfo, index) => {
+                                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                        return (
+                                                                            <linearGradient key={`fallbackGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`fallbackColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
+                                                                                <stop offset="95%" stopColor={color} stopOpacity={0.02}/>
+                                                                            </linearGradient>
+                                                                        );
+                                                                    })}
+                                                                </defs>
+                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pEventKeys} />} />
+                                                                {pEventKeys.map((eventKeyInfo, index) => {
+                                                                    const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                    const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                    return (
+                                                                        <Area 
+                                                                            key={`fallback_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                            type="monotone"
+                                                                            dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                                            name={eventKeyInfo.eventName}
+                                                                            stroke={color}
+                                                                            strokeWidth={2.5}
+                                                                            fill={`url(#fallbackColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                            dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                        />
+                                                                    );
+                                                                })}
+                                                            </AreaChart>
+                                                        </ResponsiveContainer>
+                                                    ) : (
+                                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )}
+                                </>
+                            );
+                        })()}
 
                         {/* Panel Pie Charts - shown ABOVE Hourly Insights */}
                         {panel.visualizations.pieCharts.some(p => p.enabled) && (() => {

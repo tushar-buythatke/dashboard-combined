@@ -221,10 +221,20 @@ interface AlertAPIRequest {
         pos: number[];
         platform: number[];
         source: number[];
+        sourceStr: string[];
     };
     startTime: string;
     endTime: string;
     isHourly: boolean;
+}
+
+interface CriticalAlertDetails {
+    metric: string;
+    eventName: string;
+    threshold: number;
+    timestamp: string;
+    currentValue: number;
+    expectedValue: number;
 }
 
 interface CriticalAlert {
@@ -233,7 +243,8 @@ interface CriticalAlert {
     pos: number;
     platform: number;
     source: number;
-    details: string;
+    sourceStr: string;
+    details: CriticalAlertDetails;
     create_time: string;
     update_time: string;
     status: number;
@@ -242,7 +253,9 @@ interface CriticalAlert {
 interface AlertAPIResponse {
     status: number;
     message: string;
-    data: Record<string, CriticalAlert> | CriticalAlert[];
+    data: {
+        alerts: CriticalAlert[];
+    };
 }
 
 export class APIService {
@@ -454,8 +467,8 @@ export class APIService {
                 source: toNumbers(sourceIds),
                 sourceStr: [] // Always send empty array - client-side filtering only
             },
-            startTime: this.formatDate(startDate),
-            endTime: this.formatDate(endDate),
+            startTime: this.formatDate(startDate, false),
+            endTime: this.formatDate(endDate, true),
             isHourly
         };
 
@@ -532,8 +545,8 @@ export class APIService {
                 source: toNumbers(sourceIds),
                 sourceStr: [] // Always send empty array - client-side filtering only
             },
-            startTime: this.formatDate(startDate),
-            endTime: this.formatDate(endDate),
+            startTime: this.formatDate(startDate, false),
+            endTime: this.formatDate(endDate, true),
             isHourly
         };
 
@@ -558,28 +571,53 @@ export class APIService {
         }
 
         // Transform to component format with proper names
+        // Handle special "others" key which aggregates remaining data
+        const transformPieData = (data: any, type: 'platform' | 'pos' | 'source') => {
+            if (!data) return [];
+            return Object.entries(data).map(([key, item]: [string, any]) => {
+                // Handle "others" key specially
+                if (key === 'others') {
+                    return {
+                        id: 'others',
+                        name: 'Others',
+                        value: item.count,
+                        successCount: item.successCount,
+                        failCount: item.failCount
+                    };
+                }
+                // Normal entries
+                if (type === 'platform') {
+                    return {
+                        id: item.platform,
+                        name: PLATFORM_NAMES[item.platform] || 'Unknown',
+                        value: item.count,
+                        successCount: item.successCount,
+                        failCount: item.failCount
+                    };
+                } else if (type === 'pos') {
+                    return {
+                        id: item.pos,
+                        name: this.siteDetailsMap[item.pos] || (item.pos === 0 ? 'Unknown' : `POS ${item.pos}`),
+                        value: item.count,
+                        successCount: item.successCount,
+                        failCount: item.failCount
+                    };
+                } else {
+                    return {
+                        id: item.source,
+                        name: SOURCE_NAMES[item.source] || (item.source === -1 ? 'Unknown' : 'Unknown'),
+                        value: item.count,
+                        successCount: item.successCount,
+                        failCount: item.failCount
+                    };
+                }
+            });
+        };
+
         return {
-            platform: Object.values(result.data.platform || {}).map((item: any) => ({
-                id: item.platform,
-                name: PLATFORM_NAMES[item.platform] || 'Unknown',
-                value: item.count,
-                successCount: item.successCount,
-                failCount: item.failCount
-            })),
-            pos: Object.values(result.data.pos || {}).map((item: any) => ({
-                id: item.pos,
-                name: this.siteDetailsMap[item.pos] || `POS ${item.pos}`,
-                value: item.count,
-                successCount: item.successCount,
-                failCount: item.failCount
-            })),
-            source: Object.values(result.data.source || {}).map((item: any) => ({
-                id: item.source,
-                name: SOURCE_NAMES[item.source] || 'Unknown',
-                value: item.count,
-                successCount: item.successCount,
-                failCount: item.failCount
-            }))
+            platform: transformPieData(result.data.platform, 'platform'),
+            pos: transformPieData(result.data.pos, 'pos'),
+            source: transformPieData(result.data.source, 'source')
         };
     }
 
@@ -592,7 +630,9 @@ export class APIService {
         posIds: (number | string)[],
         sourceIds: (number | string)[],
         startDate: Date,
-        endDate: Date
+        endDate: Date,
+        limit: number = 10,
+        page: number = 0
     ): Promise<CriticalAlert[]> {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
@@ -607,16 +647,17 @@ export class APIService {
                 eventId: toNumbers(eventIds),
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
-                source: toNumbers(sourceIds)
+                source: toNumbers(sourceIds),
+                sourceStr: [] // Always send empty array
             },
-            startTime: this.formatDate(startDate),
-            endTime: this.formatDate(endDate),
+            startTime: this.formatDate(startDate, false),
+            endTime: this.formatDate(endDate, true),
             isHourly
         };
 
         console.log('Alert API Request:', requestBody);
 
-        const response = await fetch(`${API_BASE_URL}/alert`, {
+        const response = await fetch(`${API_BASE_URL}/alert?limit=${limit}&page=${page}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -634,24 +675,20 @@ export class APIService {
             throw new Error(result.message || 'Failed to fetch alerts');
         }
 
-        // Handle both array and object response formats
-        const alertsData = result.data;
-        if (Array.isArray(alertsData)) {
-            return alertsData;
-        } else if (typeof alertsData === 'object' && alertsData !== null) {
-            return Object.values(alertsData);
-        }
-        return [];
+        // Handle the new response format with alerts array inside data
+        return result.data?.alerts || [];
     }
 
     /**
-     * Format date to YYYY-MM-DD
+     * Format date to YYYY-MM-DD HH:MM:SS
+     * Start dates get 00:00:01, end dates get 23:59:59
      */
-    private formatDate(date: Date): string {
+    private formatDate(date: Date, isEndDate: boolean = false): string {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        const time = isEndDate ? '23:59:59' : '00:00:01';
+        return `${year}-${month}-${day} ${time}`;
     }
 
     /**
