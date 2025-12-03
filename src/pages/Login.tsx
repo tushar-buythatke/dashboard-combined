@@ -133,9 +133,9 @@ export default function LoginPage() {
       >
         <Card className="border border-purple-200/50 dark:border-0 shadow-2xl shadow-purple-500/10 dark:shadow-primary/20 bg-white/90 dark:bg-gradient-to-b dark:from-card/95 dark:to-card/80 backdrop-blur-xl overflow-hidden">
           {/* Animated border glow */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-200/20 via-violet-200/20 to-purple-200/20 dark:from-primary/20 dark:via-purple-500/20 dark:to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-200/20 via-violet-200/20 to-purple-200/20 dark:from-primary/20 dark:via-purple-500/20 dark:to-primary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
           
-          <CardHeader className="text-center relative pb-4 pt-8">
+          <CardHeader className="text-center relative pb-4 pt-8 z-10">
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
@@ -185,7 +185,7 @@ export default function LoginPage() {
             </motion.div>
           </CardHeader>
           
-          <CardContent className="space-y-6 pt-4">
+          <CardContent className="space-y-6 pt-4 relative z-10">
             <AnimatePresence>
               {error && (
                 <motion.div

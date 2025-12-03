@@ -135,9 +135,9 @@ export function AnalyticsLogin() {
             >
                 <Card className="border border-purple-200/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl shadow-2xl shadow-purple-500/10 overflow-hidden">
                     {/* Card glow effect */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-500/5 pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-500/5 pointer-events-none z-0" />
                     
-                    <CardHeader className="text-center pb-3 lg:pb-4 pt-6 lg:pt-8 relative">
+                    <CardHeader className="text-center pb-3 lg:pb-4 pt-6 lg:pt-8 relative z-10">
                         <motion.div
                             initial={{ scale: 0, rotate: -180 }}
                             animate={{ scale: 1, rotate: 0 }}
@@ -189,7 +189,7 @@ export function AnalyticsLogin() {
                         </motion.div>
                     </CardHeader>
                     
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={handleSubmit} className="relative z-10">
                         <CardContent className="space-y-5 lg:space-y-6 px-5 lg:px-8">
                             <motion.div
                                 initial={{ opacity: 0, x: -20 }}
