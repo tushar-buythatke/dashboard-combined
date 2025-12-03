@@ -1070,25 +1070,31 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
     const data = payload[0]?.payload;
     if (!data) return null;
 
-    // Build maps for quick lookup from eventKey -> EventConfig
+    // Build maps for quick lookup from eventKey -> EventConfig and EventKeyInfo
     const eventKeyToConfig = new Map<string, EventConfig>();
+    const eventKeyToInfo = new Map<string, EventKeyInfo>();
     (eventKeys as EventKeyInfo[]).forEach((ek: EventKeyInfo) => {
         const cfg = (allEvents as EventConfig[]).find(e => String(e.eventId) === ek.eventId);
         if (cfg) {
             eventKeyToConfig.set(ek.eventKey, cfg);
         }
+        eventKeyToInfo.set(ek.eventKey, ek);
     });
 
     const formatDelay = (delayValue: number, featureId?: number) => {
         if (!delayValue || delayValue <= 0) return null;
         // Feature 1 = Price Alert (value is already in MINUTES)
         // Others (Spend/Auto-coupon) = value is already in SECONDS
-        if (featureId === 1) {
-            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}h`;
-            return `${delayValue.toFixed(1)}m`;
+        // Default to minutes if feature unknown but value seems like minutes (PA typically)
+        if (featureId === 1 || (!featureId && delayValue > 100)) {
+            // Likely in minutes
+            if (delayValue >= 60) return `${Math.round(delayValue / 60)}h`;
+            return `${Math.round(delayValue)}m`;
         }
-        if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}m`;
-        return `${delayValue.toFixed(1)}s`;
+        // Seconds
+        if (delayValue >= 3600) return `${Math.round(delayValue / 3600)}h`;
+        if (delayValue >= 60) return `${Math.round(delayValue / 60)}m`;
+        return `${Math.round(delayValue)}s`;
     };
     
     // Get per-event data from payload with success/fail/delay info
@@ -1096,13 +1102,16 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
         const rawKey: string = item.dataKey || '';
         const eventKey = rawKey.replace('_count', '') || '';
         const cfg = eventKeyToConfig.get(eventKey);
+        const ekInfo = eventKeyToInfo.get(eventKey);
 
         const eventCount = item.value || 0;
         const eventSuccessRaw = data[`${eventKey}_success`] || 0;
         const eventFail = data[`${eventKey}_fail`] || 0;
-        const isErrorEvent = cfg?.isErrorEvent === 1;
-        const isAvgEvent = cfg?.isAvgEvent === 1;
-        const avgDelayMs = isAvgEvent ? (data[`${eventKey}_avgDelay`] || 0) : 0;
+        // Use EventKeyInfo for isErrorEvent and isAvgEvent (these are on the event key info, not config)
+        const isErrorEvent = ekInfo?.isErrorEvent === 1;
+        const isAvgEvent = ekInfo?.isAvgEvent === 1;
+        // For isAvg events, the "count" IS the delay value - use it directly
+        const avgDelayValue = isAvgEvent ? eventCount : 0;
 
         // For error events: successRaw is actually the ERROR count, fail is non-error count
         // For normal events: successRaw is success count, fail is failure count
@@ -1123,8 +1132,8 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
             isErrorEvent,
             isAvgEvent,
             featureId: cfg?.feature,
-            delayLabel: isAvgEvent ? formatDelay(avgDelayMs, cfg?.feature) : null,
-            avgDelayRaw: avgDelayMs,
+            delayLabel: isAvgEvent ? formatDelay(avgDelayValue, cfg?.feature) : null,
+            avgDelayRaw: avgDelayValue,
         };
     }).filter((item: any) => item.count !== undefined && item.count > 0);
     
@@ -2751,58 +2760,49 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             </Popover>
                                         </div>
 
-                                        {/* Platform Filter */}
+                                        {/* Platform Filter - MultiSelect */}
                                         <div className="space-y-1">
                                             <Label className="text-xs text-muted-foreground">Platform</Label>
-                                            <select
-                                                value={alertFilters.platforms.length === 1 ? alertFilters.platforms[0] : ''}
-                                                onChange={(e) => setAlertFilters(prev => ({
+                                            <MultiSelectDropdown
+                                                options={PLATFORMS.map(p => ({ value: String(p.id), label: p.name }))}
+                                                selected={alertFilters.platforms.map(String)}
+                                                onChange={(values) => setAlertFilters(prev => ({
                                                     ...prev,
-                                                    platforms: e.target.value ? [e.target.value] : []
+                                                    platforms: values
                                                 }))}
-                                                className="w-full h-9 px-2 text-xs rounded-md border border-input bg-background"
-                                            >
-                                                <option value="">All Platforms</option>
-                                                {PLATFORMS.map(p => (
-                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                ))}
-                                            </select>
+                                                placeholder="All Platforms"
+                                                className="h-9"
+                                            />
                                         </div>
 
-                                        {/* POS Filter */}
+                                        {/* POS Filter - MultiSelect */}
                                         <div className="space-y-1">
                                             <Label className="text-xs text-muted-foreground">POS</Label>
-                                            <select
-                                                value={alertFilters.pos.length === 1 ? alertFilters.pos[0] : ''}
-                                                onChange={(e) => setAlertFilters(prev => ({
+                                            <MultiSelectDropdown
+                                                options={siteDetails.map(s => ({ value: String(s.id), label: `${s.name} (${s.id})` }))}
+                                                selected={alertFilters.pos.map(String)}
+                                                onChange={(values) => setAlertFilters(prev => ({
                                                     ...prev,
-                                                    pos: e.target.value ? [parseInt(e.target.value)] : []
+                                                    pos: values.map(v => parseInt(v))
                                                 }))}
-                                                className="w-full h-9 px-2 text-xs rounded-md border border-input bg-background"
-                                            >
-                                                <option value="">All POS</option>
-                                                {siteDetails.map(s => (
-                                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                                ))}
-                                            </select>
+                                                placeholder="All POS"
+                                                className="h-9"
+                                            />
                                         </div>
 
-                                        {/* Event Filter */}
+                                        {/* Event Filter - MultiSelect */}
                                         <div className="space-y-1">
                                             <Label className="text-xs text-muted-foreground">Event</Label>
-                                            <select
-                                                value={alertFilters.events.length === 1 ? alertFilters.events[0] : ''}
-                                                onChange={(e) => setAlertFilters(prev => ({
+                                            <MultiSelectDropdown
+                                                options={events.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                                selected={alertFilters.events.map(String)}
+                                                onChange={(values) => setAlertFilters(prev => ({
                                                     ...prev,
-                                                    events: e.target.value ? [parseInt(e.target.value)] : []
+                                                    events: values.map(v => parseInt(v))
                                                 }))}
-                                                className="w-full h-9 px-2 text-xs rounded-md border border-input bg-background"
-                                            >
-                                                <option value="">All Events</option>
-                                                {events.map(e => (
-                                                    <option key={e.eventId} value={e.eventId}>{e.eventName}</option>
-                                                ))}
-                                            </select>
+                                                placeholder="All Events"
+                                                className="h-9"
+                                            />
                                         </div>
 
                                         {/* Refresh Button */}

@@ -15,10 +15,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { PanelCombineModal } from './PanelCombineModal';
 import { PanelPreview } from './PanelPreview';
-import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon } from 'lucide-react';
+import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle } from 'lucide-react';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
 
 interface ProfileBuilderProps {
     featureId: string;
@@ -28,7 +29,8 @@ interface ProfileBuilderProps {
 }
 
 // Extended panel config with filters using numeric IDs
-interface ExtendedPanelConfig extends PanelConfig {
+interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
+    type: 'separate' | 'combined' | 'alerts'; // Extended type to include alerts panel
     filters: {
         events: number[];      // Numeric event IDs
         platforms: number[];   // Numeric platform IDs
@@ -89,8 +91,12 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         // Check if filterConfig was saved
                         const savedConfig = (p as any).filterConfig;
                         
+                        // Preserve the type if it's alerts panel
+                        const panelType = (p as any).type === 'alerts' ? 'alerts' : (p.type || 'separate');
+                        
                         return {
                             ...p,
+                            type: panelType as 'separate' | 'combined' | 'alerts',
                             filters: savedConfig ? {
                                 events: savedConfig.events || [],
                                 platforms: savedConfig.platforms || [0],
@@ -114,11 +120,64 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             showHourlyStats: savedConfig?.showHourlyStats !== false // Default to true
                         };
                     });
-                    setPanels(extendedPanels);
+                    
+                    // Check if profile already has alerts panel, if not add one at beginning
+                    const hasAlertsPanel = extendedPanels.some(p => p.type === 'alerts');
+                    if (!hasAlertsPanel) {
+                        const alertsPanel: ExtendedPanelConfig = {
+                            panelId: 'panel_alerts_0',
+                            panelName: 'Critical Alerts Monitor',
+                            type: 'alerts',
+                            position: { row: 0, col: 1, width: 12, height: 4 },
+                            events: [],
+                            filters: {
+                                events: [],
+                                platforms: [],
+                                pos: [],
+                                sources: []
+                            },
+                            graphType: 'line',
+                            dateRange: {
+                                from: subDays(new Date(), 7),
+                                to: new Date()
+                            },
+                            showHourlyStats: false,
+                            visualizations: {
+                                lineGraph: { enabled: false, aggregationMethod: 'sum', showLegend: false, yAxisLabel: '' },
+                                pieCharts: []
+                            }
+                        };
+                        setPanels([alertsPanel, ...extendedPanels]);
+                    } else {
+                        setPanels(extendedPanels);
+                    }
                 }
             } else {
-                // Initialize with empty - user will add panels
-                setPanels([]);
+                // Initialize with Critical Alerts panel as Panel 0 by default
+                const alertsPanel: ExtendedPanelConfig = {
+                    panelId: 'panel_alerts_0',
+                    panelName: 'Critical Alerts Monitor',
+                    type: 'alerts', // Special type for alerts panel
+                    position: { row: 0, col: 1, width: 12, height: 4 },
+                    events: [],
+                    filters: {
+                        events: [], // All events
+                        platforms: [], // All platforms
+                        pos: [], // All POS
+                        sources: [] // All sources
+                    },
+                    graphType: 'line',
+                    dateRange: {
+                        from: subDays(new Date(), 7),
+                        to: new Date()
+                    },
+                    showHourlyStats: false,
+                    visualizations: {
+                        lineGraph: { enabled: false, aggregationMethod: 'sum', showLegend: false, yAxisLabel: '' },
+                        pieCharts: []
+                    }
+                };
+                setPanels([alertsPanel]);
             }
             
             setLoading(false);
@@ -502,17 +561,33 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 </Button>
                             </div>
                         ) : (
-                            panels.map((panel) => (
-                                <Card key={panel.panelId} className="relative">
+                            <>
+                            {panels.map((panel) => (
+                                <Card key={panel.panelId} className={cn(
+                                    "relative",
+                                    panel.type === 'alerts' && "border-2 border-red-200 dark:border-red-500/30 bg-gradient-to-br from-red-50/30 to-orange-50/20 dark:from-red-900/10 dark:to-orange-900/5"
+                                )}>
                                     <CardHeader>
                                         <div className="flex items-center justify-between">
-                                            <Input
-                                                value={panel.panelName}
-                                                onChange={(e) => updatePanelName(panel.panelId, e.target.value)}
-                                                className="text-lg font-semibold w-auto max-w-md"
-                                            />
+                                            <div className="flex items-center gap-3">
+                                                {panel.type === 'alerts' && (
+                                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center">
+                                                        <Bell className="h-4 w-4 text-white" />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <Input
+                                                        value={panel.panelName}
+                                                        onChange={(e) => updatePanelName(panel.panelId, e.target.value)}
+                                                        className="text-lg font-semibold w-auto max-w-md"
+                                                    />
+                                                    {panel.type === 'alerts' && (
+                                                        <p className="text-xs text-muted-foreground mt-1">Panel 0 - Critical Alerts Monitor (removable)</p>
+                                                    )}
+                                                </div>
+                                            </div>
                                             <div className="flex gap-2">
-                                                {panels.length > 1 && (
+                                                {panel.type !== 'alerts' && panels.filter(p => p.type !== 'alerts').length > 1 && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -525,6 +600,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         Combine
                                                     </Button>
                                                 )}
+                                                {/* All panels including alerts can be deleted */}
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -537,7 +613,35 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        {/* Filter Configuration */}
+                                        {/* Alert Panel - Special minimal config */}
+                                        {panel.type === 'alerts' ? (
+                                            <div className="p-4 bg-white/50 dark:bg-gray-800/30 rounded-lg border border-red-100 dark:border-red-500/20">
+                                                <p className="text-sm text-muted-foreground mb-3">
+                                                    <AlertTriangle className="h-4 w-4 inline mr-2 text-amber-500" />
+                                                    This panel monitors critical alerts. Filters can be adjusted at runtime in the dashboard.
+                                                </p>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                                        <div className="text-2xl font-bold text-red-600">∞</div>
+                                                        <div className="text-xs text-muted-foreground">Events Monitored</div>
+                                                    </div>
+                                                    <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                                                        <div className="text-2xl font-bold text-orange-600">∞</div>
+                                                        <div className="text-xs text-muted-foreground">POS Monitored</div>
+                                                    </div>
+                                                    <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                                        <div className="text-2xl font-bold text-purple-600">7d</div>
+                                                        <div className="text-xs text-muted-foreground">Default Range</div>
+                                                    </div>
+                                                    <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                                        <div className="text-2xl font-bold text-blue-600">✓</div>
+                                                        <div className="text-xs text-muted-foreground">Collapsible</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                        /* Regular Panel - Full filter configuration */
+                                        <>
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted/20 rounded-lg">
                                             <div className="space-y-2">
                                                 <Label>Events ({getFeatureShortName(featureId)})</Label>
@@ -677,6 +781,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                             filters={panel.filters}
                                             graphType={panel.graphType}
                                         />
+                                        </>
+                                        )}
                                     </CardContent>
 
                                     {/* Add Panel Button Below */}
@@ -691,7 +797,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                         </Button>
                                     </div>
                                 </Card>
-                            ))
+                            ))}
+                            </>
                         )}
 
                         {/* Final Add Button */}
@@ -708,15 +815,15 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             </Tabs>
 
             {/* Combine Modal */}
-            {combiningPanel && (
+            {combiningPanel && combiningPanel.type !== 'alerts' && (
                 <PanelCombineModal
                     isOpen={combineModalOpen}
                     onClose={() => {
                         setCombineModalOpen(false);
                         setCombiningPanel(null);
                     }}
-                    sourcePanel={combiningPanel}
-                    availablePanels={panels}
+                    sourcePanel={combiningPanel as PanelConfig}
+                    availablePanels={panels.filter(p => p.type !== 'alerts') as PanelConfig[]}
                     onCombine={handleCombinePanels}
                 />
             )}
