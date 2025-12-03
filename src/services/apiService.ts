@@ -1,8 +1,12 @@
 // Real API service for analytics dashboard
 import type { AnalyticsDataResponse, EventConfig } from '@/types/analytics';
 
-// Use Vite proxy to avoid CORS issues
-const API_BASE_URL = '/api';
+// Detect environment and use appropriate API base URLs
+// In development: Vite proxy handles CORS (/api -> ext1.buyhatke.com)
+// In production (Vercel): Use serverless functions (/api/proxy -> ext1.buyhatke.com)
+const isDevelopment = import.meta.env.DEV;
+const API_BASE_URL = isDevelopment ? '/api' : '/api/proxy';
+const POS_API_BASE_URL = isDevelopment ? '/pos-api' : '/api/pos-proxy';
 
 // Platform mappings (fixed values)
 export const PLATFORMS = [
@@ -398,8 +402,8 @@ export class APIService {
         console.log(`📋 Fetching site details for POS options`);
 
         try {
-            // Use /pos-api proxy to avoid CORS issues
-            const response = await fetch('/pos-api/siteDetails');
+            // Use POS_API_BASE_URL which handles dev/prod environments
+            const response = await fetch(`${POS_API_BASE_URL}/siteDetails`);
 
             if (!response.ok) {
                 throw new Error(`Failed to fetch site details: ${response.statusText}`);
