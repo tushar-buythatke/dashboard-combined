@@ -1100,7 +1100,10 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
     // Get per-event data from payload with success/fail/delay info
     const eventDataItems = payload.map((item: any) => {
         const rawKey: string = item.dataKey || '';
-        const eventKey = rawKey.replace('_count', '') || '';
+        // Determine if this is a delay dataKey (ends with _avgDelay)
+        const isDelayDataKey = rawKey.endsWith('_avgDelay');
+        // Handle different dataKey suffixes: _count, _avgDelay, _success, _fail
+        const eventKey = rawKey.replace(/_count$/, '').replace(/_avgDelay$/, '').replace(/_success$/, '').replace(/_fail$/, '') || '';
         const cfg = eventKeyToConfig.get(eventKey);
         const ekInfo = eventKeyToInfo.get(eventKey);
 
@@ -1108,9 +1111,10 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
         const eventSuccessRaw = data[`${eventKey}_success`] || 0;
         const eventFail = data[`${eventKey}_fail`] || 0;
         // Use EventKeyInfo for isErrorEvent and isAvgEvent (these are on the event key info, not config)
+        // Also fallback to detecting from dataKey suffix or from graph context (if all eventKeys passed are isAvg)
         const isErrorEvent = ekInfo?.isErrorEvent === 1;
-        const isAvgEvent = ekInfo?.isAvgEvent === 1;
-        // For isAvg events, the "count" IS the delay value - use it directly
+        const isAvgEvent = ekInfo?.isAvgEvent === 1 || isDelayDataKey;
+        // For isAvg events, the value in payload IS the delay value directly
         const avgDelayValue = isAvgEvent ? eventCount : 0;
 
         // For error events: successRaw is actually the ERROR count, fail is non-error count
@@ -2633,6 +2637,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
             {/* ==================== CRITICAL ALERTS PANEL (Panel 0) ==================== */}
             {/* Fully independent, collapsible panel with its own filters */}
+            {/* Only show if criticalAlerts.enabled is true in the profile */}
+            {profile?.criticalAlerts?.enabled !== false && (
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -3012,6 +3018,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     </AnimatePresence>
                 </Card>
             </motion.div>
+            )}
 
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <motion.div

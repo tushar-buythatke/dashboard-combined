@@ -359,28 +359,33 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     };
 
     const handleSaveProfile = async () => {
-        // Convert extended panels back to regular panels with filter data stored
-        const regularPanels: PanelConfig[] = panels.map(p => ({
-            panelId: p.panelId,
-            panelName: p.panelName,
-            type: p.type,
-            position: p.position,
-            events: p.events,
-            visualizations: p.visualizations,
-            // Store filter config in panel for persistence
-            filterConfig: {
-                events: p.filters.events,
-                platforms: p.filters.platforms,
-                pos: p.filters.pos,
-                sources: p.filters.sources,
-                graphType: p.graphType,
-                dateRange: {
-                    from: p.dateRange.from.toISOString(),
-                    to: p.dateRange.to.toISOString()
-                },
-                showHourlyStats: p.showHourlyStats
-            }
-        } as any));
+        // Check if alerts panel exists (for criticalAlerts.enabled flag)
+        const hasAlertsPanel = panels.some(p => p.type === 'alerts');
+        
+        // Filter out alerts panels before saving - alerts are stored via criticalAlerts config, not as regular panels
+        const regularPanels: PanelConfig[] = panels
+            .filter(p => p.type !== 'alerts')
+            .map(p => ({
+                panelId: p.panelId,
+                panelName: p.panelName,
+                type: p.type,
+                position: p.position,
+                events: p.events,
+                visualizations: p.visualizations,
+                // Store filter config in panel for persistence
+                filterConfig: {
+                    events: p.filters.events,
+                    platforms: p.filters.platforms,
+                    pos: p.filters.pos,
+                    sources: p.filters.sources,
+                    graphType: p.graphType,
+                    dateRange: {
+                        from: p.dateRange.from.toISOString(),
+                        to: p.dateRange.to.toISOString()
+                    },
+                    showHourlyStats: p.showHourlyStats
+                }
+            } as any));
 
         const profile: DashboardProfile = {
             profileId: initialProfileId || `profile_${Date.now()}`,
@@ -418,7 +423,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 timeRange: { preset: 'last_7_days', granularity: 'hourly' },
                 autoRefresh: 60
             },
-            criticalAlerts: { enabled: false, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [] }
+            criticalAlerts: { enabled: hasAlertsPanel, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [] }
         };
 
         await mockService.saveProfile(profile);
