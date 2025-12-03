@@ -23,7 +23,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
     options,
     selected,
     onChange,
-    placeholder = 'Select...',
+    placeholder: _placeholder = 'Select...',
     className,
     showAllOption = true, // Now defaults to true
     maxDisplayItems = 2,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, Fragment } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useSpring, useMotionValue, useInView } from 'framer-motion';
 import type { DashboardProfile, EventConfig } from '@/types/analytics';
 import { apiService, PLATFORMS, SOURCES } from '@/services/apiService';
@@ -267,8 +267,9 @@ const CollapsibleLegend = ({
     );
 };
 
-// Left Sidebar Navigation Component (unused)
-const _LeftSidebarNav = ({ 
+// Left Sidebar Navigation Component (prepared for future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const __LeftSidebarNav = ({ 
     profileName, 
     panels, 
     activePanelId, 
@@ -1613,15 +1614,15 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     // Available sourceStr values extracted from graph data
     const [availableSourceStrs, setAvailableSourceStrs] = useState<string[]>([]);
     const [selectedSourceStrs, setSelectedSourceStrs] = useState<string[]>([]); // Empty = all
-    const [panelAvailableSourceStrs, setPanelAvailableSourceStrs] = useState<Record<string, string[]>>({});
-    const [panelSelectedSourceStrs, setPanelSelectedSourceStrs] = useState<Record<string, string[]>>({});
+    const [_panelAvailableSourceStrs, setPanelAvailableSourceStrs] = useState<Record<string, string[]>>({});
+    const [panelSelectedSourceStrs, _setPanelSelectedSourceStrs] = useState<Record<string, string[]>>({});
     
     // Store raw graph response for client-side filtering
     const [rawGraphResponse, setRawGraphResponse] = useState<any>(null);
-    const [panelRawGraphResponses, setPanelRawGraphResponses] = useState<Record<string, any>>({});
+    const [_panelRawGraphResponses, setPanelRawGraphResponses] = useState<Record<string, any>>({});
     
     // Panel navigation and UI state
-    const [activePanelId, setActivePanelId] = useState<string | null>(null);
+    const [_activePanelId, setActivePanelId] = useState<string | null>(null);
     const [mainLegendExpanded, setMainLegendExpanded] = useState(false);
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
@@ -1636,8 +1637,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const [pendingRefresh, setPendingRefresh] = useState<boolean>(false);
     const initialLoadComplete = useRef<boolean>(false);
 
-    // Function to jump to a panel
-    const handleJumpToPanel = useCallback((panelId: string) => {
+    // Function to jump to a panel (prepared for future use)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleJumpToPanel = useCallback((panelId: string) => {
         setActivePanelId(panelId);
         const panelElement = panelRefs.current[panelId];
         if (panelElement) {
@@ -1671,7 +1673,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     }, []);
     
     // Function to handle graph point click - select event and scroll to legend (used only from pills now)
-    const handleGraphPointClick = useCallback((eventKey: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleGraphPointClick = useCallback((eventKey: string) => {
         // Set the selected event
         setSelectedEventKey(eventKey);
         // Expand the legend if it's collapsed
@@ -1722,7 +1725,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         }, 100);
     }, []);
 
-    const handlePanelChartClick = useCallback((panelId: string, chartState: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handlePanelChartClick = useCallback((panelId: string, chartState: any) => {
         if (!chartState || !chartState.activePayload || chartState.activePayload.length === 0) return;
         const firstSeries = chartState.activePayload[0];
         const dataKey = typeof firstSeries.dataKey === 'string' ? firstSeries.dataKey : '';
@@ -2450,7 +2454,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         );
     
     // Calculate panel stats for sidebar
-    const panelStats = profile.panels.reduce((acc, panel) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _panelStats = profile.panels.reduce((acc, panel) => {
         const data = panelsDataMap.get(panel.panelId);
         if (data?.graphData) {
             acc[panel.panelId] = {
@@ -2463,9 +2468,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
     // Detect event types for dual Y-axis rendering
     const hasAvgEvents = eventKeys.some(ek => ek.isAvgEvent === 1);
-    const hasErrorEvents = eventKeys.some(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _hasErrorEvents = eventKeys.some(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
     const hasNormalEvents = eventKeys.some(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
-    const hasMixedEventTypes = hasAvgEvents && hasNormalEvents;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _hasMixedEventTypes = hasAvgEvents && hasNormalEvents;
     
     // Separate event keys by type
     // Events with BOTH isAvg and isError go to isAvg (time delay charts)
@@ -2473,13 +2480,14 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const errorEventKeys = eventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
     const normalEventKeys = eventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
 
-    // Format delay value based on event feature
+    // Format delay value based on event feature (prepared for future use)
     // Price Alert (feature 1) = value is already in MINUTES
     // Spend/Auto-coupon (others) = value is already in SECONDS
-    const formatDelayValue = (value: number, eventKey?: EventKeyInfo) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _formatDelayValue = (value: number, _eventKey?: EventKeyInfo) => {
         if (!value || value <= 0) return '0';
         // Find the event config to get feature
-        const eventConfig = events.find(e => String(e.eventId) === eventKey?.eventId);
+        const eventConfig = events.find(e => String(e.eventId) === _eventKey?.eventId);
         const featureId = eventConfig?.feature;
         if (featureId === 1) {
             // Value is already in minutes
@@ -4685,10 +4693,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             const pErrorEventKeys = pEventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
                             const pNormalEventKeys = pEventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
                             
-                            // Helper function to format delay for this panel
-                            const formatPanelDelay = (value: number, eventKeyInfo?: EventKeyInfo) => {
+                            // Helper function to format delay for this panel (prepared for future use)
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                            const _formatPanelDelay = (value: number, _eventKeyInfo?: EventKeyInfo) => {
                                 if (!value || value <= 0) return '0';
-                                const eventConfig = events.find(e => String(e.eventId) === eventKeyInfo?.eventId);
+                                const eventConfig = events.find(e => String(e.eventId) === _eventKeyInfo?.eventId);
                                 const featureId = eventConfig?.feature;
                                 if (featureId === 1) {
                                     if (value >= 60) return `${(value / 60).toFixed(1)}h`;
@@ -4888,7 +4897,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
                                                                 <defs>
-                                                                    {pErrorEventKeys.map((eventKeyInfo, index) => (
+                                                                    {pErrorEventKeys.map((eventKeyInfo) => (
                                                                         <linearGradient key={`errorGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                             <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
                                                                             <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05}/>
@@ -4908,7 +4917,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                     tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
                                                                 />
                                                                 <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} />
-                                                                {pErrorEventKeys.map((eventKeyInfo, index) => {
+                                                                {pErrorEventKeys.map((eventKeyInfo) => {
                                                                     const eventKey = eventKeyInfo.eventKey;
                                                                     return (
                                                                         <React.Fragment key={`error_frag_${panel.panelId}_${eventKey}`}>
@@ -5035,7 +5044,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             
                             return processedPieConfigs.length > 0 ? (
                             <div className={cn("grid grid-cols-1 gap-4", gridCols)}>
-                                {processedPieConfigs.map(({ pieConfig, pieType, pieData }) => {
+                                {processedPieConfigs.map(({ pieConfig: _pieConfig, pieType, pieData }) => {
                                     const pieTotal = pieData?.reduce((acc: number, item: any) => acc + item.value, 0) || 0;
                                     
                                     const iconMap = {

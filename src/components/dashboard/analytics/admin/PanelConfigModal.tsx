@@ -67,7 +67,7 @@ export function PanelConfigModal({ isOpen, onClose, onSave, initialPanel, availa
     };
 
     const toggleFilter = (
-        type: 'platform' | 'pos' | 'source',
+        _type: 'platform' | 'pos' | 'source',
         value: string,
         currentValues: string[],
         setter: React.Dispatch<React.SetStateAction<string[]>>

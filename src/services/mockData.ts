@@ -235,7 +235,8 @@ class MockService {
         const poses = ['flipkart', 'amazon', 'myntra'];
 
         const now = Date.now();
-        const sevenDaysAgo = now - (7 * 24 * 3600000);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _sevenDaysAgo = now - (7 * 24 * 3600000);
 
         // Generate hourly data for last 7 days
         const hourlyPoints = 24 * 7;

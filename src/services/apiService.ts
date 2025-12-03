@@ -33,6 +33,7 @@ export interface SiteDetail {
 }
 
 // Cache for site details
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let cachedSiteDetails: SiteDetail[] | null = null;
 
 // ============ DYNAMIC FEATURE DATA ============
