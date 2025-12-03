@@ -200,9 +200,15 @@ const CollapsibleLegend = ({
                             className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shadow-inner flex-shrink-0" 
                             style={{ backgroundColor: color }}
                         />
-                        <span className="text-[11px] md:text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[80px] md:max-w-[100px]">
+                        <span className="text-[11px] md:text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[80px] md:max-w-[120px]">
                             {eventKeyInfo.eventName}
                         </span>
+                        {eventKeyInfo.isErrorEvent === 1 && (
+                            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError</span>
+                        )}
+                        {eventKeyInfo.isAvgEvent === 1 && (
+                            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg</span>
+                        )}
                         <span className="text-[11px] md:text-xs font-semibold text-gray-900 dark:text-white">
                             {stats.total.toLocaleString()}
                         </span>
@@ -467,8 +473,8 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
 };
 
 // Hourly stats card component - uses existing graph data (only shown for ≤7 day ranges)
-// Now supports event-type-wise filtering
-function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: any[]; isHourly: boolean; eventKeys?: EventKeyInfo[] }) {
+// Now supports event-type-wise filtering and handles isAvg events (showing delay instead of count)
+function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: { graphData: any[]; isHourly: boolean; eventKeys?: EventKeyInfo[]; events?: EventConfig[] }) {
     const [selectedHour, setSelectedHour] = useState(new Date().getHours());
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null); // null = show all events, else specific event key
     
@@ -477,9 +483,15 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
 
     // Get the active event key for filtering
     const activeEventKey = selectedEventKey;
+    
+    // Check if selected event is an isAvg event
+    const selectedEventInfo = eventKeys.find(ek => ek.eventKey === activeEventKey);
+    const isAvgEvent = selectedEventInfo?.isAvgEvent === 1;
+    const selectedEventConfig = events.find(e => String(e.eventId) === selectedEventInfo?.eventId);
+    const isPriceAlert = selectedEventConfig?.feature === 1; // Price alerts show in minutes
 
     // Group data by hour and calculate hourly totals (filtered by event if selected)
-    const hourlyStats = new Map<number, { total: number; success: number; fail: number; count: number; dates: string[] }>();
+    const hourlyStats = new Map<number, { total: number; success: number; fail: number; count: number; dates: string[]; avgDelay: number; delayCount: number }>();
     
     graphData.forEach((item: any) => {
         let hour = 0;
@@ -502,14 +514,15 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
             }
         }
         
-        const existing = hourlyStats.get(hour) || { total: 0, success: 0, fail: 0, count: 0, dates: [] };
+        const existing = hourlyStats.get(hour) || { total: 0, success: 0, fail: 0, count: 0, dates: [], avgDelay: 0, delayCount: 0 };
         
         // If a specific event is selected, use that event's data; otherwise use overall totals
-        let itemTotal = 0, itemSuccess = 0, itemFail = 0;
+        let itemTotal = 0, itemSuccess = 0, itemFail = 0, itemDelay = 0;
         if (activeEventKey) {
             itemTotal = item[`${activeEventKey}_count`] || 0;
             itemSuccess = item[`${activeEventKey}_success`] || 0;
             itemFail = item[`${activeEventKey}_fail`] || 0;
+            itemDelay = item[`${activeEventKey}_avgDelay`] || 0;
         } else {
             itemTotal = item.count || 0;
             itemSuccess = item.successCount || 0;
@@ -521,7 +534,9 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
             success: existing.success + itemSuccess,
             fail: existing.fail + itemFail,
             count: existing.count + 1,
-            dates: [...existing.dates, item.date || '']
+            dates: [...existing.dates, item.date || ''],
+            avgDelay: existing.avgDelay + itemDelay,
+            delayCount: existing.delayCount + (itemDelay > 0 ? 1 : 0)
         });
     });
 
@@ -529,28 +544,51 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
     const availableHours = Array.from(hourlyStats.keys()).sort((a, b) => a - b);
     
     // Calculate overall stats (filtered by event if selected)
-    let overallTotal = 0, overallSuccess = 0;
+    let overallTotal = 0, overallSuccess = 0, overallDelay = 0, delayCount = 0;
     if (activeEventKey) {
         graphData.forEach((d: any) => {
             overallTotal += d[`${activeEventKey}_count`] || 0;
             overallSuccess += d[`${activeEventKey}_success`] || 0;
+            const delay = d[`${activeEventKey}_avgDelay`] || 0;
+            if (delay > 0) {
+                overallDelay += delay;
+                delayCount++;
+            }
         });
     } else {
         overallTotal = graphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
         overallSuccess = graphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
     }
     const overallSuccessRate = overallTotal > 0 ? (overallSuccess / overallTotal) * 100 : 0;
+    const overallAvgDelay = delayCount > 0 ? overallDelay / delayCount : 0;
     
-    // Find peak and lowest hours
+    // Format delay based on event type
+    const formatDelay = (delayMs: number) => {
+        if (!delayMs || delayMs <= 0) return '0';
+        if (isPriceAlert) {
+            const minutes = delayMs / 60000;
+            if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
+            return `${minutes.toFixed(1)}m`;
+        } else {
+            const seconds = delayMs / 1000;
+            if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
+            return `${seconds.toFixed(1)}s`;
+        }
+    };
+    
+    // Find peak and lowest hours (by delay for isAvg events, by total for count events)
     let peakHour = 0, peakTotal = 0, lowestHour = 0, lowestTotal = Infinity;
     hourlyStats.forEach((stats, hour) => {
-        if (stats.total > peakTotal) { peakTotal = stats.total; peakHour = hour; }
-        if (stats.total < lowestTotal && stats.total > 0) { lowestTotal = stats.total; lowestHour = hour; }
+        const metric = isAvgEvent ? (stats.delayCount > 0 ? stats.avgDelay / stats.delayCount : 0) : stats.total;
+        if (metric > peakTotal) { peakTotal = metric; peakHour = hour; }
+        if (metric < lowestTotal && metric > 0) { lowestTotal = metric; lowestHour = hour; }
     });
 
-    const selectedStats = hourlyStats.get(selectedHour) || { total: 0, success: 0, fail: 0, count: 0, dates: [] };
-    const avgPerHour = overallTotal / Math.max(availableHours.length, 1);
-    const selectedVsAvg = avgPerHour > 0 ? ((selectedStats.total - avgPerHour) / avgPerHour) * 100 : 0;
+    const selectedStats = hourlyStats.get(selectedHour) || { total: 0, success: 0, fail: 0, count: 0, dates: [], avgDelay: 0, delayCount: 0 };
+    const selectedAvgDelay = selectedStats.delayCount > 0 ? selectedStats.avgDelay / selectedStats.delayCount : 0;
+    const avgPerHour = isAvgEvent ? overallAvgDelay : (overallTotal / Math.max(availableHours.length, 1));
+    const selectedMetric = isAvgEvent ? selectedAvgDelay : selectedStats.total;
+    const selectedVsAvg = avgPerHour > 0 ? ((selectedMetric - avgPerHour) / avgPerHour) * 100 : 0;
     const selectedSuccessRate = selectedStats.total > 0 ? (selectedStats.success / selectedStats.total) * 100 : 0;
     const avgPerDataPoint = selectedStats.count > 0 ? selectedStats.total / selectedStats.count : 0;
 
@@ -664,9 +702,13 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border border-blue-200/50 dark:border-blue-500/20">
                         <div className="flex items-center gap-1 mb-1">
                             <Activity className="h-3 w-3 text-blue-500" />
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium uppercase">Total Events</span>
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium uppercase">
+                                {isAvgEvent ? 'Avg Delay' : 'Total Events'}
+                            </span>
                         </div>
-                        <div className="text-base md:text-lg font-bold text-blue-600">{overallTotal.toLocaleString()}</div>
+                        <div className="text-base md:text-lg font-bold text-blue-600">
+                            {isAvgEvent ? formatDelay(overallAvgDelay) : overallTotal.toLocaleString()}
+                        </div>
                         <div className="text-[10px] text-muted-foreground">{selectedEventKey ? eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName : 'All events'}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-green-500/5 border border-emerald-200/50 dark:border-emerald-500/20">
@@ -680,18 +722,28 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-200/50 dark:border-amber-500/20">
                         <div className="flex items-center gap-1 mb-1">
                             <Flame className="h-3 w-3 text-amber-500" />
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium uppercase">Peak Hour</span>
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium uppercase">
+                                {isAvgEvent ? 'Peak Delay Hour' : 'Peak Hour'}
+                            </span>
                         </div>
                         <div className="text-lg font-bold text-amber-600">{formatHourShort(peakHour)}</div>
-                        <div className="text-[10px] text-muted-foreground">{peakTotal.toLocaleString()} events</div>
+                        <div className="text-[10px] text-muted-foreground">
+                            {isAvgEvent ? formatDelay(peakTotal) : `${Math.round(peakTotal).toLocaleString()} events`}
+                        </div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/10 to-violet-500/5 border border-purple-200/50 dark:border-purple-500/20">
                         <div className="flex items-center gap-1 mb-1">
                             <Hash className="h-3 w-3 text-purple-500" />
-                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium uppercase">Avg/Hour</span>
+                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium uppercase">
+                                {isAvgEvent ? 'Avg Delay/Hour' : 'Avg/Hour'}
+                            </span>
                         </div>
-                        <div className="text-lg font-bold text-purple-600">{Math.round(avgPerHour).toLocaleString()}</div>
-                        <div className="text-[10px] text-muted-foreground">Events per hour</div>
+                        <div className="text-lg font-bold text-purple-600">
+                            {isAvgEvent ? formatDelay(avgPerHour) : Math.round(avgPerHour).toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                            {isAvgEvent ? 'Delay per hour' : 'Events per hour'}
+                        </div>
                     </div>
                 </div>
 
@@ -713,15 +765,20 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                     <div className="h-24 md:h-32">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart
-                                data={availableHours.map(hour => ({
-                                    hour,
-                                    label: formatHourShort(hour),
-                                    total: hourlyStats.get(hour)?.total || 0,
-                                    success: hourlyStats.get(hour)?.success || 0,
-                                    fail: hourlyStats.get(hour)?.fail || 0,
-                                    isSelected: hour === selectedHour,
-                                    isPeak: hour === peakHour
-                                }))}
+                                data={availableHours.map(hour => {
+                                    const stats = hourlyStats.get(hour);
+                                    const hourAvgDelay = stats && stats.delayCount > 0 ? stats.avgDelay / stats.delayCount : 0;
+                                    return {
+                                        hour,
+                                        label: formatHourShort(hour),
+                                        total: stats?.total || 0,
+                                        success: stats?.success || 0,
+                                        fail: stats?.fail || 0,
+                                        avgDelay: hourAvgDelay,
+                                        isSelected: hour === selectedHour,
+                                        isPeak: hour === peakHour
+                                    };
+                                })}
                                 margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
                                 onClick={(data: any) => {
                                     if (data?.activePayload?.[0]?.payload?.hour !== undefined) {
@@ -740,7 +797,19 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                                     tick={{ fontSize: 9, fill: 'currentColor' }}
                                     tickLine={false}
                                     axisLine={false}
-                                    tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
+                                    tickFormatter={(v) => {
+                                        if (isAvgEvent) {
+                                            // Format as time delay
+                                            if (isPriceAlert) {
+                                                const minutes = v / 60000;
+                                                return minutes >= 60 ? `${(minutes / 60).toFixed(0)}h` : `${minutes.toFixed(0)}m`;
+                                            } else {
+                                                const seconds = v / 1000;
+                                                return seconds >= 60 ? `${(seconds / 60).toFixed(0)}m` : `${seconds.toFixed(0)}s`;
+                                            }
+                                        }
+                                        return v >= 1000 ? `${(v/1000).toFixed(0)}k` : v;
+                                    }}
                                 />
                                 <Tooltip
                                     cursor={{ fill: 'rgba(0,0,0,0.05)' }}
@@ -752,14 +821,19 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
                                         fontSize: '11px',
                                         padding: '8px 12px'
                                     }}
-                                    formatter={(value: number, name: string) => [
-                                        value.toLocaleString(),
-                                        name === 'total' ? 'Events' : name === 'success' ? 'Success' : 'Failed'
-                                    ]}
+                                    formatter={(value: number, name: string) => {
+                                        if (isAvgEvent && name === 'avgDelay') {
+                                            return [formatDelay(value), 'Avg Delay'];
+                                        }
+                                        return [
+                                            value.toLocaleString(),
+                                            name === 'total' ? 'Events' : name === 'success' ? 'Success' : 'Failed'
+                                        ];
+                                    }}
                                     labelFormatter={(label) => `Hour: ${label}`}
                                 />
                                 <Bar 
-                                    dataKey="total" 
+                                    dataKey={isAvgEvent ? "avgDelay" : "total"} 
                                     radius={[4, 4, 0, 0]}
                                     cursor="pointer"
                                 >
@@ -822,9 +896,15 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [] }: { graphData: a
 
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-blue-600">{selectedStats.total.toLocaleString()}</div>
-                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Total Events</div>
-                            <div className="text-[8px] sm:text-[9px] text-blue-500 mt-1">Sum of all events at {formatHourShort(selectedHour)}</div>
+                            <div className="text-xl sm:text-2xl font-bold text-blue-600">
+                                {isAvgEvent ? formatDelay(selectedAvgDelay) : selectedStats.total.toLocaleString()}
+                            </div>
+                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">
+                                {isAvgEvent ? 'Avg Delay' : 'Total Events'}
+                            </div>
+                            <div className="text-[8px] sm:text-[9px] text-blue-500 mt-1">
+                                {isAvgEvent ? `Average delay at ${formatHourShort(selectedHour)}` : `Sum of all events at ${formatHourShort(selectedHour)}`}
+                            </div>
                         </div>
                         <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
                             <div className="text-xl sm:text-2xl font-bold text-emerald-600">{selectedStats.success.toLocaleString()}</div>
@@ -1354,6 +1434,8 @@ interface EventKeyInfo {
     eventId: string;
     eventName: string;
     eventKey: string;
+    isErrorEvent?: number; // 1 = error event (red styling)
+    isAvgEvent?: number;   // 1 = avg event (show time delay instead of count)
 }
 
 // Panel-specific data storage with filters and date range
@@ -1366,6 +1448,7 @@ interface PanelData {
     filters: FilterState;
     dateRange: DateRangeState;
     showLegend: boolean; // Collapsed legend state
+    rawGraphResponse?: any; // Store raw response for sourceStr filtering
 }
 
 // Event colors for the chart
@@ -1444,6 +1527,17 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const [panelFiltersState, setPanelFiltersState] = useState<Record<string, FilterState>>({});
     const [panelDateRanges, setPanelDateRanges] = useState<Record<string, DateRangeState>>({});
     const [panelLoading, setPanelLoading] = useState<Record<string, boolean>>({});
+    
+    // SourceStr (Job ID) filter - client-side only, not sent to API
+    // Available sourceStr values extracted from graph data
+    const [availableSourceStrs, setAvailableSourceStrs] = useState<string[]>([]);
+    const [selectedSourceStrs, setSelectedSourceStrs] = useState<string[]>([]); // Empty = all
+    const [panelAvailableSourceStrs, setPanelAvailableSourceStrs] = useState<Record<string, string[]>>({});
+    const [panelSelectedSourceStrs, setPanelSelectedSourceStrs] = useState<Record<string, string[]>>({});
+    
+    // Store raw graph response for client-side filtering
+    const [rawGraphResponse, setRawGraphResponse] = useState<any>(null);
+    const [panelRawGraphResponses, setPanelRawGraphResponses] = useState<Record<string, any>>({});
     
     // Panel navigation and UI state
     const [activePanelId, setActivePanelId] = useState<string | null>(null);
@@ -1666,8 +1760,39 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         loadInitialData();
     }, [profileId]);
 
+    // Helper function to extract unique sourceStr values from raw graph response
+    const extractSourceStrs = useCallback((graphResponse: any): string[] => {
+        if (!graphResponse?.data) return [];
+        const sourceStrs = new Set<string>();
+        graphResponse.data.forEach((record: any) => {
+            if (record.sourceStr && typeof record.sourceStr === 'string' && record.sourceStr.trim() !== '') {
+                sourceStrs.add(record.sourceStr);
+            }
+        });
+        return Array.from(sourceStrs).sort();
+    }, []);
+
+    // Helper function to filter raw graph data by selected sourceStrs (client-side filter)
+    const filterBySourceStr = useCallback((graphResponse: any, selectedStrs: string[]): any => {
+        if (!graphResponse?.data) return graphResponse;
+        // If no filter selected (empty array), return all data
+        if (selectedStrs.length === 0) return graphResponse;
+        
+        return {
+            ...graphResponse,
+            data: graphResponse.data.filter((record: any) => {
+                // If record has no sourceStr, include it only if we're not filtering
+                if (!record.sourceStr || record.sourceStr.trim() === '') {
+                    return false; // Exclude records without sourceStr when filtering
+                }
+                return selectedStrs.includes(record.sourceStr);
+            })
+        };
+    }, []);
+
     // Helper function to process graph response into display format
-    // Now creates separate data series per event for proper bifurcation
+    // Creates separate data series per event for proper bifurcation
+    // Handles avgEvents by plotting avgDelay (time) instead of count
     const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[]) => {
         console.log('📊 processGraphData called with:', {
             responseDataLength: graphResponse?.data?.length || 0,
@@ -1679,9 +1804,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
 
-        // Create a map of eventId -> eventName for lookup
+        // Create maps for event lookup
         const eventNameMap = new Map<string, string>();
-        eventsList.forEach(e => eventNameMap.set(String(e.eventId), e.eventName));
+        const eventConfigMap = new Map<string, EventConfig>();
+        eventsList.forEach(e => {
+            eventNameMap.set(String(e.eventId), e.eventName);
+            eventConfigMap.set(String(e.eventId), e);
+        });
 
         // First pass: collect all unique timestamps and events
         const timeMap = new Map<string, any>();
@@ -1712,11 +1841,14 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     count: 0,
                     successCount: 0,
                     failCount: 0,
+                    avgDelay: 0, // For avg events
                     // Per-event data will be added dynamically
                 });
             }
             
             const existing = timeMap.get(dateKey)!;
+            const eventConfig = eventConfigMap.get(eventId);
+            const isAvgEvent = eventConfig?.isAvgEvent === 1;
             
             // Add to overall totals
             existing.count += record.count || 0;
@@ -1731,10 +1863,30 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 existing[`${eventKey}_count`] = 0;
                 existing[`${eventKey}_success`] = 0;
                 existing[`${eventKey}_fail`] = 0;
+                existing[`${eventKey}_avgDelay`] = 0;
+                existing[`${eventKey}_delayCount`] = 0; // For calculating average
             }
             existing[`${eventKey}_count`] += record.count || 0;
             existing[`${eventKey}_success`] += record.successCount || 0;
             existing[`${eventKey}_fail`] += record.failCount || 0;
+            
+            // For avg events, accumulate delay values (will average later)
+            if (isAvgEvent && record.avgDelay) {
+                existing[`${eventKey}_avgDelay`] += record.avgDelay;
+                existing[`${eventKey}_delayCount`] += 1;
+            }
+        });
+
+        // Second pass: calculate averages for avg events
+        timeMap.forEach((entry) => {
+            eventIds.forEach(eventId => {
+                const eventName = eventNameMap.get(eventId) || `Event ${eventId}`;
+                const eventKey = eventName.replace(/[^a-zA-Z0-9]/g, '_');
+                const delayCount = entry[`${eventKey}_delayCount`] || 0;
+                if (delayCount > 0) {
+                    entry[`${eventKey}_avgDelay`] = entry[`${eventKey}_avgDelay`] / delayCount;
+                }
+            });
         });
 
         // Sort by timestamp
@@ -1742,13 +1894,16 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
 
-        // Attach metadata about which events are in this dataset
+        // Build event keys metadata with isErrorEvent and isAvgEvent
         const eventKeysInData = Array.from(eventIds).map(id => {
             const name = eventNameMap.get(id) || `Event ${id}`;
+            const config = eventConfigMap.get(id);
             return {
                 eventId: id,
                 eventName: name,
-                eventKey: name.replace(/[^a-zA-Z0-9]/g, '_')
+                eventKey: name.replace(/[^a-zA-Z0-9]/g, '_'),
+                isErrorEvent: config?.isErrorEvent || 0,
+                isAvgEvent: config?.isAvgEvent || 0
             };
         });
 
@@ -1765,6 +1920,18 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         };
     }, []);
 
+    // Re-process graph data when sourceStr filter changes (client-side filter, no API call)
+    useEffect(() => {
+        if (rawGraphResponse && events.length > 0) {
+            // First filter the raw data by selected sourceStrs
+            const filteredResponse = filterBySourceStr(rawGraphResponse, selectedSourceStrs);
+            // Then process the filtered data
+            const processedResult = processGraphData(filteredResponse, dateRange.from, dateRange.to, events);
+            setGraphData(processedResult.data);
+            setEventKeys(processedResult.eventKeys || []);
+        }
+    }, [selectedSourceStrs, rawGraphResponse, dateRange, events, processGraphData, filterBySourceStr]);
+
     // Function to refresh a single panel's data
     const refreshPanelData = useCallback(async (panelId: string) => {
         if (!profile || events.length === 0) return;
@@ -1777,32 +1944,40 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         try {
             const panelConfig = (panel as any).filterConfig;
             const userPanelFilters = panelFiltersState[panelId];
+            const existingPanelData = panelsDataMap.get(panelId);
             
             console.log(`🔍 DEBUG - Panel Config:`, panelConfig);
             console.log(`👤 DEBUG - User Panel Filters:`, userPanelFilters);
+            console.log(`📦 DEBUG - Existing Panel Data Filters:`, existingPanelData?.filters);
             
-            // FIXED: Each panel is completely independent
-            // Use panel-specific filters if available, otherwise use panel config defaults
+            // FIXED: Use currentPanelFilters logic - match what the UI shows
+            // Priority: 1) User edited filters (panelFiltersState), 2) Last successful call (panelData.filters), 3) Panel config defaults
+            const currentPanelFilters = userPanelFilters || existingPanelData?.filters || {
+                events: panelConfig?.events || [],
+                platforms: panelConfig?.platforms || [],
+                pos: panelConfig?.pos || [],
+                sources: panelConfig?.sources || []
+            };
+            
+            // Now use currentPanelFilters - empty arrays mean "all" (sent to API as [])
             const panelFilters: FilterState = {
-                events: userPanelFilters?.events?.length > 0 
-                    ? userPanelFilters.events 
-                    : (panelConfig?.events || []),
-                platforms: userPanelFilters?.platforms?.length > 0 
-                    ? userPanelFilters.platforms 
-                    : (panelConfig?.platforms || []),
-                pos: userPanelFilters?.pos?.length > 0 
-                    ? userPanelFilters.pos 
-                    : (panelConfig?.pos || []),
-                sources: userPanelFilters?.sources?.length > 0 
-                    ? userPanelFilters.sources 
-                    : (panelConfig?.sources || [])
+                events: currentPanelFilters.events,
+                platforms: currentPanelFilters.platforms,
+                pos: currentPanelFilters.pos,
+                sources: currentPanelFilters.sources
             };
             const panelDateRange = panelDateRanges[panelId] || dateRange;
+            
+            // Get current sourceStr filter for this panel (client-side filter)
+            const currentSourceStrFilter = profile.panels[0]?.panelId === panelId 
+                ? selectedSourceStrs 
+                : (panelSelectedSourceStrs[panelId] || []);
             
             console.log(`🔄 PANEL REFRESH - Panel ID: ${panelId}`);
             console.log(`📊 Panel filters being applied:`, panelFilters);
             console.log(`🌐 Global filters state:`, filters);
             console.log(`📅 Panel date range:`, panelDateRange);
+            console.log(`🔖 SourceStr filter:`, currentSourceStrFilter);
 
             const graphResponse = await apiService.getGraphData(
                 panelFilters.events,
@@ -1813,20 +1988,32 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 panelDateRange.to
             );
 
-            const pieResponse = await apiService.getPieChartData(
-                panelFilters.events,
-                panelFilters.platforms,
-                panelFilters.pos,
-                panelFilters.sources,
-                panelDateRange.from,
-                panelDateRange.to
-            );
+            // Pie chart is optional - don't fail the whole refresh if it fails
+            let pieResponse = null;
+            try {
+                pieResponse = await apiService.getPieChartData(
+                    panelFilters.events,
+                    panelFilters.platforms,
+                    panelFilters.pos,
+                    panelFilters.sources,
+                    panelDateRange.from,
+                    panelDateRange.to
+                );
+            } catch (pieErr) {
+                console.warn(`⚠️ Pie chart data failed for panel ${panelId}, continuing without it:`, pieErr);
+            }
 
-            const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events);
+            // Extract available sourceStrs from the raw response
+            const sourceStrsInData = extractSourceStrs(graphResponse);
+            
+            // Apply sourceStr filter (client-side) then process
+            const filteredResponse = filterBySourceStr(graphResponse, currentSourceStrFilter);
+            const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events);
 
             console.log(`✅ PANEL ${panelId} - Processed data:`, {
                 dataLength: processedResult.data.length,
                 eventKeysCount: processedResult.eventKeys.length,
+                availableSourceStrs: sourceStrsInData.length,
                 pieData: pieResponse ? 'received' : 'null'
             });
 
@@ -1841,10 +2028,21 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     error: null,
                     filters: panelFilters,
                     dateRange: panelDateRange,
-                    showLegend: false
+                    showLegend: false,
+                    rawGraphResponse: graphResponse // Store for re-processing with sourceStr filter
                 });
                 return newMap;
             });
+            
+            // Update available sourceStrs for this panel
+            if (profile.panels[0]?.panelId === panelId) {
+                setAvailableSourceStrs(sourceStrsInData);
+            } else {
+                setPanelAvailableSourceStrs(prev => ({
+                    ...prev,
+                    [panelId]: sourceStrsInData
+                }));
+            }
 
             // CRITICAL: If this is the first/main panel, also update the legacy state variables
             // The main panel UI uses these directly, not panelsDataMap
@@ -1852,11 +2050,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 console.log(`🔄 Updating main panel state variables with:`, {
                     graphDataLength: processedResult.data.length,
                     eventKeysCount: processedResult.eventKeys?.length || 0,
+                    availableSourceStrs: sourceStrsInData.length,
                     pieDataKeys: pieResponse ? Object.keys(pieResponse) : []
                 });
                 setGraphData(processedResult.data);
                 setEventKeys(processedResult.eventKeys || []);
                 setPieChartData(pieResponse);
+                setRawGraphResponse(graphResponse); // Store for re-processing
                 setLastUpdated(new Date());
                 console.log(`✅ Main panel state variables updated!`);
             }
@@ -1877,7 +2077,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         } finally {
             setPanelLoading(prev => ({ ...prev, [panelId]: false }));
         }
-    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData]);
+    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr]);
 
     // Load chart data for all panels
     const loadData = useCallback(async () => {
@@ -1892,27 +2092,28 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             
             for (const panel of profile.panels) {
                 const panelConfig = (panel as any).filterConfig;
+                const userPanelFilters = panelFiltersState[panel.panelId];
+                const panelDateRange = panelDateRanges[panel.panelId] || dateRange;
                 
-                // FIXED: User's global filters ALWAYS override panel defaults
-                // If user has selected specific values, use those
-                // If user hasn't selected anything (empty array), use panel defaults OR all
+                // FIXED: Each panel uses its own filter state if available
+                // Priority: 1) Panel-specific user filters, 2) Panel config, 3) Empty (all)
                 const panelFilters: FilterState = {
-                    events: filters.events.length > 0 
-                        ? filters.events 
+                    events: userPanelFilters?.events?.length > 0 
+                        ? userPanelFilters.events 
                         : (panelConfig?.events || []),
-                    platforms: filters.platforms.length > 0 
-                        ? filters.platforms 
+                    platforms: userPanelFilters?.platforms?.length > 0 
+                        ? userPanelFilters.platforms 
                         : (panelConfig?.platforms || []),
-                    pos: filters.pos.length > 0 
-                        ? filters.pos 
+                    pos: userPanelFilters?.pos?.length > 0 
+                        ? userPanelFilters.pos 
                         : (panelConfig?.pos || []),
-                    sources: filters.sources.length > 0 
-                        ? filters.sources 
+                    sources: userPanelFilters?.sources?.length > 0 
+                        ? userPanelFilters.sources 
                         : (panelConfig?.sources || [])
                 };
                 
                 console.log(`Panel ${panel.panelId} - Using filters:`, panelFilters);
-                console.log(`User filters:`, filters);
+                console.log(`User panel filters:`, userPanelFilters);
                 console.log(`Panel config:`, panelConfig);
                 
                 try {
@@ -1921,20 +2122,29 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         panelFilters.platforms,
                         panelFilters.pos,
                         panelFilters.sources,
-                        dateRange.from,
-                        dateRange.to
+                        panelDateRange.from,
+                        panelDateRange.to
                     );
 
-                    const pieResponse = await apiService.getPieChartData(
-                        panelFilters.events,
-                        panelFilters.platforms,
-                        panelFilters.pos,
-                        panelFilters.sources,
-                        dateRange.from,
-                        dateRange.to
-                    );
+                    // Pie chart is optional - don't fail the whole refresh if it fails
+                    let pieResponse = null;
+                    try {
+                        pieResponse = await apiService.getPieChartData(
+                            panelFilters.events,
+                            panelFilters.platforms,
+                            panelFilters.pos,
+                            panelFilters.sources,
+                            panelDateRange.from,
+                            panelDateRange.to
+                        );
+                    } catch (pieErr) {
+                        console.warn(`⚠️ Pie chart data failed for panel ${panel.panelId}, continuing without it:`, pieErr);
+                    }
 
-                    const processedResult = processGraphData(graphResponse, dateRange.from, dateRange.to, events);
+                    // Extract available sourceStrs from raw response
+                    const sourceStrsInData = extractSourceStrs(graphResponse);
+                    
+                    const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events);
 
                     newPanelsData.set(panel.panelId, {
                         graphData: processedResult.data,
@@ -1943,9 +2153,25 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         loading: false,
                         error: null,
                         filters: panelFilters,
-                        dateRange: { from: dateRange.from, to: dateRange.to },
-                        showLegend: false
+                        dateRange: { from: panelDateRange.from, to: panelDateRange.to },
+                        showLegend: false,
+                        rawGraphResponse: graphResponse // Store for sourceStr filtering
                     });
+                    
+                    // Update available sourceStrs for this panel
+                    if (profile.panels[0]?.panelId === panel.panelId) {
+                        setAvailableSourceStrs(sourceStrsInData);
+                        setRawGraphResponse(graphResponse);
+                    } else {
+                        setPanelAvailableSourceStrs(prev => ({
+                            ...prev,
+                            [panel.panelId]: sourceStrsInData
+                        }));
+                        setPanelRawGraphResponses(prev => ({
+                            ...prev,
+                            [panel.panelId]: graphResponse
+                        }));
+                    }
                 } catch (panelErr) {
                     console.error(`Failed to load data for panel ${panel.panelId}:`, panelErr);
                     newPanelsData.set(panel.panelId, {
@@ -1955,7 +2181,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         loading: false,
                         error: `Failed to load: ${panelErr instanceof Error ? panelErr.message : 'Unknown error'}`,
                         filters: panelFilters,
-                        dateRange: { from: dateRange.from, to: dateRange.to },
+                        dateRange: { from: panelDateRange.from, to: panelDateRange.to },
                         showLegend: false
                     });
                 }
@@ -1979,7 +2205,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         } finally {
             setDataLoading(false);
         }
-    }, [profile, filters, dateRange, events, processGraphData]);
+    }, [profile, panelFiltersState, panelDateRanges, dateRange, events, processGraphData, extractSourceStrs]);
 
     useEffect(() => {
         // Only auto-load on initial mount (when profile and events first become available)
@@ -2082,8 +2308,22 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const totalSuccess = graphData.reduce((sum, d) => sum + (d.successCount || 0), 0);
     const totalFail = graphData.reduce((sum, d) => sum + (d.failCount || 0), 0);
 
-    // Dropdown options
-    const eventOptions = events.map(e => ({ value: e.eventId, label: e.eventName }));
+    // Dropdown options with indicators for error/avg events
+    const eventOptions = events.map(e => {
+        let label = e.eventName;
+        const tags: string[] = [];
+        if (e.isErrorEvent === 1) tags.push('[isError]');
+        if (e.isAvgEvent === 1) tags.push('[isAvg]');
+        if (tags.length > 0) {
+            label = `${e.eventName} ${tags.join(' ')}`;
+        }
+        return { 
+            value: e.eventId, 
+            label,
+            isErrorEvent: e.isErrorEvent === 1,
+            isAvgEvent: e.isAvgEvent === 1
+        };
+    });
     const platformOptions = PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }));
     const posOptions = siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }));
     const sourceOptions = SOURCES.map(s => ({ value: s.id.toString(), label: s.name }));
@@ -2107,6 +2347,32 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         }
         return acc;
     }, {} as Record<string, { total: number; success: number; }>);
+
+    // Detect event types for dual Y-axis rendering
+    const hasAvgEvents = eventKeys.some(ek => ek.isAvgEvent === 1);
+    const hasNormalEvents = eventKeys.some(ek => ek.isAvgEvent !== 1);
+    const hasMixedEventTypes = hasAvgEvents && hasNormalEvents;
+    
+    // Separate event keys by type for dual Y-axis
+    const avgEventKeys = eventKeys.filter(ek => ek.isAvgEvent === 1);
+    const normalEventKeys = eventKeys.filter(ek => ek.isAvgEvent !== 1);
+
+    // Format delay value based on event feature (price alerts = minutes, others = seconds)
+    const formatDelayValue = (value: number, eventKey?: EventKeyInfo) => {
+        if (!value || value <= 0) return '0';
+        // Find the event config to get feature
+        const eventConfig = events.find(e => String(e.eventId) === eventKey?.eventId);
+        const featureId = eventConfig?.feature;
+        // Feature 1 = Price Alert (minutes), others (Spend/Auto-coupon) in seconds
+        if (featureId === 1) {
+            const minutes = value / 60000;
+            if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
+            return `${minutes.toFixed(1)}m`;
+        }
+        const seconds = value / 1000;
+        if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
+        return `${seconds.toFixed(1)}s`;
+    };
     
     return (
         <>
@@ -2342,6 +2608,47 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 />
                             </motion.div>
                         </div>
+                        
+                        {/* Job ID (sourceStr) Filter - Only shown when data contains sourceStr values */}
+                        {availableSourceStrs.length > 0 && (
+                            <motion.div 
+                                className="mt-4 p-3 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-500/30"
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                        <Hash className="w-4 h-4 text-cyan-600" />
+                                        <Label className="text-xs uppercase tracking-wide text-cyan-700 dark:text-cyan-300 font-medium">
+                                            Job ID Filter
+                                        </Label>
+                                        <span className="text-xs text-cyan-600 dark:text-cyan-400">
+                                            ({availableSourceStrs.length} jobs found)
+                                        </span>
+                                    </div>
+                                    <div className="flex-1 min-w-[200px]">
+                                        <MultiSelectDropdown
+                                            options={availableSourceStrs.map(s => ({ value: s, label: s }))}
+                                            selected={selectedSourceStrs}
+                                            onChange={(values) => setSelectedSourceStrs(values)}
+                                            placeholder="All Job IDs"
+                                            className="bg-white dark:bg-gray-800"
+                                        />
+                                    </div>
+                                    {selectedSourceStrs.length > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setSelectedSourceStrs([])}
+                                            className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100 dark:hover:bg-cyan-900/30"
+                                        >
+                                            Clear
+                                        </Button>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
                         
                         {/* Apply Filters Button and Auto-refresh Config */}
                         <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border/50">
@@ -2680,7 +2987,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 </motion.div>
             </div>
 
-            {/* Main Chart */}
+            {/* Main Chart - Count Events Only */}
+            {normalEventKeys.length > 0 && (
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -2697,10 +3005,10 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     <BarChart3 className="h-5 w-5 text-white" />
                                 </motion.div>
                                 <div className="flex-1 min-w-0">
-                                    <CardTitle className="text-base md:text-lg">Event Trends</CardTitle>
+                                    <CardTitle className="text-base md:text-lg">Event Count Trends</CardTitle>
                                     <p className="text-xs text-muted-foreground mt-0.5">
                                         {/* Mobile: Click • Desktop: Hover */}
-                                        <span className="hidden md:inline">Hover over data points for insights</span>
+                                        <span className="hidden md:inline">Count-based events • Hover for insights</span>
                                         <span className="md:hidden">Tap data points for insights</span>
                                     </p>
                                 </div>
@@ -2709,10 +3017,10 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
-                        {/* Collapsible Legend - Outside the chart */}
-                        {eventKeys.length > 0 && (
+                        {/* Collapsible Legend - Only normal (count) events */}
+                        {normalEventKeys.length > 0 && (
                             <CollapsibleLegend 
-                                eventKeys={eventKeys}
+                                eventKeys={normalEventKeys}
                                 events={events}
                                 isExpanded={mainLegendExpanded}
                                 onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
@@ -2824,8 +3132,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             }}
                                         >
                                             <defs>
-                                                {/* Dynamic gradients for each event */}
-                                                {eventKeys.map((eventKeyInfo, index) => {
+                                                {/* Dynamic gradients for normal events */}
+                                                {normalEventKeys.map((eventKeyInfo, index) => {
                                                     const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                     const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                     return (
@@ -2845,7 +3153,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 height={45}
                                                 interval={Math.floor(graphData.length / 8)}
                                             />
+                                            {/* Left Y-axis for Count */}
                                             <YAxis 
+                                                yAxisId="left"
                                                 tick={{ fill: '#6b7280', fontSize: 11 }}
                                                 axisLine={false}
                                                 tickLine={false}
@@ -2855,19 +3165,21 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     return value;
                                                 }}
                                                 dx={-10}
+                                                label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
                                             />
                                             <Tooltip 
-                                                content={<CustomTooltip events={events} eventKeys={eventKeys} />}
+                                                content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
                                                 cursor={{ fill: 'rgba(168, 85, 247, 0.1)' }}
                                             />
-                                            {/* Dynamic bars for each event */}
-                                            {eventKeys.length > 0 ? eventKeys.map((eventKeyInfo) => {
+                                            {/* Dynamic bars for normal (count) events only */}
+                                            {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo) => {
                                                 const eventKey = eventKeyInfo.eventKey;
                                                 return (
                                                     <Bar 
                                                         key={`bar_${eventKey}`}
                                                         dataKey={`${eventKey}_count`}
                                                         name={eventKeyInfo.eventName}
+                                                        yAxisId="left"
                                                         fill={`url(#barColor_${eventKey})`}
                                                         radius={[3, 3, 0, 0]}
                                                         maxBarSize={40}
@@ -2880,6 +3192,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 <Bar 
                                                     dataKey="count"
                                                     name="Total"
+                                                    yAxisId="left"
                                                     fill="#6366f1"
                                                     radius={[3, 3, 0, 0]}
                                                     maxBarSize={40}
@@ -2934,7 +3247,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 height={45}
                                                 interval={Math.floor(graphData.length / 8)}
                                             />
+                                            {/* Left Y-axis for Count */}
                                             <YAxis 
+                                                yAxisId="left"
                                                 tick={{ fill: '#6b7280', fontSize: 11 }}
                                                 axisLine={false}
                                                 tickLine={false}
@@ -2944,13 +3259,14 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     return value;
                                                 }}
                                                 dx={-10}
+                                                label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
                                             />
                                             <Tooltip 
-                                                content={<CustomTooltip events={events} eventKeys={eventKeys} />}
+                                                content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
                                                 cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
                                             />
-                                            {/* Dynamic areas for each event */}
-                                            {eventKeys.length > 0 ? eventKeys.map((eventKeyInfo, index) => {
+                                            {/* Dynamic areas for normal (count) events only */}
+                                            {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo, index) => {
                                                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                 const eventKey = eventKeyInfo.eventKey;
@@ -2960,6 +3276,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         type="monotone" 
                                                         dataKey={`${eventKey}_count`}
                                                         name={eventKeyInfo.eventName}
+                                                        yAxisId="left"
                                                         stroke={color} 
                                                         strokeWidth={selectedEventKey === eventKey ? 4 : 2.5}
                                                         fillOpacity={selectedEventKey && selectedEventKey !== eventKey ? 0.3 : 1} 
@@ -2975,20 +3292,21 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         }}
                                                     />
                                                 );
-                                            }) : (
-                                                /* Fallback to overall totals when no event keys */
-                                                <Area 
-                                                    type="monotone" 
-                                                    dataKey="count"
-                                                    name="Total"
-                                                    stroke="#6366f1" 
-                                                    strokeWidth={2.5}
-                                                    fillOpacity={0.3} 
-                                                    fill="#6366f1"
-                                                    dot={false}
-                                                    activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                                                />
-                                            )}
+                                                }) : (
+                                                    /* Fallback to overall totals when no event keys */
+                                                    <Area 
+                                                        type="monotone" 
+                                                        dataKey="count"
+                                                        name="Total"
+                                                        yAxisId="left"
+                                                        stroke="#6366f1" 
+                                                        strokeWidth={2.5}
+                                                        fillOpacity={0.3} 
+                                                        fill="#6366f1"
+                                                        dot={false}
+                                                        activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                                                    />
+                                                )}
                                         </AreaChart>
                                     )}
                                 </ResponsiveContainer>
@@ -3012,6 +3330,154 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     </CardContent>
                 </Card>
             </motion.div>
+            )}
+
+            {/* Time Delay Chart - For isAvg Events Only */}
+            {avgEventKeys.length > 0 && (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55 }}
+            >
+                <Card className="border-2 border-amber-100 dark:border-amber-500/20 overflow-hidden shadow-lg">
+                    <CardHeader className="pb-2 px-3 md:px-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                            <div className="flex items-center gap-3">
+                                <motion.div 
+                                    className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20"
+                                    whileHover={{ scale: 1.05, rotate: 5 }}
+                                >
+                                    <Clock className="h-5 w-5 text-white" />
+                                </motion.div>
+                                <div className="flex-1 min-w-0">
+                                    <CardTitle className="text-base md:text-lg">Time Delay Trends</CardTitle>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        <span className="hidden md:inline">Average delay per event • Price Alerts in minutes, others in seconds</span>
+                                        <span className="md:hidden">Delay tracking for isAvg events</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
+                        {/* Collapsible Legend - Only avg (time) events */}
+                        {avgEventKeys.length > 0 && (
+                            <CollapsibleLegend 
+                                eventKeys={avgEventKeys}
+                                events={events}
+                                isExpanded={mainLegendExpanded}
+                                onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
+                                maxVisibleItems={5}
+                                graphData={graphData}
+                                selectedEventKey={selectedEventKey}
+                                onEventClick={handleEventClick}
+                            />
+                        )}
+
+                        <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full cursor-pointer">
+                            {graphData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart
+                                        data={graphData}
+                                        margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
+                                    >
+                                        <defs>
+                                            {/* Dynamic gradients for avg events */}
+                                            {avgEventKeys.map((eventKeyInfo, index) => {
+                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                return (
+                                                    <linearGradient key={`timeGrad_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor={color} stopOpacity={0.4}/>
+                                                        <stop offset="95%" stopColor={color} stopOpacity={0.05}/>
+                                                    </linearGradient>
+                                                );
+                                            })}
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                        <XAxis 
+                                            dataKey="date" 
+                                            tick={<CustomXAxisTick isHourly={isHourly} />}
+                                            axisLine={{ stroke: '#e5e7eb' }}
+                                            tickLine={false}
+                                            height={45}
+                                            interval={Math.floor(graphData.length / 8)}
+                                        />
+                                        {/* Y-axis for Time Delay */}
+                                        <YAxis 
+                                            tick={{ fill: '#f59e0b', fontSize: 11 }}
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tickFormatter={(value) => {
+                                                // Check if any avg event is a Price Alert (feature 1) - show in minutes
+                                                const hasPriceAlert = avgEventKeys.some(ek => {
+                                                    const ev = events.find(e => String(e.eventId) === ek.eventId);
+                                                    return ev?.feature === 1;
+                                                });
+                                                if (!value || value <= 0) return '0';
+                                                if (hasPriceAlert) {
+                                                    // Price alerts - value is in ms, show as minutes
+                                                    const minutes = value / 60000;
+                                                    if (minutes >= 60) return `${(minutes / 60).toFixed(1)}h`;
+                                                    return `${minutes.toFixed(1)}m`;
+                                                } else {
+                                                    // Others - value is in ms, show as seconds
+                                                    const seconds = value / 1000;
+                                                    if (seconds >= 60) return `${(seconds / 60).toFixed(1)}m`;
+                                                    return `${seconds.toFixed(1)}s`;
+                                                }
+                                            }}
+                                            dx={-10}
+                                            label={{ value: 'Delay', angle: -90, position: 'insideLeft', style: { fill: '#f59e0b', fontSize: 10 } }}
+                                        />
+                                        <Tooltip 
+                                            content={<CustomTooltip events={events} eventKeys={avgEventKeys} />}
+                                            cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                        />
+                                        {/* Dynamic areas for avg (time) events */}
+                                        {avgEventKeys.map((eventKeyInfo, index) => {
+                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                            const eventKey = eventKeyInfo.eventKey;
+                                            return (
+                                                <Area 
+                                                    key={`time_${eventKey}`}
+                                                    type="monotone" 
+                                                    dataKey={`${eventKey}_avgDelay`}
+                                                    name={eventKeyInfo.eventName}
+                                                    stroke={color} 
+                                                    strokeWidth={2.5}
+                                                    fillOpacity={1} 
+                                                    fill={`url(#timeColor_${eventKey})`}
+                                                    dot={false}
+                                                    activeDot={{
+                                                        r: 8, 
+                                                        fill: color, 
+                                                        stroke: '#fff', 
+                                                        strokeWidth: 3,
+                                                        cursor: 'pointer',
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                    <Clock className="h-12 w-12 mb-3 opacity-30" />
+                                    <p className="text-sm">
+                                        {dataLoading ? 'Loading delay data...' : 'No delay data available'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </motion.div>
+            )}
 
             {/* Pie Charts - Shown above Hourly Insights, hidden if only 1 item (100% share) */}
             {(() => {
@@ -3284,7 +3750,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.6 }}
                 >
-                    <HourlyStatsCard graphData={graphData} isHourly={isHourly} eventKeys={eventKeys} />
+                    <HourlyStatsCard graphData={graphData} isHourly={isHourly} eventKeys={eventKeys} events={events} />
                 </motion.div>
             )}
 
@@ -3892,7 +4358,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.3 * (panelIndex + 1) }}
                             >
-                                <HourlyStatsCard graphData={pGraphData} isHourly={isHourly} eventKeys={pEventKeys} />
+                                <HourlyStatsCard graphData={pGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
                             </motion.div>
                         )}
                     </motion.div>

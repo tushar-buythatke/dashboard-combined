@@ -137,6 +137,7 @@ interface GraphAPIRequest {
         pos: number[];
         platform: number[];
         source: number[];
+        sourceStr: string[]; // Client-side filter - always send empty array to server
     };
     startTime: string; // YYYY-MM-DD
     endTime: string; // YYYY-MM-DD
@@ -152,6 +153,7 @@ interface GraphAPIResponse {
         timestamp: string;
         eventId: number;
         source: number;
+        sourceStr: string; // Source string identifier (for client-side filtering)
         count: number;
         successCount: number;
         failCount: number;
@@ -449,7 +451,8 @@ export class APIService {
                 eventId: toNumbers(eventIds),
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
-                source: toNumbers(sourceIds)
+                source: toNumbers(sourceIds),
+                sourceStr: [] // Always send empty array - client-side filtering only
             },
             startTime: this.formatDate(startDate),
             endTime: this.formatDate(endDate),
@@ -483,6 +486,7 @@ export class APIService {
             platform: record.platform,
             eventId: record.eventId,
             source: record.source,
+            sourceStr: record.sourceStr || '', // Include sourceStr for client-side filtering
             pos: record.pos,
             count: record.count || 0,
             successCount: record.successCount || 0,
@@ -525,7 +529,8 @@ export class APIService {
                 eventId: toNumbers(eventIds),
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
-                source: toNumbers(sourceIds)
+                source: toNumbers(sourceIds),
+                sourceStr: [] // Always send empty array - client-side filtering only
             },
             startTime: this.formatDate(startDate),
             endTime: this.formatDate(endDate),
