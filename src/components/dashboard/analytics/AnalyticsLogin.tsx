@@ -88,7 +88,6 @@ export function AnalyticsLogin() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const [focusedField, setFocusedField] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -194,69 +193,41 @@ export function AnalyticsLogin() {
                         <CardContent className="space-y-5 lg:space-y-6 px-5 lg:px-8">
                             <motion.div
                                 initial={{ opacity: 0, x: -20 }}
-                                animate={{ 
-                                    opacity: 1, 
-                                    x: 0,
-                                    scale: focusedField === 'username' ? 1.02 : 1 
-                                }}
+                                animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.4 }}
-                                className="space-y-2"
-                            >
+                                className="space-y-2">
                                 <Label htmlFor="username" className="text-foreground/80 flex items-center gap-2 text-sm font-medium">
-                                    <motion.div
-                                        animate={{ rotate: focusedField === 'username' ? [0, -10, 10, 0] : 0 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <User className="h-4 w-4 text-purple-500" />
-                                    </motion.div>
+                                    <User className="h-4 w-4 text-purple-500" />
                                     Username
                                 </Label>
-                                <div className="relative">
-                                    <Input
-                                        id="username"
-                                        placeholder="Enter your username"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        onFocus={() => setFocusedField('username')}
-                                        onBlur={() => setFocusedField(null)}
-                                        required
-                                        className="h-12 bg-white dark:bg-slate-800/50 border-purple-200/60 dark:border-purple-500/20 text-foreground placeholder:text-muted-foreground/60 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
-                                    />
-                                </div>
+                                <Input
+                                    id="username"
+                                    placeholder="Enter your username"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
+                                    required
+                                    className="h-12 bg-white dark:bg-slate-800/50 border-purple-200/60 dark:border-purple-500/20 text-foreground placeholder:text-muted-foreground/60 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
+                                />
                             </motion.div>
                             
                             <motion.div
                                 initial={{ opacity: 0, x: -20 }}
-                                animate={{ 
-                                    opacity: 1, 
-                                    x: 0,
-                                    scale: focusedField === 'password' ? 1.02 : 1 
-                                }}
+                                animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.5 }}
-                                className="space-y-2"
-                            >
+                                className="space-y-2">
                                 <Label htmlFor="password" className="text-foreground/80 flex items-center gap-2 text-sm font-medium">
-                                    <motion.div
-                                        animate={{ rotate: focusedField === 'password' ? [0, -10, 10, 0] : 0 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <Lock className="h-4 w-4 text-purple-500" />
-                                    </motion.div>
+                                    <Lock className="h-4 w-4 text-purple-500" />
                                     Password
                                 </Label>
-                                <div className="relative">
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        onFocus={() => setFocusedField('password')}
-                                        onBlur={() => setFocusedField(null)}
-                                        required
-                                        className="h-12 bg-white dark:bg-slate-800/50 border-purple-200/60 dark:border-purple-500/20 text-foreground placeholder:text-muted-foreground/60 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
-                                    />
-                                </div>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    className="h-12 bg-white dark:bg-slate-800/50 border-purple-200/60 dark:border-purple-500/20 text-foreground placeholder:text-muted-foreground/60 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all duration-300"
+                                />
                             </motion.div>
                             
                             <AnimatePresence>
