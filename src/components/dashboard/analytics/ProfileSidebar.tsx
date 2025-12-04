@@ -15,6 +15,7 @@ interface ProfileSidebarProps {
     refreshTrigger?: number;
     isCollapsed?: boolean;
     onToggleCollapse?: () => void;
+    isMobileDrawer?: boolean; // New prop to indicate if rendered in mobile drawer
 }
 
 export function ProfileSidebar({
@@ -24,7 +25,8 @@ export function ProfileSidebar({
     onCreateProfile,
     refreshTrigger = 0,
     isCollapsed = false,
-    onToggleCollapse
+    onToggleCollapse,
+    isMobileDrawer = false
 }: ProfileSidebarProps) {
     const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -207,9 +209,18 @@ export function ProfileSidebar({
         </div>
     );
 
+    // If rendered in mobile drawer from parent, just show content directly
+    if (isMobileDrawer) {
+        return (
+            <div className="flex flex-col h-full bg-background">
+                <ExpandedContent />
+            </div>
+        );
+    }
+
     return (
         <>
-            {/* Mobile toggle button */}
+            {/* Mobile toggle button - only show if NOT in mobile drawer */}
             <motion.button
                 className="fixed bottom-4 left-4 z-50 lg:hidden h-12 w-12 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center"
                 onClick={() => setIsMobileOpen(true)}

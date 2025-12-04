@@ -115,7 +115,7 @@ export function AnalyticsLayout() {
             panels: [],
             filters: {
                 platform: { type: 'multi-select', options: [], defaultValue: ['0'] },
-                pos: { type: 'multi-select', options: [], defaultValue: ['2'] },
+                pos: { type: 'multi-select', options: [], defaultValue: [] },
                 source: { type: 'multi-select', options: [], defaultValue: ['1'] },
                 event: { type: 'multi-select', options: [], defaultValue: [] }
             },
@@ -155,16 +155,18 @@ export function AnalyticsLayout() {
                     <WaveBackground />
                 </div>
                 
-                <header className="border-b border-border/50 p-3 lg:p-4 flex justify-between items-center bg-card/80 backdrop-blur-sm shadow-sm relative z-10">
+                <header className="border-b border-border/50 p-3 lg:p-4 flex justify-between items-center bg-card/95 backdrop-blur-md shadow-sm relative z-10">
                     <motion.div 
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
+                        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                         className="flex items-center gap-2 lg:gap-3"
                     >
                         <motion.div 
-                            className="h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl bg-white dark:bg-slate-800 p-1 lg:p-1.5 shadow-lg border border-purple-100 dark:border-purple-500/20"
+                            className="h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl bg-white dark:bg-slate-800 p-1 lg:p-1.5 shadow-lg border border-purple-100 dark:border-purple-500/20 overflow-hidden"
                             whileHover={{ scale: 1.05, rotate: 5 }}
                             whileTap={{ scale: 0.95 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 17 }}
                         >
                             <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                         </motion.div>
@@ -453,6 +455,7 @@ export function AnalyticsLayout() {
                                     refreshTrigger={sidebarRefreshTrigger}
                                     isCollapsed={false}
                                     onToggleCollapse={() => {}}
+                                    isMobileDrawer={true}
                                 />
                             </motion.div>
                         </>

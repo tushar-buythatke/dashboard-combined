@@ -9,6 +9,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EnhancedCard, CardHeader as EnhancedCardHeader } from '@/components/ui/enhanced-card';
+import { InteractiveButton, IconButton } from '@/components/ui/interactive-button';
+import { StatBadge } from '@/components/ui/stat-badge';
+import { DashboardHeader } from '@/components/ui/dashboard-header';
+import { Label } from '@/components/ui/label';
+import {
+    ResponsiveContainer,
+    AreaChart,
+    Area,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    Legend,
+    PieChart,
+    Pie,
+    Cell
+} from 'recharts';
 
 // Animated Number Counter Component
 const AnimatedNumber = ({ value, suffix = '', prefix = '', className = '' }: { value: number; suffix?: string; prefix?: string; className?: string }) => {
@@ -625,7 +648,11 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
     };
 
     return (
-        <Card className="border-2 border-cyan-100 dark:border-cyan-500/20 bg-gradient-to-br from-cyan-50/30 to-blue-50/20 dark:from-cyan-500/5 dark:to-blue-500/5 overflow-hidden shadow-md">
+        <EnhancedCard 
+            variant="glass"
+            glow={true}
+            className="border-2 border-cyan-200/50 dark:border-cyan-500/30"
+        >
             <CardHeader className="pb-3 px-3 md:px-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                     <div className="flex items-center gap-3">
@@ -754,9 +781,20 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                 </div>
 
                 {/* Hour Distribution Chart */}
-                <div className="p-3 rounded-xl bg-background/60 border border-border/40">
+                <motion.div 
+                    className="p-3 rounded-xl bg-background/60 border border-border/40 hover:border-cyan-300 dark:hover:border-cyan-500/50 transition-all duration-200"
+                    whileHover={{ scale: 1.01 }}
+                >
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-foreground">Hour Distribution</span>
+                        <div className="flex items-center gap-2">
+                            <motion.div
+                                animate={{ scale: [1, 1.2, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                                className="w-2 h-2 rounded-full bg-cyan-500"
+                            />
+                            <span className="text-xs font-semibold text-foreground">Hour Distribution</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-medium">Click bars</span>
+                        </div>
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1">
                                 <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500"></div>
@@ -840,22 +878,28 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                 />
                                 <Bar 
                                     dataKey={isAvgEvent ? "avgDelay" : "total"} 
-                                    radius={[4, 4, 0, 0]}
+                                    radius={[6, 6, 0, 0]}
                                     cursor="pointer"
+                                    onClick={(data: any) => {
+                                        if (data && data.hour !== undefined) {
+                                            setSelectedHour(data.hour);
+                                        }
+                                    }}
                                 >
                                     {availableHours.map((hour, index) => (
                                         <Cell 
                                             key={`cell-${index}`}
                                             fill={hour === selectedHour ? '#06b6d4' : hour === peakHour ? '#fbbf24' : '#93c5fd'}
-                                            stroke={hour === selectedHour ? '#0891b2' : 'transparent'}
-                                            strokeWidth={hour === selectedHour ? 2 : 0}
+                                            stroke={hour === selectedHour ? '#0891b2' : hour === peakHour ? '#f59e0b' : 'transparent'}
+                                            strokeWidth={hour === selectedHour ? 3 : hour === peakHour ? 2 : 0}
+                                            style={{ cursor: 'pointer', transition: 'all 0.2s' }}
                                         />
                                     ))}
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Selected Hour Detail */}
                 <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/5 to-blue-500/10 border-2 border-cyan-200/60 dark:border-cyan-500/30">
@@ -968,29 +1012,9 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                     </span>
                 </div>
             </CardContent>
-        </Card>
+        </EnhancedCard>
     );
 }
-
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import {
-    ResponsiveContainer,
-    AreaChart,
-    Area,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    Legend,
-    PieChart,
-    Pie,
-    Cell
-} from 'recharts';
 
 // Custom Pie Chart Tooltip
 const PieTooltip = ({ active, payload, totalValue }: any) => {
@@ -2550,27 +2574,33 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 </div>
 
                 <motion.div 
-                    className="flex items-center gap-2"
+                    className="flex flex-wrap items-center gap-2 w-full md:w-auto"
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 }}
                 >
                     {onEditProfile && (
-                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                            <Button variant="outline" size="sm" onClick={() => onEditProfile(profile)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Profile
-                            </Button>
-                        </motion.div>
+                        <InteractiveButton 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => onEditProfile(profile)} 
+                            className="w-full md:w-auto min-h-[44px]"
+                        >
+                            <Edit className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Edit Profile</span>
+                            <span className="sm:hidden">Edit</span>
+                        </InteractiveButton>
                     )}
                     <Popover>
                         <PopoverTrigger asChild>
-                            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                                <Button variant="outline" size="sm">
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {`${dateRange.from.toLocaleDateString()} - ${dateRange.to.toLocaleDateString()}`}
-                                </Button>
-                            </motion.div>
+                            <div className="flex-1 md:flex-initial">
+                                <InteractiveButton variant="outline" size="sm" className="w-full md:w-auto min-h-[44px] text-xs sm:text-sm">
+                                    <CalendarIcon className="mr-1 sm:mr-2 h-4 w-4 flex-shrink-0" />
+                                    <span className="truncate">
+                                        {`${dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                                    </span>
+                                </InteractiveButton>
+                            </div>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                             <Calendar
@@ -2607,26 +2637,19 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             />
                         </PopoverContent>
                     </Popover>
-                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={handleApplyFilters} 
-                            disabled={dataLoading}
-                            className={cn(
-                                "transition-all duration-300",
-                                pendingRefresh && "border-amber-400 text-amber-600 hover:bg-amber-50"
-                            )}
-                        >
-                            <motion.div
-                                animate={dataLoading ? { rotate: 360 } : {}}
-                                transition={{ duration: 1, repeat: dataLoading ? Infinity : 0, ease: "linear" }}
-                            >
-                                <RefreshCw className="mr-2 h-4 w-4" />
-                            </motion.div>
-                            {pendingRefresh ? "Apply" : "Refresh"}
-                        </Button>
-                    </motion.div>
+                    <InteractiveButton 
+                        variant={pendingRefresh ? "gradient" : "outline"}
+                        size="sm" 
+                        onClick={handleApplyFilters} 
+                        loading={dataLoading}
+                        className={cn(
+                            "w-auto md:w-auto min-h-[44px] px-3 sm:px-4",
+                            pendingRefresh && "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+                        )}
+                    >
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        {pendingRefresh ? "Apply Changes" : "Refresh"}
+                    </InteractiveButton>
                 </motion.div>
             </motion.div>
 
@@ -4516,33 +4539,31 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             </CardHeader>
                             <CardContent className="pt-0">
                                 {/* Panel-specific Interactive Filters */}
-                                <div className="p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl border border-purple-100 dark:border-purple-500/20">
-                                    <div className="flex items-center justify-between mb-4">
+                                <div className="p-3 sm:p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl border border-purple-100 dark:border-purple-500/20">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
                                         <div className="flex items-center gap-2">
-                                            <Filter className="w-4 h-4 text-purple-500" />
-                                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Panel Filters</span>
+                                            <Filter className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                            <span className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300">Panel Filters</span>
+                                            <span className="text-xs text-muted-foreground hidden sm:inline">(Independent from dashboard)</span>
                                         </div>
                                         <motion.div
                                             animate={panelFilterChanges[panel.panelId] ? { scale: [1, 1.02, 1] } : {}}
                                             transition={panelFilterChanges[panel.panelId] ? { duration: 1.5, repeat: Infinity } : {}}
                                         >
-                                            <Button
+                                            <InteractiveButton
                                                 onClick={() => handlePanelRefresh(panel.panelId)}
                                                 disabled={isPanelLoading}
                                                 size="sm"
                                                 className={cn(
-                                                    "relative transition-all duration-300 shadow-md font-semibold",
+                                                    "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] w-full sm:w-auto",
                                                     panelFilterChanges[panel.panelId]
                                                         ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
                                                         : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
                                                 )}
+                                                loading={isPanelLoading}
                                             >
-                                                {isPanelLoading ? (
-                                                    <RefreshCw className="w-4 h-4 animate-spin mr-1.5" />
-                                                ) : (
-                                                    <RefreshCw className={cn("w-4 h-4 mr-1.5", panelFilterChanges[panel.panelId] && "animate-spin")} />
-                                                )}
-                                                {panelFilterChanges[panel.panelId] ? "⚡ APPLY" : "Refresh"}
+                                                <RefreshCw className="w-4 h-4 mr-1.5" />
+                                                {panelFilterChanges[panel.panelId] ? "⚡ APPLY FILTERS" : "Refresh Alerts"}
                                                 {panelFilterChanges[panel.panelId] && (
                                                     <motion.div
                                                         className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
@@ -4552,18 +4573,18 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         !
                                                     </motion.div>
                                                 )}
-                                            </Button>
+                                            </InteractiveButton>
                                         </motion.div>
                                     </div>
                                     
                                     {/* Date Range Picker for Panel */}
                                     <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
-                                        <div className="flex items-center gap-3 flex-wrap">
-                                            <div className="flex items-center gap-2">
-                                                <CalendarIcon className="w-4 h-4 text-purple-500" />
-                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Date Range:</span>
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <CalendarIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                                <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Date Range</span>
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
                                                 <input
                                                     type="date"
                                                     value={currentPanelDateRange.from.toISOString().split('T')[0]}
@@ -4571,9 +4592,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         const newFrom = new Date(e.target.value);
                                                         updatePanelDateRange(panel.panelId, newFrom, currentPanelDateRange.to);
                                                     }}
-                                                    className="px-2 py-1 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                                                    className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
                                                 />
-                                                <span className="text-gray-500">to</span>
+                                                <span className="text-gray-500 text-sm">to</span>
                                                 <input
                                                     type="date"
                                                     value={currentPanelDateRange.to.toISOString().split('T')[0]}
@@ -4581,7 +4602,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         const newTo = new Date(e.target.value);
                                                         updatePanelDateRange(panel.panelId, currentPanelDateRange.from, newTo);
                                                     }}
-                                                    className="px-2 py-1 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+                                                    className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
                                                 />
                                             </div>
                                             <span className={cn(
@@ -4596,7 +4617,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     </div>
                                     
                                     {/* Filter Dropdowns Grid */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                                         <div className="space-y-1.5">
                                             <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Events</label>
                                             <MultiSelectDropdown
