@@ -7,9 +7,10 @@ import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { AnalyticsLogin } from './AnalyticsLogin';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Cloud, Settings } from 'lucide-react';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
+import { FirebaseAdminPanel } from './admin/FirebaseAdminPanel';
 import {
     Dialog,
     DialogContent,
@@ -55,6 +56,9 @@ export function AnalyticsLayout() {
     
     // Mobile sidebar visibility
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    
+    // Firebase Admin Panel
+    const [showFirebaseAdmin, setShowFirebaseAdmin] = useState(false);
     
     const isAdmin = user?.role === 0;
     
@@ -145,9 +149,11 @@ export function AnalyticsLayout() {
                 animate={{ opacity: 1 }}
                 className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-purple-50/30 dark:to-purple-950/10 relative overflow-hidden"
             >
-                {/* Background effects */}
-                <DotPattern />
-                <WaveBackground />
+                {/* Background effects - pointer-events-none to not block clicks */}
+                <div className="pointer-events-none">
+                    <DotPattern />
+                    <WaveBackground />
+                </div>
                 
                 <header className="border-b border-border/50 p-3 lg:p-4 flex justify-between items-center bg-card/80 backdrop-blur-sm shadow-sm relative z-10">
                     <motion.div 
@@ -218,8 +224,17 @@ export function AnalyticsLayout() {
                                 transition={{ delay: 0.2 }}
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                className="hidden sm:block"
+                                className="hidden sm:flex items-center gap-2"
                             >
+                                <Button 
+                                    onClick={() => setShowFirebaseAdmin(true)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="gap-2 border-purple-200 dark:border-purple-500/30 hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8"
+                                >
+                                    <Cloud className="h-4 w-4 text-purple-500" />
+                                    <span className="hidden lg:inline">Firebase</span>
+                                </Button>
                                 <Button 
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
@@ -288,6 +303,12 @@ export function AnalyticsLayout() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+                
+                {/* Firebase Admin Panel - for homepage */}
+                <FirebaseAdminPanel 
+                    isOpen={showFirebaseAdmin} 
+                    onClose={() => setShowFirebaseAdmin(false)} 
+                />
             </motion.div>
         );
     }
@@ -561,6 +582,12 @@ export function AnalyticsLayout() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            
+            {/* Firebase Admin Panel */}
+            <FirebaseAdminPanel 
+                isOpen={showFirebaseAdmin} 
+                onClose={() => setShowFirebaseAdmin(false)} 
+            />
         </motion.div>
     );
 }

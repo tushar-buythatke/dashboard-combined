@@ -1,12 +1,9 @@
 // Real API service for analytics dashboard
 import type { AnalyticsDataResponse, EventConfig } from '@/types/analytics';
 
-// Detect environment and use appropriate API base URLs
-// In development: Vite proxy handles CORS (/api -> ext1.buyhatke.com)
-// In production (Vercel): Use serverless functions (/api/proxy -> ext1.buyhatke.com)
-const isDevelopment = import.meta.env.DEV;
-const API_BASE_URL = isDevelopment ? '/api' : '/api/proxy';
-const POS_API_BASE_URL = isDevelopment ? '/pos-api' : '/api/pos-proxy';
+// Direct API URLs - backend now handles CORS
+const API_BASE_URL = 'https://ext1.buyhatke.com/feature-tracking/dashboard';
+const POS_API_BASE_URL = 'https://ext1.buyhatke.com/feature-tracking/dashboard/pos';
 
 // Platform mappings (fixed values)
 export const PLATFORMS = [

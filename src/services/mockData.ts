@@ -7,6 +7,8 @@ import type {
 } from '../types/analytics';
 import { apiService, updateFeatureData } from './apiService';
 import type { FeatureInfo } from './apiService';
+import { firebaseConfigService } from './firebaseConfigService';
+import type { DashboardProfileConfig, FeatureConfig } from '../types/firebaseConfig';
 
 // Fallback features if API fails
 const FALLBACK_FEATURES: Feature[] = [
@@ -129,9 +131,11 @@ const INITIAL_PROFILES: DashboardProfile[] = [
 
 class MockService {
     private profiles: DashboardProfile[] = [];
+    private useFirebase: boolean = true; // Enable Firebase by default
+    private firebaseInitialized: boolean = false;
 
     constructor() {
-        // Load from localStorage or use initial
+        // Load from localStorage as initial fallback
         const stored = localStorage.getItem('dashboard_profiles');
         if (stored) {
             this.profiles = JSON.parse(stored);
@@ -139,10 +143,79 @@ class MockService {
             this.profiles = INITIAL_PROFILES;
             this.saveProfilesToStorage();
         }
+        
+        // Check Firebase connection
+        this.initializeFirebase();
+    }
+
+    private async initializeFirebase() {
+        try {
+            const connected = await firebaseConfigService.checkConnection();
+            this.firebaseInitialized = connected;
+            this.useFirebase = connected;
+            console.log(`🔥 Firebase connection: ${connected ? 'Connected' : 'Fallback to localStorage'}`);
+        } catch (error) {
+            console.warn('⚠️ Firebase not available, using localStorage fallback');
+            this.useFirebase = false;
+        }
     }
 
     private saveProfilesToStorage() {
         localStorage.setItem('dashboard_profiles', JSON.stringify(this.profiles));
+    }
+    
+    /**
+     * Convert DashboardProfileConfig (Firebase) to DashboardProfile (local)
+     */
+    private convertFirebaseToLocal(config: DashboardProfileConfig): DashboardProfile {
+        return {
+            profileId: config.profileId,
+            profileName: config.profileName,
+            featureId: config.featureId,
+            createdBy: config.createdBy,
+            createdAt: config.createdAt,
+            lastModified: config.updatedAt,
+            version: config.version,
+            isActive: config.isActive,
+            defaultSettings: config.defaultSettings,
+            filters: config.filters,
+            panels: config.panels,
+            criticalAlerts: config.criticalAlerts,
+        };
+    }
+    
+    /**
+     * Convert DashboardProfile (local) to DashboardProfileConfig (Firebase)
+     */
+    private convertLocalToFirebase(profile: DashboardProfile, orgId: string): DashboardProfileConfig {
+        return {
+            profileId: profile.profileId,
+            profileName: profile.profileName,
+            featureId: profile.featureId,
+            orgId: orgId,
+            isActive: profile.isActive,
+            isDefault: false,
+            version: profile.version,
+            createdAt: profile.createdAt,
+            updatedAt: profile.lastModified,
+            createdBy: profile.createdBy,
+            lastModifiedBy: profile.createdBy,
+            defaultSettings: profile.defaultSettings,
+            filters: profile.filters,
+            panels: profile.panels,
+            criticalAlerts: profile.criticalAlerts,
+        };
+    }
+    
+    /**
+     * Convert FeatureConfig (Firebase) to Feature (local)
+     */
+    private convertFirebaseFeatureToLocal(config: FeatureConfig): Feature {
+        return {
+            id: config.featureId,
+            name: config.featureName,
+            description: config.description,
+        };
     }
 
     async login(username: string, password: string): Promise<LoginResponse> {
@@ -166,6 +239,20 @@ class MockService {
     }
 
     async getFeatures(organizationId: number = 0): Promise<Feature[]> {
+        // First try Firebase if available
+        if (this.useFirebase && this.firebaseInitialized) {
+            try {
+                const result = await firebaseConfigService.getFeatures(organizationId.toString());
+                if (result.success && result.items.length > 0) {
+                    console.log('✅ Loaded features from Firebase:', result.items.length);
+                    return result.items.map(f => this.convertFirebaseFeatureToLocal(f));
+                }
+            } catch (error) {
+                console.warn('⚠️ Firebase features fetch failed, trying API fallback');
+            }
+        }
+        
+        // Try API next
         try {
             // Fetch features from API for the specified organization
             const apiFeatures: FeatureInfo[] = await apiService.getFeaturesList(organizationId);
@@ -188,15 +275,82 @@ class MockService {
         }
     }
 
-    async getProfiles(featureId: string): Promise<DashboardProfile[]> {
+    async getProfiles(featureId: string, orgId: string = 'default'): Promise<DashboardProfile[]> {
+        // Always try Firebase first for profiles - this is the source of truth
+        try {
+            // Get ALL profiles from Firebase, then filter
+            // This handles the case where featureId might be numeric (from API) or string (stored in Firebase)
+            const result = await firebaseConfigService.getAllProfiles();
+            if (result.success && result.items.length > 0) {
+                console.log(`📦 Total profiles in Firebase: ${result.items.length}`);
+                
+                // Try to match by featureId (could be numeric string like "1" or name like "price_alert")
+                const matchingProfiles = result.items.filter(p => {
+                    // Match by exact featureId
+                    if (p.featureId === featureId) return true;
+                    return false;
+                });
+                
+                if (matchingProfiles.length > 0) {
+                    console.log(`✅ Loaded ${matchingProfiles.length} profiles from Firebase for featureId: ${featureId}`);
+                    this.firebaseInitialized = true;
+                    this.useFirebase = true;
+                    return matchingProfiles.map(p => this.convertFirebaseToLocal(p));
+                } else {
+                    console.log(`⚠️ No profiles match featureId "${featureId}". Available featureIds:`, 
+                        [...new Set(result.items.map(p => p.featureId))]);
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Firebase profiles fetch failed, using localStorage fallback', error);
+        }
+        
+        // Fallback to localStorage
         return this.profiles.filter(p => p.featureId === featureId && p.isActive);
     }
 
     async getProfile(profileId: string): Promise<DashboardProfile | undefined> {
+        // Always try Firebase first - this is the source of truth
+        try {
+            const result = await firebaseConfigService.getProfile(profileId);
+            if (result.success && result.data) {
+                console.log('✅ Loaded profile from Firebase:', profileId);
+                // Mark Firebase as working
+                this.firebaseInitialized = true;
+                this.useFirebase = true;
+                return this.convertFirebaseToLocal(result.data);
+            }
+        } catch (error) {
+            console.warn('⚠️ Firebase profile fetch failed, using localStorage fallback');
+        }
+        
+        // Fallback to localStorage
         return this.profiles.find(p => p.profileId === profileId);
     }
 
-    async saveProfile(profile: DashboardProfile): Promise<DashboardProfile> {
+    async saveProfile(profile: DashboardProfile, orgId: string = 'default', username: string = 'admin'): Promise<DashboardProfile> {
+        // Save to Firebase if available
+        if (this.useFirebase && this.firebaseInitialized) {
+            try {
+                const firebaseProfile = this.convertLocalToFirebase(profile, orgId);
+                const result = await firebaseConfigService.saveProfile(firebaseProfile, username);
+                if (result.success && result.data) {
+                    console.log('✅ Saved profile to Firebase:', profile.profileId);
+                    // Also update localStorage as backup
+                    this.updateLocalProfile(profile);
+                    return this.convertFirebaseToLocal(result.data);
+                }
+            } catch (error) {
+                console.warn('⚠️ Firebase save failed, saving to localStorage only');
+            }
+        }
+        
+        // Fallback to localStorage
+        this.updateLocalProfile(profile);
+        return profile;
+    }
+    
+    private updateLocalProfile(profile: DashboardProfile) {
         const index = this.profiles.findIndex(p => p.profileId === profile.profileId);
         if (index >= 0) {
             this.profiles[index] = { ...profile, lastModified: new Date().toISOString(), version: this.profiles[index].version + 1 };
@@ -204,10 +358,22 @@ class MockService {
             this.profiles.push(profile);
         }
         this.saveProfilesToStorage();
-        return profile;
     }
 
     async deleteProfile(profileId: string): Promise<boolean> {
+        // Delete from Firebase if available
+        if (this.useFirebase && this.firebaseInitialized) {
+            try {
+                const result = await firebaseConfigService.deleteProfile(profileId);
+                if (result.success) {
+                    console.log('✅ Deleted profile from Firebase:', profileId);
+                }
+            } catch (error) {
+                console.warn('⚠️ Firebase delete failed');
+            }
+        }
+        
+        // Also delete from localStorage
         const index = this.profiles.findIndex(p => p.profileId === profileId);
         if (index >= 0) {
             this.profiles[index].isActive = false; // Soft delete
@@ -215,6 +381,51 @@ class MockService {
             return true;
         }
         return false;
+    }
+    
+    /**
+     * Sync local profiles to Firebase (admin utility)
+     */
+    async syncToFirebase(orgId: string, username: string): Promise<{ synced: number; failed: number; error?: string }> {
+        // Force sync directly - don't rely on initialization state
+        // We already know Firebase is configured since we're on the admin panel
+        
+        let synced = 0;
+        let failed = 0;
+        
+        if (this.profiles.length === 0) {
+            console.warn('⚠️ No local profiles to sync');
+            return { synced: 0, failed: 0, error: 'No local profiles found' };
+        }
+        
+        console.log(`🔄 Starting sync of ${this.profiles.length} profiles to Firebase...`);
+        
+        for (const profile of this.profiles) {
+            try {
+                console.log(`📤 Syncing profile: ${profile.profileName} (${profile.profileId})`);
+                const firebaseProfile = this.convertLocalToFirebase(profile, orgId);
+                const result = await firebaseConfigService.saveProfile(firebaseProfile, username);
+                if (result.success) {
+                    synced++;
+                    console.log(`✅ Synced: ${profile.profileName}`);
+                } else {
+                    failed++;
+                    console.error(`❌ Failed to sync ${profile.profileName}:`, result.error);
+                }
+            } catch (error: any) {
+                failed++;
+                console.error(`❌ Exception syncing ${profile.profileName}:`, error?.message || error);
+            }
+        }
+        
+        // Update initialization state since sync worked
+        if (synced > 0) {
+            this.firebaseInitialized = true;
+            this.useFirebase = true;
+        }
+        
+        console.log(`🔄 Sync complete: ${synced} synced, ${failed} failed`);
+        return { synced, failed };
     }
 
     async getAnalyticsData(_profileId: string, _timeRange: any): Promise<AnalyticsDataResponse> {
