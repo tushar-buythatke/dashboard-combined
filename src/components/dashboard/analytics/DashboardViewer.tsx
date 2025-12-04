@@ -856,6 +856,7 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                     }}
                                 />
                                 <Tooltip
+                                    active={typeof window !== 'undefined' && window.innerWidth >= 768 ? undefined : false}
                                     cursor={{ fill: 'rgba(0,0,0,0.05)' }}
                                     contentStyle={{
                                         backgroundColor: 'rgba(255,255,255,0.95)',
@@ -1415,15 +1416,20 @@ const ExpandedPieChartModal = ({
     onClose: () => void; 
     pieData: ExpandedPieData | null;
 }) => {
+    // Close modal on outside click or ESC for better mobile UX
+    const handleClose = () => {
+        onClose();
+    };
     if (!pieData || !pieData.data?.length) return null;
     
     const total = pieData.data.reduce((acc: number, item: any) => acc + item.value, 0);
     const sortedData = [...pieData.data].sort((a, b) => b.value - a.value);
     
     return (
-        <Dialog open={open} onOpenChange={onClose}>
-            <DialogContent className="max-w-2xl w-[90vw]">
-                <DialogHeader className="pb-4">
+        <Dialog open={open} onOpenChange={handleClose}>
+            <DialogContent className="max-w-2xl w-[90vw] max-h-[85vh] overflow-y-auto">
+                <DialogHeader className="pb-4 sticky top-0 bg-background z-10">
+                    <div className="flex items-center justify-between">
                     <DialogTitle className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
                             {pieData.type === 'platform' && <Activity className="h-5 w-5 text-white" />}
@@ -1437,6 +1443,15 @@ const ExpandedPieChartModal = ({
                             </p>
                         </div>
                     </DialogTitle>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClose}
+                        className="md:hidden h-8 w-8 p-0"
+                    >
+                        <X className="h-4 w-4" />
+                    </Button>
+                    </div>
                 </DialogHeader>
                 
                 <div className="flex flex-col md:flex-row gap-6">

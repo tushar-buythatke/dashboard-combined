@@ -200,3 +200,49 @@ export const ParticleBurst = ({ x, y, color = "purple" }: { x: number; y: number
         </div>
     );
 };
+
+// Hyper-sexy gradient mesh background with animated blobs
+export const GradientMeshBackground = ({ className = "" }: { className?: string }) => (
+    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
+        {/* Animated gradient blobs */}
+        <motion.div
+            className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-purple-400/30 via-violet-400/20 to-transparent dark:from-purple-600/20 dark:via-violet-600/10 rounded-full blur-3xl"
+            animate={{
+                scale: [1, 1.2, 1],
+                x: [0, 50, 0],
+                y: [0, -30, 0],
+                rotate: [0, 90, 0]
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+            className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-gradient-to-br from-cyan-400/25 via-blue-400/15 to-transparent dark:from-cyan-600/15 dark:via-blue-600/10 rounded-full blur-3xl"
+            animate={{
+                scale: [1.2, 1, 1.2],
+                x: [0, -40, 0],
+                y: [0, 40, 0],
+                rotate: [90, 0, 90]
+            }}
+            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        />
+        <motion.div
+            className="absolute bottom-1/4 left-1/3 w-[450px] h-[450px] bg-gradient-to-br from-pink-400/20 via-rose-400/10 to-transparent dark:from-pink-600/15 dark:via-rose-600/8 rounded-full blur-3xl"
+            animate={{
+                scale: [1, 1.3, 1],
+                x: [0, 30, 0],
+                y: [0, -40, 0],
+                rotate: [0, -90, 0]
+            }}
+            transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        />
+        
+        {/* Subtle grid overlay */}
+        <div className="absolute inset-0" style={{
+            backgroundImage: `
+                linear-gradient(to right, rgba(147, 51, 234, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(147, 51, 234, 0.03) 1px, transparent 1px)
+            `,
+            backgroundSize: '50px 50px'
+        }} />
+    </div>
+);

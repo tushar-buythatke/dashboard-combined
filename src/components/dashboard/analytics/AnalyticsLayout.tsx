@@ -31,7 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { mockService } from '@/services/mockData';
 import { getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
-import { DotPattern, WaveBackground } from '@/components/ui/animated-background';
+import { GradientMeshBackground } from '@/components/ui/animated-background';
 
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated } = useAnalyticsAuth();
@@ -42,6 +42,14 @@ export function AnalyticsLayout() {
     const [isCreatingProfile, setIsCreatingProfile] = useState(false);
     const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
     const [featureSelectorKey, setFeatureSelectorKey] = useState(0);
+    
+    // Live clock with seconds
+    const [currentTime, setCurrentTime] = useState(new Date());
+    
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
     
     // New Dashboard Config Modal
     const [showNewConfigModal, setShowNewConfigModal] = useState(false);
@@ -151,11 +159,10 @@ export function AnalyticsLayout() {
             >
                 {/* Background effects - pointer-events-none to not block clicks */}
                 <div className="pointer-events-none">
-                    <DotPattern />
-                    <WaveBackground />
+                    <GradientMeshBackground />
                 </div>
                 
-                <header className="border-b border-border/50 p-3 lg:p-4 flex justify-between items-center bg-card/95 backdrop-blur-md shadow-sm relative z-10">
+                <header className="border-b border-border/50 px-3 lg:px-4 py-4 lg:py-5 flex justify-between items-center bg-card/95 backdrop-blur-md shadow-sm relative z-10">
                     <motion.div 
                         initial={{ x: -20, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
@@ -201,6 +208,29 @@ export function AnalyticsLayout() {
                         </div>
                     </motion.div>
                     <div className="flex items-center gap-1.5 lg:gap-3">
+                        {/* Live Clock */}
+                        <motion.div 
+                            className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-50/50 to-violet-50/50 dark:from-purple-900/20 dark:to-violet-900/20 border border-purple-200/50 dark:border-purple-500/30"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            <div className="flex items-center gap-1.5">
+                                <div className="text-sm font-bold text-foreground font-mono tabular-nums">
+                                    {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                </div>
+                                <motion.div 
+                                    className="text-xs font-semibold text-purple-600 dark:text-purple-400 font-mono"
+                                    animate={{ opacity: [1, 0.5, 1] }}
+                                    transition={{ duration: 1, repeat: Infinity }}
+                                >
+                                    :{currentTime.getSeconds().toString().padStart(2, '0')}
+                                </motion.div>
+                            </div>
+                            <div className="text-[9px] text-muted-foreground font-medium">
+                                {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </div>
+                        </motion.div>
                         {/* Theme Toggle */}
                         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                             <Button 
