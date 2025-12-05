@@ -86,21 +86,19 @@ export function ProfileSidebar({
                 {profiles.map((profile, index) => {
                     const isSelected = selectedProfileId === profile.profileId;
                     return (
-                        <motion.button
+                        <button
                             key={profile.profileId}
                             onClick={() => handleSelectProfile(profile.profileId)}
                             className={cn(
-                                "w-full h-10 rounded-lg flex items-center justify-center transition-all",
+                                "w-full h-10 rounded-lg flex items-center justify-center transition-colors duration-200",
                                 isSelected 
                                     ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-2 border-purple-400 dark:border-purple-500/50" 
                                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-transparent"
                             )}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
                             title={profile.profileName}
                         >
                             <span className="text-sm font-bold">{index + 1}</span>
-                        </motion.button>
+                        </button>
                     );
                 })}
             </div>
@@ -148,47 +146,42 @@ export function ProfileSidebar({
             
             {/* Profile List - Minimal */}
             <div className="flex-1 overflow-y-auto p-3">
-                <AnimatePresence mode="popLayout">
-                    <div className="space-y-2">
-                        {profiles.map((profile) => {
-                            const isSelected = selectedProfileId === profile.profileId;
-                            const stats = getProfileStats(profile);
-                            
-                            return (
-                                <motion.button
-                                    key={profile.profileId}
-                                    initial={{ opacity: 0, y: 5 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0 }}
-                                    onClick={() => handleSelectProfile(profile.profileId)}
-                                    className={cn(
-                                        "w-full text-left p-3 rounded-lg transition-all",
-                                        isSelected 
-                                            ? "bg-purple-50 dark:bg-purple-500/10 border-2 border-purple-400 dark:border-purple-500/40" 
-                                            : "bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                <div className="space-y-2">
+                    {profiles.map((profile) => {
+                        const isSelected = selectedProfileId === profile.profileId;
+                        const stats = getProfileStats(profile);
+                        
+                        return (
+                            <button
+                                key={profile.profileId}
+                                onClick={() => handleSelectProfile(profile.profileId)}
+                                className={cn(
+                                    "w-full text-left p-3 rounded-lg transition-colors duration-200",
+                                    isSelected 
+                                        ? "bg-purple-50 dark:bg-purple-500/10 border-2 border-purple-400 dark:border-purple-500/40" 
+                                        : "bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                                )}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className={cn(
+                                        "font-medium text-sm truncate",
+                                        isSelected ? "text-purple-700 dark:text-purple-300" : "text-foreground"
+                                    )}>
+                                        {profile.profileName}
+                                    </span>
+                                    {isSelected && (
+                                        <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                                     )}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <span className={cn(
-                                            "font-medium text-sm truncate",
-                                            isSelected ? "text-purple-700 dark:text-purple-300" : "text-foreground"
-                                        )}>
-                                            {profile.profileName}
-                                        </span>
-                                        {isSelected && (
-                                            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                                        <span>{stats.panelCount} panels</span>
-                                        <span className="text-gray-300 dark:text-gray-600">|</span>
-                                        <span>{stats.totalEvents} events</span>
-                                    </div>
-                                </motion.button>
-                            );
-                        })}
-                    </div>
-                </AnimatePresence>
+                                </div>
+                                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                                    <span>{stats.panelCount} panels</span>
+                                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                                    <span>{stats.totalEvents} events</span>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
                 
                 {profiles.length === 0 && (
                     <div className="text-center py-8">
