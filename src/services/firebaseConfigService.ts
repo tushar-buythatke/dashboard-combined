@@ -40,6 +40,20 @@ import {
 
 type UnsubscribeFunction = () => void;
 
+// Simple cache for frequently accessed data
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const CACHE_TTL = 5000; // 5 seconds - just enough to prevent duplicate calls on same page load
+const cache: {
+  allProfiles?: CacheEntry<DashboardProfileConfig[]>;
+  features: Map<string, CacheEntry<FeatureConfig[]>>;
+} = {
+  features: new Map()
+};
+
 class FirebaseConfigService {
   private listeners: Map<string, UnsubscribeFunction> = new Map();
 
@@ -160,9 +174,17 @@ class FirebaseConfigService {
   // ==================== FEATURES ====================
 
   /**
-   * Get all features for an organization
+   * Get all features for an organization (with caching)
    */
-  async getFeatures(orgId: string): Promise<ConfigListResult<FeatureConfig>> {
+  async getFeatures(orgId: string, forceRefresh: boolean = false): Promise<ConfigListResult<FeatureConfig>> {
+    // Check cache first
+    const cacheKey = orgId;
+    const cached = cache.features.get(cacheKey);
+    if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log(`🔄 Returning cached features for org ${orgId} (${cached.data.length} features)`);
+      return { success: true, items: cached.data, total: cached.data.length };
+    }
+
     try {
       // Simple query without orderBy to avoid index requirements
       const q = query(
@@ -175,6 +197,10 @@ class FirebaseConfigService {
         .map(doc => doc.data() as FeatureConfig)
         .filter(f => f.isActive !== false)
         .sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      // Update cache
+      cache.features.set(cacheKey, { data: items, timestamp: Date.now() });
+      
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching features:', error);
@@ -277,14 +303,25 @@ class FirebaseConfigService {
 
   /**
    * Get ALL profiles from Firebase (for admin/debugging)
+   * Uses caching to avoid repeated calls
    */
-  async getAllProfiles(): Promise<ConfigListResult<DashboardProfileConfig>> {
+  async getAllProfiles(forceRefresh: boolean = false): Promise<ConfigListResult<DashboardProfileConfig>> {
+    // Check cache first
+    if (!forceRefresh && cache.allProfiles && Date.now() - cache.allProfiles.timestamp < CACHE_TTL) {
+      console.log(`📦 Returning cached profiles (${cache.allProfiles.data.length} profiles)`);
+      return { success: true, items: cache.allProfiles.data, total: cache.allProfiles.data.length };
+    }
+
     try {
       const snapshot = await getDocs(collection(db, FIREBASE_COLLECTIONS.PROFILES));
       const items = snapshot.docs
         .map(doc => doc.data() as DashboardProfileConfig)
         .filter(p => p.isActive !== false);
-      console.log(`📦 All profiles from Firebase: ${items.length}`);
+      
+      // Update cache
+      cache.allProfiles = { data: items, timestamp: Date.now() };
+      
+      console.log(`📦 Fetched ${items.length} profiles from Firebase (cached)`);
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching all profiles:', error);
@@ -327,6 +364,10 @@ class FirebaseConfigService {
       };
       
       await setDoc(docRef, data);
+      
+      // Invalidate profiles cache
+      cache.allProfiles = undefined;
+      
       console.log('✅ Profile saved to Firebase:', profile.profileId);
       return { success: true, data };
     } catch (error: any) {
@@ -346,6 +387,10 @@ class FirebaseConfigService {
         isActive: false, 
         updatedAt: new Date().toISOString() 
       });
+      
+      // Invalidate profiles cache
+      cache.allProfiles = undefined;
+      
       return { success: true };
     } catch (error) {
       console.error('Error deleting profile:', error);

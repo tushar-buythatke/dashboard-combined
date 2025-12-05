@@ -7,6 +7,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, Layers, ArrowRight, Sparkles, Zap } from 'lucide-react';
+import { firebaseConfigService } from '@/services/firebaseConfigService';
 
 interface FeatureSelectorProps {
     onSelectFeature: (featureId: string) => void;
@@ -22,36 +23,19 @@ interface FeatureWithConfigs extends Feature {
 export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
     const { selectedOrganization } = useOrganization();
     const [features, setFeatures] = useState<FeatureWithConfigs[]>([]);
+    const [customConfigs, setCustomConfigs] = useState<FeatureWithConfigs[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingProfiles, setLoadingProfiles] = useState(false);
     const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
+    // Load base features FIRST (fast)
     useEffect(() => {
         const loadFeatures = async () => {
             setLoading(true);
             try {
-                // Load base features for the selected organization
                 const orgId = selectedOrganization?.id ?? 0;
                 const baseFeatures = await mockService.getFeatures(orgId);
-                
-                // Load all profiles to find custom configs
-                const allProfiles: DashboardProfile[] = [];
-                for (const feature of baseFeatures) {
-                    const profiles = await mockService.getProfiles(feature.id);
-                    allProfiles.push(...profiles);
-                }
-                
-                // Create feature cards for each custom config (profile)
-                const customConfigs: FeatureWithConfigs[] = allProfiles.map(profile => ({
-                    id: profile.profileId, // Use profileId as the feature ID for navigation
-                    name: profile.profileName,
-                    description: `Custom ${getFeatureName(profile.featureId)} configuration`,
-                    isCustomConfig: true,
-                    profileId: profile.profileId,
-                    baseFeatureId: profile.featureId
-                }));
-                
-                // Combine base features with custom configs
-                setFeatures([...baseFeatures, ...customConfigs]);
+                setFeatures(baseFeatures);
             } catch (error) {
                 console.error('Failed to load features', error);
             } finally {
@@ -59,6 +43,33 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             }
         };
         loadFeatures();
+    }, [selectedOrganization?.id]);
+
+    // Load custom configs SEPARATELY (can be slow, won't block UI)
+    useEffect(() => {
+        const loadCustomConfigs = async () => {
+            setLoadingProfiles(true);
+            try {
+                // Get ALL profiles in ONE call instead of looping
+                const result = await firebaseConfigService.getAllProfiles();
+                if (result.success && result.items.length > 0) {
+                    const configs: FeatureWithConfigs[] = result.items.map(profile => ({
+                        id: profile.profileId,
+                        name: profile.profileName,
+                        description: `Custom ${getFeatureName(profile.featureId)} configuration`,
+                        isCustomConfig: true,
+                        profileId: profile.profileId,
+                        baseFeatureId: profile.featureId
+                    }));
+                    setCustomConfigs(configs);
+                }
+            } catch (error) {
+                console.error('Failed to load custom configs', error);
+            } finally {
+                setLoadingProfiles(false);
+            }
+        };
+        loadCustomConfigs();
     }, [selectedOrganization?.id]);
 
     // Dynamic icon - uses color from API-based palette
@@ -96,9 +107,8 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
         );
     }
 
-    // Separate base features and custom configs
-    const baseFeatures = features.filter(f => !f.isCustomConfig);
-    const customConfigs = features.filter(f => f.isCustomConfig);
+    // Features are already base features (no filtering needed)
+    // customConfigs are loaded separately and stored in their own state
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -198,7 +208,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                 animate="show"
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-8 lg:mb-12 perspective-1000"
             >
-                {baseFeatures.map((feature) => (
+                {features.map((feature) => (
                     <motion.div 
                         key={feature.id} 
                         variants={itemVariants}
@@ -278,7 +288,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             </motion.div>
 
             {/* Custom Configs Section */}
-            {customConfigs.length > 0 && (
+            {(customConfigs.length > 0 || loadingProfiles) && (
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -313,7 +323,21 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                             <Sparkles className="h-4 w-4 lg:h-5 lg:w-5 text-purple-500" />
                         </motion.span>
                         Custom Configurations
+                        {loadingProfiles && (
+                            <motion.span
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                className="ml-2"
+                            >
+                                <Zap className="h-4 w-4 text-yellow-500" />
+                            </motion.span>
+                        )}
                     </motion.h2>
+                    {loadingProfiles ? (
+                        <div className="text-center text-muted-foreground text-sm">
+                            Loading custom configurations...
+                        </div>
+                    ) : (
                     <motion.div
                         variants={containerVariants}
                         initial="hidden"
@@ -374,6 +398,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                             </motion.div>
                         ))}
                     </motion.div>
+                    )}
                 </motion.div>
             )}
             </div>
