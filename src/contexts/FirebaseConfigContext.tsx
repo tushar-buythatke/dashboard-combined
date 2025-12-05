@@ -1,10 +1,10 @@
 /**
  * Firebase Configuration Context
- * Provides centralized access to Firebase-stored configurations
- * with real-time updates across all dashboard components.
+ * Provides centralized access to Firebase-stored configurations.
+ * Optimized to avoid excessive API calls and re-renders.
  */
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { firebaseConfigService } from '../services/firebaseConfigService';
 import { useAnalyticsAuth } from './AnalyticsAuthContext';
@@ -17,6 +17,10 @@ import type {
   PanelTemplateConfig,
 } from '../types/firebaseConfig';
 import { DEFAULT_GLOBAL_CONFIG } from '../types/firebaseConfig';
+
+// Global singleton to track if Firebase connection has been checked
+let globalConnectionChecked = false;
+let globalIsConnected = false;
 
 interface FirebaseConfigContextType {
   // Connection state
@@ -76,13 +80,16 @@ interface FirebaseConfigProviderProps {
 }
 
 export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps) {
-  const { user, isAuthenticated } = useAnalyticsAuth();
+  const { user } = useAnalyticsAuth();
   const { selectedOrganization } = useOrganization();
 
   // Connection state
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(globalIsConnected);
+  const [isLoading, setIsLoading] = useState(!globalConnectionChecked);
   const [error, setError] = useState<string | null>(null);
+  
+  // Track if we've initialized
+  const initializedRef = useRef(false);
 
   // Config state
   const [globalConfig, setGlobalConfig] = useState<GlobalAppConfig>(DEFAULT_GLOBAL_CONFIG);
@@ -98,51 +105,63 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
   const isAdmin = user?.role === 0;
   const orgId = selectedOrganization?.id?.toString() || 'default';
 
-  // Initialize connection and load global config
+  // Initialize connection ONCE (uses global singleton to prevent re-checking)
   useEffect(() => {
-    let isMounted = true;
-    let unsubscribeGlobal: (() => void) | null = null;
+    // Skip if already initialized in this component instance
+    if (initializedRef.current) return;
+    initializedRef.current = true;
     
+    // If already checked globally, use cached result
+    if (globalConnectionChecked) {
+      setIsConnected(globalIsConnected);
+      setIsLoading(false);
+      
+      // Load global config if connected
+      if (globalIsConnected) {
+        firebaseConfigService.getGlobalConfig().then(result => {
+          if (result.success && result.data) {
+            setGlobalConfig(result.data);
+          }
+        });
+      }
+      return;
+    }
+    
+    // First time - check connection
     const initializeConnection = async () => {
       setIsLoading(true);
       try {
+        console.log('🔥 Checking Firebase connection (one-time)...');
         const connected = await firebaseConfigService.checkConnection();
-        if (!isMounted) return;
+        
+        // Store globally to prevent re-checking
+        globalConnectionChecked = true;
+        globalIsConnected = connected;
         
         setIsConnected(connected);
 
         if (connected) {
           const configResult = await firebaseConfigService.getGlobalConfig();
-          if (isMounted && configResult.success && configResult.data) {
+          if (configResult.success && configResult.data) {
             setGlobalConfig(configResult.data);
           }
-          
-          // Only subscribe after successful connection
-          unsubscribeGlobal = firebaseConfigService.subscribeToGlobalConfig((config) => {
-            if (isMounted) setGlobalConfig(config);
-          });
         }
-        if (isMounted) setError(null);
+        setError(null);
       } catch (err) {
         console.error('Firebase connection error:', err);
-        if (isMounted) {
-          setError('Failed to connect to configuration service');
-          setIsConnected(false);
-        }
+        globalConnectionChecked = true;
+        globalIsConnected = false;
+        setError('Failed to connect to configuration service');
+        setIsConnected(false);
       } finally {
-        if (isMounted) setIsLoading(false);
+        setIsLoading(false);
       }
     };
 
     initializeConnection();
-
-    return () => {
-      isMounted = false;
-      if (unsubscribeGlobal) unsubscribeGlobal();
-    };
   }, []);
 
-  // Load features when organization changes
+  // Load features when organization changes (NO real-time subscription)
   const refreshFeatures = useCallback(async () => {
     if (!isConnected || !orgId) return;
 
@@ -156,24 +175,16 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
     }
   }, [isConnected, orgId]);
 
+  // Only refresh features when orgId changes, not on every render
+  const prevOrgIdRef = useRef<string | null>(null);
   useEffect(() => {
-    let unsubscribeFeatures: (() => void) | null = null;
-    
-    if (isConnected && orgId) {
+    if (isConnected && orgId && orgId !== prevOrgIdRef.current) {
+      prevOrgIdRef.current = orgId;
       refreshFeatures();
-      
-      // Subscribe to feature changes
-      unsubscribeFeatures = firebaseConfigService.subscribeToFeatures(orgId, (newFeatures) => {
-        setFeatures(newFeatures);
-      });
     }
-    
-    return () => {
-      if (unsubscribeFeatures) unsubscribeFeatures();
-    };
   }, [isConnected, orgId, refreshFeatures]);
 
-  // Load profiles when feature changes
+  // Load profiles when feature changes (NO real-time subscription)
   const refreshProfiles = useCallback(async () => {
     if (!isConnected || !selectedFeature || !orgId) {
       setProfiles([]);
@@ -196,26 +207,18 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
     }
   }, [isConnected, selectedFeature, orgId, selectedProfile]);
 
+  // Only refresh profiles when selectedFeature changes
+  const prevFeatureIdRef = useRef<string | null>(null);
   useEffect(() => {
-    let unsubscribeProfiles: (() => void) | null = null;
-    
-    if (isConnected && selectedFeature && orgId) {
+    const featureId = selectedFeature?.featureId || null;
+    if (isConnected && featureId && featureId !== prevFeatureIdRef.current) {
+      prevFeatureIdRef.current = featureId;
       refreshProfiles();
-      
-      // Subscribe to profile changes
-      unsubscribeProfiles = firebaseConfigService.subscribeToProfiles(
-        selectedFeature.featureId,
-        orgId,
-        (newProfiles) => {
-          setProfiles(newProfiles);
-        }
-      );
+    } else if (!featureId) {
+      prevFeatureIdRef.current = null;
+      setProfiles([]);
     }
-    
-    return () => {
-      if (unsubscribeProfiles) unsubscribeProfiles();
-    };
-  }, [isConnected, selectedFeature, orgId, refreshProfiles]);
+  }, [isConnected, selectedFeature, refreshProfiles]);
 
   // Load events when feature changes
   const refreshEvents = useCallback(async () => {
