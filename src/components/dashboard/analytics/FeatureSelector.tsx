@@ -1,34 +1,25 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import type { Feature, DashboardProfile } from '@/types/analytics';
+import type { Feature } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
-import { getFeatureShortName, getFeatureName, getFeatureColor } from '@/services/apiService';
+import { getFeatureColor, apiService } from '@/services/apiService';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Layers, ArrowRight, Sparkles, Zap } from 'lucide-react';
-import { firebaseConfigService } from '@/services/firebaseConfigService';
+import { BarChart3, ArrowRight, Sparkles, Zap } from 'lucide-react';
 
 interface FeatureSelectorProps {
     onSelectFeature: (featureId: string) => void;
 }
 
-// Extended feature that includes custom configs
-interface FeatureWithConfigs extends Feature {
-    isCustomConfig?: boolean;
-    profileId?: string;
-    baseFeatureId?: string;
-}
-
 export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
     const { selectedOrganization } = useOrganization();
-    const [features, setFeatures] = useState<FeatureWithConfigs[]>([]);
-    const [customConfigs, setCustomConfigs] = useState<FeatureWithConfigs[]>([]);
+    const [features, setFeatures] = useState<Feature[]>([]);
     const [loading, setLoading] = useState(true);
-    const [loadingProfiles, setLoadingProfiles] = useState(false);
+    const [alertCounts, setAlertCounts] = useState<Record<string, number>>({});
     const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
-    // Load base features FIRST (fast)
+    // Load base features
     useEffect(() => {
         const loadFeatures = async () => {
             setLoading(true);
@@ -45,53 +36,52 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
         loadFeatures();
     }, [selectedOrganization?.id]);
 
-    // Load custom configs SEPARATELY (can be slow, won't block UI)
+    // Load alert counts for features (check which features have critical alerts)
     useEffect(() => {
-        const loadCustomConfigs = async () => {
-            setLoadingProfiles(true);
+        const loadAlertCounts = async () => {
+            if (features.length === 0) return;
+            
             try {
-                // Get ALL profiles in ONE call instead of looping
-                const result = await firebaseConfigService.getAllProfiles();
-                if (result.success && result.items.length > 0) {
-                    const configs: FeatureWithConfigs[] = result.items.map(profile => ({
-                        id: profile.profileId,
-                        name: profile.profileName,
-                        description: `Custom ${getFeatureName(profile.featureId)} configuration`,
-                        isCustomConfig: true,
-                        profileId: profile.profileId,
-                        baseFeatureId: profile.featureId
-                    }));
-                    setCustomConfigs(configs);
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - 7); // Last 7 days
+                
+                // Fetch alerts for all event IDs (we'll check which features have alerts)
+                const alerts = await apiService.getCriticalAlerts(
+                    [], // All events
+                    [], // All platforms
+                    [], // All POS
+                    [], // All sources
+                    startDate,
+                    endDate,
+                    100, // Get up to 100 alerts
+                    0
+                );
+                
+                // Count alerts per feature (using eventId mapping)
+                const counts: Record<string, number> = {};
+                features.forEach(f => {
+                    counts[f.id] = 0;
+                });
+                
+                // If we have alerts, show on Price Alert feature
+                if (alerts.length > 0) {
+                    counts['1'] = alerts.length;
                 }
+                
+                setAlertCounts(counts);
             } catch (error) {
-                console.error('Failed to load custom configs', error);
-            } finally {
-                setLoadingProfiles(false);
+                console.error('Failed to load alert counts:', error);
             }
         };
-        loadCustomConfigs();
-    }, [selectedOrganization?.id]);
+        
+        loadAlertCounts();
+    }, [features]);
 
-    // Dynamic icon - uses color from API-based palette
-    const getIcon = (id: string, isCustom?: boolean) => {
-        if (isCustom) {
-            return <Layers className="h-10 w-10 text-purple-400" />;
-        }
-        // Get dynamic color based on feature ID
+    // Dynamic icon - uses color from API-based palette (smaller size)
+    const getIcon = (id: string) => {
         const color = getFeatureColor(id);
-        return <BarChart3 className={`h-10 w-10 ${color.icon}`} />;
-    };
-
-    // Dynamic badge with colors from API-based palette
-    const getFeatureTypeBadge = (baseFeatureId?: string) => {
-        if (!baseFeatureId) return null;
-        const color = getFeatureColor(baseFeatureId);
-        const shortName = getFeatureShortName(baseFeatureId);
-        return (
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${color.bg} ${color.text} ${color.border}`}>
-                {shortName}
-            </span>
-        );
+        return <BarChart3 className={`h-6 w-6 ${color.icon}`} />;
     };
 
     if (loading) {
@@ -106,9 +96,6 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             </div>
         );
     }
-
-    // Features are already base features (no filtering needed)
-    // customConfigs are loaded separately and stored in their own state
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -201,206 +188,79 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                     </motion.p>
                 </motion.div>
             
-            {/* Base Features - 3D Tilt Cards */}
+            {/* Base Features - Compact Cards */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-8 lg:mb-12 perspective-1000"
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8"
             >
-                {features.map((feature) => (
+                {features.map((feature) => {
+                    const hasAlerts = (alertCounts[feature.id] || 0) > 0;
+                    return (
                     <motion.div 
                         key={feature.id} 
                         variants={itemVariants}
                         onHoverStart={() => setHoveredCard(feature.id)}
                         onHoverEnd={() => setHoveredCard(null)}
-                        whileHover={{ scale: 1.02, y: -4 }}
+                        whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
                     >
                         <div 
                             onClick={() => onSelectFeature(feature.id)}
                             className="cursor-pointer"
                         >
-                            <Card className={`group relative overflow-hidden border-border bg-card/80 backdrop-blur-sm transition-all duration-500 ${hoveredCard === feature.id ? 'shadow-2xl shadow-purple-500/20 border-purple-300 dark:border-purple-500/50' : ''}`}>
-                                {/* Animated gradient overlay */}
+                            <Card className={`group relative border-border bg-card/80 backdrop-blur-sm transition-all duration-300 ${hoveredCard === feature.id ? 'shadow-lg shadow-purple-500/20 border-purple-300 dark:border-purple-500/50' : ''} ${hasAlerts ? 'border-red-300 dark:border-red-500/50' : ''}`}>
+                                {/* Alert Indicator - Red Blinking */}
+                                {hasAlerts && (
+                                    <>
+                                        {/* Pulsing red glow - positioned inside the card */}
+                                        <div className="absolute top-2 right-2 z-20">
+                                            <span className="relative flex h-3 w-3">
+                                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                            </span>
+                                        </div>
+                                        {/* Alert count badge - inside card */}
+                                        <div className="absolute top-2 left-2 z-20">
+                                            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-500 text-white rounded animate-pulse">
+                                                {alertCounts[feature.id]} alerts
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
+                                
+                                {/* Subtle gradient overlay on hover */}
                                 <motion.div 
-                                    className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-violet-500/10"
+                                    className="absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-violet-500/5"
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: hoveredCard === feature.id ? 1 : 0 }}
-                                    transition={{ duration: 0.3 }}
+                                    transition={{ duration: 0.2 }}
                                 />
                                 
-                                {/* Shimmer effect on hover */}
-                                <motion.div
-                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12"
-                                    initial={{ x: '-100%' }}
-                                    animate={{ x: hoveredCard === feature.id ? '200%' : '-100%' }}
-                                    transition={{ duration: 0.8, ease: "easeInOut" }}
-                                />
-                                
-                                <CardHeader className="text-center relative z-10 p-4 lg:p-6">
-                                    <motion.div
-                                        className="flex justify-center mb-3 lg:mb-4"
-                                        animate={hoveredCard === feature.id ? { 
-                                            y: [0, -8, 0],
-                                            rotate: [0, 5, -5, 0]
-                                        } : {}}
-                                        transition={{ duration: 0.6 }}
-                                    >
-                                        <motion.div 
-                                            className="h-14 w-14 lg:h-20 lg:w-20 rounded-xl lg:rounded-2xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 flex items-center justify-center border border-purple-200 dark:border-purple-500/20 shadow-sm"
-                                            whileHover={{ scale: 1.1 }}
-                                        >
+                                <CardHeader className="text-center relative z-10 p-3 lg:p-4">
+                                    <div className="flex justify-center mb-2">
+                                        <div className={`h-10 w-10 lg:h-12 lg:w-12 rounded-lg bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 flex items-center justify-center border border-purple-200 dark:border-purple-500/20 ${hasAlerts ? 'border-red-300 dark:border-red-500/30' : ''}`}>
                                             {getIcon(feature.id)}
-                                        </motion.div>
-                                    </motion.div>
-                                    <CardTitle className="text-lg lg:text-2xl text-foreground mb-1 lg:mb-2">
-                                        <motion.span
-                                            animate={hoveredCard === feature.id ? { letterSpacing: '0.02em' } : { letterSpacing: '0em' }}
-                                        >
-                                            {feature.name}
-                                        </motion.span>
+                                        </div>
+                                    </div>
+                                    <CardTitle className="text-sm lg:text-base text-foreground mb-0.5 truncate">
+                                        {feature.name}
                                     </CardTitle>
-                                    <CardDescription className="text-muted-foreground text-xs lg:text-sm">{feature.description}</CardDescription>
+                                    <CardDescription className="text-muted-foreground text-[10px] lg:text-xs line-clamp-1">{feature.description}</CardDescription>
                                 </CardHeader>
-                                <CardContent className="flex justify-center pb-4 lg:pb-6 relative z-10">
-                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                        <Button variant="outline" size="sm" className="gap-2 border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 group-hover:border-purple-400 dark:group-hover:border-purple-400/50 text-xs lg:text-sm relative overflow-hidden">
-                                            <motion.span
-                                                className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/10 to-purple-500/0"
-                                                animate={{ x: ['-100%', '100%'] }}
-                                                transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-                                            />
-                                            View Dashboard
-                                            <motion.div
-                                                animate={{ x: [0, 4, 0] }}
-                                                transition={{ duration: 1.5, repeat: Infinity }}
-                                            >
-                                                <ArrowRight className="h-3 w-3 lg:h-4 lg:w-4" />
-                                            </motion.div>
-                                        </Button>
-                                    </motion.div>
+                                <CardContent className="flex justify-center pb-3 lg:pb-4 pt-0 relative z-10">
+                                    <Button variant="outline" size="sm" className={`gap-1 text-[10px] lg:text-xs h-7 px-2 border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 ${hasAlerts ? 'border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400' : ''}`}>
+                                        View
+                                        <ArrowRight className="h-3 w-3" />
+                                    </Button>
                                 </CardContent>
                             </Card>
                         </div>
                     </motion.div>
-                ))}
+                    );
+                })}
             </motion.div>
-
-            {/* Custom Configs Section */}
-            {(customConfigs.length > 0 || loadingProfiles) && (
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                >
-                    <motion.div 
-                        className="border-t border-border my-6 lg:my-10 relative"
-                        initial={{ scaleX: 0 }}
-                        animate={{ scaleX: 1 }}
-                        transition={{ duration: 0.8, delay: 0.5 }}
-                    >
-                        <motion.div
-                            className="absolute left-1/2 -translate-x-1/2 -top-3 bg-background px-4"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.8 }}
-                        >
-                            <Sparkles className="h-5 w-5 text-purple-400" />
-                        </motion.div>
-                    </motion.div>
-                    
-                    <motion.h2 
-                        className="text-base lg:text-xl font-semibold mb-4 lg:mb-6 text-center text-muted-foreground flex items-center justify-center gap-2"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.6 }}
-                    >
-                        <motion.span
-                            animate={{ rotate: [0, 15, -15, 0] }}
-                            transition={{ duration: 2, repeat: Infinity, repeatDelay: 2 }}
-                        >
-                            <Sparkles className="h-4 w-4 lg:h-5 lg:w-5 text-purple-500" />
-                        </motion.span>
-                        Custom Configurations
-                        {loadingProfiles && (
-                            <motion.span
-                                animate={{ rotate: 360 }}
-                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                className="ml-2"
-                            >
-                                <Zap className="h-4 w-4 text-yellow-500" />
-                            </motion.span>
-                        )}
-                    </motion.h2>
-                    {loadingProfiles ? (
-                        <div className="text-center text-muted-foreground text-sm">
-                            Loading custom configurations...
-                        </div>
-                    ) : (
-                    <motion.div
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="show"
-                        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4"
-                    >
-                        {customConfigs.map((config) => (
-                            <motion.div 
-                                key={config.id} 
-                                variants={itemVariants}
-                                whileHover={{ scale: 1.03, y: -4 }}
-                                whileTap={{ scale: 0.97 }}
-                            >
-                                <Card
-                                    className="group cursor-pointer border-border bg-card/80 backdrop-blur-sm hover:border-purple-300 dark:hover:border-purple-400/50 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 overflow-hidden relative"
-                                    onClick={() => onSelectFeature(config.baseFeatureId || config.id)}
-                                >
-                                    {/* Animated border gradient */}
-                                    <motion.div
-                                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        style={{
-                                            background: 'linear-gradient(90deg, transparent, rgba(147, 51, 234, 0.1), transparent)',
-                                        }}
-                                        animate={{ x: ['-100%', '100%'] }}
-                                        transition={{ duration: 1.5, repeat: Infinity }}
-                                    />
-                                    
-                                    <CardHeader className="text-center p-3 lg:pb-3 relative z-10">
-                                        <motion.div 
-                                            className="flex justify-center mb-2 lg:mb-3"
-                                            whileHover={{ rotate: [0, -10, 10, 0], transition: { duration: 0.5 } }}
-                                        >
-                                            <div className="h-10 w-10 lg:h-14 lg:w-14 rounded-lg lg:rounded-xl bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 flex items-center justify-center border border-purple-200 dark:border-purple-500/20">
-                                                {getIcon(config.id, true)}
-                                            </div>
-                                        </motion.div>
-                                        <div className="flex items-center justify-center gap-1 lg:gap-2 flex-wrap">
-                                            <CardTitle className="text-xs lg:text-base text-foreground truncate">{config.name}</CardTitle>
-                                            <motion.div whileHover={{ scale: 1.1 }}>
-                                                {getFeatureTypeBadge(config.baseFeatureId)}
-                                            </motion.div>
-                                        </div>
-                                        <CardDescription className="text-[10px] lg:text-xs text-muted-foreground line-clamp-2">{config.description}</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="flex justify-center p-2 lg:pb-4 relative z-10">
-                                        <Button variant="ghost" size="sm" className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 text-xs h-7 lg:h-8">
-                                            Open
-                                            <motion.div
-                                                className="ml-1"
-                                                animate={{ x: [0, 3, 0] }}
-                                                transition={{ duration: 1, repeat: Infinity }}
-                                            >
-                                                <ArrowRight className="h-3 w-3" />
-                                            </motion.div>
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                    )}
-                </motion.div>
-            )}
             </div>
         </div>
     );
