@@ -42,11 +42,31 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             if (features.length === 0) return;
             
             try {
+                const orgId = selectedOrganization?.id ?? 0;
+                
+                // Step 1: Build eventId -> featureId mapping by fetching events for each feature
+                const eventToFeatureMap: Record<string, string> = {};
+                
+                // Fetch events for all features in parallel
+                const eventsPromises = features.map(async (feature) => {
+                    try {
+                        const events = await apiService.getEventsList(feature.id, orgId);
+                        events.forEach(event => {
+                            eventToFeatureMap[event.eventId] = feature.id;
+                        });
+                    } catch (err) {
+                        console.warn(`Failed to fetch events for feature ${feature.id}:`, err);
+                    }
+                });
+                
+                await Promise.all(eventsPromises);
+                console.log('📋 Event to Feature mapping:', eventToFeatureMap);
+                
+                // Step 2: Fetch all alerts
                 const endDate = new Date();
                 const startDate = new Date();
                 startDate.setDate(startDate.getDate() - 7); // Last 7 days
                 
-                // Fetch alerts for all event IDs (we'll check which features have alerts)
                 const alerts = await apiService.getCriticalAlerts(
                     [], // All events
                     [], // All platforms
@@ -54,21 +74,27 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                     [], // All sources
                     startDate,
                     endDate,
-                    100, // Get up to 100 alerts
+                    500, // Get more alerts to ensure we capture all
                     0
                 );
                 
-                // Count alerts per feature (using eventId mapping)
+                console.log(`🚨 Total alerts fetched: ${alerts.length}`);
+                
+                // Step 3: Count alerts per feature using the eventId mapping
                 const counts: Record<string, number> = {};
                 features.forEach(f => {
                     counts[f.id] = 0;
                 });
                 
-                // If we have alerts, show on Price Alert feature
-                if (alerts.length > 0) {
-                    counts['1'] = alerts.length;
-                }
+                alerts.forEach(alert => {
+                    const eventId = String(alert.eventId);
+                    const featureId = eventToFeatureMap[eventId];
+                    if (featureId && counts[featureId] !== undefined) {
+                        counts[featureId]++;
+                    }
+                });
                 
+                console.log('🚨 Alert counts per feature:', counts);
                 setAlertCounts(counts);
             } catch (error) {
                 console.error('Failed to load alert counts:', error);
@@ -76,7 +102,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
         };
         
         loadAlertCounts();
-    }, [features]);
+    }, [features, selectedOrganization?.id]);
 
     // Dynamic icon - uses color from API-based palette (smaller size)
     const getIcon = (id: string) => {
