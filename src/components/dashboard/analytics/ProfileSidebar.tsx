@@ -3,9 +3,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
+import { 
+    DropdownMenu, 
+    DropdownMenuContent, 
+    DropdownMenuItem, 
+    DropdownMenuSeparator, 
+    DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useFirebaseConfig } from '@/contexts/FirebaseConfigContext';
 
 interface ProfileSidebarProps {
     featureId: string;
@@ -30,7 +48,10 @@ export function ProfileSidebar({
 }: ProfileSidebarProps) {
     const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [profileToDelete, setProfileToDelete] = useState<DashboardProfile | null>(null);
     const { user } = useAnalyticsAuth();
+    const { deleteProfile } = useFirebaseConfig();
     const isAdmin = user?.role === 0;
 
     useEffect(() => {
@@ -47,6 +68,34 @@ export function ProfileSidebar({
     const handleSelectProfile = (profileId: string) => {
         onSelectProfile(profileId);
         setIsMobileOpen(false);
+    };
+
+    const handleDeleteClick = (e: React.MouseEvent, profile: DashboardProfile) => {
+        e.stopPropagation();
+        setProfileToDelete(profile);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!profileToDelete || !isAdmin) return;
+        
+        const success = await deleteProfile(profileToDelete.profileId);
+        if (success) {
+            // If we deleted the currently selected profile, select the first remaining one
+            if (selectedProfileId === profileToDelete.profileId) {
+                const remainingProfiles = profiles.filter(p => p.profileId !== profileToDelete.profileId);
+                if (remainingProfiles.length > 0) {
+                    onSelectProfile(remainingProfiles[0].profileId);
+                }
+            }
+            
+            // Refresh the profiles list
+            const data = await mockService.getProfiles(featureId);
+            setProfiles(data);
+        }
+        
+        setDeleteDialogOpen(false);
+        setProfileToDelete(null);
     };
 
     // Helper to get profile stats - simplified
@@ -91,8 +140,8 @@ export function ProfileSidebar({
                             onClick={() => handleSelectProfile(profile.profileId)}
                             className={cn(
                                 "w-full h-10 rounded-lg flex items-center justify-center transition-colors duration-200",
-                                isSelected 
-                                    ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-2 border-purple-400 dark:border-purple-500/50" 
+                                isSelected
+                                    ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-2 border-purple-400 dark:border-purple-500/50"
                                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-transparent"
                             )}
                             title={profile.profileName}
@@ -105,14 +154,14 @@ export function ProfileSidebar({
         </div>
     );
 
-    // Expanded view - minimal design
+    // Expanded view - premium design
     const ExpandedContent = () => (
-        <div className="flex flex-col h-full">
-            {/* Header - Minimal */}
-            <div className="p-4 flex items-center justify-between border-b border-border/30">
+        <div className="flex flex-col h-full bg-gradient-to-b from-purple-50/50 via-white to-indigo-50/30 dark:from-purple-900/20 dark:via-slate-900 dark:to-indigo-900/10">
+            {/* Header - Premium gradient */}
+            <div className="p-4 flex items-center justify-between border-b border-purple-200/40 dark:border-purple-500/20 bg-gradient-to-r from-purple-100/80 to-indigo-100/60 dark:from-purple-900/40 dark:to-indigo-900/30">
                 <div>
-                    <h2 className="font-semibold text-sm text-foreground">Profiles</h2>
-                    <p className="text-xs text-muted-foreground">{profiles.length} dashboards</p>
+                    <h2 className="font-bold text-sm bg-gradient-to-r from-purple-700 to-indigo-600 bg-clip-text text-transparent">Profiles</h2>
+                    <p className="text-xs text-purple-500 dark:text-purple-400">{profiles.length} dashboards</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {isAdmin && (
@@ -143,53 +192,81 @@ export function ProfileSidebar({
                     </Button>
                 </div>
             </div>
-            
+
             {/* Profile List - Minimal */}
             <div className="flex-1 overflow-y-auto p-3">
                 <div className="space-y-2">
                     {profiles.map((profile) => {
                         const isSelected = selectedProfileId === profile.profileId;
                         const stats = getProfileStats(profile);
-                        
+
                         return (
-                            <button
-                                key={profile.profileId}
-                                onClick={() => handleSelectProfile(profile.profileId)}
-                                className={cn(
-                                    "w-full text-left p-3 rounded-lg transition-colors duration-200",
-                                    isSelected 
-                                        ? "bg-purple-50 dark:bg-purple-500/10 border-2 border-purple-400 dark:border-purple-500/40" 
-                                        : "bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                                )}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className={cn(
-                                        "font-medium text-sm truncate",
-                                        isSelected ? "text-purple-700 dark:text-purple-300" : "text-foreground"
-                                    )}>
-                                        {profile.profileName}
-                                    </span>
-                                    {isSelected && (
-                                        <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                            <div key={profile.profileId} className="relative group">
+                                <motion.button
+                                    onClick={() => handleSelectProfile(profile.profileId)}
+                                    className={cn(
+                                        "w-full text-left p-3 rounded-xl transition-all duration-300",
+                                        isSelected
+                                            ? "bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-500/20 dark:to-indigo-500/15 border-2 border-purple-400 dark:border-purple-500/50 shadow-lg shadow-purple-500/10"
+                                            : "bg-white/60 dark:bg-slate-800/60 border border-purple-200/40 dark:border-purple-500/20 hover:border-purple-300 dark:hover:border-purple-500/40 hover:shadow-md hover:shadow-purple-500/5 hover:translate-x-1"
                                     )}
-                                </div>
-                                <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                                    <span>{stats.panelCount} panels</span>
-                                    <span className="text-gray-300 dark:text-gray-600">|</span>
-                                    <span>{stats.totalEvents} events</span>
-                                </div>
-                            </button>
+                                    whileHover={{ scale: 1.01 }}
+                                    whileTap={{ scale: 0.99 }}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className={cn(
+                                            "font-medium text-sm truncate pr-8",
+                                            isSelected ? "text-purple-700 dark:text-purple-300" : "text-foreground"
+                                        )}>
+                                            {profile.profileName}
+                                        </span>
+                                        {isSelected && (
+                                            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                                        <span>{stats.panelCount} panels</span>
+                                        <span className="text-gray-300 dark:text-gray-600">|</span>
+                                        <span>{stats.totalEvents} events</span>
+                                    </div>
+                                </motion.button>
+                                
+                                {/* Admin Delete Button */}
+                                {isAdmin && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 dark:hover:bg-red-500/20"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <MoreVertical className="h-3 w-3" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-40">
+                                            <DropdownMenuItem
+                                                className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-500/20"
+                                                onClick={(e) => handleDeleteClick(e, profile)}
+                                            >
+                                                <Trash2 className="h-3 w-3 mr-2" />
+                                                Delete Profile
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
+                            </div>
                         );
                     })}
                 </div>
-                
+
                 {profiles.length === 0 && (
                     <div className="text-center py-8">
                         <p className="text-sm text-muted-foreground mb-3">No profiles yet</p>
                         {isAdmin && (
-                            <Button 
+                            <Button
                                 onClick={onCreateProfile}
-                                size="sm" 
+                                size="sm"
                                 className="bg-purple-600 hover:bg-purple-700"
                             >
                                 <Plus className="h-3 w-3 mr-1" />
@@ -222,7 +299,7 @@ export function ProfileSidebar({
             >
                 <Menu className="h-5 w-5" />
             </motion.button>
-            
+
             {/* Mobile Overlay */}
             <AnimatePresence>
                 {isMobileOpen && (
@@ -235,7 +312,7 @@ export function ProfileSidebar({
                     />
                 )}
             </AnimatePresence>
-            
+
             {/* Mobile Sidebar */}
             <AnimatePresence>
                 {isMobileOpen && (
@@ -250,15 +327,41 @@ export function ProfileSidebar({
                     </motion.div>
                 )}
             </AnimatePresence>
-            
+
             {/* Desktop Sidebar */}
-            <motion.div 
+            <motion.div
                 className="hidden lg:flex flex-col h-full bg-background"
                 animate={{ width: isCollapsed ? 60 : '100%' }}
                 transition={{ duration: 0.2 }}
             >
                 {isCollapsed ? <CollapsedContent /> : <ExpandedContent />}
             </motion.div>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-red-500" />
+                            Delete Profile
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete "{profileToDelete?.profileName}"? 
+                            <br />
+                            <strong>This action cannot be undone.</strong> All dashboard panels and configurations will be permanently removed.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleDeleteConfirm}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            Delete Profile
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

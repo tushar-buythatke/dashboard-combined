@@ -40,6 +40,22 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        // Horizon UI Premium Colors
+        horizon: {
+          primary: '#6366F1',
+          secondary: '#A855F7',
+          'accent-blue': '#3B82F6',
+          'accent-pink': '#EC4899',
+          'accent-cyan': '#06B6D4',
+          'accent-emerald': '#10B981',
+        },
+      },
+      boxShadow: {
+        'premium': '0 8px 30px rgb(0 0 0 / 0.05)',
+        'card-hover': '0 20px 40px rgb(0 0 0 / 0.08)',
+        'glow-indigo': '0 0 30px rgba(99, 102, 241, 0.25)',
+        'glow-purple': '0 0 30px rgba(168, 85, 247, 0.25)',
+        'glow-pink': '0 0 30px rgba(236, 72, 153, 0.25)',
       },
       borderRadius: {
         lg: "var(--radius-lg)",

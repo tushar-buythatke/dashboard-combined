@@ -159,4 +159,5 @@ export interface Alert {
     message: string;
     severity: 'critical' | 'warning' | 'info';
     timestamp: string;
+    type?: string;
 }
