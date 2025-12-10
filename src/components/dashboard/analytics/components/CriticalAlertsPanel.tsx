@@ -384,7 +384,11 @@ export function CriticalAlertsPanel({
                                             const details = alert.details || {};
                                             const eventName = details.eventName || `Event ${alert.eventId}`;
                                             const platformName = PLATFORM_NAMES?.[alert.platform] ?? `Platform ${alert.platform}`;
-                                            const sourceName = SOURCE_NAMES?.[alert.source] ?? (alert.source != null ? `Source ${alert.source}` : 'Unknown');
+
+                                            const isSourceValid = alert.source !== -1 && alert.source != null;
+                                            const sourceName = isSourceValid
+                                                ? (SOURCE_NAMES?.[alert.source] ?? `Source ${alert.source}`)
+                                                : null;
 
                                             const expectedValueNum = typeof details.expectedValue === 'number' ? details.expectedValue : Number(details.expectedValue);
                                             const currentValueNum = typeof details.currentValue === 'number' ? details.currentValue : Number(details.currentValue);
@@ -398,13 +402,12 @@ export function CriticalAlertsPanel({
                                                 if (!Number.isFinite(num)) return 'N/A';
                                                 return num.toFixed(2);
                                             };
+
+                                            const siteDetail = siteDetails.find(site => site.id === alert.pos);
                                             
                                             return (
-                                                <motion.div
+                                                <div
                                                     key={alert.id || index}
-                                                    initial={{ opacity: 0, y: 10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ delay: index * 0.05 }}
                                                     className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors"
                                                 >
                                                     <div className="flex items-center gap-3 flex-1">
@@ -418,9 +421,11 @@ export function CriticalAlertsPanel({
                                                                 <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded">
                                                                     {platformName}
                                                                 </span>
-                                                                <span className="text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/10 px-2 py-0.5 rounded font-medium">
-                                                                    {sourceName}
-                                                                </span>
+                                                                {sourceName && (
+                                                                    <span className="text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/10 px-2 py-0.5 rounded font-medium">
+                                                                        {sourceName}
+                                                                    </span>
+                                                                )}
                                                                 <span className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded font-medium">
                                                                     {details.metric}
                                                                 </span>
@@ -436,7 +441,12 @@ export function CriticalAlertsPanel({
                                                                 )}
                                                             </div>
                                                             <div className="text-xs text-muted-foreground">
-                                                                POS {alert.pos}
+                                                                <span className="font-semibold text-foreground">POS {alert.pos}</span>
+                                                                {siteDetail?.name && (
+                                                                    <span className="ml-1 text-muted-foreground">
+                                                                        · {siteDetail.name}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         
@@ -473,7 +483,7 @@ export function CriticalAlertsPanel({
                                                             return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                                         })()}
                                                     </div>
-                                                </motion.div>
+                                                </div>
                                             );
                                         })}
                                         

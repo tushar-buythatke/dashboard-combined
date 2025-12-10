@@ -41,29 +41,39 @@ import {
     Cell
 } from 'recharts';
 
-// Animated Number Counter Component
+// Animated Number Counter Component - fast 0 -> value animation
 const AnimatedNumber = ({ value, suffix = '', prefix = '', className = '' }: { value: number; suffix?: string; prefix?: string; className?: string }) => {
-    const ref = useRef<HTMLSpanElement>(null);
-    const isInView = useInView(ref, { once: false });
-    const motionValue = useMotionValue(0);
-    const springValue = useSpring(motionValue, { damping: 30, stiffness: 100 });
-    const [displayValue, setDisplayValue] = useState(0);
+    const [displayValue, setDisplayValue] = React.useState(0);
 
-    useEffect(() => {
-        if (isInView) {
-            motionValue.set(value);
-        }
-    }, [value, isInView, motionValue]);
+    React.useEffect(() => {
+        const duration = 150; // ms – very fast
+        const startValue = displayValue;
+        const diff = value - startValue;
 
-    useEffect(() => {
-        const unsubscribe = springValue.on('change', (latest) => {
-            setDisplayValue(Math.round(latest));
-        });
-        return () => unsubscribe();
-    }, [springValue]);
+        if (diff === 0) return;
+
+        const startTime = performance.now();
+        let frameId: number;
+
+        const tick = (now: number) => {
+            const elapsed = now - startTime;
+            const t = Math.min(1, elapsed / duration);
+            // Ease-out cubic for a quick but smooth finish
+            const eased = 1 - Math.pow(1 - t, 3);
+            const next = Math.round(startValue + diff * eased);
+            setDisplayValue(next);
+            if (t < 1) {
+                frameId = requestAnimationFrame(tick);
+            }
+        };
+
+        frameId = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(frameId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
 
     return (
-        <span ref={ref} className={className}>
+        <span className={className}>
             {prefix}{displayValue.toLocaleString()}{suffix}
         </span>
     );

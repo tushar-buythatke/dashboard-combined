@@ -37,11 +37,89 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
     }, [selectedOrganization?.id]);
 
     // Load alert counts for features (check which features have critical alerts)
-    // NOTE: This used to perform multiple heavy API calls (events per feature +
-    // a large critical-alerts query). To keep the analytics homepage snappy,
-    // we currently skip this enrichment and leave alertCounts at 0.
+    // Optimized: build an eventId -> featureId map once, then fetch alerts once,
+    // and cache the per-feature counts in localStorage for 30 minutes.
     useEffect(() => {
-        setAlertCounts({});
+        const loadAlertCounts = async () => {
+            if (!features.length) return;
+
+            try {
+                const orgId = selectedOrganization?.id ?? 0;
+                const cacheKey = `feature_alert_counts_v1_${orgId}`;
+                const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+                // Try cache first – alerts are updated hourly, so 30min is safe
+                try {
+                    const cachedRaw = localStorage.getItem(cacheKey);
+                    if (cachedRaw) {
+                        const cached = JSON.parse(cachedRaw) as { updatedAt: number; counts: Record<string, number> };
+                        if (Date.now() - cached.updatedAt < CACHE_TTL_MS) {
+                            setAlertCounts(cached.counts || {});
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('Failed to read feature alert counts cache:', err);
+                }
+
+                // Build eventId -> featureId mapping using events list per feature
+                const eventToFeatureMap: Record<string, string> = {};
+
+                await Promise.all(features.map(async (feature) => {
+                    try {
+                        const events = await apiService.getEventsList(feature.id, orgId);
+                        events.forEach(ev => {
+                            eventToFeatureMap[String(ev.eventId)] = feature.id;
+                        });
+                    } catch (err) {
+                        console.warn(`Failed to fetch events for feature ${feature.id}:`, err);
+                    }
+                }));
+
+                // Fetch critical alerts once for a recent window (last 24 hours)
+                const endDate = new Date();
+                const startDate = new Date();
+                startDate.setDate(startDate.getDate() - 1);
+
+                const alerts = await apiService.getCriticalAlerts(
+                    [], // all events
+                    [], // all platforms
+                    [], // all POS
+                    [], // all sources
+                    startDate,
+                    endDate,
+                    1000, // reasonable upper bound per org
+                    0
+                );
+
+                const counts: Record<string, number> = {};
+                features.forEach(f => {
+                    counts[f.id] = 0;
+                });
+
+                alerts.forEach(alert => {
+                    const featureId = eventToFeatureMap[String(alert.eventId)];
+                    if (featureId && counts[featureId] !== undefined) {
+                        counts[featureId]++;
+                    }
+                });
+
+                setAlertCounts(counts);
+
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({
+                        updatedAt: Date.now(),
+                        counts,
+                    }));
+                } catch (err) {
+                    console.warn('Failed to write feature alert counts cache:', err);
+                }
+            } catch (error) {
+                console.error('Failed to load alert counts for features:', error);
+            }
+        };
+
+        loadAlertCounts();
     }, [features, selectedOrganization?.id]);
 
     // Dynamic icon - uses color from API-based palette (smaller size)
