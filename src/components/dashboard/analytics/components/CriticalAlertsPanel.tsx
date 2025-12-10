@@ -9,7 +9,7 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Bell, CheckCircle2, ChevronDown, Filter, CalendarIcon, RefreshCw, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
-import { PLATFORMS } from '@/services/apiService';
+import { PLATFORMS, PLATFORM_NAMES, SOURCE_NAMES } from '@/services/apiService';
 import type { SiteDetail } from '@/services/apiService';
 import type { EventConfig } from '@/types/analytics';
 
@@ -383,10 +383,21 @@ export function CriticalAlertsPanel({
                                             .map((alert, index) => {
                                             const details = alert.details || {};
                                             const eventName = details.eventName || `Event ${alert.eventId}`;
-                                            const platformName = alert.platform === 0 ? 'Chrome Extension' : alert.platform === 1 ? 'Android' : 'Web';
-                                            const variance = details.expectedValue && details.currentValue ? 
-                                                (((details.currentValue - details.expectedValue) / details.expectedValue) * 100) : null;
-                                            const formatNum = (num: number) => num?.toFixed(2) || 'N/A';
+                                            const platformName = PLATFORM_NAMES?.[alert.platform] ?? `Platform ${alert.platform}`;
+                                            const sourceName = SOURCE_NAMES?.[alert.source] ?? (alert.source != null ? `Source ${alert.source}` : 'Unknown');
+
+                                            const expectedValueNum = typeof details.expectedValue === 'number' ? details.expectedValue : Number(details.expectedValue);
+                                            const currentValueNum = typeof details.currentValue === 'number' ? details.currentValue : Number(details.currentValue);
+
+                                            const variance = Number.isFinite(expectedValueNum) && expectedValueNum !== 0 && Number.isFinite(currentValueNum)
+                                                ? (((currentValueNum - expectedValueNum) / expectedValueNum) * 100)
+                                                : null;
+
+                                            const formatNum = (value: any) => {
+                                                const num = typeof value === 'number' ? value : Number(value);
+                                                if (!Number.isFinite(num)) return 'N/A';
+                                                return num.toFixed(2);
+                                            };
                                             
                                             return (
                                                 <motion.div
@@ -407,8 +418,11 @@ export function CriticalAlertsPanel({
                                                                 <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded">
                                                                     {platformName}
                                                                 </span>
+                                                                <span className="text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-500/10 px-2 py-0.5 rounded font-medium">
+                                                                    {sourceName}
+                                                                </span>
                                                                 <span className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded font-medium">
-                                                                    {details.metric === 'count' ? 'count' : 'successCount'}
+                                                                    {details.metric}
                                                                 </span>
                                                                 {variance !== null && (
                                                                     <span className={cn(
@@ -445,9 +459,19 @@ export function CriticalAlertsPanel({
                                                     
                                                     {/* Timestamp */}
                                                     <div className="text-xs text-muted-foreground text-right ml-4">
-                                                        {new Date(details.timestamp || alert.create_time).toLocaleDateString()}
+                                                        {(() => {
+                                                            const raw = details.timestamp || alert.create_time;
+                                                            const dateObj = raw ? new Date(raw) : null;
+                                                            if (!dateObj || isNaN(dateObj.getTime())) return '-';
+                                                            return dateObj.toLocaleDateString();
+                                                        })()}
                                                         <br />
-                                                        {new Date(details.timestamp || alert.create_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                        {(() => {
+                                                            const raw = details.timestamp || alert.create_time;
+                                                            const dateObj = raw ? new Date(raw) : null;
+                                                            if (!dateObj || isNaN(dateObj.getTime())) return '';
+                                                            return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                        })()}
                                                     </div>
                                                 </motion.div>
                                             );

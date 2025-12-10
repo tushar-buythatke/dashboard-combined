@@ -37,71 +37,11 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
     }, [selectedOrganization?.id]);
 
     // Load alert counts for features (check which features have critical alerts)
+    // NOTE: This used to perform multiple heavy API calls (events per feature +
+    // a large critical-alerts query). To keep the analytics homepage snappy,
+    // we currently skip this enrichment and leave alertCounts at 0.
     useEffect(() => {
-        const loadAlertCounts = async () => {
-            if (features.length === 0) return;
-
-            try {
-                const orgId = selectedOrganization?.id ?? 0;
-
-                // Step 1: Build eventId -> featureId mapping by fetching events for each feature
-                const eventToFeatureMap: Record<string, string> = {};
-
-                // Fetch events for all features in parallel
-                const eventsPromises = features.map(async (feature) => {
-                    try {
-                        const events = await apiService.getEventsList(feature.id, orgId);
-                        events.forEach(event => {
-                            eventToFeatureMap[event.eventId] = feature.id;
-                        });
-                    } catch (err) {
-                        console.warn(`Failed to fetch events for feature ${feature.id}:`, err);
-                    }
-                });
-
-                await Promise.all(eventsPromises);
-                console.log('📋 Event to Feature mapping:', eventToFeatureMap);
-
-                // Step 2: Fetch all alerts
-                const endDate = new Date();
-                const startDate = new Date();
-                startDate.setDate(startDate.getDate() - 7); // Last 7 days
-
-                const alerts = await apiService.getCriticalAlerts(
-                    [], // All events
-                    [], // All platforms
-                    [], // All POS
-                    [], // All sources
-                    startDate,
-                    endDate,
-                    500, // Get more alerts to ensure we capture all
-                    0
-                );
-
-                console.log(`🚨 Total alerts fetched: ${alerts.length}`);
-
-                // Step 3: Count alerts per feature using the eventId mapping
-                const counts: Record<string, number> = {};
-                features.forEach(f => {
-                    counts[f.id] = 0;
-                });
-
-                alerts.forEach(alert => {
-                    const eventId = String(alert.eventId);
-                    const featureId = eventToFeatureMap[eventId];
-                    if (featureId && counts[featureId] !== undefined) {
-                        counts[featureId]++;
-                    }
-                });
-
-                console.log('🚨 Alert counts per feature:', counts);
-                setAlertCounts(counts);
-            } catch (error) {
-                console.error('Failed to load alert counts:', error);
-            }
-        };
-
-        loadAlertCounts();
+        setAlertCounts({});
     }, [features, selectedOrganization?.id]);
 
     // Dynamic icon - uses color from API-based palette (smaller size)
@@ -145,38 +85,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-purple-500/40 to-pink-500/40" />
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-pink-500/40 via-purple-500/40 to-transparent" />
 
-            {/* Floating decorative elements - More vibrant purple orbs */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                {[...Array(8)].map((_, i) => (
-                    <motion.div
-                        key={i}
-                        className="absolute rounded-full"
-                        style={{
-                            width: `${150 + i * 40}px`,
-                            height: `${150 + i * 40}px`,
-                            background: `radial-gradient(circle, ${i % 3 === 0
-                                    ? 'rgba(147, 51, 234, 0.08)'
-                                    : i % 3 === 1
-                                        ? 'rgba(99, 102, 241, 0.08)'
-                                        : 'rgba(168, 85, 247, 0.08)'
-                                } 0%, transparent 70%)`,
-                            left: `${(i * 15) % 85}%`,
-                            top: `${(i * 12) % 70}%`,
-                        }}
-                        animate={{
-                            x: [0, 40, 0],
-                            y: [0, -30, 0],
-                            scale: [1, 1.15, 1],
-                        }}
-                        transition={{
-                            duration: 10 + i * 2,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                            delay: i * 0.3,
-                        }}
-                    />
-                ))}
-            </div>
+            {/* Background formerly had multiple animated orbs; simplified for performance */}
 
             <div className="relative z-10">
                 <motion.div

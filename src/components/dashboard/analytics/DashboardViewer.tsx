@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useSpring, useMotionValue, useInView } from 'framer-motion';
 import type { DashboardProfile, EventConfig } from '@/types/analytics';
 import { apiService, PLATFORMS, SOURCES } from '@/services/apiService';
+import { mockService } from '@/services/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import type { SiteDetail } from '@/services/apiService';
@@ -337,11 +338,7 @@ const __LeftSidebarNav = ({
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                         {!collapsed && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex-1 min-w-0"
-                            >
+                            <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
                                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
                                         <Target className="w-4 h-4 text-white" />
@@ -351,7 +348,7 @@ const __LeftSidebarNav = ({
                                         <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{profileName}</h3>
                                     </div>
                                 </div>
-                            </motion.div>
+                            </div>
                         )}
                         <Button
                             variant="ghost"
@@ -1728,16 +1725,19 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             setError(null);
 
             try {
-                const { mockService } = await import('@/services/mockData');
                 const loadedProfile = await mockService.getProfile(profileId);
 
                 if (loadedProfile) {
                     setProfile(loadedProfile);
 
-                    const sites = await apiService.getSiteDetails();
-                    setSiteDetails(sites);
+                    // Fetch site details and events in parallel to reduce
+                    // perceived latency on first render.
+                    const [sites, featureEvents] = await Promise.all([
+                        apiService.getSiteDetails(),
+                        apiService.getEventsList(loadedProfile.featureId)
+                    ]);
 
-                    const featureEvents = await apiService.getEventsList(loadedProfile.featureId);
+                    setSiteDetails(sites);
                     setEvents(featureEvents);
 
                     // Initialize panel filter states from admin configs (these reset on refresh)
@@ -2282,10 +2282,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             setPendingRefresh(false);
             // Clear all panel filter changes after initial load
             setPanelFilterChanges({});
-            // Mark initial load as complete after a short delay
-            setTimeout(() => {
-                initialLoadComplete.current = true;
-            }, 500);
+            // Mark initial load as complete immediately so subsequent
+            // filter changes respond without an artificial delay.
+            initialLoadComplete.current = true;
         }
     }, [loading, profile, events, loadData, loadAlerts]);
 
@@ -2366,7 +2365,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         setPendingRefresh(true);
     };
 
-    if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
+    if (loading) return null;
     if (!profile) return <div className="p-8 text-center text-destructive">Profile not found</div>;
 
     // Calculate totals
@@ -3781,35 +3780,23 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             : "grid-cols-1 md:grid-cols-3";
 
                     return (
-                        <motion.div
-                            className={cn("grid gap-3 md:gap-4", gridClass)}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.55 }}
-                        >
+                        <div className={cn("grid gap-3 md:gap-4", gridClass)}>
                             {/* Platform Distribution */}
                             {showPlatform && (
-                                <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
+                                <div>
                                     <Card className="border border-indigo-200/60 dark:border-indigo-500/30 bg-gradient-to-br from-indigo-50/50 to-violet-50/30 dark:from-indigo-500/5 dark:to-violet-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
                                         <CardHeader className="pb-2">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <motion.div
-                                                        className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md"
-                                                        whileHover={{ rotate: 15 }}
-                                                    >
+                                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md">
                                                         <Activity className="h-4 w-4 text-white" />
-                                                    </motion.div>
+                                                    </div>
                                                     <CardTitle className="text-sm font-semibold text-foreground">Platform</CardTitle>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <motion.span
-                                                        className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-                                                        initial={{ scale: 0 }}
-                                                        animate={{ scale: 1 }}
-                                                    >
+                                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
                                                         {platformData.length} types
-                                                    </motion.span>
+                                                    </span>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -3835,6 +3822,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                             dataKey="value"
                                                             strokeWidth={2}
                                                             stroke="#fff"
+                                                            isAnimationActive={false}
+                                                            animationDuration={0}
                                                         >
                                                             {platformData.map((_: any, index: number) => (
                                                                 <Cell
@@ -3861,32 +3850,25 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             </div>
                                         </CardContent>
                                     </Card>
-                                </motion.div>
+                                </div>
                             )}
 
                             {/* POS Distribution */}
                             {showPos && (
-                                <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
+                                <div>
                                     <Card className="border border-emerald-200/60 dark:border-emerald-500/30 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-500/5 dark:to-teal-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
                                         <CardHeader className="pb-2">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <motion.div
-                                                        className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md"
-                                                        whileHover={{ rotate: 15 }}
-                                                    >
+                                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
                                                         <Target className="h-4 w-4 text-white" />
-                                                    </motion.div>
+                                                    </div>
                                                     <CardTitle className="text-sm font-semibold text-foreground">POS</CardTitle>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <motion.span
-                                                        className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
-                                                        initial={{ scale: 0 }}
-                                                        animate={{ scale: 1 }}
-                                                    >
+                                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
                                                         {posData.length} types
-                                                    </motion.span>
+                                                    </span>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -3912,6 +3894,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                             dataKey="value"
                                                             strokeWidth={2}
                                                             stroke="#fff"
+                                                            isAnimationActive={false}
+                                                            animationDuration={0}
                                                         >
                                                             {posData.map((_: any, index: number) => (
                                                                 <Cell
@@ -3938,32 +3922,25 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             </div>
                                         </CardContent>
                                     </Card>
-                                </motion.div>
+                                </div>
                             )}
 
                             {/* Source Distribution */}
                             {showSource && (
-                                <motion.div whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
+                                <div>
                                     <Card className="border border-amber-200/60 dark:border-amber-500/30 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-500/5 dark:to-orange-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
                                         <CardHeader className="pb-2">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
-                                                    <motion.div
-                                                        className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md"
-                                                        whileHover={{ rotate: 15 }}
-                                                    >
+                                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md">
                                                         <Zap className="h-4 w-4 text-white" />
-                                                    </motion.div>
+                                                    </div>
                                                     <CardTitle className="text-sm font-semibold text-foreground">Source</CardTitle>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <motion.span
-                                                        className="text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
-                                                        initial={{ scale: 0 }}
-                                                        animate={{ scale: 1 }}
-                                                    >
+                                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
                                                         {sourceData.length} types
-                                                    </motion.span>
+                                                    </span>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -3989,6 +3966,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                             dataKey="value"
                                                             strokeWidth={2}
                                                             stroke="#fff"
+                                                            isAnimationActive={false}
+                                                            animationDuration={0}
                                                         >
                                                             {sourceData.map((_: any, index: number) => (
                                                                 <Cell
@@ -4015,9 +3994,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             </div>
                                         </CardContent>
                                     </Card>
-                                </motion.div>
+                                </div>
                             )}
-                        </motion.div>
+                        </div>
                     );
                 })()}
 

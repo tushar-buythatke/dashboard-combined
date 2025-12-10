@@ -137,6 +137,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                             stroke="#fff"
                                             label={false}
                                             labelLine={false}
+                                            isAnimationActive={false}
+                                            animationDuration={0}
                                         >
                                             {displayData.map((_: any, index: number) => (
                                                 <Cell 
@@ -201,7 +203,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                                 <div className="hidden sm:flex flex-1 items-center">
                                                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                                         <div
-                                                            className="h-2 rounded-full transition-all duration-500"
+                                                            className="h-2 rounded-full"
                                                             style={{
                                                                 width: `${Math.max(percentage, 2)}%`,
                                                                 background: PIE_COLORS[index % PIE_COLORS.length]

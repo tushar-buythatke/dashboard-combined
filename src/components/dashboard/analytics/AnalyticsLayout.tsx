@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { DashboardProfile, Feature } from '@/types/analytics';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
@@ -37,8 +38,9 @@ export function AnalyticsLayout() {
     const { user, logout, isAuthenticated } = useAnalyticsAuth();
     const { organizations, selectedOrganization, setSelectedOrganization } = useOrganization();
     const { mode, toggleMode } = useTheme();
-    const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
-    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(() => searchParams.get('feature'));
+    const [selectedProfileId, setSelectedProfileId] = useState<string | null>(() => searchParams.get('profile'));
     const [isCreatingProfile, setIsCreatingProfile] = useState(false);
     const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
     const [featureSelectorKey, setFeatureSelectorKey] = useState(0);
@@ -50,6 +52,25 @@ export function AnalyticsLayout() {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+    
+    // Keep selected feature/profile in sync with URL so refreshes/bookmarks
+    // land back on the same dashboard instead of the starting page
+    useEffect(() => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev as any);
+            if (selectedFeatureId) {
+                next.set('feature', selectedFeatureId);
+            } else {
+                next.delete('feature');
+            }
+            if (selectedProfileId) {
+                next.set('profile', selectedProfileId);
+            } else {
+                next.delete('profile');
+            }
+            return next;
+        });
+    }, [selectedFeatureId, selectedProfileId, setSearchParams]);
     
     // New Dashboard Config Modal
     const [showNewConfigModal, setShowNewConfigModal] = useState(false);
@@ -87,14 +108,17 @@ export function AnalyticsLayout() {
         loadFeatures();
     }, [selectedOrganization?.id]);
     
-    // When organization changes, reset selection
+    // When organization changes, restore selection from URL if present;
+    // otherwise fall back to the normal "start" screen.
     useEffect(() => {
         if (selectedOrganization) {
-            setSelectedFeatureId(null);
-            setSelectedProfileId(null);
+            const featureFromUrl = searchParams.get('feature');
+            const profileFromUrl = searchParams.get('profile');
+            setSelectedFeatureId(featureFromUrl);
+            setSelectedProfileId(profileFromUrl);
             setFeatureSelectorKey(prev => prev + 1);
         }
-    }, [selectedOrganization?.id]);
+    }, [selectedOrganization?.id, searchParams]);
     
     // When a feature is selected, auto-set the new config feature to match
     useEffect(() => {
