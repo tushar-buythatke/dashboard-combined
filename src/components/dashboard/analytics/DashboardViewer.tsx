@@ -104,26 +104,19 @@ const MiniSparkline = ({ data, color, height = 30 }: { data: number[]; color: st
                     <stop offset="100%" stopColor={color} stopOpacity={0.05} />
                 </linearGradient>
             </defs>
-            <motion.polyline
+            <polyline
                 points={points}
                 fill="none"
                 stroke={color}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 1 }}
-                transition={{ duration: 1, ease: "easeOut" }}
             />
-            {/* Animated dot at the end */}
-            <motion.circle
+            <circle
                 cx={width - padding}
                 cy={height - padding - ((data[data.length - 1] - min) / range) * (height - 2 * padding)}
                 r="3"
                 fill={color}
-                initial={{ scale: 0 }}
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
             />
         </svg>
     );
@@ -228,18 +221,16 @@ const CollapsibleLegend = ({
                         : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400";
 
                 return (
-                    <motion.div
+                    <div
                         key={eventKeyInfo.eventKey}
                         id={`legend-${eventKeyInfo.eventKey}`}
                         className={cn(
                             "flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all whitespace-nowrap",
                             isSelected
-                                ? "border-purple-500 ring-2 ring-purple-500/30 scale-105"
-                                : "border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50 active:scale-95"
+                                ? "border-purple-500 ring-2 ring-purple-500/30"
+                                : "border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50"
                         )}
                         onClick={() => onEventClick?.(eventKeyInfo.eventKey)}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.96 }}
                     >
                         <div
                             className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shadow-inner flex-shrink-0"
@@ -280,15 +271,13 @@ const CollapsibleLegend = ({
                                 </span>
                             </>
                         )}
-                    </motion.div>
+                    </div>
                 );
             })}
             {eventKeys.length > maxVisibleItems && (
-                <motion.button
+                <button
                     onClick={onToggle}
                     className="flex items-center gap-1 h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-md transition-colors whitespace-nowrap"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
                 >
                     {isExpanded ? (
                         <>
@@ -303,7 +292,7 @@ const CollapsibleLegend = ({
                             <span className="sm:hidden">+{hiddenCount}</span>
                         </>
                     )}
-                </motion.button>
+                </button>
             )}
         </div>
     );
@@ -335,14 +324,11 @@ const __LeftSidebarNav = ({
     };
 
     return (
-        <motion.div
+        <div
             className={cn(
                 "fixed left-0 top-20 h-[calc(100vh-5rem)] z-50 transition-all duration-300",
                 collapsed ? "w-16" : "w-64"
             )}
-            initial={{ x: -100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.3 }}
         >
             <div className="h-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-r border-gray-200 dark:border-gray-700 shadow-xl flex flex-col">
                 {/* Header with Profile Name */}
@@ -389,7 +375,7 @@ const __LeftSidebarNav = ({
                             const stats = panelStats?.[panel.panelId];
 
                             return (
-                                <motion.button
+                                <button
                                     key={panel.panelId}
                                     onClick={() => onJumpToPanel(panel.panelId)}
                                     className={cn(
@@ -399,8 +385,6 @@ const __LeftSidebarNav = ({
                                             ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 shadow-sm"
                                             : "hover:bg-gray-100 dark:hover:bg-gray-800/50 border border-transparent"
                                     )}
-                                    whileHover={{ scale: collapsed ? 1.05 : 1.01 }}
-                                    whileTap={{ scale: 0.98 }}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
@@ -441,13 +425,10 @@ const __LeftSidebarNav = ({
                                         )}
 
                                         {!collapsed && isActive && (
-                                            <motion.div
-                                                className="w-1.5 h-8 rounded-full bg-purple-500"
-                                                layoutId="activePanelIndicator"
-                                            />
+                                            <div className="w-1.5 h-8 rounded-full bg-purple-500" />
                                         )}
                                     </div>
-                                </motion.button>
+                                </button>
                             );
                         })}
                     </div>
@@ -463,7 +444,7 @@ const __LeftSidebarNav = ({
                     </div>
                 )}
             </div>
-        </motion.div>
+        </div>
     );
 };
 
@@ -671,12 +652,9 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
             <CardHeader className="pb-3 px-3 md:px-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                     <div className="flex items-center gap-3">
-                        <motion.div
-                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg"
-                            whileHover={{ rotate: 15, scale: 1.05 }}
-                        >
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
                             <Clock className="h-5 w-5 text-white" />
-                        </motion.div>
+                        </div>
                         <div>
                             <CardTitle className="text-sm md:text-base font-semibold text-foreground flex items-center gap-2 flex-wrap">
                                 Hourly Insights
@@ -704,7 +682,7 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                             setTimeout(() => setSelectedEventKey(eventKeyInfo.eventKey), 0);
                                         }
                                         return (
-                                            <motion.button
+                                            <button
                                                 key={eventKeyInfo.eventKey}
                                                 onClick={() => setSelectedEventKey(eventKeyInfo.eventKey)}
                                                 className={cn(
@@ -713,11 +691,9 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                                         ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
                                                         : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50"
                                                 )}
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 {eventKeyInfo.eventName}
-                                            </motion.button>
+                                            </button>
                                         );
                                     })}
                                 </div>
@@ -796,17 +772,12 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                 </div>
 
                 {/* Hour Distribution Chart */}
-                <motion.div
+                <div
                     className="p-3 rounded-xl bg-background/60 border border-border/40 hover:border-cyan-300 dark:hover:border-cyan-500/50 transition-all duration-200"
-                    whileHover={{ scale: 1.01 }}
                 >
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                            <motion.div
-                                animate={{ scale: [1, 1.2, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className="w-2 h-2 rounded-full bg-cyan-500"
-                            />
+                            <div className="w-2 h-2 rounded-full bg-cyan-500" />
                             <span className="text-xs font-semibold text-foreground">Hour Distribution</span>
                             <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-medium">Click bars</span>
                         </div>
@@ -915,7 +886,7 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </motion.div>
+                </div>
 
                 {/* Selected Hour Detail */}
                 <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/5 to-blue-500/10 border-2 border-cyan-200/60 dark:border-cyan-500/30">
@@ -1043,10 +1014,7 @@ const PieTooltip = ({ active, payload, totalValue }: any) => {
     const percentageNum = parseFloat(percentage);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+        <div
             className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 p-3 min-w-[160px] max-w-[200px]"
         >
             <div className="flex items-center gap-2.5 mb-2">
@@ -1072,7 +1040,7 @@ const PieTooltip = ({ active, payload, totalValue }: any) => {
                     </span>
                 </div>
             </div>
-        </motion.div>
+        </div>
     );
 };
 
@@ -1197,11 +1165,7 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
     };
 
     return (
-        <motion.div
-            initial={isPinned ? false : { opacity: 0, scale: 0.92, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -8 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        <div
             className={cn(
                 "relative overflow-hidden",
                 isPinned
@@ -1241,19 +1205,16 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
                     </div>
                     {/* Overall stats - show formatted delay for isAvg events */}
                     <div className="text-right flex-shrink-0">
-                        <motion.div
+                        <div
                             className={cn(
                                 "text-xl md:text-2xl font-extrabold bg-clip-text text-transparent",
                                 allAvgEvents
                                     ? "bg-gradient-to-r from-amber-600 to-orange-600"
                                     : "bg-gradient-to-r from-purple-600 to-violet-600"
                             )}
-                            initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ delay: 0.1 }}
                         >
                             {allAvgEvents && formattedAvgDelay ? formattedAvgDelay : totalCount.toLocaleString()}
-                        </motion.div>
+                        </div>
                         <div className={cn(
                             "text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-sm mt-1",
                             overallSuccessRate >= 90 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
@@ -1278,13 +1239,9 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
                     isPinned ? "max-h-[300px] md:max-h-[400px]" : "max-h-60 md:max-h-72"
                 )}>
                     {visibleItems.map((item: any, index: number) => (
-                        <motion.div
+                        <div
                             key={index}
                             className="p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-800/30 border border-gray-200/50 dark:border-gray-700/30 hover:border-purple-300 dark:hover:border-purple-500/40 transition-all"
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.03 }}
-                            whileHover={{ scale: 1.02, y: -1 }}
                         >
                             <div className="flex items-center justify-between mb-1.5 md:mb-2">
                                 <div className="flex items-center gap-2 md:gap-2.5 min-w-0 flex-1">
@@ -1336,20 +1293,18 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
                                     {item.successRate.toFixed(0)}%
                                 </span>
                             </div>
-                        </motion.div>
+                        </div>
                     ))}
                 </div>
 
                 {/* Expand/Collapse Button */}
                 {eventDataItems.length > 3 && (
-                    <motion.button
+                    <button
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsExpanded(!isExpanded);
                         }}
                         className="w-full mt-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 text-purple-700 dark:text-purple-300 text-xs font-semibold hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-500/20 dark:hover:to-violet-500/20 transition-all flex items-center justify-center gap-1.5 border border-purple-200/50 dark:border-purple-500/30 shadow-sm"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
                     >
                         {isExpanded ? (
                             <>
@@ -1362,7 +1317,7 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
                                 +{hiddenCount} More Event{hiddenCount !== 1 ? 's' : ''}
                             </>
                         )}
-                    </motion.button>
+                    </button>
                 )}
 
                 {/* Footer with totals */}
@@ -1377,25 +1332,23 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
                             <span className="text-muted-foreground font-medium">Total: <span className="font-extrabold text-foreground">{totalCount.toLocaleString()}</span></span>
                         )}
                         <div className="flex items-center gap-3">
-                            <motion.span
+                            <span
                                 className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md md:rounded-lg bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-semibold"
-                                whileHover={{ scale: 1.05 }}
                             >
                                 <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" />
                                 {totalSuccess.toLocaleString()}
-                            </motion.span>
-                            <motion.span
+                            </span>
+                            <span
                                 className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md md:rounded-lg bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 font-semibold"
-                                whileHover={{ scale: 1.05 }}
                             >
                                 <XCircle className="w-3 h-3 md:w-4 md:h-4" />
                                 {totalErrors.toLocaleString()}
-                            </motion.span>
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
-        </motion.div>
+        </div>
     );
 };
 
@@ -2601,19 +2554,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     )}
                 </div>
 
-                <AnimatePresence>
-                    {error && (
-                        <motion.div
-                            className="p-4 bg-destructive/10 text-destructive rounded-2xl border border-destructive/20 shadow-lg"
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                        >
-                            {error}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
                 {/* ==================== CRITICAL ALERTS PANEL (Panel 0) ==================== */}
                 {profile?.criticalAlerts?.enabled !== false && (
                     <CriticalAlertsPanel
@@ -2670,68 +2610,40 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     )}
             </div>
 
-            <AnimatePresence>
                 {error && (
-                    <motion.div
+                    <div
                         className="p-4 bg-destructive/10 text-destructive rounded-2xl border border-destructive/20 shadow-lg"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
                     >
                         {error}
-                    </motion.div>
+                    </div>
                 )}
-            </AnimatePresence>
 
-            {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-            >
-                <Card className={cn(
-                    "rounded-2xl overflow-hidden group transition-all duration-300 relative",
-                    pendingRefresh
-                        ? "border-2 border-amber-400 bg-gradient-to-br from-amber-50/80 via-white to-yellow-50/60 dark:from-amber-900/20 dark:via-slate-900/80 dark:to-yellow-900/10 shadow-[0_15px_35px_rgba(245,158,11,0.25)]"
-                        : "border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/80 via-white to-pink-50/60 dark:from-purple-900/20 dark:via-slate-900/80 dark:to-pink-900/10 shadow-[0_8px_30px_rgba(147,51,234,0.12)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.20)] hover:border-purple-300 dark:hover:border-purple-500/50"
-                )}>
+                {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
+                <Card
+                    className="rounded-2xl overflow-hidden group transition-all duration-300 relative"
+                >
                     {/* Purple/Pink Gradient Accent Bar */}
-                    <div className={cn(
-                        "absolute top-0 left-0 w-full h-1",
-                        pendingRefresh
-                            ? "bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500"
-                            : "bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500"
-                    )} />
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
                     
                     <CardHeader className="pb-3 relative">
                         <CardTitle className="text-lg flex items-center gap-2">
-                            <motion.span
-                                className={cn(
-                                    "w-2 h-2 rounded-full",
-                                    pendingRefresh ? "bg-amber-500" : "bg-primary"
-                                )}
-                                animate={{ scale: [1, 1.2, 1] }}
-                                transition={{ duration: pendingRefresh ? 1 : 2, repeat: Infinity }}
+                            <span
+                                className="w-2 h-2 rounded-full bg-primary"
                             />
                             Filters
                             {pendingRefresh && (
-                                <motion.span
+                                <span
                                     className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
-                                    initial={{ opacity: 0, scale: 0 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ type: "spring", stiffness: 500 }}
                                 >
                                     Changed
-                                </motion.span>
+                                </span>
                             )}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                                <motion.div
+                                <div
                                     className="space-y-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ type: "spring", stiffness: 300 }}
                                 >
                                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
                                     <MultiSelectDropdown
@@ -2740,11 +2652,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         onChange={(values) => handleFilterChange('platforms', values)}
                                         placeholder="Select platforms"
                                     />
-                                </motion.div>
-                                <motion.div
+                                </div>
+                                <div
                                     className="space-y-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ type: "spring", stiffness: 300 }}
                                 >
                                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
                                     <MultiSelectDropdown
@@ -2753,11 +2663,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         onChange={(values) => handleFilterChange('pos', values)}
                                         placeholder="Select POS"
                                     />
-                                </motion.div>
-                                <motion.div
+                                </div>
+                                <div
                                     className="space-y-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ type: "spring", stiffness: 300 }}
                                 >
                                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
                                     <MultiSelectDropdown
@@ -2766,11 +2674,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         onChange={(values) => handleFilterChange('sources', values)}
                                         placeholder="Select sources"
                                     />
-                                </motion.div>
-                                <motion.div
+                                </div>
+                                <div
                                     className="space-y-2"
-                                    whileHover={{ scale: 1.02 }}
-                                    transition={{ type: "spring", stiffness: 300 }}
                                 >
                                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">Event</Label>
                                     <MultiSelectDropdown
@@ -2779,16 +2685,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         onChange={(values) => handleFilterChange('events', values)}
                                         placeholder="Select events"
                                     />
-                                </motion.div>
+                                </div>
                             </div>
 
                             {/* Job ID (sourceStr) Filter - Only shown when data contains sourceStr values */}
                             {availableSourceStrs.length > 0 && (
-                                <motion.div
+                                <div
                                     className="mt-4 p-3 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-500/30"
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    transition={{ duration: 0.3 }}
                                 >
                                     <div className="flex items-center gap-3 flex-wrap">
                                         <div className="flex items-center gap-2">
@@ -2820,60 +2723,44 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             </Button>
                                         )}
                                     </div>
-                                </motion.div>
+                                </div>
                             )}
 
                             {/* Apply Filters Button and Auto-refresh Config */}
                             <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border/50">
                                 <div className="flex items-center gap-4">
                                     {/* Prominent Apply Filters button with clear visual cue */}
-                                    <motion.div
-                                        whileHover={{ scale: 1.03 }}
-                                        whileTap={{ scale: 0.97 }}
-                                        animate={pendingRefresh ? { scale: [1, 1.02, 1] } : {}}
-                                        transition={pendingRefresh ? { duration: 1.5, repeat: Infinity } : {}}
+                                    <Button
+                                        onClick={handleApplyFilters}
+                                        disabled={dataLoading}
+                                        size="lg"
+                                        className={cn(
+                                            "relative transition-all duration-300 font-semibold",
+                                            pendingRefresh
+                                                ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300"
+                                                : "bg-primary hover:bg-primary/90"
+                                        )}
                                     >
-                                        <Button
-                                            onClick={handleApplyFilters}
-                                            disabled={dataLoading}
-                                            size="lg"
-                                            className={cn(
-                                                "relative transition-all duration-300 font-semibold",
-                                                pendingRefresh
-                                                    ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300"
-                                                    : "bg-primary hover:bg-primary/90"
-                                            )}
-                                        >
-                                            {dataLoading ? (
-                                                <motion.div
-                                                    animate={{ rotate: 360 }}
-                                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                                >
-                                                    <RefreshCw className="mr-2 h-5 w-5" />
-                                                </motion.div>
-                                            ) : (
-                                                <RefreshCw className={cn("mr-2 h-5 w-5", pendingRefresh && "animate-spin")} />
-                                            )}
-                                            {pendingRefresh ? "⚡ APPLY CHANGES" : "Refresh This Panel"}
-                                            {pendingRefresh && (
-                                                <motion.div
-                                                    className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
-                                                    animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
-                                                    transition={{ duration: 0.8, repeat: Infinity }}
-                                                >
-                                                    !
-                                                </motion.div>
-                                            )}
-                                        </Button>
-                                    </motion.div>
+                                        {dataLoading ? (
+                                            <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                                        ) : (
+                                            <RefreshCw className="mr-2 h-5 w-5" />
+                                        )}
+                                        {pendingRefresh ? "⚡ APPLY CHANGES" : "Refresh This Panel"}
+                                        {pendingRefresh && (
+                                            <div
+                                                className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                                            >
+                                                !
+                                            </div>
+                                        )}
+                                    </Button>
                                     {pendingRefresh && (
-                                        <motion.span
+                                        <span
                                             className="text-sm text-red-600 dark:text-red-400 font-medium"
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
                                         >
                                             Filters changed! Click to update data.
-                                        </motion.span>
+                                        </span>
                                     )}
                                 </div>
 
@@ -2893,33 +2780,22 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         <option value={30}>30 min</option>
                                     </select>
                                     {autoRefreshMinutes > 0 && (
-                                        <motion.span
+                                        <span
                                             className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
                                         >
-                                            <motion.div
-                                                className="w-2 h-2 rounded-full bg-green-500"
-                                                animate={{ opacity: [1, 0.5, 1] }}
-                                                transition={{ duration: 1, repeat: Infinity }}
-                                            />
+                                            <div className="w-2 h-2 rounded-full bg-green-500" />
                                             Active
-                                        </motion.span>
+                                        </span>
                                     )}
                                 </div>
                             </div>
                         </CardContent>
-                    </Card>
-                </motion.div>
+                </Card>
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     {/* Total Count Card */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                        whileHover={{ scale: 1.03, y: -4 }}
+                    <div
                         className="group"
                     >
                         <Card className="relative rounded-2xl bg-gradient-to-br from-purple-500/10 via-violet-500/8 to-fuchsia-500/10 dark:from-purple-500/15 dark:via-violet-500/12 dark:to-fuchsia-500/15 border border-purple-200/60 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-[0_8px_25px_rgba(147,51,234,0.08)] hover:shadow-[0_15px_35px_rgba(147,51,234,0.20)]">
@@ -2927,97 +2803,73 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
                             
                             {/* Animated background shimmer */}
-                            <motion.div
-                                className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-violet-400/8 to-purple-500/0"
-                                animate={{ x: ['-100%', '200%'] }}
-                                transition={{ duration: 3, repeat: Infinity, repeatDelay: 1 }}
-                            />
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/8 to-purple-500/0" />
                             {/* Glow effect on hover */}
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/15 via-violet-400/10 to-fuchsia-400/15" />
 
                             <CardContent className="pt-5 pb-4 relative">
                                 <div className="flex items-start justify-between">
                                     <div>
-                                        <motion.div
+                                        <div
                                             className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-purple-500/25 mb-3"
-                                            whileHover={{ rotate: 10, scale: 1.1 }}
                                         >
                                             <Hash className="h-5 w-5 text-white" />
-                                        </motion.div>
-                                        <motion.div
+                                        </div>
+                                        <div
                                             className="text-3xl font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent"
-                                            initial={{ scale: 0.5, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            transition={{ type: "spring", delay: 0.5 }}
                                         >
                                             <AnimatedNumber value={totalCount} />
-                                        </motion.div>
+                                        </div>
                                         <div className="text-sm text-muted-foreground mt-1 font-medium">Total Events</div>
                                     </div>
                                     <div className="flex flex-col items-end gap-1">
                                         <MiniSparkline data={graphData.slice(-7).map(d => d.count || 0)} color="#a855f7" />
-                                        <motion.div
+                                        <span
                                             className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400"
-                                            initial={{ opacity: 0, x: -10 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.8 }}
                                         >
                                             <Activity className="h-3 w-3" />
                                             <span>Last 7 days</span>
-                                        </motion.div>
+                                        </span>
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    </motion.div>
+                    </div>
 
                     {/* Success Count Card */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 }}
-                        whileHover={{ scale: 1.03, y: -4 }}
+                    <div
                         className="group"
                     >
                         <Card className="relative bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-teal-500/10 border-green-500/20 hover:border-green-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                            <motion.div
+                            <div
                                 className="absolute inset-0 bg-gradient-to-r from-green-500/0 via-green-400/10 to-green-500/0"
-                                animate={{ x: ['-100%', '200%'] }}
-                                transition={{ duration: 3, repeat: Infinity, repeatDelay: 1.5 }}
                             />
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-green-400/20 to-transparent" />
 
                             <CardContent className="pt-5 pb-4 relative">
                                 <div className="flex items-start justify-between">
                                     <div>
-                                        <motion.div
+                                        <div
                                             className="h-10 w-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30 mb-3"
-                                            whileHover={{ rotate: 10, scale: 1.1 }}
                                         >
                                             <CheckCircle2 className="h-5 w-5 text-white" />
-                                        </motion.div>
-                                        <motion.div
+                                        </div>
+                                        <div
                                             className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
-                                            initial={{ scale: 0.5, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            transition={{ type: "spring", delay: 0.6 }}
                                         >
                                             <AnimatedNumber value={totalSuccess} />
-                                        </motion.div>
+                                        </div>
                                         <div className="text-sm text-muted-foreground mt-1 font-medium">Success Count</div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                         {/* Success Rate Badge */}
-                                        <motion.div
+                                        <span
                                             className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${(totalSuccess / totalCount * 100) >= 90
                                                 ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'
                                                 : (totalSuccess / totalCount * 100) >= 70
                                                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
                                                     : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
                                                 }`}
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ type: "spring", delay: 0.9 }}
                                         >
                                             {(totalSuccess / totalCount * 100) >= 90 ? (
                                                 <ArrowUpRight className="h-3 w-3" />
@@ -3025,141 +2877,108 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 <ArrowDownRight className="h-3 w-3" />
                                             )}
                                             {totalCount > 0 ? ((totalSuccess / totalCount) * 100).toFixed(1) : 0}%
-                                        </motion.div>
+                                        </span>
                                         <MiniSparkline data={graphData.slice(-7).map(d => d.successCount || 0)} color="#22c55e" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    </motion.div>
+                    </div>
 
                     {/* Fail Count Card */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6 }}
-                        whileHover={{ scale: 1.03, y: -4 }}
+                    <div
                         className="group"
                     >
                         <Card className="relative bg-gradient-to-br from-red-500/10 via-orange-500/5 to-amber-500/10 border-red-500/20 hover:border-red-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                            <motion.div
+                            <div
                                 className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-400/10 to-red-500/0"
-                                animate={{ x: ['-100%', '200%'] }}
-                                transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
                             />
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-red-400/20 to-transparent" />
 
                             <CardContent className="pt-5 pb-4 relative">
                                 <div className="flex items-start justify-between">
                                     <div>
-                                        <motion.div
+                                        <div
                                             className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg shadow-red-500/30 mb-3"
-                                            whileHover={{ rotate: 10, scale: 1.1 }}
                                         >
                                             <XCircle className="h-5 w-5 text-white" />
-                                        </motion.div>
-                                        <motion.div
+                                        </div>
+                                        <div
                                             className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent"
-                                            initial={{ scale: 0.5, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            transition={{ type: "spring", delay: 0.7 }}
                                         >
                                             <AnimatedNumber value={totalFail} />
-                                        </motion.div>
+                                        </div>
                                         <div className="text-sm text-muted-foreground mt-1 font-medium">Fail Count</div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                         {/* Alert indicator for high fail rate */}
                                         {totalFail > 0 && (totalFail / totalCount * 100) > 10 && (
-                                            <motion.div
+                                            <span
                                                 className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300"
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: [1, 1.05, 1] }}
-                                                transition={{ duration: 2, repeat: Infinity }}
                                             >
                                                 <Flame className="h-3 w-3" />
                                                 Alert
-                                            </motion.div>
+                                            </span>
                                         )}
                                         <MiniSparkline data={graphData.slice(-7).map(d => d.failCount || 0)} color="#ef4444" />
                                     </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    </motion.div>
+                    </div>
 
                     {/* Selected Events Card */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.7 }}
-                        whileHover={{ scale: 1.03, y: -4 }}
+                    <div
                         className="group"
                     >
                         <Card className="relative bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-fuchsia-500/10 border-purple-500/20 hover:border-purple-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                            <motion.div
+                            <div
                                 className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/10 to-purple-500/0"
-                                animate={{ x: ['-100%', '200%'] }}
-                                transition={{ duration: 3, repeat: Infinity, repeatDelay: 2.5 }}
                             />
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/20 to-transparent" />
 
                             <CardContent className="pt-5 pb-4 relative">
                                 <div className="flex items-start justify-between mb-2">
-                                    <motion.div
-                                        className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30"
-                                        whileHover={{ rotate: 10, scale: 1.1 }}
-                                    >
-                                        <Target className="h-5 w-5 text-white" />
-                                    </motion.div>
-                                    <motion.div
-                                        className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{ type: "spring", delay: 1 }}
-                                    >
-                                        <AnimatedNumber value={selectedEventsList.length} suffix={` event${selectedEventsList.length !== 1 ? 's' : ''}`} />
-                                    </motion.div>
+                                    <div>
+                                        <div
+                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30"
+                                        >
+                                            <Target className="h-5 w-5 text-white" />
+                                        </div>
+                                        <span
+                                            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
+                                        >
+                                            <AnimatedNumber value={selectedEventsList.length} suffix={` event${selectedEventsList.length !== 1 ? 's' : ''}`} />
+                                        </span>
+                                    </div>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5 max-h-[52px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 dark:scrollbar-thumb-purple-600">
-                                    <AnimatePresence mode="popLayout">
-                                        {selectedEventsList.length > 0 ? selectedEventsList.slice(0, 6).map((eventName, idx) => (
-                                            <motion.span
-                                                key={eventName}
-                                                layout
-                                                initial={{ opacity: 0, scale: 0.6, rotate: -10 }}
-                                                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                                                exit={{ opacity: 0, scale: 0.6, rotate: 10 }}
-                                                transition={{ type: "spring", delay: idx * 0.05 }}
-                                                whileHover={{ scale: 1.1, y: -2 }}
-                                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 dark:from-purple-500/20 dark:to-violet-500/20 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
-                                            >
-                                                {eventName}
-                                            </motion.span>
-                                        )) : (
-                                            <motion.span
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                className="text-muted-foreground text-sm italic"
-                                            >
-                                                All events selected
-                                            </motion.span>
-                                        )}
-                                        {selectedEventsList.length > 6 && (
-                                            <motion.span
-                                                initial={{ opacity: 0, scale: 0.6 }}
-                                                animate={{ opacity: 1, scale: 1 }}
-                                                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg"
-                                            >
-                                                +{selectedEventsList.length - 6} more
-                                            </motion.span>
-                                        )}
-                                    </AnimatePresence>
+                                    {selectedEventsList.length > 0 ? selectedEventsList.slice(0, 6).map((eventName, idx) => (
+                                        <span
+                                            key={eventName}
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 dark:from-purple-500/20 dark:to-violet-500/20 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                                        >
+                                            {eventName}
+                                        </span>
+                                    )) : (
+                                        <span
+                                            className="text-muted-foreground text-sm italic"
+                                        >
+                                            All events selected
+                                        </span>
+                                    )}
+                                    {selectedEventsList.length > 6 && (
+                                        <span
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg"
+                                        >
+                                            +{selectedEventsList.length - 6} more
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="text-sm text-muted-foreground mt-2 font-medium">Selected Events</div>
                             </CardContent>
                         </Card>
-                    </motion.div>
+                    </div>
                 </div>
 
                 {/* Main Chart - Count Events Only */}
@@ -3167,18 +2986,17 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 }}
+                        transition={{ delay: 0.4 }}
                     >
                         <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <motion.div
+                                        <div
                                             className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/20"
-                                            whileHover={{ scale: 1.05, rotate: 5 }}
                                         >
                                             <BarChart3 className="h-5 w-5 text-white" />
-                                        </motion.div>
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <CardTitle className="text-base md:text-lg">
                                                 {(() => {
@@ -3253,83 +3071,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         onEventClick={handleEventClick}
                                     />
                                 )}
-
-                                {/* Pinned Tooltip Overlay - Rendered outside chart for persistence */}
-                                <AnimatePresence>
-                                    {pinnedTooltip && (
-                                        <motion.div
-                                            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            onClick={() => setPinnedTooltip(null)}
-                                        >
-                                            {/* Backdrop with gradient */}
-                                            <motion.div
-                                                className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-purple-900/20 backdrop-blur-md"
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                exit={{ opacity: 0 }}
-                                            />
-
-                                            {/* Modal Container */}
-                                            <motion.div
-                                                className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]"
-                                                initial={{ opacity: 0, scale: 0.85, y: 40 }}
-                                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                                                transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {/* Floating Close Button - Outside the card */}
-                                                <motion.button
-                                                    type="button"
-                                                    onClick={() => setPinnedTooltip(null)}
-                                                    className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
-                                                    whileHover={{ scale: 1.1, rotate: 90 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                    aria-label="Close details"
-                                                >
-                                                    <X className="h-5 w-5" />
-                                                </motion.button>
-
-                                                {/* Card Content */}
-                                                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
-                                                    {/* Decorative header gradient */}
-                                                    <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
-
-                                                    <div className="max-h-[70vh] overflow-y-auto p-1">
-                                                        <CustomTooltip
-                                                            active={true}
-                                                            payload={eventKeys.map((ek, idx) => {
-                                                                const event = events.find(e => String(e.eventId) === ek.eventId);
-                                                                const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
-                                                                return {
-                                                                    dataKey: `${ek.eventKey}_count`,
-                                                                    name: ek.eventName,
-                                                                    value: pinnedTooltip.dataPoint[`${ek.eventKey}_count`] || 0,
-                                                                    color,
-                                                                    stroke: color,
-                                                                    payload: pinnedTooltip.dataPoint
-                                                                };
-                                                            }).filter(p => p.value > 0)}
-                                                            label={pinnedTooltip.label}
-                                                            events={events}
-                                                            eventKeys={eventKeys}
-                                                            isPinned={true}
-                                                            onClose={() => setPinnedTooltip(null)}
-                                                        />
-                                                    </div>
-
-                                                    {/* Footer hint */}
-                                                    <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-gray-800 text-center">
-                                                        <span className="text-xs text-muted-foreground">Click outside or press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px] font-mono mx-1">ESC</kbd> to close</span>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
 
                                 <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer">
                                     {graphData.length > 0 ? (
@@ -3571,8 +3312,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 </AreaChart>
                                             )}
                                         </ResponsiveContainer>
-                                                );
-                                            })()}
+                                );
+                            })()}
                                         </>
                                     ) : (
                                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -3592,6 +3333,68 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     )}
                                 </div>
                             </CardContent>
+
+                            {/* Pinned Tooltip Overlay - Rendered outside chart for persistence */}
+                            {pinnedTooltip && (
+                                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                                    <div
+                                        className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                        onClick={() => setPinnedTooltip(null)}
+                                    />
+                                    <div className="relative max-w-lg w-full">
+                                        {/* Modal Container */}
+                                        <div
+                                            className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {/* Floating Close Button - Outside the card */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setPinnedTooltip(null)}
+                                                className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                aria-label="Close details"
+                                            >
+                                                <X className="h-5 w-5" />
+                                            </button>
+
+                                            {/* Card Content */}
+                                            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                {/* Decorative header gradient */}
+                                                <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+
+                                                <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                    <CustomTooltip
+                                                        active={true}
+                                                        payload={eventKeys.map((ek, idx) => {
+                                                            const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                            const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                            return {
+                                                                dataKey: `${ek.eventKey}_count`,
+                                                                name: ek.eventName,
+                                                                value: pinnedTooltip.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                                color,
+                                                                stroke: color,
+                                                                payload: pinnedTooltip.dataPoint
+                                                            };
+                                                        }).filter(p => p.value > 0)}
+                                                        label={pinnedTooltip.label}
+                                                        events={events}
+                                                        eventKeys={eventKeys}
+                                                        isPinned={true}
+                                                        onClose={() => setPinnedTooltip(null)}
+                                                    />
+                                                </div>
+
+                                                {/* Footer hint */}
+                                                <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-gray-800 text-center">
+                                                    <span className="text-xs text-muted-foreground">Click outside or press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px] font-mono mx-1">ESC</kbd> to close</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                         </Card>
                     </motion.div>
                 )}
