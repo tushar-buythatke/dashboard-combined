@@ -23,13 +23,16 @@ interface ComparisonChartsProps {
     dateRange: { from: Date; to: Date };
     eventKeys: string[];
     eventColors: Record<string, string>;
+    eventStats?: Array<{ eventKey: string; eventId: string; total: number; successRate: number }>;
+    selectedEventKey?: string | null;
+    onEventClick?: (eventKey: string) => void;
 }
 
 /**
  * 7-Day Overlay Comparison Chart
  * Shows up to 7 different days overlaid on the same graph for day-wise comparison
  */
-export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors }: ComparisonChartsProps) {
+export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
 
     // Group data by day
@@ -206,8 +209,34 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                         </Button>
                     </div>
                 </div>
+                {/* Event Stats Badges */}
+                {eventStats && eventStats.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                        {eventStats.map((stat, idx) => {
+                            const isSelected = selectedEventKey === stat.eventKey;
+                            return (
+                                <div
+                                    key={stat.eventKey}
+                                    onClick={() => onEventClick?.(stat.eventKey)}
+                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer transition-all ${
+                                        isSelected 
+                                            ? 'bg-purple-100 dark:bg-purple-900/40 border-2 border-purple-500 shadow-md scale-105' 
+                                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-102'
+                                    }`}
+                                >
+                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length] }} />
+                                    <span className={`text-[11px] font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>{stat.eventKey}</span>
+                                    <span className={`text-[11px] font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
+                                        {stat.successRate.toFixed(0)}%
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </CardHeader>
-            <CardContent className="p-4 md:p-6">
+            <CardContent className="p-4 md:p-6 bg-gradient-to-br from-indigo-50/30 to-purple-50/20 dark:from-indigo-900/10 dark:to-purple-900/5">
                 {/* Smart summary chips */}
                 <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
                     {peakHourTime && peakHourValue != null && (
@@ -223,9 +252,9 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                     {/* Volatility chip intentionally removed for now */}
                 </div>
 
-                <div className="h-[400px] w-full">
+                <div className="h-[450px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                        <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                             <XAxis 
                                 dataKey="time" 
@@ -277,9 +306,12 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                         ? selectedDayKey === dayKey
                                         : dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
 
+                                // Check if this is today (the most recent/last day)
+                                const isToday = dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
+                                
                                 const strokeColor = isSelected ? color : '#9CA3AF';
                                 const strokeOpacity = isSelected ? (highlightRecentTwo ? 0.9 : 1) : 0.2;
-                                const strokeWidth = isSelected ? (highlightRecentTwo ? 2 : 2.5) : 1.25;
+                                const strokeWidth = isSelected ? (isToday ? 3.5 : (highlightRecentTwo ? 2 : 2.5)) : 1.25;
 
                                 return (
                                     <Line

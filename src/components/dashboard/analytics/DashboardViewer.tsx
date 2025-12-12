@@ -1528,6 +1528,37 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
     const [pendingRefresh, setPendingRefresh] = useState<boolean>(false);
     const initialLoadComplete = useRef<boolean>(false);
+    
+    // Filter panel collapse state - collapsed by default (main dashboard only)
+    const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(true);
+    
+    // Panel-specific filter collapse states - collapsed by default for new panels
+    const [panelFiltersCollapsed, setPanelFiltersCollapsed] = useState<Record<string, boolean>>({});
+    
+    // Initialize panel filters as collapsed when profile loads
+    useEffect(() => {
+        if (profile?.panels) {
+            const initialCollapseState: Record<string, boolean> = {};
+            profile.panels.forEach(panel => {
+                initialCollapseState[panel.panelId] = true; // Collapsed by default
+            });
+            setPanelFiltersCollapsed(initialCollapseState);
+        }
+    }, [profile?.panels]);
+    
+    // Select first event by default when in overlay mode
+    useEffect(() => {
+        const mainPanelId = profile?.panels?.[0]?.panelId;
+        const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+        const showingOverlay = isHourly && mainChartType === 'deviation';
+        
+        if (showingOverlay && eventKeys.length > 0 && !selectedEventKey) {
+            const firstNormalEvent = eventKeys.find(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+            if (firstNormalEvent) {
+                setSelectedEventKey(firstNormalEvent.eventKey);
+            }
+        }
+    }, [isHourly, panelChartType, profile?.panels, eventKeys, selectedEventKey]);
 
     // Function to jump to a panel (prepared for future use)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1727,7 +1758,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         initialPanelDateRanges[panel.panelId] = { ...dateRange };
 
                         // Initialize chart type per panel from saved config
-                        // Treat undefined as enabled so new/legacy profiles default to comparison view
+                        // Default to enabled (true) for daily deviation curve - DEVIATION MODE BY DEFAULT
                         const isDeviation = panelConfig.dailyDeviationCurve !== false;
                         initialPanelChartTypes[panel.panelId] = isDeviation ? 'deviation' : 'default';
                     });
@@ -2431,6 +2462,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
+                style={{ zoom: 0.8 }}
             >
                 {/* ========== PREMIUM HERO HEADER ========== */}
                 <HeroGradientHeader
@@ -2626,20 +2658,31 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
                     
                     <CardHeader className="pb-3 relative">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <span
-                                className="w-2 h-2 rounded-full bg-primary"
-                            />
-                            Filters
-                            {pendingRefresh && (
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-lg flex items-center gap-2">
                                 <span
-                                    className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
-                                >
-                                    Changed
-                                </span>
-                            )}
+                                    className="w-2 h-2 rounded-full bg-primary"
+                                />
+                                Filters
+                                {pendingRefresh && (
+                                    <span
+                                        className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
+                                    >
+                                        Changed
+                                    </span>
+                                )}
                             </CardTitle>
-                        </CardHeader>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+                                className="h-8 w-8 p-0"
+                            >
+                                {filtersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    {!filtersCollapsed && (
                         <CardContent>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                                 <div
@@ -2790,6 +2833,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 </div>
                             </div>
                         </CardContent>
+                    )}
                 </Card>
 
                 {/* Stats Cards */}
@@ -2807,20 +2851,20 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             {/* Glow effect on hover */}
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/15 via-violet-400/10 to-fuchsia-400/15" />
 
-                            <CardContent className="pt-5 pb-4 relative">
+                            <CardContent className="pt-3 pb-3 relative">
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <div
-                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-purple-500/25 mb-3"
+                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 flex items-center justify-center shadow-md shadow-purple-500/20 mb-2"
                                         >
-                                            <Hash className="h-5 w-5 text-white" />
+                                            <Hash className="h-4 w-4 text-white" />
                                         </div>
                                         <div
-                                            className="text-3xl font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent"
+                                            className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent"
                                         >
                                             <AnimatedNumber value={totalCount} />
                                         </div>
-                                        <div className="text-sm text-muted-foreground mt-1 font-medium">Total Events</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5 font-medium">Total Events</div>
                                     </div>
                                     <div className="flex flex-col items-end gap-1">
                                         <MiniSparkline data={graphData.slice(-7).map(d => d.count || 0)} color="#a855f7" />
@@ -2846,20 +2890,20 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             />
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-green-400/20 to-transparent" />
 
-                            <CardContent className="pt-5 pb-4 relative">
+                            <CardContent className="pt-3 pb-3 relative">
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <div
-                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/30 mb-3"
+                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-md shadow-green-500/25 mb-2"
                                         >
-                                            <CheckCircle2 className="h-5 w-5 text-white" />
+                                            <CheckCircle2 className="h-4 w-4 text-white" />
                                         </div>
                                         <div
-                                            className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
+                                            className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
                                         >
                                             <AnimatedNumber value={totalSuccess} />
                                         </div>
-                                        <div className="text-sm text-muted-foreground mt-1 font-medium">Success Count</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5 font-medium">Success Count</div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                         {/* Success Rate Badge */}
@@ -2895,20 +2939,20 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             />
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-red-400/20 to-transparent" />
 
-                            <CardContent className="pt-5 pb-4 relative">
+                            <CardContent className="pt-3 pb-3 relative">
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <div
-                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg shadow-red-500/30 mb-3"
+                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-md shadow-red-500/25 mb-2"
                                         >
-                                            <XCircle className="h-5 w-5 text-white" />
+                                            <XCircle className="h-4 w-4 text-white" />
                                         </div>
                                         <div
-                                            className="text-3xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent"
+                                            className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent"
                                         >
                                             <AnimatedNumber value={totalFail} />
                                         </div>
-                                        <div className="text-sm text-muted-foreground mt-1 font-medium">Fail Count</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5 font-medium">Fail Count</div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                         {/* Alert indicator for high fail rate */}
@@ -2937,13 +2981,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             />
                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/20 to-transparent" />
 
-                            <CardContent className="pt-5 pb-4 relative">
-                                <div className="flex items-start justify-between mb-2">
+                            <CardContent className="pt-3 pb-3 relative">
+                                <div className="flex items-start justify-between mb-1.5">
                                     <div>
                                         <div
-                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/30"
+                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md shadow-purple-500/25"
                                         >
-                                            <Target className="h-5 w-5 text-white" />
+                                            <Target className="h-4 w-4 text-white" />
                                         </div>
                                         <span
                                             className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
@@ -2952,11 +2996,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                         </span>
                                     </div>
                                 </div>
-                                <div className="flex flex-wrap gap-1.5 max-h-[52px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 dark:scrollbar-thumb-purple-600">
+                                <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 dark:scrollbar-thumb-purple-600">
                                     {selectedEventsList.length > 0 ? selectedEventsList.slice(0, 6).map((eventName, idx) => (
                                         <span
                                             key={eventName}
-                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 dark:from-purple-500/20 dark:to-violet-500/20 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 dark:from-purple-500/20 dark:to-violet-500/20 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
                                         >
                                             {eventName}
                                         </span>
@@ -2969,20 +3013,66 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     )}
                                     {selectedEventsList.length > 6 && (
                                         <span
-                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg"
+                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg"
                                         >
                                             +{selectedEventsList.length - 6} more
                                         </span>
                                     )}
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-2 font-medium">Selected Events</div>
+                                <div className="text-xs text-muted-foreground mt-1.5 font-medium">Selected Events</div>
                             </CardContent>
                         </Card>
                     </div>
                 </div>
 
                 {/* Main Chart - Count Events Only */}
-                {normalEventKeys.length > 0 && (
+                {normalEventKeys.length > 0 && (() => {
+                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                    
+                    // Calculate event stats for badges
+                    const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
+                        const eventKey = eventKeyInfo.eventKey;
+                        let total = 0;
+                        let success = 0;
+
+                        graphData.forEach((item: any) => {
+                            total += item[`${eventKey}_count`] || 0;
+                            success += item[`${eventKey}_success`] || 0;
+                        });
+
+                        const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                        return {
+                            eventKey,
+                            eventId: eventKeyInfo.eventId,
+                            total,
+                            successRate
+                        };
+                    });
+                    
+                    // If in deviation mode, show only the overlay chart
+                    if (isHourly && mainChartType === 'deviation') {
+                        // Filter to show only selected event or all events
+                        const filteredEventKeys = selectedEventKey
+                            ? normalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                            : normalEventKeys.map(e => e.eventKey);
+                        
+                        return (
+                            <DayWiseComparisonChart 
+                                data={graphData}
+                                dateRange={dateRange}
+                                eventKeys={filteredEventKeys}
+                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}  
+                                eventStats={eventStatsForBadges}
+                                selectedEventKey={selectedEventKey}
+                                onEventClick={handleEventClick}
+                            />
+                        );
+                    }
+                    
+                    // Otherwise show the regular chart
+                    return (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -3058,19 +3148,25 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
-                                {/* Collapsible Legend - Only normal (count) events */}
-                                {normalEventKeys.length > 0 && (
-                                    <CollapsibleLegend
-                                        eventKeys={normalEventKeys}
-                                        events={events}
-                                        isExpanded={mainLegendExpanded}
-                                        onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
-                                        maxVisibleItems={5}
-                                        graphData={graphData}
-                                        selectedEventKey={selectedEventKey}
-                                        onEventClick={handleEventClick}
-                                    />
-                                )}
+                                {/* Collapsible Legend - Only normal (count) events - Hide when showing overlay */}
+                                {(() => {
+                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                    const showingOverlay = isHourly && mainChartType === 'deviation';
+                                    
+                                    return !showingOverlay && normalEventKeys.length > 0 && (
+                                        <CollapsibleLegend
+                                            eventKeys={normalEventKeys}
+                                            events={events}
+                                            isExpanded={mainLegendExpanded}
+                                            onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
+                                            maxVisibleItems={5}
+                                            graphData={graphData}
+                                            selectedEventKey={selectedEventKey}
+                                            onEventClick={handleEventClick}
+                                        />
+                                    );
+                                })()}
 
                                 <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer">
                                     {graphData.length > 0 ? (
@@ -3080,13 +3176,46 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 const mainPanelId = profile?.panels?.[0]?.panelId;
                                                 const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
 
+                                                // Calculate event stats for badges
+                                                const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
+                                                    const eventKey = eventKeyInfo.eventKey;
+                                                    let total = 0;
+                                                    let success = 0;
+
+                                                    graphData.forEach((item: any) => {
+                                                        total += item[`${eventKey}_count`] || 0;
+                                                        success += item[`${eventKey}_success`] || 0;
+                                                    });
+
+                                                    const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                                                    return {
+                                                        eventKey,
+                                                        eventId: eventKeyInfo.eventId,
+                                                        total,
+                                                        successRate
+                                                    };
+                                                });
+
                                                 if (isHourly && mainChartType === 'deviation') {
+                                                    // Filter to show only selected event or all events
+                                                    const filteredEventKeys = selectedEventKey
+                                                        ? normalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                                                        : normalEventKeys.map(e => e.eventKey);
+                                                    
+                                                    const filteredEventStats = selectedEventKey
+                                                        ? eventStatsForBadges.filter(s => s.eventKey === selectedEventKey)
+                                                        : eventStatsForBadges;
+                                                    
                                                     return (
                                                         <DayWiseComparisonChart 
                                                             data={graphData}
                                                             dateRange={dateRange}
-                                                            eventKeys={normalEventKeys.map(e => e.eventKey)}
+                                                            eventKeys={filteredEventKeys}
                                                             eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                            eventStats={eventStatsForBadges}
+                                                            selectedEventKey={selectedEventKey}
+                                                            onEventClick={handleEventClick}
                                                         />
                                                     );
                                                 }
@@ -3397,7 +3526,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
                         </Card>
                     </motion.div>
-                )}
+                    );
+                })()}
 
                 {/* Time Delay Chart - For isAvg Events Only */}
                 {avgEventKeys.length > 0 && (
@@ -4061,7 +4191,16 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 <Filter className="w-4 h-4 text-purple-500 flex-shrink-0" />
                                                 <span className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300">Panel Filters</span>
                                                 <span className="text-xs text-muted-foreground hidden sm:inline">(Independent from dashboard)</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setPanelFiltersCollapsed(prev => ({ ...prev, [panel.panelId]: !prev[panel.panelId] }))}
+                                                    className="h-6 w-6 p-0 ml-2"
+                                                >
+                                                    {panelFiltersCollapsed[panel.panelId] ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                                                </Button>
                                             </div>
+                                            {!panelFiltersCollapsed[panel.panelId] && (
                                             <motion.div
                                                 animate={panelFilterChanges[panel.panelId] ? { scale: [1, 1.02, 1] } : {}}
                                                 transition={panelFilterChanges[panel.panelId] ? { duration: 1.5, repeat: Infinity } : {}}
@@ -4091,8 +4230,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     )}
                                                 </InteractiveButton>
                                             </motion.div>
+                                            )}
                                         </div>
 
+                                        {!panelFiltersCollapsed[panel.panelId] && (
+                                        <>
                                         {/* Date Range Picker for Panel */}
                                         <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -4183,6 +4325,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 />
                                             </div>
                                         </div>
+                                        </>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -4319,6 +4463,52 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 </CardContent>
                                             </Card>
                                         )}
+
+                                        {/* 7-Day Overlay Comparison for Hourly Panel Data */}
+                                        {pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (() => {
+                                            // Calculate event stats for panel overlay badges
+                                            const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
+                                                const eventKey = eventKeyInfo.eventKey;
+                                                let total = 0;
+                                                let success = 0;
+
+                                                pGraphData.forEach((item: any) => {
+                                                    total += item[`${eventKey}_count`] || 0;
+                                                    success += item[`${eventKey}_success`] || 0;
+                                                });
+
+                                                const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                                                return {
+                                                    eventKey,
+                                                    eventId: eventKeyInfo.eventId,
+                                                    total,
+                                                    successRate
+                                                };
+                                            });
+                                            
+                                            // Filter events based on selected event (if any)
+                                            const selectedEventKey = panelSelectedEventKey[panel.panelId];
+                                            const filteredEventKeys = selectedEventKey 
+                                                ? pNormalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                                                : pNormalEventKeys.map(e => e.eventKey);
+                                            
+                                            const filteredEventStats = selectedEventKey
+                                                ? pEventStatsForBadges.filter(s => s.eventKey === selectedEventKey)
+                                                : pEventStatsForBadges;
+                                            
+                                            return (
+                                                <DayWiseComparisonChart 
+                                                    data={pGraphData}
+                                                    dateRange={currentPanelDateRange}
+                                                    eventKeys={filteredEventKeys}
+                                                    eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                    eventStats={filteredEventStats}
+                                                    selectedEventKey={selectedEventKey}
+                                                    onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                />
+                                            );
+                                        })()}
 
                                         {/* Panel Chart - isAvg Events (Time Delay) */}
                                         {pAvgEventKeys.length > 0 && (
