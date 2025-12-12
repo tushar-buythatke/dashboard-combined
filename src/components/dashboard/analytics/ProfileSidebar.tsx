@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Layers, BarChart3, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { 
@@ -34,6 +34,7 @@ interface ProfileSidebarProps {
     isCollapsed?: boolean;
     onToggleCollapse?: () => void;
     isMobileDrawer?: boolean; // New prop to indicate if rendered in mobile drawer
+    onJumpToPanel?: (panelId: string) => void; // Callback to scroll to specific panel
 }
 
 export function ProfileSidebar({
@@ -44,12 +45,14 @@ export function ProfileSidebar({
     refreshTrigger = 0,
     isCollapsed = false,
     onToggleCollapse,
-    isMobileDrawer = false
+    isMobileDrawer = false,
+    onJumpToPanel
 }: ProfileSidebarProps) {
     const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [profileToDelete, setProfileToDelete] = useState<DashboardProfile | null>(null);
+    const [panelTreeExpanded, setPanelTreeExpanded] = useState(true);
     const { user } = useAnalyticsAuth();
     const { deleteProfile } = useFirebaseConfig();
     const isAdmin = user?.role === 0;
@@ -103,6 +106,18 @@ export function ProfileSidebar({
         const panels = profile.panels || [];
         const totalEvents = panels.reduce((sum, p) => sum + (p.events?.length || 0), 0);
         return { panelCount: panels.length, totalEvents };
+    };
+
+    // Helper to get chart icon based on panel type
+    const getChartIcon = (panel: any) => {
+        // Check if panel has visualizations configured
+        if (panel.visualizations?.lineGraph?.enabled) {
+            return <TrendingUp className="w-3.5 h-3.5" />;
+        }
+        if (panel.visualizations?.pieCharts?.length > 0) {
+            return <BarChart3 className="w-3.5 h-3.5" />;
+        }
+        return <Layers className="w-3.5 h-3.5" />;
     };
 
     // Collapsed view - just numbers
@@ -202,16 +217,14 @@ export function ProfileSidebar({
 
                         return (
                             <div key={profile.profileId} className="relative group">
-                                <motion.button
+                                <button
                                     onClick={() => handleSelectProfile(profile.profileId)}
                                     className={cn(
-                                        "w-full text-left p-3 rounded-xl transition-all duration-300",
+                                        "w-full text-left p-3 rounded-xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]",
                                         isSelected
                                             ? "bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-500/20 dark:to-indigo-500/15 border-2 border-purple-400 dark:border-purple-500/50 shadow-lg shadow-purple-500/10"
                                             : "bg-white/60 dark:bg-slate-800/60 border border-purple-200/40 dark:border-purple-500/20 hover:border-purple-300 dark:hover:border-purple-500/40 hover:shadow-md hover:shadow-purple-500/5 hover:translate-x-1"
                                     )}
-                                    whileHover={{ scale: 1.01 }}
-                                    whileTap={{ scale: 0.99 }}
                                 >
                                     <div className="flex items-center justify-between">
                                         <span className={cn(
@@ -229,7 +242,7 @@ export function ProfileSidebar({
                                         <span className="text-gray-300 dark:text-gray-600">|</span>
                                         <span>{stats.totalEvents} events</span>
                                     </div>
-                                </motion.button>
+                                </button>
                                 
                                 {/* Admin Delete Button */}
                                 {isAdmin && (
@@ -254,6 +267,69 @@ export function ProfileSidebar({
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
+                                )}
+
+                                {/* Panel Navigation Tree - Only show for selected profile */}
+                                {isSelected && profile.panels && profile.panels.length > 0 && onJumpToPanel && panelTreeExpanded && (
+                                    <div className="mt-2 ml-2 space-y-1">
+                                        <div className="flex items-center justify-between px-2 py-1.5">
+                                            <span className="text-[10px] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
+                                                <Layers className="w-3 h-3" />
+                                                Panels
+                                            </span>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-5 w-5"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPanelTreeExpanded(false);
+                                                }}
+                                            >
+                                                <ChevronUp className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                        {profile.panels.map((panel, index) => (
+                                            <button
+                                                key={panel.panelId}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onJumpToPanel(panel.panelId);
+                                                }}
+                                                className="w-full text-left px-2 py-2 rounded-lg bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20 border border-purple-200/30 dark:border-purple-500/20 transition-colors group/panel"
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <span className="flex items-center justify-center w-5 h-5 rounded bg-purple-200 dark:bg-purple-800/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold flex-shrink-0">
+                                                        {index + 1}
+                                                    </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-xs font-medium text-purple-900 dark:text-purple-100 truncate group-hover/panel:text-purple-700 dark:group-hover/panel:text-purple-200">
+                                                            {panel.panelName || `Panel ${index + 1}`}
+                                                        </span>
+                                                        <span className="block text-[10px] text-muted-foreground">
+                                                            {panel.events?.length || 0} events
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Expand Panel Tree Button */}
+                                {isSelected && profile.panels && profile.panels.length > 0 && onJumpToPanel && !panelTreeExpanded && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full mt-2 h-7 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPanelTreeExpanded(true);
+                                        }}
+                                    >
+                                        <ChevronDown className="h-3 w-3 mr-1" />
+                                        Show {profile.panels.length} Panels
+                                    </Button>
                                 )}
                             </div>
                         );
@@ -328,14 +404,10 @@ export function ProfileSidebar({
                 )}
             </AnimatePresence>
 
-            {/* Desktop Sidebar */}
-            <motion.div
-                className="hidden lg:flex flex-col h-full bg-background"
-                animate={{ width: isCollapsed ? 60 : '100%' }}
-                transition={{ duration: 0.2 }}
-            >
+            {/* Desktop Sidebar (width handled by parent) */}
+            <div className="hidden lg:flex flex-col bg-background">
                 {isCollapsed ? <CollapsedContent /> : <ExpandedContent />}
-            </motion.div>
+            </div>
 
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

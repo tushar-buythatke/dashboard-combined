@@ -8,10 +8,9 @@ import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { AnalyticsLogin } from './AnalyticsLogin';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Cloud, Settings } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings } from 'lucide-react';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
-import { FirebaseAdminPanel } from './admin/FirebaseAdminPanel';
 import {
     Dialog,
     DialogContent,
@@ -86,10 +85,17 @@ export function AnalyticsLayout() {
     // Mobile sidebar visibility
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     
-    // Firebase Admin Panel
-    const [showFirebaseAdmin, setShowFirebaseAdmin] = useState(false);
-    
     const isAdmin = user?.role === 0;
+    
+    // Panel navigation - scroll to specific panel by ID
+    const handleJumpToPanel = (panelId: string) => {
+        const element = document.getElementById(`panel-${panelId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Close mobile sidebar after jumping
+            setMobileSidebarOpen(false);
+        }
+    };
     
     // Load features from API when organization changes
     useEffect(() => {
@@ -280,17 +286,7 @@ export function AnalyticsLayout() {
                                 transition={{ delay: 0.2 }}
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                className="hidden sm:flex items-center gap-2"
                             >
-                                <Button 
-                                    onClick={() => setShowFirebaseAdmin(true)}
-                                    size="sm"
-                                    variant="outline"
-                                    className="gap-2 border-purple-200 dark:border-purple-500/30 hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8"
-                                >
-                                    <Cloud className="h-4 w-4 text-purple-500" />
-                                    <span className="hidden lg:inline">Firebase</span>
-                                </Button>
                                 <Button 
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
@@ -356,24 +352,16 @@ export function AnalyticsLayout() {
                                 <Plus className="h-4 w-4 mr-2" />
                                 Create Config
                             </Button>
-                        </DialogFooter>
-                    </DialogContent>
+                    </DialogFooter>
+                </DialogContent>
                 </Dialog>
-                
-                {/* Firebase Admin Panel - for homepage */}
-                <FirebaseAdminPanel 
-                    isOpen={showFirebaseAdmin} 
-                    onClose={() => setShowFirebaseAdmin(false)} 
-                />
             </motion.div>
         );
-    }
-
-    return (
+    }    return (
         <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-purple-50/20 dark:to-purple-950/5 relative"
+            className="flex flex-col bg-gradient-to-br from-background via-background to-purple-50/20 dark:to-purple-950/5 relative"
         >
             <header className="sticky top-0 border-b border-border/50 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between bg-card/95 backdrop-blur-md z-50 shadow-sm">
                 <div className="flex items-center gap-2 lg:gap-4">
@@ -464,7 +452,7 @@ export function AnalyticsLayout() {
                 </div>
             </header>
 
-            <div className="flex-1 flex overflow-hidden h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-4rem)]">
+            <div className="flex">
                 {/* Mobile Sidebar Overlay */}
                 <AnimatePresence>
                     {mobileSidebarOpen && (
@@ -510,18 +498,19 @@ export function AnalyticsLayout() {
                                     isCollapsed={false}
                                     onToggleCollapse={() => {}}
                                     isMobileDrawer={true}
+                                    onJumpToPanel={handleJumpToPanel}
                                 />
                             </motion.div>
                         </>
                     )}
                 </AnimatePresence>
 
-                {/* Desktop Sidebar - Hidden on mobile */}
-                <motion.div 
-                    className="hidden md:block border-r border-border/40 bg-background flex-shrink-0 h-full overflow-hidden"
-                    animate={{ width: sidebarCollapsed ? 60 : 280 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                >
+                {/* Desktop Sidebar - sticky under header, no animation */}
+                <div className="hidden md:block flex-shrink-0">
+                    <div 
+                        className="border-r border-border/40 bg-background flex flex-col sticky top-14 lg:top-16"
+                        style={{ width: sidebarCollapsed ? 60 : 280 }}
+                    >
                     <ProfileSidebar
                         featureId={selectedFeatureId}
                         selectedProfileId={selectedProfileId}
@@ -536,10 +525,12 @@ export function AnalyticsLayout() {
                         refreshTrigger={sidebarRefreshTrigger}
                         isCollapsed={sidebarCollapsed}
                         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+                        onJumpToPanel={handleJumpToPanel}
                     />
-                </motion.div>
+                    </div>
+                </div>
 
-                <main className="flex-1 overflow-auto relative min-w-0">
+                <main className="flex-1 relative min-w-0">
                     {/* Subtle dot pattern background */}
                     <div className="absolute inset-0 bg-dot-pattern opacity-30 pointer-events-none" />
                     
@@ -639,12 +630,6 @@ export function AnalyticsLayout() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-            
-            {/* Firebase Admin Panel */}
-            <FirebaseAdminPanel 
-                isOpen={showFirebaseAdmin} 
-                onClose={() => setShowFirebaseAdmin(false)} 
-            />
         </motion.div>
     );
 }

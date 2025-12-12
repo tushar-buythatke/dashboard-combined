@@ -25,6 +25,7 @@ import { StatWidgetCard, StatWidgetGrid } from '@/components/ui/stat-widget-card
 import { Label } from '@/components/ui/label';
 import { ExpandedPieChartModal, type ExpandedPieData } from './components/ExpandedPieChartModal';
 import { CriticalAlertsPanel } from './components/CriticalAlertsPanel';
+import { DayWiseComparisonChart, HourlyDeviationChart, DailyAverageChart } from './components/ComparisonCharts';
 import {
     ResponsiveContainer,
     AreaChart,
@@ -1545,6 +1546,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     const [panelDateRanges, setPanelDateRanges] = useState<Record<string, DateRangeState>>({});
     const [panelLoading, setPanelLoading] = useState<Record<string, boolean>>({});
 
+    // Chart type toggle for each panel - 'default' or 'deviation'
+    const [panelChartType, setPanelChartType] = useState<Record<string, 'default' | 'deviation'>>({});
+
     // SourceStr (Job ID) filter - client-side only, not sent to API
     // Available sourceStr values extracted from graph data
     const [availableSourceStrs, setAvailableSourceStrs] = useState<string[]>([]);
@@ -1753,24 +1757,31 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     // Initialize panel filter states from admin configs (these reset on refresh)
                     const initialPanelFilters: Record<string, FilterState> = {};
                     const initialPanelDateRanges: Record<string, DateRangeState> = {};
-                    const defaultDateRange = {
-                        from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-                        to: new Date()
-                    };
+                    const initialPanelChartTypes: Record<string, 'default' | 'deviation'> = {};
 
-                    loadedProfile.panels.forEach(panel => {
-                        const panelConfig = (panel as any).filterConfig;
-                        initialPanelFilters[panel.panelId] = {
-                            events: panelConfig?.events || [],
-                            platforms: panelConfig?.platforms || [],
-                            pos: panelConfig?.pos || [],
-                            sources: panelConfig?.sources || []
+                    loadedProfile.panels.forEach((panel) => {
+                        const panelConfig = (panel as any).filterConfig || {};
+
+                        const defaultFilters: FilterState = {
+                            platforms: panelConfig.platforms || [],
+                            pos: panelConfig.pos || [],
+                            sources: panelConfig.sources || [],
+                            events: panelConfig.events || [],
                         };
-                        initialPanelDateRanges[panel.panelId] = { ...defaultDateRange };
+
+                        initialPanelFilters[panel.panelId] = defaultFilters;
+                        // Use the current global dateRange as the default per-panel range
+                        initialPanelDateRanges[panel.panelId] = { ...dateRange };
+
+                        // Initialize chart type per panel from saved config
+                        // Treat undefined as enabled so new/legacy profiles default to comparison view
+                        const isDeviation = panelConfig.dailyDeviationCurve !== false;
+                        initialPanelChartTypes[panel.panelId] = isDeviation ? 'deviation' : 'default';
                     });
 
                     setPanelFiltersState(initialPanelFilters);
                     setPanelDateRanges(initialPanelDateRanges);
+                    setPanelChartType(initialPanelChartTypes);
 
                     // Check if panels have saved filter configs
                     const firstPanelConfig = loadedProfile.panels[0]?.filterConfig as any;
@@ -1838,13 +1849,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     // Creates separate data series per event for proper bifurcation
     // Handles avgEvents by plotting avgDelay (time) instead of count
     const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[]) => {
-        console.log('📊 processGraphData called with:', {
-            responseDataLength: graphResponse?.data?.length || 0,
-            startDate,
-            endDate,
-            eventsListLength: eventsList?.length || 0
-        });
-
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
 
@@ -1949,13 +1953,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 isErrorEvent: config?.isErrorEvent || 0,
                 isAvgEvent: config?.isAvgEvent || 0
             };
-        });
-
-        console.log('📊 processGraphData result:', {
-            sortedDataLength: sortedData.length,
-            eventKeysCount: eventKeysInData.length,
-            sampleData: sortedData.length > 0 ? sortedData[0] : null,
-            eventKeys: eventKeysInData
         });
 
         return {
@@ -2154,7 +2151,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         }
     }, [profile, events, alertFilters, alertDateRange, alertsPage]);
 
-    // Load chart data for all panels
+    // Load chart data for all panels (in parallel for snappy first paint)
     const loadData = useCallback(async () => {
         if (!profile || events.length === 0) return;
 
@@ -2162,16 +2159,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         setError(null);
 
         try {
-            // Load data for each panel that has filterConfig
-            const newPanelsData = new Map<string, PanelData>();
-
-            for (const panel of profile.panels) {
+            // Prepare fetch promises for each panel
+            const panelPromises = profile.panels.map(async (panel) => {
                 const panelConfig = (panel as any).filterConfig;
                 const userPanelFilters = panelFiltersState[panel.panelId];
                 const panelDateRange = panelDateRanges[panel.panelId] || dateRange;
 
-                // FIXED: Each panel uses its own filter state if available
-                // Priority: 1) Panel-specific user filters, 2) Panel config, 3) Empty (all)
+                // Each panel uses its own filter state if available
                 const panelFilters: FilterState = {
                     events: userPanelFilters?.events?.length > 0
                         ? userPanelFilters.events
@@ -2217,55 +2211,74 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     }
 
                     // Extract available sourceStrs from raw response
-                    const sourceStrsInData = extractSourceStrs(graphResponse);
-
+                    const graphSourceStrs = extractSourceStrs(graphResponse);
                     const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events);
 
-                    newPanelsData.set(panel.panelId, {
-                        graphData: processedResult.data,
-                        eventKeys: processedResult.eventKeys,
-                        pieChartData: pieResponse,
-                        loading: false,
-                        error: null,
-                        filters: panelFilters,
-                        dateRange: { from: panelDateRange.from, to: panelDateRange.to },
-                        showLegend: false,
-                        rawGraphResponse: graphResponse // Store for sourceStr filtering
-                    });
-
-                    // Update available sourceStrs for this panel
-                    if (profile.panels[0]?.panelId === panel.panelId) {
-                        setAvailableSourceStrs(sourceStrsInData);
-                        setRawGraphResponse(graphResponse);
-                    } else {
-                        setPanelAvailableSourceStrs(prev => ({
-                            ...prev,
-                            [panel.panelId]: sourceStrsInData
-                        }));
-                        setPanelRawGraphResponses(prev => ({
-                            ...prev,
-                            [panel.panelId]: graphResponse
-                        }));
-                    }
+                    return {
+                        panelId: panel.panelId,
+                        data: {
+                            graphData: processedResult.data,
+                            eventKeys: processedResult.eventKeys,
+                            pieChartData: pieResponse,
+                            loading: false,
+                            error: null as string | null,
+                            filters: panelFilters,
+                            dateRange: { from: panelDateRange.from, to: panelDateRange.to },
+                            showLegend: false,
+                            rawGraphResponse: graphResponse,
+                        },
+                        sourceStrsInData: graphSourceStrs,
+                    };
                 } catch (panelErr) {
                     console.error(`Failed to load data for panel ${panel.panelId}:`, panelErr);
-                    newPanelsData.set(panel.panelId, {
-                        graphData: [],
-                        eventKeys: [],
-                        pieChartData: null,
-                        loading: false,
-                        error: `Failed to load: ${panelErr instanceof Error ? panelErr.message : 'Unknown error'}`,
-                        filters: panelFilters,
-                        dateRange: { from: panelDateRange.from, to: panelDateRange.to },
-                        showLegend: false
-                    });
+                    return {
+                        panelId: panel.panelId,
+                        data: {
+                            graphData: [],
+                            eventKeys: [],
+                            pieChartData: null,
+                            loading: false,
+                            error: `Failed to load: ${panelErr instanceof Error ? panelErr.message : 'Unknown error'}`,
+                            filters: panelFilters,
+                            dateRange: { from: panelDateRange.from, to: panelDateRange.to },
+                            showLegend: false,
+                        },
+                        sourceStrsInData: [] as string[],
+                    };
                 }
-            }
+            });
+
+            const panelResults = await Promise.all(panelPromises);
+
+            // Build new panels data map in one go
+            const newPanelsData = new Map<string, PanelData>();
+            panelResults.forEach(({ panelId, data, sourceStrsInData }) => {
+                newPanelsData.set(panelId, data);
+
+                // Update available sourceStrs per panel
+                const isMainPanel = profile.panels[0]?.panelId === panelId;
+                if (isMainPanel) {
+                    setAvailableSourceStrs(sourceStrsInData);
+                    if (data.rawGraphResponse) {
+                        setRawGraphResponse(data.rawGraphResponse as any);
+                    }
+                } else {
+                    setPanelAvailableSourceStrs(prev => ({
+                        ...prev,
+                        [panelId]: sourceStrsInData,
+                    }));
+                    setPanelRawGraphResponses(prev => ({
+                        ...prev,
+                        [panelId]: data.rawGraphResponse as any,
+                    }));
+                }
+            });
 
             setPanelsDataMap(newPanelsData);
 
             // Also set the first panel's data to the main state for backward compatibility
-            const firstPanelData = newPanelsData.get(profile.panels[0]?.panelId);
+            const firstPanelId = profile.panels[0]?.panelId;
+            const firstPanelData = firstPanelId ? newPanelsData.get(firstPanelId) : undefined;
             if (firstPanelData) {
                 setGraphData(firstPanelData.graphData);
                 setEventKeys(firstPanelData.eventKeys || []);
@@ -3167,15 +3180,63 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             <BarChart3 className="h-5 w-5 text-white" />
                                         </motion.div>
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg">Event Count Trends</CardTitle>
+                                            <CardTitle className="text-base md:text-lg">
+                                                {(() => {
+                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                    if (isHourly && mainChartType === 'deviation') {
+                                                        return '7-Day Hourly Comparison';
+                                                    }
+                                                    if (isHourly) {
+                                                        return 'Hourly Event Trends';
+                                                    }
+                                                    return 'Daily Event Trends with Average';
+                                                })()}
+                                            </CardTitle>
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                {/* Mobile: Click • Desktop: Hover */}
-                                                <span className="hidden md:inline">Count-based events • Hover for insights</span>
+                                                {isHourly ? (
+                                                    <span className="hidden md:inline">
+                                                        {(() => {
+                                                            const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                            const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                            return mainChartType === 'deviation'
+                                                                ? 'Compare hourly patterns across last 7 days'
+                                                                : 'Hourly data points • Toggle for day-wise comparison';
+                                                        })()}
+                                                    </span>
+                                                ) : (
+                                                    <span className="hidden md:inline">Daily trends with average reference line</span>
+                                                )}
                                                 <span className="md:hidden">Tap data points for insights</span>
                                             </p>
                                         </div>
                                     </div>
-                                    {/* Event count indicator moved to CollapsibleLegend which now shows per-event stats */}
+                                    <div className="flex items-center gap-2">
+                                        {isHourly && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-xs"
+                                                onClick={() => {
+                                                    setPanelChartType(prev => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        if (!mainPanelId) return prev;
+                                                        const current = prev[mainPanelId] ?? 'default';
+                                                        return {
+                                                            ...prev,
+                                                            [mainPanelId]: current === 'deviation' ? 'default' : 'deviation',
+                                                        };
+                                                    });
+                                                }}
+                                            >
+                                                {(() => {
+                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                    return mainChartType === 'deviation' ? 'Show Hourly Details' : '7-Day Comparison';
+                                                })()}
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
@@ -3272,7 +3333,38 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
                                 <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer">
                                     {graphData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height="100%">
+                                        <>
+                                            {/* Show deviation chart for days < 7 when toggled */}
+                                            {(() => {
+                                                const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+
+                                                if (isHourly && mainChartType === 'deviation') {
+                                                    return (
+                                                        <DayWiseComparisonChart 
+                                                            data={graphData}
+                                                            dateRange={dateRange}
+                                                            eventKeys={normalEventKeys.map(e => e.eventKey)}
+                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                        />
+                                                    );
+                                                }
+
+                                                if (!isHourly) {
+                                                    // Show daily average chart for >7 day ranges; component itself guards by daysDiff
+                                                    return (
+                                                        <DailyAverageChart 
+                                                            data={graphData}
+                                                            dateRange={dateRange}
+                                                            eventKeys={normalEventKeys.map(e => e.eventKey)}
+                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                        />
+                                                    );
+                                                }
+
+                                                // Default chart rendering
+                                                return (
+                                                    <ResponsiveContainer width="100%" height="100%">
                                             {/* Check if profile has bar chart type */}
                                             {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
                                                 <BarChart
@@ -3347,6 +3439,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                 maxBarSize={40}
                                                                 opacity={selectedEventKey && selectedEventKey !== eventKey ? 0.4 : 1}
                                                                 cursor="pointer"
+                                                                isAnimationActive={false}
+                                                                animationDuration={0}
                                                             />
                                                         );
                                                     }) : (
@@ -3358,6 +3452,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                             fill="#6366f1"
                                                             radius={[3, 3, 0, 0]}
                                                             maxBarSize={40}
+                                                            isAnimationActive={false}
+                                                            animationDuration={0}
                                                         />
                                                     )}
                                                 </BarChart>
@@ -3366,7 +3462,6 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     data={graphData}
                                                     margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
                                                     onClick={(chartState: any) => {
-                                                        console.log('AreaChart onClick triggered:', chartState);
                                                         if (chartState && chartState.activeIndex !== undefined) {
                                                             const index = parseInt(chartState.activeIndex);
                                                             const dataPoint = graphData[index];
@@ -3452,6 +3547,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                     filter: 'url(#glow)',
                                                                     cursor: 'pointer',
                                                                 }}
+                                                                isAnimationActive={false}
+                                                                animationDuration={0}
                                                             />
                                                         );
                                                     }) : (
@@ -3467,11 +3564,16 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                             fill="#6366f1"
                                                             dot={false}
                                                             activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                                                            isAnimationActive={false}
+                                                            animationDuration={0}
                                                         />
                                                     )}
                                                 </AreaChart>
                                             )}
                                         </ResponsiveContainer>
+                                                );
+                                            })()}
+                                        </>
                                     ) : (
                                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                                             <motion.div
@@ -3620,6 +3722,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                 strokeWidth: 3,
                                                                 cursor: 'pointer',
                                                             }}
+                                                            isAnimationActive={false}
+                                                            animationDuration={0}
                                                         />
                                                     );
                                                 })}
@@ -4750,6 +4854,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                                 dataKey="value"
                                                                                 strokeWidth={2}
                                                                                 stroke="rgba(255,255,255,0.8)"
+                                                                                isAnimationActive={false}
+                                                                                animationDuration={0}
                                                                             >
                                                                                 {pieData.map((_: any, index: number) => (
                                                                                     <Cell

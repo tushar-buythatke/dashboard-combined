@@ -43,6 +43,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
         to: Date;
     };
     showHourlyStats: boolean;
+    dailyDeviationCurve?: boolean;
 }
 
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {
@@ -117,7 +118,9 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 from: subDays(new Date(), 7),
                                 to: new Date()
                             },
-                            showHourlyStats: savedConfig?.showHourlyStats !== false // Default to true
+                            showHourlyStats: savedConfig?.showHourlyStats !== false, // Default to true
+                            // Default deviation curve to enabled unless explicitly disabled
+                            dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false
                         };
                     });
                     
@@ -230,6 +233,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 to: new Date()
             },
             showHourlyStats: true,
+            dailyDeviationCurve: true,
             visualizations: {
                 lineGraph: { enabled: true, aggregationMethod: 'sum', showLegend: true, yAxisLabel: 'Count' },
                 pieCharts: [
@@ -383,7 +387,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         from: p.dateRange.from.toISOString(),
                         to: p.dateRange.to.toISOString()
                     },
-                    showHourlyStats: p.showHourlyStats
+                    showHourlyStats: p.showHourlyStats,
+                    dailyDeviationCurve: p.dailyDeviationCurve
                 }
             } as any));
 
@@ -774,6 +779,22 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         />
                                                         <Label htmlFor={`${panel.panelId}-hourly-stats`} className="cursor-pointer">
                                                             Hourly Stats Card (for ≤7 day ranges)
+                                                        </Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`${panel.panelId}-daily-deviation`}
+                                                            checked={panel.dailyDeviationCurve}
+                                                            onCheckedChange={() => {
+                                                                setPanels(prev => prev.map(p => 
+                                                                    p.panelId === panel.panelId 
+                                                                        ? { ...p, dailyDeviationCurve: !p.dailyDeviationCurve }
+                                                                        : p
+                                                                ));
+                                                            }}
+                                                        />
+                                                        <Label htmlFor={`${panel.panelId}-daily-deviation`} className="cursor-pointer">
+                                                            Daily Deviation Curve (7-day overlay for &lt;7 day ranges)
                                                         </Label>
                                                     </div>
                                                 </div>

@@ -243,16 +243,15 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                                         {/* Alert Indicator - Red Blinking */}
                                         {hasAlerts && (
                                             <>
-                                                {/* Pulsing red glow - positioned inside the card */}
+                                                {/* Static red indicator - positioned inside the card */}
                                                 <div className="absolute top-2 right-2 z-20">
                                                     <span className="relative flex h-3 w-3">
-                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                                         <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                                     </span>
                                                 </div>
                                                 {/* Alert count badge - inside card */}
                                                 <div className="absolute top-2 left-2 z-20">
-                                                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-500 text-white rounded animate-pulse">
+                                                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-red-500 text-white rounded">
                                                         {alertCounts[feature.id]} alerts
                                                     </span>
                                                 </div>

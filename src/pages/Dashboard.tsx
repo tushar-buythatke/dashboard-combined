@@ -35,11 +35,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 p-4 md:p-6">
-      {/* Background ambient elements (CSS-only for better performance) */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none hidden md:block">
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
-      </div>
+      {/* Background ambient elements removed for performance */}
 
       <main className="container mx-auto max-w-7xl space-y-6 relative z-10">
         <motion.div

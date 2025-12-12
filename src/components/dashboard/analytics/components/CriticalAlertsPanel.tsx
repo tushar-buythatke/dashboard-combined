@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,32 @@ export function CriticalAlertsPanel({
     onPageChange,
 }: CriticalAlertsPanelProps) {
     const { isAutosnipe } = useTheme();
+
+    const dedupedAlerts = useMemo(() => {
+        const map = new Map<string, (typeof criticalAlerts)[number]>();
+
+        criticalAlerts.forEach(alert => {
+            const details = alert.details || {};
+            const rawMetric = String(details.metric || '').toLowerCase();
+            const isCountLike = rawMetric === 'count' || rawMetric === 'successcount';
+
+            const metricGroup = isCountLike ? 'countOrSuccess' : rawMetric || 'other';
+            const key = `${alert.eventId || ''}_${alert.pos || ''}_${alert.source ?? ''}_${metricGroup}`;
+
+            const existing = map.get(key);
+            if (!existing) {
+                map.set(key, alert);
+            } else if (isCountLike) {
+                // Prefer keeping pure 'count' over 'successCount' when both exist
+                const existingMetric = String(existing.details?.metric || '').toLowerCase();
+                if (existingMetric === 'successcount' && rawMetric === 'count') {
+                    map.set(key, alert);
+                }
+            }
+        });
+
+        return Array.from(map.values());
+    }, [criticalAlerts]);
 
     return (
         <motion.div
@@ -365,7 +391,7 @@ export function CriticalAlertsPanel({
                                     </div>
                                 ) : (
                                     <div className="space-y-3 border-l-4 border-red-200 dark:border-red-500/30 pl-4">
-                                        {criticalAlerts
+                                        {dedupedAlerts
                                             .sort((a, b) => {
                                                 // Priority-based sorting: HIGH -> MEDIUM -> LOW
                                                 const getPriorityWeight = (alert: any) => {
@@ -379,7 +405,7 @@ export function CriticalAlertsPanel({
                                                 
                                                 return getPriorityWeight(b) - getPriorityWeight(a);
                                             })
-                                            .slice(0, alertsExpanded ? criticalAlerts.length : 4)
+                                            .slice(0, alertsExpanded ? dedupedAlerts.length : 4)
                                             .map((alert, index) => {
                                             const details = alert.details || {};
                                             const eventName = details.eventName || `Event ${alert.eventId}`;
@@ -488,7 +514,7 @@ export function CriticalAlertsPanel({
                                         })}
                                         
                                         {/* Show More / Show Less Button */}
-                                        {criticalAlerts.length > 4 && (
+                                        {dedupedAlerts.length > 4 && (
                                             <motion.div
                                                 initial={{ opacity: 0 }}
                                                 animate={{ opacity: 1 }}
@@ -506,9 +532,9 @@ export function CriticalAlertsPanel({
                                                     )}
                                                 >
                                                     {alertsExpanded ? (
-                                                        <>Show Less ({criticalAlerts.length - 4} hidden)</>
+                                                        <>Show Less ({dedupedAlerts.length - 4} hidden)</>
                                                     ) : (
-                                                        <>Show All {criticalAlerts.length} Alerts ({criticalAlerts.length - 4} more)</>
+                                                        <>Show All {dedupedAlerts.length} Alerts ({dedupedAlerts.length - 4} more)</>
                                                     )}
                                                 </Button>
                                             </motion.div>

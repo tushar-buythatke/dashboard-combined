@@ -80,6 +80,7 @@ export interface PanelConfig {
         pos: number[];
         sources: number[];
         graphType: 'line' | 'bar';
+        dailyDeviationCurve?: boolean; // For <7 days: show 7-day overlay comparison
     };
 }
 
