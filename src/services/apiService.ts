@@ -24,6 +24,7 @@ export const SOURCES = [
     { id: 2, name: 'Kafka' },
     { id: 3, name: 'Self' },
     { id: 8, name: 'Graph' },
+    { id: -1, name: 'Not Applicable' }, // Sends -1 to API
 ];
 
 // POS sites loaded dynamically
@@ -144,6 +145,7 @@ interface GraphAPIRequest {
     startTime: string; // YYYY-MM-DD
     endTime: string; // YYYY-MM-DD
     isHourly: boolean;
+    isApi?: boolean; // Added for API events
 }
 
 interface GraphAPIResponse {
@@ -186,6 +188,13 @@ interface EventsListAPIResponse {
             org: number;
             isErrorEvent: number;
             isAvgEvent: number;
+        }>;
+        eventMapApi: Record<string, {
+            id: number;
+            host: string;
+            url: string;
+            callUrl: string;
+            feature: number;
         }>;
     };
 }
@@ -300,17 +309,36 @@ export class APIService {
                 '#2EC4B6', '#E71D36', '#95E1D3', '#F38181', '#FCE38A', '#EAFFD0'
             ];
 
-            const events = Object.entries(result.data.eventMap).map(([id, eventData]: [string, any], index) => ({
+            // Regular events from eventMap
+            const regularEvents = Object.entries(result.data.eventMap).map(([id, eventData]: [string, any], index) => ({
                 eventId: id, // Numeric string ID like "1", "2", etc.
                 eventName: eventData.eventName,
                 color: colors[index % colors.length],
                 feature: eventData.feature,
                 org: eventData.org,
                 isErrorEvent: eventData.isErrorEvent,
-                isAvgEvent: eventData.isAvgEvent
+                isAvgEvent: eventData.isAvgEvent,
+                isApiEvent: false
             }));
+
+            // API events from eventMapApi
+            const apiEvents = Object.entries(result.data.eventMapApi || {}).map(([id, eventData]: [string, any], index) => ({
+                eventId: id,
+                eventName: `${eventData.host} - ${eventData.url}`, // Combined display name
+                color: colors[(regularEvents.length + index) % colors.length],
+                feature: eventData.feature,
+                isApiEvent: true,
+                host: eventData.host,
+                url: eventData.url,
+                callUrl: eventData.callUrl,
+                org: 0,
+                isErrorEvent: 0,
+                isAvgEvent: 0
+            }));
+
+            const events = [...regularEvents, ...apiEvents];
             
-            console.log(`✅ Loaded ${events.length} events`);
+            console.log(`✅ Loaded ${regularEvents.length} regular events and ${apiEvents.length} API events`);
             return events;
         } catch (error) {
             console.error(`❌ Failed to fetch events:`, error);
@@ -450,7 +478,8 @@ export class APIService {
         posIds: (number | string)[],
         sourceIds: (number | string)[],
         startDate: Date,
-        endDate: Date
+        endDate: Date,
+        isApiEvent: boolean = false // Added for API events
     ): Promise<AnalyticsDataResponse> {
         // Determine if hourly based on date range (<=7 days = hourly)
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -471,7 +500,8 @@ export class APIService {
             },
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),
-            isHourly
+            isHourly,
+            isApi: isApiEvent // Pass isApi flag for API events
         };
 
         console.log('Graph API Request:', requestBody);

@@ -16,6 +16,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  zoom: 80%;
 
   /* Light mode as default - clean white/purple */
   --background: 0 0% 98%;

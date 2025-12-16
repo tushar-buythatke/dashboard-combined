@@ -12,9 +12,10 @@ interface PanelPreviewProps {
         sources: number[];
     };
     graphType: 'line' | 'bar';
+    dateRange?: { from: Date; to: Date };
 }
 
-export function PanelPreview({ events, filters, graphType }: PanelPreviewProps) {
+export function PanelPreview({ events, filters, graphType, dateRange }: PanelPreviewProps) {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -22,9 +23,9 @@ export function PanelPreview({ events, filters, graphType }: PanelPreviewProps) 
         const loadData = async () => {
             setLoading(true);
             try {
-                // Use last 7 days for preview
-                const endDate = new Date();
-                const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                // Use provided dateRange or last 7 days for preview
+                const endDate = dateRange?.to || new Date();
+                const startDate = dateRange?.from || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
                 // Get valid event IDs (numeric)
                 const eventIdsToFetch = filters.events.length > 0
@@ -37,16 +38,14 @@ export function PanelPreview({ events, filters, graphType }: PanelPreviewProps) 
                     return;
                 }
 
-                const analyticsData = await apiService.getGraphData(
-                    eventIdsToFetch,
-                    filters.platforms.length > 0 ? filters.platforms : [0],
-                    filters.pos.length > 0 ? filters.pos : [2],
-                    filters.sources.length > 0 ? filters.sources : [1],
-                    startDate,
-                    endDate
-                );
-
-                const records = analyticsData.data || [];
+            const analyticsData = await apiService.getGraphData(
+                eventIdsToFetch,
+                filters.platforms.length > 0 ? filters.platforms : [0],
+                filters.pos.length > 0 ? filters.pos : [2],
+                filters.sources.length > 0 ? filters.sources : [],
+                startDate,
+                endDate
+            );                const records = analyticsData.data || [];
 
                 // Group by timestamp
                 const groupedByTime: Record<string, any> = {};
@@ -81,7 +80,7 @@ export function PanelPreview({ events, filters, graphType }: PanelPreviewProps) 
         };
 
         loadData();
-    }, [events, filters]);
+    }, [events, filters, graphType, dateRange]);
 
     if (loading) {
         return (

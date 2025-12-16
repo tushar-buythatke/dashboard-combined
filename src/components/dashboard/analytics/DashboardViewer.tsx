@@ -23,6 +23,7 @@ import { DashboardHeader } from '@/components/ui/dashboard-header';
 import { HeroGradientHeader } from '@/components/ui/hero-gradient-header';
 import { StatWidgetCard, StatWidgetGrid } from '@/components/ui/stat-widget-card';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import { ExpandedPieChartModal, type ExpandedPieData } from './components/ExpandedPieChartModal';
 import { CriticalAlertsPanel } from './components/CriticalAlertsPanel';
 import { DayWiseComparisonChart, HourlyDeviationChart, DailyAverageChart } from './components/ComparisonCharts';
@@ -209,7 +210,8 @@ const CollapsibleLegend = ({
         <div className="flex flex-wrap items-center gap-1.5 md:gap-2 px-2 md:px-4 py-2 md:py-2.5 bg-gray-50/80 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                const isErrorEvent = event?.isErrorEvent === 1;
+                const color = event?.color || (isErrorEvent ? ERROR_COLORS[index % ERROR_COLORS.length] : EVENT_COLORS[index % EVENT_COLORS.length]);
                 const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0, errorRate: 0, isErrorEvent: false, isAvgEvent: false, avgDelay: 0 };
                 const isSelected = selectedEventKey === eventKeyInfo.eventKey;
 
@@ -495,7 +497,7 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
     );
 };
 
-// Hourly stats card component - uses existing graph data (only shown for ≤7 day ranges)
+// Hourly stats card component - uses existing graph data (only shown for ≤8 day ranges)
 // Now supports event-type-wise filtering and handles isAvg events (showing delay instead of count)
 function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: { graphData: any[]; isHourly: boolean; eventKeys?: EventKeyInfo[]; events?: EventConfig[] }) {
     const [selectedHour, setSelectedHour] = useState(new Date().getHours());
@@ -1357,6 +1359,7 @@ const CustomTooltip = ({ active, payload, label, events: allEvents = [], eventKe
 interface DashboardViewerProps {
     profileId: string;
     onEditProfile?: (profile: DashboardProfile) => void;
+    onAlertsUpdate?: (alerts: any[]) => void;
 }
 
 interface FilterState {
@@ -1400,6 +1403,19 @@ const EVENT_COLORS = [
     '#a855f7', '#3b82f6'
 ];
 
+// Distinct color palette for error events - various shades for better distinction
+// Vibrant, highly distinguishable error colors for easy identification
+const ERROR_COLORS = [
+    '#ef4444',  // bright red
+    '#f97316',  // bright orange
+    '#f59e0b',  // bright amber
+    '#ec4899',  // bright pink
+    '#a855f7',  // bright purple
+    '#ec4899',  // bright magenta
+    '#f43f5e',  // bright rose
+    '#fb923c',  // bright orange-red
+];
+
 const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
 
 // Utility function to combine duplicate entries (like multiple "Unknown") in pie chart data
@@ -1423,7 +1439,7 @@ const shouldShowPieChart = (data: any[]): boolean => {
     return combinedData.length > 1;
 };
 
-export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerProps) {
+export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: DashboardViewerProps) {
     // Theme and organization context
     const { currentTheme, isAutosnipe, themePalette } = useTheme();
     const { selectedOrganization } = useOrganization();
@@ -1437,8 +1453,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
         to: new Date()
     });
 
-    // Compute isHourly based on date range (7 days or less = hourly)
-    const isHourly = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 7;
+    // Compute isHourly based on date range (8 days or less = hourly)
+    const isHourly = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
 
     // Expanded pie chart modal state
     const [expandedPie, setExpandedPie] = useState<ExpandedPieData | null>(null);
@@ -1523,6 +1539,16 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
     // Pinned tooltip for main chart - stores the data point to show in expanded view
     const [pinnedTooltip, setPinnedTooltip] = useState<{ dataPoint: any; label: string } | null>(null);
+    
+    // Pinned tooltips for panel charts - keyed by panelId
+    const [panelPinnedTooltips, setPanelPinnedTooltips] = useState<Record<string, { dataPoint: any; label: string } | null>>({});
+    
+    // Toast for panel navigation notifications
+    const { toast } = useToast();
+
+    // Toggle state for Event Trends vs 8-Day Overlay - main panel and per-panel
+    const [showOverlayMain, setShowOverlayMain] = useState<boolean>(false);
+    const [showOverlayPanel, setShowOverlayPanel] = useState<Record<string, boolean>>({});
 
     // Configurable auto-refresh (in minutes, 0 = disabled)
     const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
@@ -1775,7 +1801,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         setFilters({
                             platforms: firstPanelConfig.platforms || [0],
                             pos: firstPanelConfig.pos || [2],
-                            sources: firstPanelConfig.sources || [1],
+                            sources: firstPanelConfig.sources || [],
                             events: firstPanelConfig.events
                         });
                     } else {
@@ -2004,13 +2030,17 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             console.log(`📅 Panel date range:`, panelDateRange);
             console.log(`🔖 SourceStr filter:`, currentSourceStrFilter);
 
+            // Check if panel has API events (any event with isApiEvent flag)
+            const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
+
             const graphResponse = await apiService.getGraphData(
                 panelFilters.events,
                 panelFilters.platforms,
                 panelFilters.pos,
                 panelFilters.sources,
                 panelDateRange.from,
-                panelDateRange.to
+                panelDateRange.to,
+                hasApiEvents // Pass isApiEvent flag
             );
 
             // Pie chart is optional - don't fail the whole refresh if it fails
@@ -2110,10 +2140,15 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
         setAlertsLoading(true);
         try {
-            // Use alert-specific filters, fall back to all events if empty
-            const eventIds = alertFilters.events.length > 0
-                ? alertFilters.events
-                : events.map(e => parseInt(e.eventId));
+            // Check if profile has Critical Alerts config with specific event selection
+            const profileEventFilter = profile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || [];
+            
+            // Priority: profile-level event filter > runtime alert filters > all events
+            const eventIds = profileEventFilter.length > 0
+                ? profileEventFilter
+                : alertFilters.events.length > 0
+                    ? alertFilters.events
+                    : events.map(e => parseInt(e.eventId));
 
             const limit = expanded ? 20 : 10;
             const alerts = await apiService.getCriticalAlerts(
@@ -2127,9 +2162,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 alertsPage
             );
             setCriticalAlerts(alerts);
+            onAlertsUpdate?.(alerts); // Send alerts to parent
         } catch (err) {
             console.error('Failed to load critical alerts:', err);
             setCriticalAlerts([]);
+            onAlertsUpdate?.([]); // Send empty array on error
         } finally {
             setAlertsLoading(false);
         }
@@ -2169,6 +2206,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                 console.log(`User panel filters:`, userPanelFilters);
                 console.log(`Panel config:`, panelConfig);
 
+                // Check if panel has API events
+                const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
+
                 try {
                     const graphResponse = await apiService.getGraphData(
                         panelFilters.events,
@@ -2176,7 +2216,8 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         panelFilters.pos,
                         panelFilters.sources,
                         panelDateRange.from,
-                        panelDateRange.to
+                        panelDateRange.to,
+                        hasApiEvents // Pass isApiEvent flag
                     );
 
                     // Pie chart is optional - don't fail the whole refresh if it fails
@@ -2280,20 +2321,27 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
     }, [profile, panelFiltersState, panelDateRanges, dateRange, events, processGraphData, extractSourceStrs]);
 
     useEffect(() => {
-        // Only auto-load on initial mount (when profile and events first become available)
-        // After that, user must click "Apply Filters" button
-        if (!loading && profile && events.length > 0 && graphData.length === 0) {
+        // Auto-load data on initial mount AND when switching profiles
+        // User wants to see fresh data immediately without clicking Apply Changes
+        if (!loading && profile && events.length > 0) {
+            console.log('🔄 Loading data for profile:', profile.profileName);
             loadData();
             loadAlerts(); // Load critical alerts too
-            // Clear pending refresh after initial load
+            // Clear pending refresh after load
             setPendingRefresh(false);
-            // Clear all panel filter changes after initial load
+            // Clear all panel filter changes after load
             setPanelFilterChanges({});
-            // Mark initial load as complete immediately so subsequent
-            // filter changes respond without an artificial delay.
+            // Mark initial load as complete
             initialLoadComplete.current = true;
+            
+            // Show toast notification when profile loads
+            toast({
+                title: `📊 ${profile.profileName}`,
+                description: `Loaded ${profile.panels.length} panel${profile.panels.length !== 1 ? 's' : ''} with latest data`,
+                duration: 2000,
+            });
         }
-    }, [loading, profile, events, loadData, loadAlerts]);
+    }, [loading, profile, events, loadData, loadAlerts, toast]);
 
     // Set pending refresh when filters or date range change (only after initial load)
     useEffect(() => {
@@ -2310,6 +2358,9 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
             }
         }
     }, [filters, dateRange]);
+
+    // Removed auto-fetch on filter changes - data loads automatically when switching profiles
+    // User must click Apply Changes to update data after changing filters
 
     // Auto-refresh main panel (user-configurable, 0 = disabled by default)
     useEffect(() => {
@@ -2659,11 +2710,11 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     
                     <CardHeader className="pb-3 relative">
                         <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg flex items-center gap-2">
+                            <CardTitle className="text-lg font-bold flex items-center gap-2">
                                 <span
                                     className="w-2 h-2 rounded-full bg-primary"
                                 />
-                                Filters
+                                <span className="font-bold text-lg">Filters</span>
                                 {pendingRefresh && (
                                     <span
                                         className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
@@ -2872,7 +2923,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400"
                                         >
                                             <Activity className="h-3 w-3" />
-                                            <span>Last 7 days</span>
+                                            <span>{Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))} days</span>
                                         </span>
                                     </div>
                                 </div>
@@ -3030,7 +3081,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     const mainPanelId = profile?.panels?.[0]?.panelId;
                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
                     
-                    // Calculate event stats for badges
+                    // Calculate event stats for badges and sort by count
                     const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
                         const eventKey = eventKeyInfo.eventKey;
                         let total = 0;
@@ -3051,7 +3102,14 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                         };
                     });
                     
-                    // If in deviation mode, show only the overlay chart
+                    // Sort normalEventKeys by total count descending (highest first) for legend
+                    const sortedNormalEventKeys = [...normalEventKeys].sort((a, b) => {
+                        const aTotal = eventStatsForBadges.find(s => s.eventKey === a.eventKey)?.total || 0;
+                        const bTotal = eventStatsForBadges.find(s => s.eventKey === b.eventKey)?.total || 0;
+                        return bTotal - aTotal;
+                    });
+                    
+                    // If in deviation mode, show only the overlay chart with toggle button
                     if (isHourly && mainChartType === 'deviation') {
                         // Filter to show only selected event or all events
                         const filteredEventKeys = selectedEventKey
@@ -3059,15 +3117,44 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                             : normalEventKeys.map(e => e.eventKey);
                         
                         return (
-                            <DayWiseComparisonChart 
-                                data={graphData}
-                                dateRange={dateRange}
-                                eventKeys={filteredEventKeys}
-                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}  
-                                eventStats={eventStatsForBadges}
-                                selectedEventKey={selectedEventKey}
-                                onEventClick={handleEventClick}
-                            />
+                            <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                <CardHeader className="pb-2 px-3 md:px-6">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <BarChart3 className="h-5 w-5 text-purple-600" />
+                                            <CardTitle className="text-base md:text-lg">8-Day Hourly Comparison</CardTitle>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                            onClick={() => {
+                                                setPanelChartType(prev => {
+                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                    if (!mainPanelId) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        [mainPanelId]: 'default',
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            ← Event Trends
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                    <DayWiseComparisonChart 
+                                        data={graphData}
+                                        dateRange={dateRange}
+                                        eventKeys={filteredEventKeys}
+                                        eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}  
+                                        eventStats={eventStatsForBadges}
+                                        selectedEventKey={selectedEventKey}
+                                        onEventClick={handleEventClick}
+                                    />
+                                </CardContent>
+                            </Card>
                         );
                     }
                     
@@ -3093,7 +3180,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
                                                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
                                                     if (isHourly && mainChartType === 'deviation') {
-                                                        return '7-Day Hourly Comparison';
+                                                        return '8-Day Hourly Comparison';
                                                     }
                                                     if (isHourly) {
                                                         return 'Hourly Event Trends';
@@ -3108,7 +3195,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                             const mainPanelId = profile?.panels?.[0]?.panelId;
                                                             const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
                                                             return mainChartType === 'deviation'
-                                                                ? 'Compare hourly patterns across last 7 days'
+                                                                ? 'Compare hourly patterns across last 8 days'
                                                                 : 'Hourly data points • Toggle for day-wise comparison';
                                                         })()}
                                                     </span>
@@ -3124,7 +3211,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-7 text-xs"
+                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                                                 onClick={() => {
                                                     setPanelChartType(prev => {
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -3140,7 +3227,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                 {(() => {
                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
                                                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                                    return mainChartType === 'deviation' ? 'Show Hourly Details' : '7-Day Comparison';
+                                                    return mainChartType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
                                                 })()}
                                             </Button>
                                         )}
@@ -3156,7 +3243,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                     
                                     return !showingOverlay && normalEventKeys.length > 0 && (
                                         <CollapsibleLegend
-                                            eventKeys={normalEventKeys}
+                                            eventKeys={sortedNormalEventKeys}
                                             events={events}
                                             isExpanded={mainLegendExpanded}
                                             onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
@@ -4047,7 +4134,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                     );
                 })()}
 
-                {/* Hourly Stats Card - shown below Pie Charts for ≤7 day ranges when enabled */}
+                {/* Hourly Stats Card - shown below Pie Charts for ≤8 day ranges when enabled */}
                 {isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -4390,16 +4477,39 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
 
                                 return (
                                     <>
-                                        {/* Panel Chart - Normal Events (count) */}
-                                        {pNormalEventKeys.length > 0 && (
-                                            <Card className="border border-violet-200/60 dark:border-violet-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                        {/* Panel Chart - Normal Events (count) - Show when NOT in deviation mode */}
+                                        {pNormalEventKeys.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') !== 'deviation' && (
+                                            <Card className="border border-violet-200/60 dark:border-violet-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
                                                 <CardHeader className="pb-2">
                                                     <div className="flex items-center justify-between">
-                                                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                                        <div className="flex items-center gap-2">
                                                             <Activity className="w-4 h-4 text-purple-500" />
-                                                            Event Trends (Count)
-                                                        </CardTitle>
-                                                        <span className="text-xs text-muted-foreground">{pNormalEventKeys.length} events</span>
+                                                            <CardTitle className="text-base font-semibold">
+                                                                Event Trends (Count)
+                                                            </CardTitle>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-muted-foreground">{pNormalEventKeys.length} events</span>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                                onClick={() => {
+                                                                    setPanelChartType(prev => {
+                                                                        const current = prev[panel.panelId] ?? 'default';
+                                                                        return {
+                                                                            ...prev,
+                                                                            [panel.panelId]: current === 'deviation' ? 'default' : 'deviation',
+                                                                        };
+                                                                    });
+                                                                }}
+                                                            >
+                                                                {(() => {
+                                                                    const currentType = panelChartType[panel.panelId] ?? 'deviation';
+                                                                    return currentType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
+                                                                })()}
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
@@ -4416,7 +4526,25 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     <div className="h-[400px]">
                                                         {pGraphData.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                <AreaChart 
+                                                                    data={pGraphData} 
+                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    onClick={(chartState: any) => {
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = pGraphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPanelPinnedTooltips(prev => ({
+                                                                                    ...prev,
+                                                                                    [panel.panelId]: {
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    }
+                                                                                }));
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
                                                                     <defs>
                                                                         {pNormalEventKeys.map((eventKeyInfo, index) => {
                                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
@@ -4437,7 +4565,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                         tickLine={false}
                                                                         tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
                                                                     />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
                                                                     {pNormalEventKeys.map((eventKeyInfo, index) => {
                                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
@@ -4451,6 +4579,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                                 strokeWidth={2.5}
                                                                                 fill={`url(#normalColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
                                                                                 dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                                activeDot={{
+                                                                                    r: 8,
+                                                                                    fill: color,
+                                                                                    stroke: '#fff',
+                                                                                    strokeWidth: 3,
+                                                                                    cursor: 'pointer',
+                                                                                }}
                                                                             />
                                                                         );
                                                                     })}
@@ -4461,11 +4596,69 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         )}
                                                     </div>
                                                 </CardContent>
+
+                                                {/* Pinned Tooltip Modal for Panel Charts */}
+                                                {(() => {
+                                                    const pinnedData = panelPinnedTooltips[panel.panelId];
+                                                    if (!pinnedData) return null;
+                                                    
+                                                    return (
+                                                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                                                            <div
+                                                                className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                                                onClick={() => setPanelPinnedTooltips(prev => {
+                                                                    const updated = { ...prev };
+                                                                    delete updated[panel.panelId];
+                                                                    return updated;
+                                                                })}
+                                                            />
+                                                            <div className="relative max-w-lg w-full">
+                                                                <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPanelPinnedTooltips(prev => {
+                                                                            const updated = { ...prev };
+                                                                            delete updated[panel.panelId];
+                                                                            return updated;
+                                                                        })}
+                                                                        className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                                        aria-label="Close details"
+                                                                    >
+                                                                        <X className="h-5 w-5" />
+                                                                    </button>
+                                                                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                                        <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+                                                                        <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                                            <CustomTooltip
+                                                                                active={true}
+                                                                                payload={pNormalEventKeys.map((ek, idx) => {
+                                                                                    const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                                                    const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                                    return {
+                                                                                        dataKey: `${ek.eventKey}_count`,
+                                                                                        name: ek.eventName,
+                                                                                        value: pinnedData.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                                                        color,
+                                                                                        payload: pinnedData.dataPoint,
+                                                                                        unit: '',
+                                                                                    };
+                                                                                })}
+                                                                                label={pinnedData.label}
+                                                                                events={events}
+                                                                                eventKeys={pNormalEventKeys}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </Card>
                                         )}
 
-                                        {/* 7-Day Overlay Comparison for Hourly Panel Data */}
-                                        {pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (() => {
+                                        {/* 8-Day Overlay Comparison for Hourly Panel Data - Show in deviation mode (default) */}
+                                        {pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
                                             // Calculate event stats for panel overlay badges
                                             const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
                                                 const eventKey = eventKeyInfo.eventKey;
@@ -4536,7 +4729,25 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     <div className="h-[400px]">
                                                         {pGraphData.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                <AreaChart 
+                                                                    data={pGraphData} 
+                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    onClick={(chartState: any) => {
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = pGraphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPanelPinnedTooltips(prev => ({
+                                                                                    ...prev,
+                                                                                    [`${panel.panelId}_avg`]: {
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    }
+                                                                                }));
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
                                                                     <defs>
                                                                         {pAvgEventKeys.map((eventKeyInfo, index) => {
                                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
@@ -4569,7 +4780,7 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                             return `${value.toFixed(1)}s`;
                                                                         }}
                                                                     />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
                                                                     {pAvgEventKeys.map((eventKeyInfo, index) => {
                                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
@@ -4583,6 +4794,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                                 strokeWidth={2.5}
                                                                                 fill={`url(#avgColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
                                                                                 dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                                activeDot={{
+                                                                                    r: 8,
+                                                                                    fill: color,
+                                                                                    stroke: '#fff',
+                                                                                    strokeWidth: 3,
+                                                                                    cursor: 'pointer',
+                                                                                }}
                                                                             />
                                                                         );
                                                                     })}
@@ -4593,6 +4811,64 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         )}
                                                     </div>
                                                 </CardContent>
+
+                                                {/* Pinned Tooltip Modal for Avg/Time Delay Charts */}
+                                                {(() => {
+                                                    const pinnedData = panelPinnedTooltips[`${panel.panelId}_avg`];
+                                                    if (!pinnedData) return null;
+                                                    
+                                                    return (
+                                                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                                                            <div
+                                                                className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                                                onClick={() => setPanelPinnedTooltips(prev => {
+                                                                    const updated = { ...prev };
+                                                                    delete updated[`${panel.panelId}_avg`];
+                                                                    return updated;
+                                                                })}
+                                                            />
+                                                            <div className="relative max-w-lg w-full">
+                                                                <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPanelPinnedTooltips(prev => {
+                                                                            const updated = { ...prev };
+                                                                            delete updated[`${panel.panelId}_avg`];
+                                                                            return updated;
+                                                                        })}
+                                                                        className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                                        aria-label="Close details"
+                                                                    >
+                                                                        <X className="h-5 w-5" />
+                                                                    </button>
+                                                                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                                        <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600" />
+                                                                        <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                                            <CustomTooltip
+                                                                                active={true}
+                                                                                payload={pAvgEventKeys.map((ek, idx) => {
+                                                                                    const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                                                    const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                                    return {
+                                                                                        dataKey: `${ek.eventKey}_avgDelay`,
+                                                                                        name: ek.eventName,
+                                                                                        value: pinnedData.dataPoint[`${ek.eventKey}_avgDelay`] || 0,
+                                                                                        color,
+                                                                                        payload: pinnedData.dataPoint,
+                                                                                        unit: '',
+                                                                                    };
+                                                                                })}
+                                                                                label={pinnedData.label}
+                                                                                events={events}
+                                                                                eventKeys={pAvgEventKeys}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </Card>
                                         )}
 
@@ -4622,14 +4898,35 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                     <div className="h-[400px]">
                                                         {pGraphData.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                <AreaChart 
+                                                                    data={pGraphData} 
+                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    onClick={(chartState: any) => {
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = pGraphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPanelPinnedTooltips(prev => ({
+                                                                                    ...prev,
+                                                                                    [`${panel.panelId}_error`]: {
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    }
+                                                                                }));
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
                                                                     <defs>
-                                                                        {pErrorEventKeys.map((eventKeyInfo) => (
-                                                                            <linearGradient key={`errorGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                                                                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
-                                                                            </linearGradient>
-                                                                        ))}
+                                                                        {pErrorEventKeys.map((eventKeyInfo, index) => {
+                                                                            const errorColor = ERROR_COLORS[index % ERROR_COLORS.length];
+                                                                            return (
+                                                                                <linearGradient key={`errorGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
+                                                                                    <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
+                                                                                </linearGradient>
+                                                                            );
+                                                                        })}
                                                                         <linearGradient id={`errorSuccessGrad_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
                                                                             <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
                                                                             <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
@@ -4643,20 +4940,28 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                         tickLine={false}
                                                                         tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
                                                                     />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} />
-                                                                    {pErrorEventKeys.map((eventKeyInfo) => {
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                    {pErrorEventKeys.map((eventKeyInfo, idx) => {
                                                                         const eventKey = eventKeyInfo.eventKey;
+                                                                        const errorColor = ERROR_COLORS[idx % ERROR_COLORS.length];
                                                                         return (
                                                                             <React.Fragment key={`error_frag_${panel.panelId}_${eventKey}`}>
-                                                                                {/* Error count (red) */}
+                                                                                {/* Error count (distinct colors) */}
                                                                                 <Area
                                                                                     type="monotone"
                                                                                     dataKey={`${eventKey}_success`}
                                                                                     name={`${eventKeyInfo.eventName} (Errors)`}
-                                                                                    stroke="#ef4444"
+                                                                                    stroke={errorColor}
                                                                                     strokeWidth={2.5}
                                                                                     fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
-                                                                                    dot={{ fill: '#ef4444', strokeWidth: 0, r: 3 }}
+                                                                                    dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
+                                                                                    activeDot={{
+                                                                                        r: 8,
+                                                                                        fill: errorColor,
+                                                                                        stroke: '#fff',
+                                                                                        strokeWidth: 3,
+                                                                                        cursor: 'pointer',
+                                                                                    }}
                                                                                 />
                                                                                 {/* Non-error count (green) */}
                                                                                 <Area
@@ -4667,6 +4972,13 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                                                     strokeWidth={2}
                                                                                     fill={`url(#errorSuccessGrad_${panel.panelId})`}
                                                                                     dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
+                                                                                    activeDot={{
+                                                                                        r: 6,
+                                                                                        fill: '#22c55e',
+                                                                                        stroke: '#fff',
+                                                                                        strokeWidth: 2,
+                                                                                        cursor: 'pointer',
+                                                                                    }}
                                                                                 />
                                                                             </React.Fragment>
                                                                         );
@@ -4678,6 +4990,64 @@ export function DashboardViewer({ profileId, onEditProfile }: DashboardViewerPro
                                                         )}
                                                     </div>
                                                 </CardContent>
+
+                                                {/* Pinned Tooltip Modal for Error Charts */}
+                                                {(() => {
+                                                    const pinnedData = panelPinnedTooltips[`${panel.panelId}_error`];
+                                                    if (!pinnedData) return null;
+                                                    
+                                                    return (
+                                                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                                                            <div
+                                                                className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                                                onClick={() => setPanelPinnedTooltips(prev => {
+                                                                    const updated = { ...prev };
+                                                                    delete updated[`${panel.panelId}_error`];
+                                                                    return updated;
+                                                                })}
+                                                            />
+                                                            <div className="relative max-w-lg w-full">
+                                                                <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setPanelPinnedTooltips(prev => {
+                                                                            const updated = { ...prev };
+                                                                            delete updated[`${panel.panelId}_error`];
+                                                                            return updated;
+                                                                        })}
+                                                                        className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                                        aria-label="Close details"
+                                                                    >
+                                                                        <X className="h-5 w-5" />
+                                                                    </button>
+                                                                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                                        <div className="h-1.5 w-full bg-gradient-to-r from-red-500 via-orange-500 to-red-600" />
+                                                                        <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                                            <CustomTooltip
+                                                                                active={true}
+                                                                                payload={pErrorEventKeys.map((ek, idx) => {
+                                                                                    const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                                                    const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                                    return {
+                                                                                        dataKey: `${ek.eventKey}_count`,
+                                                                                        name: ek.eventName,
+                                                                                        value: pinnedData.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                                                        color,
+                                                                                        payload: pinnedData.dataPoint,
+                                                                                        unit: '',
+                                                                                    };
+                                                                                })}
+                                                                                label={pinnedData.label}
+                                                                                events={events}
+                                                                                eventKeys={pErrorEventKeys}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </Card>
                                         )}
 

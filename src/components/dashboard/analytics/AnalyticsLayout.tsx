@@ -9,6 +9,7 @@ import { ProfileSidebar } from './ProfileSidebar';
 import { AnalyticsLogin } from './AnalyticsLogin';
 import { Button } from '@/components/ui/button';
 import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
 import {
@@ -37,12 +38,14 @@ export function AnalyticsLayout() {
     const { user, logout, isAuthenticated } = useAnalyticsAuth();
     const { organizations, selectedOrganization, setSelectedOrganization } = useOrganization();
     const { mode, toggleMode } = useTheme();
+    const { toast } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(() => searchParams.get('feature'));
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(() => searchParams.get('profile'));
     const [isCreatingProfile, setIsCreatingProfile] = useState(false);
     const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
     const [featureSelectorKey, setFeatureSelectorKey] = useState(0);
+    const [criticalAlertsData, setCriticalAlertsData] = useState<any[]>([]);
     
     // Live clock with seconds
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -88,12 +91,31 @@ export function AnalyticsLayout() {
     const isAdmin = user?.role === 0;
     
     // Panel navigation - scroll to specific panel by ID
-    const handleJumpToPanel = (panelId: string) => {
+    const handleJumpToPanel = (panelId: string, panelName?: string) => {
         const element = document.getElementById(`panel-${panelId}`);
         if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Get the element's position relative to viewport
+            const rect = element.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const targetPosition = rect.top + scrollTop - 100; // 100px offset from top
+            
+            // Scroll to position
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
+            
             // Close mobile sidebar after jumping
             setMobileSidebarOpen(false);
+            
+            // Show toast notification
+            if (panelName) {
+                toast({
+                    title: `📍 ${panelName}`,
+                    description: 'Navigated to panel',
+                    duration: 1500,
+                });
+            }
         }
     };
     
@@ -161,7 +183,7 @@ export function AnalyticsLayout() {
                 timeRange: { preset: 'last_7_days', granularity: 'hourly' },
                 autoRefresh: 60
             },
-            criticalAlerts: { enabled: false, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [] }
+            criticalAlerts: { enabled: false, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [], filterByEvents: [] }
         };
         
         await mockService.saveProfile(newProfile);
@@ -499,6 +521,7 @@ export function AnalyticsLayout() {
                                     onToggleCollapse={() => {}}
                                     isMobileDrawer={true}
                                     onJumpToPanel={handleJumpToPanel}
+                                    criticalAlerts={criticalAlertsData}
                                 />
                             </motion.div>
                         </>
@@ -526,6 +549,7 @@ export function AnalyticsLayout() {
                         isCollapsed={sidebarCollapsed}
                         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                         onJumpToPanel={handleJumpToPanel}
+                        criticalAlerts={criticalAlertsData}
                     />
                     </div>
                 </div>
@@ -559,6 +583,7 @@ export function AnalyticsLayout() {
                                     onEditProfile={(_profile: DashboardProfile) => {
                                         setIsCreatingProfile(true);
                                     }}
+                                    onAlertsUpdate={setCriticalAlertsData}
                                 />
                             </motion.div>
                         ) : (

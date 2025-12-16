@@ -11,11 +11,12 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { PanelCombineModal } from './PanelCombineModal';
 import { PanelPreview } from './PanelPreview';
-import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle } from 'lucide-react';
+import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
@@ -36,6 +37,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
         platforms: number[];   // Numeric platform IDs
         pos: number[];         // Numeric POS IDs
         sources: number[];     // Numeric source IDs
+        sourceStr: string[];   // Job IDs (client-side filter)
     };
     graphType: 'line' | 'bar';
     dateRange: {
@@ -44,12 +46,14 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
     };
     showHourlyStats: boolean;
     dailyDeviationCurve?: boolean;
+    isApiEvent?: boolean; // Toggle for API events vs regular events
 }
 
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {
     const { user } = useAnalyticsAuth();
     const [profileName, setProfileName] = useState('New Profile');
     const [panels, setPanels] = useState<ExtendedPanelConfig[]>([]);
+    const [alertEventFilters, setAlertEventFilters] = useState<number[]>([]); // Event IDs for critical alerts
     const [loading, setLoading] = useState(true);
     const [workflowMode, setWorkflowMode] = useState<'quick' | 'template'>('template');
     const [combineModalOpen, setCombineModalOpen] = useState(false);
@@ -58,6 +62,47 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     // Data loaded from APIs
     const [availableEvents, setAvailableEvents] = useState<EventConfig[]>([]);
     const [siteDetails, setSiteDetails] = useState<SiteDetail[]>([]);
+    const [availableJobIds, setAvailableJobIds] = useState<string[]>([]); // Job IDs from API
+    const [loadingJobIds, setLoadingJobIds] = useState(false);
+
+    // Function to fetch available job IDs from a sample API call
+    const fetchAvailableJobIds = async (panelId?: string) => {
+        const panel = panelId ? panels.find(p => p.panelId === panelId) : panels[0];
+        if (!panel || panel.filters.events.length === 0) {
+            return; // Need at least one event selected
+        }
+
+        setLoadingJobIds(true);
+        try {
+            // Fetch sample data with panel's current filters
+            const response = await apiService.getGraphData(
+                panel.filters.events,
+                panel.filters.platforms.length > 0 ? panel.filters.platforms : [0],
+                panel.filters.pos.length > 0 ? panel.filters.pos : [],
+                panel.filters.sources.length > 0 ? panel.filters.sources : [],
+                panel.dateRange.from,
+                panel.dateRange.to,
+                panel.isApiEvent || false
+            );
+
+            // Extract unique sourceStr values
+            if (response?.data) {
+                const jobIds = new Set<string>();
+                response.data.forEach((record: any) => {
+                    if (record.sourceStr && typeof record.sourceStr === 'string' && record.sourceStr.trim() !== '') {
+                        jobIds.add(record.sourceStr);
+                    }
+                });
+                const sortedJobIds = Array.from(jobIds).sort();
+                setAvailableJobIds(sortedJobIds);
+                console.log(`📋 Loaded ${sortedJobIds.length} job IDs:`, sortedJobIds);
+            }
+        } catch (error) {
+            console.error('Failed to fetch job IDs:', error);
+        } finally {
+            setLoadingJobIds(false);
+        }
+    };
 
     // Load events and site details from APIs
     useEffect(() => {
@@ -102,13 +147,15 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 events: savedConfig.events || [],
                                 platforms: savedConfig.platforms || [0],
                                 pos: savedConfig.pos || [2],
-                                sources: savedConfig.sources || [1]
+                                sources: savedConfig.sources || [],
+                                sourceStr: savedConfig.sourceStr || [] // Job IDs
                             } : {
                                 // Fallback to defaults
                                 events: p.events.map(e => parseInt(e.eventId)).filter(id => !isNaN(id)),
                                 platforms: [0], // Chrome Extension
                                 pos: [2],       // Flipkart
-                                sources: [1]    // Spidy
+                                sources: [],    // All sources
+                                sourceStr: []   // No job filter by default
                             },
                             graphType: (savedConfig?.graphType || 'line') as 'line' | 'bar',
                             dateRange: savedConfig?.dateRange ? {
@@ -120,24 +167,30 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             },
                             showHourlyStats: savedConfig?.showHourlyStats !== false, // Default to true
                             // Default deviation curve to enabled unless explicitly disabled
-                            dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false
+                            dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false,
+                            // Load API event flag
+                            isApiEvent: savedConfig?.isApiEvent || false
                         };
                     });
                     
                     // Check if profile already has alerts panel, if not add one at beginning
                     const hasAlertsPanel = extendedPanels.some(p => p.type === 'alerts');
+                    // Load alert event filters from profile
+                    setAlertEventFilters(profile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || []);
+                    
                     if (!hasAlertsPanel) {
                         const alertsPanel: ExtendedPanelConfig = {
-                            panelId: 'panel_alerts_0',
-                            panelName: 'Critical Alerts Monitor',
+                            panelId: 'panel_alerts',
+                            panelName: 'Critical Alerts',
                             type: 'alerts',
-                            position: { row: 0, col: 1, width: 12, height: 4 },
+                            position: { row: 1, col: 1, width: 12, height: 2 },
                             events: [],
                             filters: {
                                 events: [],
                                 platforms: [],
                                 pos: [],
-                                sources: []
+                                sources: [],
+                                sourceStr: []
                             },
                             graphType: 'line',
                             dateRange: {
@@ -167,7 +220,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         events: [], // All events
                         platforms: [], // All platforms
                         pos: [], // All POS
-                        sources: [] // All sources
+                        sources: [], // All sources
+                        sourceStr: [] // All job IDs
                     },
                     graphType: 'line',
                     dateRange: {
@@ -225,15 +279,17 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 events: [defaultEventId],
                 platforms: [0],  // Chrome Extension
                 pos: siteDetails.find(s => s.id === 2)?.id ? [2] : (siteDetails[0]?.id ? [siteDetails[0].id] : [2]), // Flipkart or first
-                sources: [1]    // Spidy
+                sources: [],    // All sources
+                sourceStr: []   // No job filter by default
             },
             graphType: 'line',
             dateRange: {
                 from: subDays(new Date(), 7),
                 to: new Date()
             },
-            showHourlyStats: true,
-            dailyDeviationCurve: true,
+            showHourlyStats: false,  // Unchecked by default
+            dailyDeviationCurve: true,  // Checked by default - user wants 8-Day Overlay
+            isApiEvent: false, // Default to regular events
             visualizations: {
                 lineGraph: { enabled: true, aggregationMethod: 'sum', showLegend: true, yAxisLabel: 'Count' },
                 pieCharts: [
@@ -253,11 +309,16 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const updatePanelFilter = (panelId: string, filterType: keyof ExtendedPanelConfig['filters'], values: string[]) => {
         setPanels(panels.map(p => {
             if (p.panelId === panelId) {
-                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                const updatedFilters = { ...p.filters, [filterType]: numericValues };
+                // sourceStr is string array, others are numeric
+                const filterValues = filterType === 'sourceStr' 
+                    ? values 
+                    : values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                    
+                const updatedFilters = { ...p.filters, [filterType]: filterValues };
 
                 // Update events array based on selected event IDs
                 if (filterType === 'events') {
+                    const numericValues = filterValues as number[];
                     const selectedEvents = availableEvents.filter(e => numericValues.includes(parseInt(e.eventId)));
                     return {
                         ...p,
@@ -314,6 +375,21 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         }));
     };
 
+    const toggleApiEvent = (panelId: string) => {
+        setPanels(panels.map(p => {
+            if (p.panelId === panelId) {
+                const newIsApiEvent = !p.isApiEvent;
+                // Clear event filters when switching modes to avoid ID conflicts
+                return { 
+                    ...p, 
+                    isApiEvent: newIsApiEvent, 
+                    filters: { ...p.filters, events: [] } 
+                };
+            }
+            return p;
+        }));
+    };
+
     const handleCombinePanels = (sourcePanelId: string, targetPanelId: string) => {
         const source = panels.find(p => p.panelId === sourcePanelId);
         const target = panels.find(p => p.panelId === targetPanelId);
@@ -332,12 +408,17 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             const mergeUniqueNumbers = (arr1: number[], arr2: number[]): number[] => {
                 return [...new Set([...arr1, ...arr2])].sort((a, b) => a - b);
             };
+            
+            const mergeUniqueStrings = (arr1: string[], arr2: string[]): string[] => {
+                return [...new Set([...arr1, ...arr2])].sort();
+            };
 
             const mergedFilters = {
                 events: mergeUniqueNumbers(target.filters.events, source.filters.events),
                 platforms: mergeUniqueNumbers(target.filters.platforms, source.filters.platforms),
                 pos: mergeUniqueNumbers(target.filters.pos, source.filters.pos),
-                sources: mergeUniqueNumbers(target.filters.sources, source.filters.sources)
+                sources: mergeUniqueNumbers(target.filters.sources, source.filters.sources),
+                sourceStr: mergeUniqueStrings(target.filters.sourceStr, source.filters.sourceStr)
             };
 
             const updatedTarget: ExtendedPanelConfig = {
@@ -382,13 +463,15 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     platforms: p.filters.platforms,
                     pos: p.filters.pos,
                     sources: p.filters.sources,
+                    sourceStr: p.filters.sourceStr || [], // Save job IDs
                     graphType: p.graphType,
                     dateRange: {
                         from: p.dateRange.from.toISOString(),
                         to: p.dateRange.to.toISOString()
                     },
                     showHourlyStats: p.showHourlyStats,
-                    dailyDeviationCurve: p.dailyDeviationCurve
+                    dailyDeviationCurve: p.dailyDeviationCurve,
+                    isApiEvent: p.isApiEvent || false // Save API event flag
                 }
             } as any));
 
@@ -428,7 +511,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 timeRange: { preset: 'last_7_days', granularity: 'hourly' },
                 autoRefresh: 60
             },
-            criticalAlerts: { enabled: hasAlertsPanel, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [] }
+            criticalAlerts: { 
+                enabled: hasAlertsPanel, 
+                refreshInterval: 30, 
+                position: 'top', 
+                maxAlerts: 5, 
+                filterByPOS: [],
+                filterByEvents: alertEventFilters.map(id => id.toString())
+            }
         };
 
         await mockService.saveProfile(profile);
@@ -623,43 +713,87 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                         </div>
                                     </CardHeader>
                                     <CardContent className="space-y-6">
-                                        {/* Alert Panel - Special minimal config */}
+                                        {/* Alert Panel - Special config with event selection */}
                                         {panel.type === 'alerts' ? (
-                                            <div className="p-4 bg-white/50 dark:bg-gray-800/30 rounded-lg border border-red-100 dark:border-red-500/20">
-                                                <p className="text-sm text-muted-foreground mb-3">
-                                                    <AlertTriangle className="h-4 w-4 inline mr-2 text-amber-500" />
-                                                    This panel monitors critical alerts. Filters can be adjusted at runtime in the dashboard.
-                                                </p>
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                    <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                                                        <div className="text-2xl font-bold text-red-600">∞</div>
-                                                        <div className="text-xs text-muted-foreground">Events Monitored</div>
+                                            <div className="space-y-4">
+                                                <div className="p-4 bg-white/50 dark:bg-gray-800/30 rounded-lg border border-red-100 dark:border-red-500/20">
+                                                    <p className="text-sm text-muted-foreground mb-3">
+                                                        <AlertTriangle className="h-4 w-4 inline mr-2 text-amber-500" />
+                                                        This panel monitors critical alerts. Select which events to monitor below.
+                                                    </p>
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                        <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                                            <div className="text-2xl font-bold text-red-600">{alertEventFilters.length > 0 ? alertEventFilters.length : '∞'}</div>
+                                                            <div className="text-xs text-muted-foreground">Events Monitored</div>
+                                                        </div>
+                                                        <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                                                            <div className="text-2xl font-bold text-orange-600">∞</div>
+                                                            <div className="text-xs text-muted-foreground">POS Monitored</div>
+                                                        </div>
+                                                        <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                                            <div className="text-2xl font-bold text-purple-600">7d</div>
+                                                            <div className="text-xs text-muted-foreground">Default Range</div>
+                                                        </div>
+                                                        <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                                            <div className="text-2xl font-bold text-blue-600">✓</div>
+                                                            <div className="text-xs text-muted-foreground">Collapsible</div>
+                                                        </div>
                                                     </div>
-                                                    <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                                                        <div className="text-2xl font-bold text-orange-600">∞</div>
-                                                        <div className="text-xs text-muted-foreground">POS Monitored</div>
-                                                    </div>
-                                                    <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                                                        <div className="text-2xl font-bold text-purple-600">7d</div>
-                                                        <div className="text-xs text-muted-foreground">Default Range</div>
-                                                    </div>
-                                                    <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                                        <div className="text-2xl font-bold text-blue-600">✓</div>
-                                                        <div className="text-xs text-muted-foreground">Collapsible</div>
-                                                    </div>
+                                                </div>
+                                                
+                                                {/* Event Selection for Alert Panel */}
+                                                <div className="p-4 bg-muted/20 rounded-lg">
+                                                    <Label className="mb-3 font-semibold">Monitor Specific Events</Label>
+                                                    <MultiSelectDropdown
+                                                        options={eventOptions}
+                                                        selected={alertEventFilters.map(id => id.toString())}
+                                                        onChange={(values: string[]) => {
+                                                            setAlertEventFilters(values.map(v => parseInt(v)));
+                                                        }}
+                                                        placeholder="Select events to monitor"
+                                                    />
+                                                    <p className="text-xs text-muted-foreground mt-2">
+                                                        Select specific events to monitor, or leave empty to monitor all events
+                                                    </p>
                                                 </div>
                                             </div>
                                         ) : (
                                         /* Regular Panel - Full filter configuration */
                                         <>
+                                        {/* API Events Toggle */}
+                                        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
+                                            <div className="flex flex-col">
+                                                <Label className="font-semibold text-base">Event Type</Label>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {panel.isApiEvent 
+                                                        ? "Monitoring API events (host/url/callUrl)"
+                                                        : "Monitoring regular feature events"}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium">{panel.isApiEvent ? 'API Events' : 'Regular Events'}</span>
+                                                <Switch
+                                                    checked={panel.isApiEvent || false}
+                                                    onCheckedChange={() => toggleApiEvent(panel.panelId)}
+                                                />
+                                            </div>
+                                        </div>
+                                        
                                         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 p-4 bg-muted/20 rounded-lg">
                                             <div className="space-y-2">
                                                 <Label>Events ({getFeatureShortName(featureId)})</Label>
                                                 <MultiSelectDropdown
-                                                    options={eventOptions}
+                                                    options={availableEvents
+                                                        .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                        .map(e => ({
+                                                            value: e.eventId,
+                                                            label: e.isApiEvent 
+                                                                ? `${e.host} - ${e.url}` 
+                                                                : e.eventName
+                                                        }))}
                                                     selected={panel.filters.events.map(id => id.toString())}
                                                     onChange={(values) => updatePanelFilter(panel.panelId, 'events', values)}
-                                                    placeholder="Select events"
+                                                    placeholder={panel.isApiEvent ? "Select API events" : "Select events"}
                                                 />
                                             </div>
                                             <div className="space-y-2">
@@ -721,6 +855,46 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                             </div>
                                         </div>
 
+                                        {/* Job ID Filter Row - Full width */}
+                                        <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-500/20">
+                                            <div className="space-y-2">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="font-semibold">Job ID Filter (sourceStr)</Label>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => fetchAvailableJobIds(panel.panelId)}
+                                                        disabled={loadingJobIds || panel.filters.events.length === 0}
+                                                        className="h-7 text-xs"
+                                                    >
+                                                        {loadingJobIds ? (
+                                                            <>
+                                                                <div className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                                Loading...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <RefreshCw className="mr-1 h-3 w-3" />
+                                                                Fetch Job IDs
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                                <MultiSelectDropdown
+                                                    options={availableJobIds.map(id => ({ value: id, label: id }))}
+                                                    selected={panel.filters.sourceStr || []}
+                                                    onChange={(values) => updatePanelFilter(panel.panelId, 'sourceStr', values)}
+                                                    placeholder={availableJobIds.length > 0 ? "Select Job IDs or leave empty for all" : "Click 'Fetch Job IDs' to load options"}
+                                                    searchable={true}
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    {availableJobIds.length > 0 
+                                                        ? `${availableJobIds.length} job ID(s) available. Leave empty to show all jobs.`
+                                                        : 'Select at least one event, then click "Fetch Job IDs" to load options.'}
+                                                </p>
+                                            </div>
+                                        </div>
+
                                         {/* Graph Type & Pie Charts */}
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div className="space-y-3">
@@ -778,7 +952,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                             onCheckedChange={() => toggleHourlyStats(panel.panelId)}
                                                         />
                                                         <Label htmlFor={`${panel.panelId}-hourly-stats`} className="cursor-pointer">
-                                                            Hourly Stats Card (for ≤7 day ranges)
+                                                            Hourly Stats Card (for ≤8 day ranges)
                                                         </Label>
                                                     </div>
                                                     <div className="flex items-center space-x-2">
@@ -794,7 +968,23 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                             }}
                                                         />
                                                         <Label htmlFor={`${panel.panelId}-daily-deviation`} className="cursor-pointer">
-                                                            Daily Deviation Curve (7-day overlay for &lt;7 day ranges)
+                                                            Daily Deviation Curve (8-Day Overlay for ≤8 day ranges)
+                                                        </Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`${panel.panelId}-combine-events`}
+                                                            checked={panel.type === 'combined'}
+                                                            onCheckedChange={() => {
+                                                                setPanels(prev => prev.map(p => 
+                                                                    p.panelId === panel.panelId 
+                                                                        ? { ...p, type: p.type === 'combined' ? 'separate' : 'combined' }
+                                                                        : p
+                                                                ));
+                                                            }}
+                                                        />
+                                                        <Label htmlFor={`${panel.panelId}-combine-events`} className="cursor-pointer">
+                                                            Show All Event Types Together (Count, Error, Avg in one chart)
                                                         </Label>
                                                     </div>
                                                 </div>
@@ -806,6 +996,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                             events={panel.events}
                                             filters={panel.filters}
                                             graphType={panel.graphType}
+                                            dateRange={panel.dateRange}
                                         />
                                         </>
                                         )}

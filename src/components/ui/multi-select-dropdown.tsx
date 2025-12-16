@@ -109,7 +109,14 @@ export function MultiSelectDropdown<T extends string | number = string>({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full min-w-[250px] p-0" align="start">
+            <PopoverContent 
+                className="w-full min-w-[250px] max-w-[400px] p-0" 
+                align="start"
+                side="bottom"
+                sideOffset={4}
+                avoidCollisions={true}
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 {/* Search Input */}
                 {searchable && (
                     <div className="p-2 border-b">

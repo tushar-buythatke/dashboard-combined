@@ -42,6 +42,11 @@ export interface EventConfig {
     org?: number;
     isErrorEvent?: number;
     isAvgEvent?: number;
+    // API Event specific fields
+    isApiEvent?: boolean;
+    host?: string;
+    url?: string;
+    callUrl?: string;
 }
 
 export type AggregationMethod = 'sum' | 'average' | 'count';
@@ -79,8 +84,10 @@ export interface PanelConfig {
         platforms: number[];
         pos: number[];
         sources: number[];
+        sourceStr?: string[]; // Job IDs (client-side filter)
         graphType: 'line' | 'bar';
         dailyDeviationCurve?: boolean; // For <7 days: show 7-day overlay comparison
+        isApiEvent?: boolean; // Toggle for API events vs regular events
     };
 }
 
@@ -90,6 +97,7 @@ export interface CriticalAlertsConfig {
     refreshInterval: number;
     maxAlerts: number;
     filterByPOS: string[];
+    filterByEvents: string[]; // Event IDs to monitor for alerts
 }
 
 export interface DashboardProfile {

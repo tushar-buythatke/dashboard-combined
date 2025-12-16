@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
@@ -34,7 +34,8 @@ interface ProfileSidebarProps {
     isCollapsed?: boolean;
     onToggleCollapse?: () => void;
     isMobileDrawer?: boolean; // New prop to indicate if rendered in mobile drawer
-    onJumpToPanel?: (panelId: string) => void; // Callback to scroll to specific panel
+    onJumpToPanel?: (panelId: string, panelName?: string) => void; // Callback to scroll to specific panel
+    criticalAlerts?: any[]; // Critical alerts data
 }
 
 export function ProfileSidebar({
@@ -46,7 +47,8 @@ export function ProfileSidebar({
     isCollapsed = false,
     onToggleCollapse,
     isMobileDrawer = false,
-    onJumpToPanel
+    onJumpToPanel,
+    criticalAlerts = []
 }: ProfileSidebarProps) {
     const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -55,7 +57,7 @@ export function ProfileSidebar({
     const [panelTreeExpanded, setPanelTreeExpanded] = useState(true);
     const { user } = useAnalyticsAuth();
     const { deleteProfile } = useFirebaseConfig();
-    const isAdmin = user?.role === 0;
+    const isAdmin = useMemo(() => user?.role === 0, [user?.role]);
 
     useEffect(() => {
         const loadProfiles = async () => {
@@ -101,12 +103,55 @@ export function ProfileSidebar({
         setProfileToDelete(null);
     };
 
-    // Helper to get profile stats - simplified
-    const getProfileStats = (profile: DashboardProfile) => {
+    // Get total alerts for the selected profile (filtered by profile's alert config event selection)
+    const selectedProfileAlertCount = useMemo(() => {
+        if (!criticalAlerts || criticalAlerts.length === 0 || !selectedProfileId) {
+            return 0;
+        }
+        
+        // Find the selected profile
+        const currentProfile = profiles.find(p => p.profileId === selectedProfileId);
+        if (!currentProfile) return criticalAlerts.length;
+        
+        // Check if profile has Critical Alerts config with specific event filter
+        const profileEventFilter = currentProfile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || [];
+        
+        // If no specific events selected, show all alerts
+        if (profileEventFilter.length === 0) {
+            return criticalAlerts.length;
+        }
+        
+        // Filter alerts by profile's selected events
+        const filteredAlerts = criticalAlerts.filter((alert: any) => {
+            const alertEventId = Number(alert.eventId || alert.event_id || alert.eventID);
+            return profileEventFilter.includes(alertEventId);
+        });
+        
+        return filteredAlerts.length;
+    }, [criticalAlerts, selectedProfileId, profiles]);
+
+    // Helper to get profile stats - memoized
+    const getProfileStats = useCallback((profile: DashboardProfile) => {
         const panels = profile.panels || [];
         const totalEvents = panels.reduce((sum, p) => sum + (p.events?.length || 0), 0);
         return { panelCount: panels.length, totalEvents };
-    };
+    }, []);
+
+    // Helper to get alert count for a panel's events - memoized to prevent re-renders
+    const getPanelAlertCount = useCallback((panel: any) => {
+        if (!panel.events || !criticalAlerts || criticalAlerts.length === 0) {
+            return 0;
+        }
+        
+        // Convert both to numbers for comparison since alerts have numeric eventId
+        const panelEventIds = panel.events.map((e: any) => Number(e.eventId));
+        const alertCount = criticalAlerts.filter((alert: any) => {
+            const alertEventId = Number(alert.eventId || alert.event_id || alert.eventID);
+            return panelEventIds.includes(alertEventId);
+        }).length;
+        
+        return alertCount;
+    }, [criticalAlerts]);
 
     // Helper to get chart icon based on panel type
     const getChartIcon = (panel: any) => {
@@ -173,17 +218,17 @@ export function ProfileSidebar({
     const ExpandedContent = () => (
         <div className="flex flex-col h-full bg-gradient-to-b from-purple-50/50 via-white to-indigo-50/30 dark:from-purple-900/20 dark:via-slate-900 dark:to-indigo-900/10">
             {/* Header - Premium gradient */}
-            <div className="p-4 flex items-center justify-between border-b border-purple-200/40 dark:border-purple-500/20 bg-gradient-to-r from-purple-100/80 to-indigo-100/60 dark:from-purple-900/40 dark:to-indigo-900/30">
+            <div className="p-3 flex items-center justify-between border-b border-purple-200/40 dark:border-purple-500/20 bg-gradient-to-r from-purple-100/80 to-indigo-100/60 dark:from-purple-900/40 dark:to-indigo-900/30">
                 <div>
-                    <h2 className="font-bold text-sm bg-gradient-to-r from-purple-700 to-indigo-600 bg-clip-text text-transparent">Profiles</h2>
-                    <p className="text-xs text-purple-500 dark:text-purple-400">{profiles.length} dashboards</p>
+                    <h2 className="font-bold text-xs bg-gradient-to-r from-purple-700 to-indigo-600 bg-clip-text text-transparent">Profiles</h2>
+                    <p className="text-[10px] text-purple-500 dark:text-purple-400">{profiles.length} dashboards</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                     {isAdmin && (
                         <Button
                             onClick={onCreateProfile}
                             size="sm"
-                            className="h-7 px-2 text-xs bg-purple-600 hover:bg-purple-700"
+                            className="h-6 px-2 text-[10px] bg-purple-600 hover:bg-purple-700"
                         >
                             <Plus className="h-3 w-3 mr-1" />
                             New
@@ -193,9 +238,9 @@ export function ProfileSidebar({
                         variant="ghost"
                         size="icon"
                         onClick={onToggleCollapse}
-                        className="h-7 w-7 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        className="h-6 w-6 hover:bg-gray-100 dark:hover:bg-gray-800"
                     >
-                        <ChevronLeft className="h-4 w-4" />
+                        <ChevronLeft className="h-3 w-3" />
                     </Button>
                     <Button
                         variant="ghost"
@@ -208,9 +253,9 @@ export function ProfileSidebar({
                 </div>
             </div>
 
-            {/* Profile List - Minimal */}
-            <div className="flex-1 overflow-y-auto p-3">
-                <div className="space-y-2">
+            {/* Profile List - Minimal & Compact */}
+            <div className="flex-1 overflow-y-auto p-2">
+                <div className="space-y-1.5">
                     {profiles.map((profile) => {
                         const isSelected = selectedProfileId === profile.profileId;
                         const stats = getProfileStats(profile);
@@ -220,38 +265,38 @@ export function ProfileSidebar({
                                 <button
                                     onClick={() => handleSelectProfile(profile.profileId)}
                                     className={cn(
-                                        "w-full text-left p-3 rounded-xl transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]",
+                                        "w-full text-left p-2.5 rounded-lg",
                                         isSelected
-                                            ? "bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-500/20 dark:to-indigo-500/15 border-2 border-purple-400 dark:border-purple-500/50 shadow-lg shadow-purple-500/10"
-                                            : "bg-white/60 dark:bg-slate-800/60 border border-purple-200/40 dark:border-purple-500/20 hover:border-purple-300 dark:hover:border-purple-500/40 hover:shadow-md hover:shadow-purple-500/5 hover:translate-x-1"
+                                            ? "bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-500/20 dark:to-indigo-500/15 border-[3px] border-purple-500 dark:border-purple-400 shadow-lg shadow-purple-500/20"
+                                            : "bg-white/80 dark:bg-slate-800/70 border-[2px] border-purple-300/60 dark:border-purple-500/30 hover:border-purple-400 dark:hover:border-purple-500/50 hover:shadow-md"
                                     )}
                                 >
                                     <div className="flex items-center justify-between">
                                         <span className={cn(
                                             "font-medium text-sm truncate pr-8",
-                                            isSelected ? "text-purple-700 dark:text-purple-300" : "text-foreground"
+                                            isSelected ? "text-purple-900 dark:text-purple-100" : "text-gray-900 dark:text-gray-100"
                                         )}>
                                             {profile.profileName}
                                         </span>
                                         {isSelected && (
-                                            <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-600 dark:text-gray-400">
                                         <span>{stats.panelCount} panels</span>
-                                        <span className="text-gray-300 dark:text-gray-600">|</span>
+                                        <span className="text-gray-400 dark:text-gray-600">|</span>
                                         <span>{stats.totalEvents} events</span>
                                     </div>
                                 </button>
                                 
-                                {/* Admin Delete Button */}
+                                {/* Admin Delete Button - Fixed positioning without duplicate wrapper */}
                                 {isAdmin && (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-100 dark:hover:bg-red-500/20"
+                                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-500/20 z-10"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 <MoreVertical className="h-3 w-3" />
@@ -271,48 +316,57 @@ export function ProfileSidebar({
 
                                 {/* Panel Navigation Tree - Only show for selected profile */}
                                 {isSelected && profile.panels && profile.panels.length > 0 && onJumpToPanel && panelTreeExpanded && (
-                                    <div className="mt-2 ml-2 space-y-1">
-                                        <div className="flex items-center justify-between px-2 py-1.5">
-                                            <span className="text-[10px] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
-                                                <Layers className="w-3 h-3" />
-                                                Panels
+                                    <div className="mt-1.5 ml-1 space-y-1">
+                                        <div className="flex items-center justify-between px-1.5 py-1">
+                                            <span className="text-[9px] uppercase tracking-wider text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-0.5">
+                                                <Layers className="w-2.5 h-2.5" />
                                             </span>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-5 w-5"
+                                                className="h-4 w-4"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setPanelTreeExpanded(false);
                                                 }}
                                             >
-                                                <ChevronUp className="h-3 w-3" />
+                                                <ChevronUp className="h-2.5 w-2.5" />
                                             </Button>
                                         </div>
-                                        {profile.panels.map((panel, index) => (
+                                        {profile.panels.map((panel, index) => {
+                                            // Show total profile alerts on first panel only
+                                            const showAlerts = index === 0 && isSelected;
+                                            const alertCount = showAlerts ? selectedProfileAlertCount : 0;
+                                            return (
                                             <button
                                                 key={panel.panelId}
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    onJumpToPanel(panel.panelId);
+                                                    onJumpToPanel(panel.panelId, panel.panelName || `${index + 1}`);
                                                 }}
-                                                className="w-full text-left px-2 py-2 rounded-lg bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20 border border-purple-200/30 dark:border-purple-500/20 transition-colors group/panel"
+                                                className="w-full text-left px-1.5 py-1.5 rounded-md bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20 border border-purple-200/30 dark:border-purple-500/20 transition-colors group/panel"
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <span className="flex items-center justify-center w-5 h-5 rounded bg-purple-200 dark:bg-purple-800/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold flex-shrink-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="flex items-center justify-center w-4 h-4 rounded bg-purple-200 dark:bg-purple-800/50 text-purple-700 dark:text-purple-300 text-[9px] font-bold flex-shrink-0">
                                                         {index + 1}
                                                     </span>
                                                     <div className="flex-1 min-w-0">
-                                                        <span className="text-xs font-medium text-purple-900 dark:text-purple-100 truncate group-hover/panel:text-purple-700 dark:group-hover/panel:text-purple-200">
-                                                            {panel.panelName || `Panel ${index + 1}`}
+                                                        <span className="text-[10px] font-medium text-purple-900 dark:text-purple-100 truncate group-hover/panel:text-purple-700 dark:group-hover/panel:text-purple-200 block">
+                                                            {panel.panelName || `${index + 1}`}
                                                         </span>
-                                                        <span className="block text-[10px] text-muted-foreground">
+                                                        <span className="block text-[9px] text-muted-foreground">
                                                             {panel.events?.length || 0} events
                                                         </span>
                                                     </div>
+                                                    {alertCount > 0 && (
+                                                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[9px] font-bold flex-shrink-0 shadow-md">
+                                                            <AlertTriangle className="w-2.5 h-2.5" />
+                                                            {alertCount}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </button>
-                                        ))}
+                                        )})}
                                     </div>
                                 )}
 

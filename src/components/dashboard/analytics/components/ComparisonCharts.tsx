@@ -29,7 +29,7 @@ interface ComparisonChartsProps {
 }
 
 /**
- * 7-Day Overlay Comparison Chart
+ * 8-Day Overlay Comparison Chart
  * Shows up to 7 different days overlaid on the same graph for day-wise comparison
  */
 export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
@@ -190,7 +190,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                             <Calendar className="h-5 w-5 text-white" />
                         </div>
                         <div>
-                            <CardTitle className="text-base md:text-lg">7-Day Overlay Comparison</CardTitle>
+                            <CardTitle className="text-base md:text-lg">8-Day Overlay Comparison</CardTitle>
                             <p className="text-xs text-muted-foreground mt-0.5">
                                 Compare patterns across different days
                             </p>
@@ -268,16 +268,10 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                     border: '1px solid #ddd',
                                     borderRadius: '8px'
                                 }}
-                                // itemSorter is called per item; return a numeric rank.
-                                // We want newest day first, so we build an index map and
-                                // return a negative index so higher (newer) indexes come first.
+                                // Sort by value descending - highest first
                                 itemSorter={(item: any) => {
-                                    const orderMap: Record<string, number> = {};
-                                    daySeriesAsc.forEach((ds, idx) => {
-                                        orderMap[ds.label] = idx; // 0 = oldest, max = newest
-                                    });
-                                    const idx = orderMap[item?.name as string] ?? -1;
-                                    return -idx;
+                                    const value = item?.value;
+                                    return typeof value === 'number' ? -value : 0;
                                 }}
                             />
 
