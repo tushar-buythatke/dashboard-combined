@@ -54,7 +54,7 @@ export const PieTooltip = ({ active, payload, totalValue }: any) => {
 };
 
 export interface ExpandedPieData {
-    type: 'platform' | 'pos' | 'source';
+    type: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus';
     title: string;
     data: any[];
 }
@@ -95,6 +95,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                             {pieData.type === 'platform' && <Activity className="h-6 w-6 text-white" />}
                             {pieData.type === 'pos' && <Target className="h-6 w-6 text-white" />}
                             {pieData.type === 'source' && <Zap className="h-6 w-6 text-white" />}
+                            {pieData.type === 'status' && <Activity className="h-6 w-6 text-white" />}
+                            {pieData.type === 'cacheStatus' && <Zap className="h-6 w-6 text-white" />}
                         </div>
                         <div className="flex-1">
                             <h2 className="text-xl font-bold">{pieData.title} Distribution</h2>

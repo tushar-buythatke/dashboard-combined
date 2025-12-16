@@ -409,6 +409,12 @@ const __LeftSidebarNav = ({
                                                     )}>
                                                         {panel.panelName || `Panel ${index + 1}`}
                                                     </span>
+                                                    {/* API Event Indicator in Sidebar */}
+                                                    {(panel as any).filterConfig?.isApiEvent && (
+                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-sm">
+                                                            API
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 {stats && (
                                                     <div className="flex items-center gap-2 mt-1">
@@ -1536,6 +1542,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
     const [panelSelectedEventKey, setPanelSelectedEventKey] = useState<Record<string, string | null>>({});
     const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    
+    // API event metric view (timing, bytes, count)
+    const [apiMetricView, setApiMetricView] = useState<'timing' | 'bytes' | 'count'>('timing');
+    const [panelApiMetricView, setPanelApiMetricView] = useState<Record<string, 'timing' | 'bytes' | 'count'>>({});
 
     // Pinned tooltip for main chart - stores the data point to show in expanded view
     const [pinnedTooltip, setPinnedTooltip] = useState<{ dataPoint: any; label: string } | null>(null);
@@ -1717,7 +1727,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
     // Function to open expanded pie chart and sync with URL so browser
     // back/forward buttons can close/reopen it
-    const openExpandedPie = (type: 'platform' | 'pos' | 'source', title: string, data: any[]) => {
+    const openExpandedPie = (type: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus', title: string, data: any[]) => {
         setExpandedPie({ type, title, data });
         setPieModalOpen(true);
         setSearchParams(prev => {
@@ -1858,7 +1868,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Helper function to process graph response into display format
     // Creates separate data series per event for proper bifurcation
     // Handles avgEvents by plotting avgDelay (time) instead of count
-    const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[]) => {
+    // Handles API events by grouping by status/cacheStatus instead of eventId
+    const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[], isApiEvent: boolean = false) => {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
 
@@ -1870,7 +1881,133 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             eventConfigMap.set(String(e.eventId), e);
         });
 
-        // First pass: collect all unique timestamps and events
+        // For API events, we group by status/cacheStatus instead of eventId
+        if (isApiEvent) {
+            const timeMap = new Map<string, any>();
+            const statusSet = new Set<string>();
+            const cacheStatusSet = new Set<string>();
+
+            (graphResponse.data || []).forEach((record: any) => {
+                const recordDate = new Date(record.timestamp);
+                const dateKey = isHourly
+                    ? recordDate.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        hour12: true
+                    })
+                    : recordDate.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                    });
+
+                const status = record.status ? String(record.status) : 'unknown';
+                const cacheStatus = record.cacheStatus || 'none';
+                statusSet.add(status);
+                cacheStatusSet.add(cacheStatus);
+
+                if (!timeMap.has(dateKey)) {
+                    timeMap.set(dateKey, {
+                        date: dateKey,
+                        timestamp: record.timestamp,
+                        count: 0,
+                        successCount: 0,
+                        failCount: 0,
+                    });
+                }
+
+                const existing = timeMap.get(dateKey)!;
+
+                // Add overall totals
+                existing.count += record.count || 0;
+                existing.successCount += record.successCount || 0;
+                existing.failCount += record.failCount || 0;
+
+                // Add per-status data
+                const statusKey = `status_${status}`;
+                if (!existing[`${statusKey}_count`]) {
+                    existing[`${statusKey}_count`] = 0;
+                    existing[`${statusKey}_success`] = 0;
+                    existing[`${statusKey}_fail`] = 0;
+                    existing[`${statusKey}_avgBytesIn`] = 0;
+                    existing[`${statusKey}_avgBytesOut`] = 0;
+                    existing[`${statusKey}_avgServerToUser`] = 0;
+                    existing[`${statusKey}_avgServerToCloud`] = 0;
+                    existing[`${statusKey}_avgCloudToUser`] = 0;
+                    existing[`${statusKey}_dataPointCount`] = 0;
+                }
+                existing[`${statusKey}_count`] += record.count || 0;
+                existing[`${statusKey}_success`] += record.successCount || 0;
+                existing[`${statusKey}_fail`] += record.failCount || 0;
+                
+                // Accumulate timing metrics for averaging
+                if (record.avgBytesIn) existing[`${statusKey}_avgBytesIn`] += parseFloat(record.avgBytesIn);
+                if (record.avgBytesOut) existing[`${statusKey}_avgBytesOut`] += parseFloat(record.avgBytesOut);
+                if (record.avgServerToUser) existing[`${statusKey}_avgServerToUser`] += parseFloat(record.avgServerToUser);
+                if (record.avgServerToCloud) existing[`${statusKey}_avgServerToCloud`] += parseFloat(record.avgServerToCloud);
+                if (record.avgCloudToUser) existing[`${statusKey}_avgCloudToUser`] += parseFloat(record.avgCloudToUser);
+                existing[`${statusKey}_dataPointCount`] += 1;
+
+                // Add per-cacheStatus data
+                const cacheKey = `cache_${cacheStatus}`;
+                if (!existing[`${cacheKey}_count`]) {
+                    existing[`${cacheKey}_count`] = 0;
+                    existing[`${cacheKey}_success`] = 0;
+                    existing[`${cacheKey}_fail`] = 0;
+                }
+                existing[`${cacheKey}_count`] += record.count || 0;
+                existing[`${cacheKey}_success`] += record.successCount || 0;
+                existing[`${cacheKey}_fail`] += record.failCount || 0;
+            });
+
+            // Calculate averages for timing metrics
+            timeMap.forEach((entry) => {
+                statusSet.forEach(status => {
+                    const statusKey = `status_${status}`;
+                    const dataPointCount = entry[`${statusKey}_dataPointCount`] || 0;
+                    if (dataPointCount > 0) {
+                        entry[`${statusKey}_avgBytesIn`] = entry[`${statusKey}_avgBytesIn`] / dataPointCount;
+                        entry[`${statusKey}_avgBytesOut`] = entry[`${statusKey}_avgBytesOut`] / dataPointCount;
+                        entry[`${statusKey}_avgServerToUser`] = entry[`${statusKey}_avgServerToUser`] / dataPointCount;
+                        entry[`${statusKey}_avgServerToCloud`] = entry[`${statusKey}_avgServerToCloud`] / dataPointCount;
+                        entry[`${statusKey}_avgCloudToUser`] = entry[`${statusKey}_avgCloudToUser`] / dataPointCount;
+                    }
+                });
+            });
+
+            const sortedData = Array.from(timeMap.values()).sort(
+                (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+
+            // Build event keys for status codes
+            const statusEventKeys = Array.from(statusSet).map(status => ({
+                eventId: `status_${status}`,
+                eventName: `Status ${status}`,
+                eventKey: `status_${status}`,
+                isErrorEvent: parseInt(status) >= 400 ? 1 : 0,
+                isAvgEvent: 0,
+                isApiEvent: true,
+                apiMetricType: 'status' as const
+            }));
+
+            // Build event keys for cache status
+            const cacheEventKeys = Array.from(cacheStatusSet).map(cache => ({
+                eventId: `cache_${cache}`,
+                eventName: `Cache: ${cache}`,
+                eventKey: `cache_${cache}`,
+                isErrorEvent: 0,
+                isAvgEvent: 0,
+                isApiEvent: true,
+                apiMetricType: 'cache' as const
+            }));
+
+            return {
+                data: sortedData,
+                eventKeys: [...statusEventKeys, ...cacheEventKeys]
+            };
+        }
+
+        // Regular event processing (non-API events)
         const timeMap = new Map<string, any>();
         const eventIds = new Set<string>();
 
@@ -1976,12 +2113,34 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         if (rawGraphResponse && events.length > 0) {
             // First filter the raw data by selected sourceStrs
             const filteredResponse = filterBySourceStr(rawGraphResponse, selectedSourceStrs);
+            // Check if main panel is API event panel
+            const mainPanelConfig = profile?.panels?.[0]?.filterConfig as any;
+            const isApiEvent = mainPanelConfig?.isApiEvent || false;
             // Then process the filtered data
-            const processedResult = processGraphData(filteredResponse, dateRange.from, dateRange.to, events);
+            const processedResult = processGraphData(filteredResponse, dateRange.from, dateRange.to, events, isApiEvent);
             setGraphData(processedResult.data);
             setEventKeys(processedResult.eventKeys || []);
         }
-    }, [selectedSourceStrs, rawGraphResponse, dateRange, events, processGraphData, filterBySourceStr]);
+    }, [selectedSourceStrs, rawGraphResponse, dateRange, events, processGraphData, filterBySourceStr, profile]);
+
+    // Auto-select first event when eventKeys change (default to showing only first event)
+    useEffect(() => {
+        if (eventKeys.length > 0 && !selectedEventKey) {
+            setSelectedEventKey(eventKeys[0].eventKey);
+        }
+    }, [eventKeys, selectedEventKey]);
+    
+    // Auto-select first event for each panel when their eventKeys change
+    useEffect(() => {
+        panelsDataMap.forEach((panelData, panelId) => {
+            if (panelData.eventKeys && panelData.eventKeys.length > 0 && !panelSelectedEventKey[panelId]) {
+                setPanelSelectedEventKey(prev => ({
+                    ...prev,
+                    [panelId]: panelData.eventKeys![0].eventKey
+                }));
+            }
+        });
+    }, [panelsDataMap, panelSelectedEventKey]);
 
     // Function to refresh a single panel's data
     const refreshPanelData = useCallback(async (panelId: string) => {
@@ -2033,14 +2192,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             // Check if panel has API events (any event with isApiEvent flag)
             const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
 
+            // For API events, send empty arrays for platform/pos/source (API groups by status/cacheStatus)
             const graphResponse = await apiService.getGraphData(
-                panelFilters.events,
-                panelFilters.platforms,
-                panelFilters.pos,
-                panelFilters.sources,
+                panelFilters.events, // Only eventIds are used for API events
+                hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
+                hasApiEvents ? [] : panelFilters.pos, // Empty for API events
+                hasApiEvents ? [] : panelFilters.sources, // Empty for API events
                 panelDateRange.from,
                 panelDateRange.to,
-                hasApiEvents // Pass isApiEvent flag
+                hasApiEvents // Pass isApiEvent flag -> sets isApi: true in request body
             );
 
             // Pie chart is optional - don't fail the whole refresh if it fails
@@ -2048,11 +2208,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             try {
                 pieResponse = await apiService.getPieChartData(
                     panelFilters.events,
-                    panelFilters.platforms,
-                    panelFilters.pos,
-                    panelFilters.sources,
+                    hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
+                    hasApiEvents ? [] : panelFilters.pos, // Empty for API events
+                    hasApiEvents ? [] : panelFilters.sources, // Empty for API events
                     panelDateRange.from,
-                    panelDateRange.to
+                    panelDateRange.to,
+                    hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
                 );
             } catch (pieErr) {
                 console.warn(`⚠️ Pie chart data failed for panel ${panelId}, continuing without it:`, pieErr);
@@ -2063,7 +2224,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
             // Apply sourceStr filter (client-side) then process
             const filteredResponse = filterBySourceStr(graphResponse, currentSourceStrFilter);
-            const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events);
+            const isApiEventPanel = panelConfig?.isApiEvent || false;
+            const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel);
 
             console.log(`✅ PANEL ${panelId} - Processed data:`, {
                 dataLength: processedResult.data.length,
@@ -2210,14 +2372,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
 
                 try {
+                    // For API events, send empty arrays for platform/pos/source
                     const graphResponse = await apiService.getGraphData(
-                        panelFilters.events,
-                        panelFilters.platforms,
-                        panelFilters.pos,
-                        panelFilters.sources,
+                        panelFilters.events, // Only eventIds matter for API events
+                        hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
+                        hasApiEvents ? [] : panelFilters.pos, // Empty for API events
+                        hasApiEvents ? [] : panelFilters.sources, // Empty for API events
                         panelDateRange.from,
                         panelDateRange.to,
-                        hasApiEvents // Pass isApiEvent flag
+                        hasApiEvents // Pass isApiEvent flag -> sets isApi: true
                     );
 
                     // Pie chart is optional - don't fail the whole refresh if it fails
@@ -2225,11 +2388,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     try {
                         pieResponse = await apiService.getPieChartData(
                             panelFilters.events,
-                            panelFilters.platforms,
-                            panelFilters.pos,
-                            panelFilters.sources,
+                            hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
+                            hasApiEvents ? [] : panelFilters.pos, // Empty for API events
+                            hasApiEvents ? [] : panelFilters.sources, // Empty for API events
                             panelDateRange.from,
-                            panelDateRange.to
+                            panelDateRange.to,
+                            hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
                         );
                     } catch (pieErr) {
                         console.warn(`⚠️ Pie chart data failed for panel ${panel.panelId}, continuing without it:`, pieErr);
@@ -2237,7 +2401,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                     // Extract available sourceStrs from raw response
                     const graphSourceStrs = extractSourceStrs(graphResponse);
-                    const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events);
+                    // Check if this panel is configured for API events
+                    const isApiEventPanel = panelConfig?.isApiEvent || false;
+                    const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel);
 
                     return {
                         panelId: panel.panelId,
@@ -3175,7 +3341,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                             <BarChart3 className="h-5 w-5 text-white" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg">
+                                            <CardTitle className="text-base md:text-lg flex items-center gap-2">
+                                                {/* API Event Indicator Badge */}
+                                                {profile?.panels?.[0]?.filterConfig?.isApiEvent && (
+                                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
+                                                        API
+                                                    </span>
+                                                )}
                                                 {(() => {
                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
                                                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
@@ -3480,7 +3652,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
                                                     />
                                                     {/* Dynamic areas for normal (count) events only */}
-                                                    {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo, index) => {
+                                                    {normalEventKeys.length > 0 ? normalEventKeys
+                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                        .map((eventKeyInfo, index) => {
                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                         const eventKey = eventKeyInfo.eventKey;
@@ -3492,8 +3666,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                 name={eventKeyInfo.eventName}
                                                                 yAxisId="left"
                                                                 stroke={color}
-                                                                strokeWidth={selectedEventKey === eventKey ? 4 : 2.5}
-                                                                fillOpacity={selectedEventKey && selectedEventKey !== eventKey ? 0.3 : 1}
+                                                                strokeWidth={2.5}
+                                                                fillOpacity={1}
                                                                 fill={`url(#areaColor_${eventKey})`}
                                                                 dot={false}
                                                                 activeDot={{
@@ -3720,7 +3894,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }}
                                                 />
                                                 {/* Dynamic areas for avg (time) events */}
-                                                {avgEventKeys.map((eventKeyInfo, index) => {
+                                                {avgEventKeys
+                                                    .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                    .map((eventKeyInfo, index) => {
                                                     const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                     const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                     const eventKey = eventKeyInfo.eventKey;
@@ -3762,6 +3938,194 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         </Card>
                     </motion.div>
                 )}
+
+                {/* API Events Chart - For isApiEvent panels showing status codes and timing metrics */}
+                {(() => {
+                    const mainPanelConfig = profile?.panels?.[0]?.filterConfig as any;
+                    const isApiEvent = mainPanelConfig?.isApiEvent || false;
+                    
+                    if (!isApiEvent || eventKeys.length === 0) return null;
+                    
+                    return (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.6 }}
+                        >
+                            <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                                <CardHeader className="pb-2 px-3 md:px-6">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                                        <div className="flex items-center gap-3">
+                                            <motion.div
+                                                className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20"
+                                                whileHover={{ scale: 1.05, rotate: 5 }}
+                                            >
+                                                <Activity className="h-5 w-5 text-white" />
+                                            </motion.div>
+                                            <div className="flex-1 min-w-0">
+                                                <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    <span className="hidden md:inline">Response times, data transfer, and status code distribution</span>
+                                                    <span className="md:hidden">API timing and status metrics</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">API Events</span>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
+                                    {/* Collapsible Legend - Status codes and cache status */}
+                                    {eventKeys.length > 0 && (
+                                        <CollapsibleLegend
+                                            eventKeys={eventKeys}
+                                            events={events}
+                                            isExpanded={mainLegendExpanded}
+                                            onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
+                                            maxVisibleItems={5}
+                                            graphData={graphData}
+                                            selectedEventKey={selectedEventKey}
+                                            onEventClick={handleEventClick}
+                                        />
+                                    )}
+
+                                    {/* Tabs for different metrics */}
+                                    <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+                                        {(['timing', 'bytes', 'count'] as const).map((tab) => (
+                                            <button
+                                                key={tab}
+                                                onClick={() => setApiMetricView(tab)}
+                                                className={cn(
+                                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+                                                    apiMetricView === tab
+                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                )}
+                                            >
+                                                {tab === 'timing' && '⏱️ Response Time'}
+                                                {tab === 'bytes' && '📊 Data Transfer'}
+                                                {tab === 'count' && '📈 Request Count'}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
+                                        {graphData.length > 0 ? (
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart
+                                                    data={graphData}
+                                                    margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
+                                                >
+                                                    <defs>
+                                                        {eventKeys.map((eventKeyInfo, index) => {
+                                                            const color = EVENT_COLORS[index % EVENT_COLORS.length];
+                                                            return (
+                                                                <linearGradient key={`apiGrad_${eventKeyInfo.eventKey}`} id={`apiColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                </linearGradient>
+                                                            );
+                                                        })}
+                                                    </defs>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                    <XAxis
+                                                        dataKey="date"
+                                                        tick={<CustomXAxisTick isHourly={isHourly} />}
+                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                        tickLine={false}
+                                                        height={45}
+                                                        interval={Math.floor(graphData.length / 8)}
+                                                    />
+                                                    <YAxis
+                                                        tick={{ fill: '#3b82f6', fontSize: 11 }}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                        tickFormatter={(value) => {
+                                                            if (!value || value <= 0) return '0';
+                                                            if (apiMetricView === 'timing') {
+                                                                // Milliseconds
+                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
+                                                                return `${value.toFixed(0)}ms`;
+                                                            } else if (apiMetricView === 'bytes') {
+                                                                // Bytes
+                                                                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
+                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}KB`;
+                                                                return `${value.toFixed(0)}B`;
+                                                            } else {
+                                                                // Count
+                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                                                                return value;
+                                                            }
+                                                        }}
+                                                        dx={-10}
+                                                        label={{ 
+                                                            value: apiMetricView === 'timing' ? 'Time (ms)' : apiMetricView === 'bytes' ? 'Data (bytes)' : 'Count', 
+                                                            angle: -90, 
+                                                            position: 'insideLeft', 
+                                                            style: { fill: '#3b82f6', fontSize: 10 } 
+                                                        }}
+                                                    />
+                                                    <Tooltip
+                                                        content={<CustomTooltip events={events} eventKeys={eventKeys} />}
+                                                        cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                    />
+                                                    {/* Dynamic areas based on selected metric view */}
+                                                    {eventKeys
+                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                        .map((eventKeyInfo, index) => {
+                                                        const color = EVENT_COLORS[index % EVENT_COLORS.length];
+                                                        const eventKey = eventKeyInfo.eventKey;
+                                                        
+                                                        // Determine dataKey based on metric view
+                                                        let dataKey = `${eventKey}_count`;
+                                                        if (apiMetricView === 'timing') {
+                                                            // Show average total time (server to user)
+                                                            dataKey = `${eventKey}_avgServerToUser`;
+                                                        } else if (apiMetricView === 'bytes') {
+                                                            // Show average bytes out (data sent to user)
+                                                            dataKey = `${eventKey}_avgBytesOut`;
+                                                        }
+                                                        
+                                                        return (
+                                                            <Area
+                                                                key={`api_${eventKey}_${apiMetricView}`}
+                                                                type="monotone"
+                                                                dataKey={dataKey}
+                                                                name={eventKeyInfo.eventName}
+                                                                stroke={color}
+                                                                strokeWidth={2.5}
+                                                                fillOpacity={1}
+                                                                fill={`url(#apiColor_${eventKey})`}
+                                                                dot={false}
+                                                                activeDot={{
+                                                                    r: 8,
+                                                                    fill: color,
+                                                                    stroke: '#fff',
+                                                                    strokeWidth: 3,
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                                isAnimationActive={false}
+                                                                animationDuration={0}
+                                                            />
+                                                        );
+                                                    })}
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                <Activity className="h-12 w-12 mb-3 opacity-30" />
+                                                <p className="text-sm">
+                                                    {dataLoading ? 'Loading API metrics...' : 'No API data available'}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
+                    );
+                })()}
 
                 {/* Error Events Chart - For isError Events Only (not isAvg) */}
                 {errorEventKeys.length > 0 && (
@@ -3847,7 +4211,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }}
                                                 />
                                                 {/* For error events: success = error count, fail = non-error count */}
-                                                {errorEventKeys.map((eventKeyInfo) => {
+                                                {errorEventKeys
+                                                    .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                    .map((eventKeyInfo) => {
                                                     const eventKey = eventKeyInfo.eventKey;
                                                     return (
                                                         <React.Fragment key={`error_main_${eventKey}`}>
@@ -3892,6 +4258,180 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                 {/* Pie Charts - Shown above Hourly Insights, hidden if only 1 item (100% share) */}
                 {(() => {
+                    // Check if this is an API event panel
+                    const mainPanelConfig = profile?.panels?.[0]?.filterConfig as any;
+                    const isApiEvent = mainPanelConfig?.isApiEvent || false;
+                    
+                    if (isApiEvent) {
+                        // API Event Pie Charts - Status and CacheStatus distribution
+                        const statusData = pieChartData?.status ? Object.entries(pieChartData.status).map(([key, val]: [string, any]) => ({
+                            name: `${val.status}`,
+                            value: val.count
+                        })) : [];
+                        
+                        const cacheStatusData = pieChartData?.cacheStatus ? Object.entries(pieChartData.cacheStatus).map(([key, val]: [string, any]) => ({
+                            name: val.cacheStatus || 'Unknown',
+                            value: val.count
+                        })) : [];
+                        
+                        const showStatus = statusData.length > 1;
+                        const showCacheStatus = cacheStatusData.length > 1;
+                        const visibleCount = [showStatus, showCacheStatus].filter(Boolean).length;
+                        
+                        if (visibleCount === 0) return null;
+                        
+                        const gridClass = visibleCount === 1 ? "grid-cols-1 max-w-md mx-auto" : "grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto";
+                        
+                        return (
+                            <div className={cn("grid gap-3 md:gap-4", gridClass)}>
+                                {/* Status Code Distribution */}
+                                {showStatus && (
+                                    <div>
+                                        <Card className="border border-blue-200/60 dark:border-blue-500/30 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-500/5 dark:to-indigo-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                            <CardHeader className="pb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                                                            <Hash className="h-4 w-4 text-white" />
+                                                        </div>
+                                                        <CardTitle className="text-sm font-semibold text-foreground">Status Codes</CardTitle>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                                                            {statusData.length} codes
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 hover:bg-blue-100 dark:hover:bg-blue-500/20"
+                                                            onClick={() => openExpandedPie('status', 'Status Codes', statusData)}
+                                                        >
+                                                            <Maximize2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="h-52">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <PieChart>
+                                                            <Pie
+                                                                data={statusData}
+                                                                cx="50%"
+                                                                cy="45%"
+                                                                innerRadius={35}
+                                                                outerRadius={65}
+                                                                paddingAngle={2}
+                                                                dataKey="value"
+                                                                strokeWidth={2}
+                                                                stroke="#fff"
+                                                                isAnimationActive={false}
+                                                                animationDuration={0}
+                                                            >
+                                                                {statusData.map((_: any, index: number) => (
+                                                                    <Cell
+                                                                        key={`status-cell-${index}`}
+                                                                        fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                                    />
+                                                                ))}
+                                                            </Pie>
+                                                            <Tooltip
+                                                                content={<PieTooltip
+                                                                    totalValue={statusData.reduce((acc: number, item: any) => acc + item.value, 0)}
+                                                                    category="Status Code"
+                                                                />}
+                                                            />
+                                                            <Legend
+                                                                iconType="circle"
+                                                                iconSize={8}
+                                                                layout="horizontal"
+                                                                verticalAlign="bottom"
+                                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                            />
+                                                        </PieChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )}
+                                
+                                {/* Cache Status Distribution */}
+                                {showCacheStatus && (
+                                    <div>
+                                        <Card className="border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/50 to-fuchsia-50/30 dark:from-purple-500/5 dark:to-fuchsia-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                            <CardHeader className="pb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-600 flex items-center justify-center shadow-md">
+                                                            <Zap className="h-4 w-4 text-white" />
+                                                        </div>
+                                                        <CardTitle className="text-sm font-semibold text-foreground">Cache Status</CardTitle>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300">
+                                                            {cacheStatusData.length} types
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 hover:bg-purple-100 dark:hover:bg-purple-500/20"
+                                                            onClick={() => openExpandedPie('cacheStatus', 'Cache Status', cacheStatusData)}
+                                                        >
+                                                            <Maximize2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <div className="h-52">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <PieChart>
+                                                            <Pie
+                                                                data={cacheStatusData}
+                                                                cx="50%"
+                                                                cy="45%"
+                                                                innerRadius={35}
+                                                                outerRadius={65}
+                                                                paddingAngle={2}
+                                                                dataKey="value"
+                                                                strokeWidth={2}
+                                                                stroke="#fff"
+                                                                isAnimationActive={false}
+                                                                animationDuration={0}
+                                                            >
+                                                                {cacheStatusData.map((_: any, index: number) => (
+                                                                    <Cell
+                                                                        key={`cache-cell-${index}`}
+                                                                        fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                                    />
+                                                                ))}
+                                                            </Pie>
+                                                            <Tooltip
+                                                                content={<PieTooltip
+                                                                    totalValue={cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0)}
+                                                                    category="Cache Status"
+                                                                />}
+                                                            />
+                                                            <Legend
+                                                                iconType="circle"
+                                                                iconSize={8}
+                                                                layout="horizontal"
+                                                                verticalAlign="bottom"
+                                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                            />
+                                                        </PieChart>
+                                                    </ResponsiveContainer>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    }
+                    
+                    // Regular Event Pie Charts - Platform, POS, Source
                     // Process pie chart data - combine duplicates and filter out single-item charts
                     const platformData = pieChartData?.platform ? combinePieChartDuplicates(pieChartData.platform) : [];
                     const posData = pieChartData?.pos ? combinePieChartDuplicates(pieChartData.pos) : [];
@@ -4213,6 +4753,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                     >
                                         <span className="text-white font-bold text-sm flex items-center gap-2">
                                             <Layers className="w-4 h-4" />
+                                            {panelConfig?.isApiEvent && (
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-white/30 backdrop-blur-sm border border-white/50">
+                                                    API
+                                                </span>
+                                            )}
                                             Panel {panelIndex + 2}: {panel.panelName}
                                         </span>
                                     </motion.div>
@@ -4237,6 +4782,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                             <div>
                                                 <h2 className="text-2xl font-bold text-foreground">{panel.panelName}</h2>
                                                 <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                                    {/* API Event Indicator Badge */}
+                                                    {panelConfig?.isApiEvent && (
+                                                        <>
+                                                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
+                                                                API
+                                                            </span>
+                                                            <span className="text-muted-foreground">•</span>
+                                                        </>
+                                                    )}
                                                     <span className={cn(
                                                         "px-2 py-0.5 rounded-full text-xs font-medium",
                                                         panelGraphType === 'bar'
@@ -4566,7 +5120,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                         tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                    {pNormalEventKeys.map((eventKeyInfo, index) => {
+                                                                    {pNormalEventKeys
+                                                                        .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
+                                                                        .map((eventKeyInfo, index) => {
                                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                         return (
@@ -4691,26 +5247,52 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 : pEventStatsForBadges;
                                             
                                             return (
-                                                <DayWiseComparisonChart 
-                                                    data={pGraphData}
-                                                    dateRange={currentPanelDateRange}
-                                                    eventKeys={filteredEventKeys}
-                                                    eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                    eventStats={filteredEventStats}
-                                                    selectedEventKey={selectedEventKey}
-                                                    onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                                />
+                                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                                    <CardHeader className="pb-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                                <CardTitle className="text-base font-semibold">8-Day Hourly Comparison</CardTitle>
+                                                            </div>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                                onClick={() => {
+                                                                    setPanelChartType(prev => ({
+                                                                        ...prev,
+                                                                        [panel.panelId]: 'default',
+                                                                    }));
+                                                                }}
+                                                            >
+                                                                ← Event Trends
+                                                            </Button>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                                        <DayWiseComparisonChart 
+                                                            data={pGraphData}
+                                                            dateRange={currentPanelDateRange}
+                                                            eventKeys={filteredEventKeys}
+                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                            eventStats={filteredEventStats}
+                                                            selectedEventKey={selectedEventKey}
+                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                        />
+                                                    </CardContent>
+                                                </Card>
                                             );
                                         })()}
 
                                         {/* Panel Chart - isAvg Events (Time Delay) */}
-                                        {pAvgEventKeys.length > 0 && (
+                                        {/* Show combined or separate based on panel.type */}
+                                        {pAvgEventKeys.length > 0 && panel.type === 'combined' && (
                                             <Card className="border border-amber-200/60 dark:border-amber-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
                                                 <CardHeader className="pb-2">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <Clock className="w-4 h-4 text-amber-500" />
-                                                            <CardTitle className="text-base font-semibold">Time Delay Trends</CardTitle>
+                                                            <CardTitle className="text-base font-semibold">Time Delay Trends (Combined)</CardTitle>
                                                         </div>
                                                         <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
                                                     </div>
@@ -4781,7 +5363,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                         }}
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                    {pAvgEventKeys.map((eventKeyInfo, index) => {
+                                                                    {pAvgEventKeys
+                                                                        .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
+                                                                        .map((eventKeyInfo, index) => {
                                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                         return (
@@ -4872,14 +5456,89 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                             </Card>
                                         )}
 
+                                        {/* Panel Charts - Separate isAvg Events (one chart per event) */}
+                                        {pAvgEventKeys.length > 0 && panel.type === 'separate' && pAvgEventKeys.map((avgEventKeyInfo, avgIdx) => {
+                                            const avgEvent = events.find(e => String(e.eventId) === avgEventKeyInfo.eventId);
+                                            const avgColor = avgEvent?.color || EVENT_COLORS[avgIdx % EVENT_COLORS.length];
+                                            const featureId = avgEvent?.feature;
+                                            
+                                            return (
+                                                <Card key={`avg_sep_${panel.panelId}_${avgEventKeyInfo.eventKey}`} className="border border-amber-200/60 dark:border-amber-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                                    <CardHeader className="pb-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <Clock className="w-4 h-4 text-amber-500" />
+                                                                <CardTitle className="text-base font-semibold">{avgEventKeyInfo.eventName}</CardTitle>
+                                                            </div>
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Event</span>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        <div className="h-[400px]">
+                                                            {pGraphData.length > 0 ? (
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <AreaChart 
+                                                                        data={pGraphData} 
+                                                                        margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    >
+                                                                        <defs>
+                                                                            <linearGradient id={`avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <stop offset="5%" stopColor={avgColor} stopOpacity={0.4} />
+                                                                                <stop offset="95%" stopColor={avgColor} stopOpacity={0.05} />
+                                                                            </linearGradient>
+                                                                        </defs>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <YAxis
+                                                                            tick={{ fill: '#f59e0b', fontSize: 10 }}
+                                                                            axisLine={false}
+                                                                            tickLine={false}
+                                                                            tickFormatter={(value) => {
+                                                                                if (!value || value <= 0) return '0';
+                                                                                if (featureId === 1) {
+                                                                                    if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                                                    return `${value.toFixed(1)}m`;
+                                                                                }
+                                                                                if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                                                return `${value.toFixed(1)}s`;
+                                                                            }}
+                                                                        />
+                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={[avgEventKeyInfo]} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                        <Area
+                                                                            type="monotone"
+                                                                            dataKey={`${avgEventKeyInfo.eventKey}_avgDelay`}
+                                                                            name={avgEventKeyInfo.eventName}
+                                                                            stroke={avgColor}
+                                                                            strokeWidth={2.5}
+                                                                            fill={`url(#avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey})`}
+                                                                            dot={{ fill: avgColor, strokeWidth: 0, r: 3 }}
+                                                                            activeDot={{
+                                                                                r: 8,
+                                                                                fill: avgColor,
+                                                                                stroke: '#fff',
+                                                                                strokeWidth: 3
+                                                                            }}
+                                                                        />
+                                                                    </AreaChart>
+                                                                </ResponsiveContainer>
+                                                            ) : (
+                                                                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                            )}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+
                                         {/* Panel Chart - isError Events (Error Tracking) */}
-                                        {pErrorEventKeys.length > 0 && (
+                                        {/* Show combined or separate based on panel.type */}
+                                        {pErrorEventKeys.length > 0 && panel.type === 'combined' && (
                                             <Card className="border border-red-200/60 dark:border-red-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
                                                 <CardHeader className="pb-2">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <AlertTriangle className="w-4 h-4 text-red-500" />
-                                                            <CardTitle className="text-base font-semibold">Error Event Trends</CardTitle>
+                                                            <CardTitle className="text-base font-semibold">Error Event Trends (Combined)</CardTitle>
                                                         </div>
                                                         <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
                                                     </div>
@@ -4941,7 +5600,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                         tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                    {pErrorEventKeys.map((eventKeyInfo, idx) => {
+                                                                    {pErrorEventKeys
+                                                                        .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
+                                                                        .map((eventKeyInfo, idx) => {
                                                                         const eventKey = eventKeyInfo.eventKey;
                                                                         const errorColor = ERROR_COLORS[idx % ERROR_COLORS.length];
                                                                         return (
@@ -5050,6 +5711,92 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 })()}
                                             </Card>
                                         )}
+
+                                        {/* Panel Charts - Separate isError Events (one chart per event) */}
+                                        {pErrorEventKeys.length > 0 && panel.type === 'separate' && pErrorEventKeys.map((errorEventKeyInfo, errorIdx) => {
+                                            const errorEvent = events.find(e => String(e.eventId) === errorEventKeyInfo.eventId);
+                                            const errorColor = errorEvent?.color || ERROR_COLORS[errorIdx % ERROR_COLORS.length];
+                                            
+                                            return (
+                                                <Card key={`error_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} className="border border-red-200/60 dark:border-red-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                                    <CardHeader className="pb-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                                                <CardTitle className="text-base font-semibold">{errorEventKeyInfo.eventName}</CardTitle>
+                                                            </div>
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Event</span>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        <div className="h-[400px]">
+                                                            {pGraphData.length > 0 ? (
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <AreaChart 
+                                                                        data={pGraphData} 
+                                                                        margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    >
+                                                                        <defs>
+                                                                            <linearGradient id={`errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
+                                                                                <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
+                                                                            </linearGradient>
+                                                                            <linearGradient id={`errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                                                                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                                                                            </linearGradient>
+                                                                        </defs>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <YAxis
+                                                                            tick={{ fill: '#ef4444', fontSize: 10 }}
+                                                                            axisLine={false}
+                                                                            tickLine={false}
+                                                                            tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                                                        />
+                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={[errorEventKeyInfo]} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                        {/* Error count */}
+                                                                        <Area
+                                                                            type="monotone"
+                                                                            dataKey={`${errorEventKeyInfo.eventKey}_success`}
+                                                                            name={`Errors`}
+                                                                            stroke={errorColor}
+                                                                            strokeWidth={2.5}
+                                                                            fill={`url(#errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
+                                                                            dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
+                                                                            activeDot={{
+                                                                                r: 8,
+                                                                                fill: errorColor,
+                                                                                stroke: '#fff',
+                                                                                strokeWidth: 3
+                                                                            }}
+                                                                        />
+                                                                        {/* Non-error count (OK) */}
+                                                                        <Area
+                                                                            type="monotone"
+                                                                            dataKey={`${errorEventKeyInfo.eventKey}_fail`}
+                                                                            name={`OK`}
+                                                                            stroke="#22c55e"
+                                                                            strokeWidth={2}
+                                                                            fill={`url(#errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
+                                                                            dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
+                                                                            activeDot={{
+                                                                                r: 6,
+                                                                                fill: '#22c55e',
+                                                                                stroke: '#fff',
+                                                                                strokeWidth: 2
+                                                                            }}
+                                                                        />
+                                                                    </AreaChart>
+                                                                </ResponsiveContainer>
+                                                            ) : (
+                                                                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                            )}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
 
                                         {/* Fallback - All events in one chart if no type separation */}
                                         {pNormalEventKeys.length === 0 && pAvgEventKeys.length === 0 && pErrorEventKeys.length === 0 && pEventKeys.length > 0 && (

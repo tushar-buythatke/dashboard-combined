@@ -761,13 +761,20 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                         /* Regular Panel - Full filter configuration */
                                         <>
                                         {/* API Events Toggle */}
-                                        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
+                                        <div className={cn(
+                                            "flex items-center justify-between p-4 rounded-lg border",
+                                            availableEvents.filter(e => e.isApiEvent === true).length > 0
+                                                ? "bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200 dark:border-purple-500/30"
+                                                : "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60"
+                                        )}>
                                             <div className="flex flex-col">
                                                 <Label className="font-semibold text-base">Event Type</Label>
                                                 <p className="text-xs text-muted-foreground mt-1">
-                                                    {panel.isApiEvent 
-                                                        ? "Monitoring API events (host/url/callUrl)"
-                                                        : "Monitoring regular feature events"}
+                                                    {availableEvents.filter(e => e.isApiEvent === true).length === 0
+                                                        ? "No API events available for this feature"
+                                                        : panel.isApiEvent 
+                                                            ? "Monitoring API events (host/url/callUrl)"
+                                                            : "Monitoring regular feature events"}
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -775,6 +782,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 <Switch
                                                     checked={panel.isApiEvent || false}
                                                     onCheckedChange={() => toggleApiEvent(panel.panelId)}
+                                                    disabled={availableEvents.filter(e => e.isApiEvent === true).length === 0}
                                                 />
                                             </div>
                                         </div>
@@ -795,34 +803,46 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                     onChange={(values) => updatePanelFilter(panel.panelId, 'events', values)}
                                                     placeholder={panel.isApiEvent ? "Select API events" : "Select events"}
                                                 />
+                                                {panel.isApiEvent && panel.filters.events.length > 0 && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {(() => {
+                                                            const selectedEvent = availableEvents.find(e => e.eventId === panel.filters.events[0]?.toString());
+                                                            return selectedEvent?.callUrl ? `Call URL: ${selectedEvent.callUrl}` : '';
+                                                        })()}
+                                                    </p>
+                                                )}
                                             </div>
-                                            <div className="space-y-2">
-                                                <Label>Platform</Label>
-                                                <MultiSelectDropdown
-                                                    options={platformOptions}
-                                                    selected={panel.filters.platforms.map(id => id.toString())}
-                                                    onChange={(values) => updatePanelFilter(panel.panelId, 'platforms', values)}
-                                                    placeholder="Select platforms"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>POS</Label>
-                                                <MultiSelectDropdown
-                                                    options={posOptions}
-                                                    selected={panel.filters.pos.map(id => id.toString())}
-                                                    onChange={(values) => updatePanelFilter(panel.panelId, 'pos', values)}
-                                                    placeholder="Select POS"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Source</Label>
-                                                <MultiSelectDropdown
-                                                    options={sourceOptions}
-                                                    selected={panel.filters.sources.map(id => id.toString())}
-                                                    onChange={(values) => updatePanelFilter(panel.panelId, 'sources', values)}
-                                                    placeholder="Select sources"
-                                                />
-                                            </div>
+                                            {!panel.isApiEvent && (
+                                                <>
+                                                    <div className="space-y-2">
+                                                        <Label>Platform</Label>
+                                                        <MultiSelectDropdown
+                                                            options={platformOptions}
+                                                            selected={panel.filters.platforms.map(id => id.toString())}
+                                                            onChange={(values) => updatePanelFilter(panel.panelId, 'platforms', values)}
+                                                            placeholder="Select platforms"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>POS</Label>
+                                                        <MultiSelectDropdown
+                                                            options={posOptions}
+                                                            selected={panel.filters.pos.map(id => id.toString())}
+                                                            onChange={(values) => updatePanelFilter(panel.panelId, 'pos', values)}
+                                                            placeholder="Select POS"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Source</Label>
+                                                        <MultiSelectDropdown
+                                                            options={sourceOptions}
+                                                            selected={panel.filters.sources.map(id => id.toString())}
+                                                            onChange={(values) => updatePanelFilter(panel.panelId, 'sources', values)}
+                                                            placeholder="Select sources"
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
                                             <div className="space-y-2">
                                                 <Label>Date Range</Label>
                                                 <Popover>
@@ -854,6 +874,15 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 </Popover>
                                             </div>
                                         </div>
+
+                                        {/* Show info for API events about status/cacheStatus filtering */}
+                                        {panel.isApiEvent && (
+                                            <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-500/20">
+                                                <p className="text-sm text-muted-foreground">
+                                                    <span className="font-semibold">API Events Note:</span> API events use <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code> for breakdown instead of platform/pos/source filters. Chart will display metrics like response time, bytes transferred, and error rates by status code.
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {/* Job ID Filter Row - Full width */}
                                         <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-500/20">
