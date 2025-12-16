@@ -177,6 +177,27 @@ interface PieChartAPIResponse {
     };
 }
 
+interface PieChartApiResponse {
+    status: number;
+    message: string;
+    data: {
+        status: Record<string, {
+            eventId: number;
+            count: number;
+            status: number;
+            successCount: number;
+            failCount: number;
+        }>;
+        cacheStatus: Record<string, {
+            eventId: number;
+            count: number;
+            cacheStatus: string;
+            successCount: number;
+            failCount: number;
+        }>;
+    };
+}
+
 interface EventsListAPIResponse {
     status: number;
     message: string;
@@ -526,6 +547,7 @@ export class APIService {
 
         // Pass through raw data - aggregation happens in processGraphData
         // New API returns disaggregated data with platform/eventId/source/pos per record
+        // For API events, also include status and cacheStatus fields
         const transformedData = result.data.map(record => ({
             timestamp: record.timestamp,
             platform: record.platform,
@@ -538,7 +560,17 @@ export class APIService {
             failCount: record.failCount || 0,
             avgDelay: record.avgDelay || 0,
             medianDelay: record.medianDelay || 0,
-            modeDelay: record.modeDelay || 0
+            modeDelay: record.modeDelay || 0,
+            // API event specific fields
+            status: (record as any).status,
+            cacheStatus: (record as any).cacheStatus,
+            avgBytesIn: (record as any).avgBytesIn,
+            avgBytesOut: (record as any).avgBytesOut,
+            avgServerToUser: (record as any).avgServerToUser,
+            avgServerToCloud: (record as any).avgServerToCloud,
+            avgCloudToUser: (record as any).avgCloudToUser,
+            medianBytesIn: (record as any).medianBytesIn,
+            medianBytesOut: (record as any).medianBytesOut
         })) as any[];
 
         return {
@@ -551,7 +583,7 @@ export class APIService {
     }
 
     /**
-     * Fetch pie chart data
+     * Fetch pie chart data (regular or API)
      */
     async getPieChartData(
         eventIds: (number | string)[],
@@ -559,7 +591,8 @@ export class APIService {
         posIds: (number | string)[],
         sourceIds: (number | string)[],
         startDate: Date,
-        endDate: Date
+        endDate: Date,
+        isApiEvent: boolean = false // Added for API events
     ): Promise<any> {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
@@ -584,7 +617,9 @@ export class APIService {
 
         console.log('PieChart API Request:', requestBody);
 
-        const response = await fetch(`${API_BASE_URL}/pieChart`, {
+        // Use different endpoint for API events
+        const endpoint = isApiEvent ? `${API_BASE_URL}/pieChartApi` : `${API_BASE_URL}/pieChart`;
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -594,6 +629,14 @@ export class APIService {
 
         if (!response.ok) {
             throw new Error(`API request failed: ${response.statusText}`);
+        }
+
+        if (isApiEvent) {
+            const result: PieChartApiResponse = await response.json();
+            if (result.status !== 1) {
+                throw new Error(result.message || 'Failed to fetch pie chart data');
+            }
+            return result;
         }
 
         const result: PieChartAPIResponse = await response.json();

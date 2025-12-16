@@ -174,6 +174,7 @@ export const DEFAULT_CRITICAL_ALERTS: CriticalAlertsConfig = {
   refreshInterval: 60,
   maxAlerts: 5,
   filterByPOS: ['all'],
+  filterByEvents: ['all'],
 };
 
 // ============ Helper Types ============

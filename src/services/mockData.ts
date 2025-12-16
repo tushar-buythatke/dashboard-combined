@@ -124,7 +124,8 @@ const INITIAL_PROFILES: DashboardProfile[] = [
             position: 'top-right',
             refreshInterval: 60,
             maxAlerts: 5,
-            filterByPOS: ['all']
+            filterByPOS: ['all'],
+            filterByEvents: ['all']
         }
     }
 ];
