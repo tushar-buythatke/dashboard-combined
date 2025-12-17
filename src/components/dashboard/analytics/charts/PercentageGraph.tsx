@@ -57,17 +57,19 @@ export function PercentageGraph({
                 };
             }
 
-            // Sum parent events using successCount
+            // Sum parent events using successCount or count
             parentEvents.forEach((eventId) => {
                 const successKey = `${eventId}_success`;
-                const count = Number(record[successKey] || 0);
+                const countKey = `${eventId}_count`;
+                const count = Number(record[successKey] || record[countKey] || 0);
                 groupedData[timeKey].parentTotal += count;
             });
 
-            // Sum child events using successCount
+            // Sum child events using successCount or count
             childEvents.forEach((eventId) => {
                 const successKey = `${eventId}_success`;
-                const count = Number(record[successKey] || 0);
+                const countKey = `${eventId}_count`;
+                const count = Number(record[successKey] || record[countKey] || 0);
                 groupedData[timeKey].childTotal += count;
             });
         });

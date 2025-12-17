@@ -1436,7 +1436,9 @@ interface FilterState {
     events: number[];
     // New fields for togglable filters
     activeStages?: string[]; // Event IDs for active funnel stages
-    activePercentageEvents?: string[]; // Event IDs for active percentage events
+    activePercentageEvents?: string[]; // Event IDs for active percentage PARENT events (denominator)
+    activePercentageChildEvents?: string[]; // Event IDs for active percentage CHILD events (numerator)
+    activeFunnelChildEvents?: string[]; // Event IDs for active funnel multiple child breakdown
 }
 
 interface DateRangeState {
@@ -2328,23 +2330,29 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             let eventIdsToFetch = currentPanelFilters.events;
             if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
                 const { parentEvents = [], childEvents = [] } = panelConfig.percentageConfig;
-                eventIdsToFetch = [...new Set([...parentEvents.map((id: string) => parseInt(id)), ...childEvents.map((id: string) => parseInt(id))])];
+                // Use activePercentageEvents/activePercentageChildEvents if available from filters
+                const activeParents = userPanelFilters?.activePercentageEvents || parentEvents;
+                const activeChildren = userPanelFilters?.activePercentageChildEvents || childEvents;
+                eventIdsToFetch = [...new Set([...activeParents.map((id: string) => parseInt(id)), ...activeChildren.map((id: string) => parseInt(id))])];
 
             } else if (panelConfig?.graphType === 'funnel' && panelConfig?.funnelConfig) {
                 const { stages = [], multipleChildEvents = [] } = panelConfig.funnelConfig;
-                const stageEventIds = stages.map((s: any) => parseInt(s.eventId)).filter((id: number) => !isNaN(id));
-                const childEventIds = multipleChildEvents.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
+                // Use activeStages/activeFunnelChildEvents if available from filters
+                const activeStageIds = userPanelFilters?.activeStages || stages.map((s: any) => s.eventId);
+                const activeChildIds = userPanelFilters?.activeFunnelChildEvents || multipleChildEvents;
+                const stageEventIds = activeStageIds.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
+                const childEventIds = activeChildIds.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
                 eventIdsToFetch = [...new Set([...stageEventIds, ...childEventIds])];
 
             }
 
             // Now use currentPanelFilters - empty arrays mean "all" (sent to API as [])
-            // For special graphs, use saved config filters from template builder
+            // For special graphs, prefer user edited filters over config
             const panelFilters: FilterState = {
                 events: eventIdsToFetch,
-                platforms: panelConfig?.platforms || currentPanelFilters.platforms,
-                pos: panelConfig?.pos || currentPanelFilters.pos,
-                sources: panelConfig?.sources || currentPanelFilters.sources
+                platforms: currentPanelFilters.platforms || [],
+                pos: currentPanelFilters.pos || [],
+                sources: currentPanelFilters.sources || []
             };
             const panelDateRange = panelDateRanges[panelId] || dateRange;
 
@@ -2738,7 +2746,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     }, [refreshPanelData]);
 
     const handleFilterChange = (type: keyof FilterState, values: string[]) => {
-        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+        // Determine value type based on filter key
+        // activeStages, activePercentageEvents, activeFunnelChildEvents use string IDs
+        // platform, pos, source, events use numeric IDs
+        const isStringFilter = ['activeStages', 'activePercentageEvents', 'activeFunnelChildEvents'].includes(type);
+        
+        const finalValues = isStringFilter
+            ? values
+            : values.map(v => parseInt(v)).filter(id => !isNaN(id));
 
         // Update the main panel's filter state (first panel)
         if (profile?.panels && profile.panels.length > 0) {
@@ -2749,7 +2764,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 ...prev,
                 [mainPanelId]: {
                     ...prev[mainPanelId],
-                    [type]: numericValues
+                    [type]: finalValues
                 }
             }));
 
@@ -2761,7 +2776,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         }
 
         // Also update global state for backward compatibility (but this won't be used)
-        setFilters(prev => ({ ...prev, [type]: numericValues }));
+        // Only if numeric, as FilterState expects number[] for legacy keys
+        if (!isStringFilter) {
+            setFilters(prev => ({ ...prev, [type]: finalValues as number[] }));
+        }
         setPendingRefresh(true);
     };
 
@@ -3122,61 +3140,282 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             <div className={cn(
                                 "grid gap-3 sm:gap-4",
                                 isMainPanelApi
-                                    ? "grid-cols-1" // API events: only show Events dropdown
-                                    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" // Regular events: all dropdowns
+                                    ? "grid-cols-1"
+                                    : "grid-cols-1" // Will be overridden by inner content
                             )}>
-                                {/* Only show Platform/POS/Source for non-API events */}
-                                {!isMainPanelApi && (
-                                    <>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
-                                            <MultiSelectDropdown
-                                                options={platformOptions}
-                                                selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
-                                                onChange={(values) => handleFilterChange('platforms', values)}
-                                                placeholder="Select platforms"
-                                            />
+                                {(() => {
+                                    const mainPanel = profile?.panels?.[0];
+                                    const mainPanelId = mainPanel?.panelId;
+                                    const mainPanelConfig = (mainPanel as any)?.filterConfig;
+                                    const mainGraphType = mainPanelConfig?.graphType;
+                                    const currentFilters = mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>;
+
+                                    const isPercentageGraph = mainGraphType === 'percentage';
+                                    const percentageConfig = mainPanelConfig?.percentageConfig;
+                                    const isFunnelGraph = mainGraphType === 'funnel';
+                                    const funnelConfig = mainPanelConfig?.funnelConfig;
+
+                                    // Specialized Filters for Percentage Graph
+                                    if (isPercentageGraph && percentageConfig) {
+                                        return (
+                                            <div className="col-span-12 space-y-4">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <Percent className="h-4 w-4 text-purple-500" />
+                                                    <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Percentage Graph - Event Selection</span>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    {/* Parent Events (Denominator) */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                                Parent Events (Denominator)
+                                                            </label>
+                                                        </div>
+                                                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-purple-100 dark:border-purple-900/30 shadow-sm">
+                                                            <MultiSelectDropdown
+                                                                options={events.map(e => ({
+                                                                    value: String(e.eventId),
+                                                                    label: e.eventName,
+                                                                    color: e.color
+                                                                }))}
+                                                                selected={currentFilters.activePercentageEvents || percentageConfig.parentEvents}
+                                                                onChange={(selected) => {
+                                                                    handleFilterChange('activePercentageEvents', selected);
+                                                                }}
+                                                                placeholder="Select Parent Events"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Child Events (Numerator) */}
+                                                    <div className="space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                                Child Events (Numerator)
+                                                            </label>
+                                                        </div>
+                                                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-green-100 dark:border-green-900/30 shadow-sm">
+                                                            <MultiSelectDropdown
+                                                                options={events.map(e => ({
+                                                                    value: String(e.eventId),
+                                                                    label: e.eventName,
+                                                                    color: e.color
+                                                                }))}
+                                                                selected={currentFilters.activePercentageChildEvents || percentageConfig.childEvents}
+                                                                onChange={(selected) => {
+                                                                    handleFilterChange('activePercentageChildEvents', selected);
+                                                                }}
+                                                                placeholder="Select Child Events"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="mt-3 text-xs text-muted-foreground text-center bg-white/50 dark:bg-black/20 p-2 rounded">
+                                                    Formula: <span className="font-mono text-xs">(Child Count / Parent Count) × 100</span>
+                                                </div>
+                                                {/* Platform, POS, Source filters for percentage graph */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
+                                                        <MultiSelectDropdown
+                                                            options={platformOptions}
+                                                            selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('platforms', values)}
+                                                            placeholder="Select platforms"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
+                                                        <MultiSelectDropdown
+                                                            options={posOptions}
+                                                            selected={(currentFilters.pos || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('pos', values)}
+                                                            placeholder="Select POS"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
+                                                        <MultiSelectDropdown
+                                                            options={sourceOptions}
+                                                            selected={(currentFilters.sources || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('sources', values)}
+                                                            placeholder="Select sources"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Specialized Filters for Funnel Graph - EDITABLE DROPDOWNS
+                                    if (isFunnelGraph && funnelConfig) {
+                                        return (
+                                            <div className="col-span-12 space-y-4">
+                                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
+                                                    <div className="flex items-center gap-2 mb-3">
+                                                        <Filter className="h-4 w-4 text-blue-500" />
+                                                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Funnel Graph Configuration</span>
+                                                    </div>
+                                                    
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                                                        Define conversion stages: e1 (parent) → e2 → e3 → ... → last (multiple children)
+                                                    </p>
+
+                                                    {/* Funnel Stages - Individual Dropdowns */}
+                                                    <div className="space-y-3">
+                                                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                            Funnel Stages
+                                                        </label>
+                                                        {funnelConfig.stages.map((stage: any, idx: number) => {
+                                                            const event = events.find(e => String(e.eventId) === String(stage.eventId));
+                                                            return (
+                                                                <div key={idx} className="flex items-center gap-2">
+                                                                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex-shrink-0">
+                                                                        e{idx + 1}
+                                                                    </span>
+                                                                    <select
+                                                                        className="flex-1 h-10 px-3 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                        value={stage.eventId}
+                                                                        disabled
+                                                                    >
+                                                                        <option value={stage.eventId}>
+                                                                            {event?.eventName || stage.label || stage.eventName || stage.eventId}
+                                                                        </option>
+                                                                    </select>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Final Stage (Multiple Events) - Multi-Select */}
+                                                    {funnelConfig.multipleChildEvents && funnelConfig.multipleChildEvents.length > 0 && (
+                                                        <div className="mt-4 space-y-2">
+                                                            <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                                Final Stage (Multiple Events)
+                                                            </label>
+                                                            <div className="flex flex-wrap gap-2 bg-white dark:bg-slate-800 rounded-md p-3 border border-cyan-200 dark:border-cyan-700">
+                                                                {funnelConfig.multipleChildEvents.map((eventId: string) => {
+                                                                    const event = events.find(e => String(e.eventId) === String(eventId));
+                                                                    const eventName = event?.eventName || eventId;
+                                                                    const eventColor = event?.color || '#3b82f6';
+                                                                    return (
+                                                                        <span 
+                                                                            key={eventId}
+                                                                            className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-slate-700 border border-gray-300 dark:border-gray-600"
+                                                                        >
+                                                                            <span 
+                                                                                className="w-2 h-2 rounded-full mr-1.5" 
+                                                                                style={{ backgroundColor: eventColor }}
+                                                                            />
+                                                                            {eventName}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                                                These events will be shown with different colors in the final bar
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Platform, POS, Source filters */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
+                                                        <MultiSelectDropdown
+                                                            options={platformOptions}
+                                                            selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('platforms', values)}
+                                                            placeholder="Select platforms"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
+                                                        <MultiSelectDropdown
+                                                            options={posOptions}
+                                                            selected={(currentFilters.pos || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('pos', values)}
+                                                            placeholder="Select POS"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
+                                                        <MultiSelectDropdown
+                                                            options={sourceOptions}
+                                                            selected={(currentFilters.sources || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('sources', values)}
+                                                            placeholder="Select sources"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+
+                                    // Default Filters (Regular Graphs)
+                                    return (
+                                        <div className={cn(
+                                            "grid gap-3 sm:gap-4",
+                                             isMainPanelApi
+                                                ? "grid-cols-1"
+                                                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                                        )}>
+                                            {!isMainPanelApi && (
+                                                <>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
+                                                        <MultiSelectDropdown
+                                                            options={platformOptions}
+                                                            selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
+                                                            onChange={(values) => handleFilterChange('platforms', values)}
+                                                            placeholder="Select platforms"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
+                                                        <MultiSelectDropdown
+                                                            options={posOptions}
+                                                            selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
+                                                            onChange={(values) => handleFilterChange('pos', values)}
+                                                            placeholder="Select POS"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
+                                                        <MultiSelectDropdown
+                                                            options={sourceOptions}
+                                                            selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
+                                                            onChange={(values) => handleFilterChange('sources', values)}
+                                                            placeholder="Select sources"
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
+                                            <div className="space-y-2">
+                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                    {isMainPanelApi ? 'API Events (Host / URL)' : 'Event'}
+                                                </Label>
+                                                <MultiSelectDropdown
+                                                    options={eventOptions}
+                                                    selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.events || []) : []).map(id => id.toString())}
+                                                    onChange={(values) => handleFilterChange('events', values)}
+                                                    placeholder={isMainPanelApi ? "Select API events" : "Select events"}
+                                                />
+                                                {isMainPanelApi && profile?.panels?.[0] && panelFiltersState[profile.panels[0].panelId]?.events?.length > 0 && (() => {
+                                                    const selectedEvent = events.find(e => e.eventId === panelFiltersState[profile.panels[0].panelId]?.events[0]?.toString());
+                                                    return selectedEvent?.callUrl ? (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                        </p>
+                                                    ) : null;
+                                                })()}
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
-                                            <MultiSelectDropdown
-                                                options={posOptions}
-                                                selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
-                                                onChange={(values) => handleFilterChange('pos', values)}
-                                                placeholder="Select POS"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
-                                            <MultiSelectDropdown
-                                                options={sourceOptions}
-                                                selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
-                                                onChange={(values) => handleFilterChange('sources', values)}
-                                                placeholder="Select sources"
-                                            />
-                                        </div>
-                                    </>
-                                )}
-                                <div className="space-y-2">
-                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                        {isMainPanelApi ? 'API Events (Host / URL)' : 'Event'}
-                                    </Label>
-                                    <MultiSelectDropdown
-                                        options={eventOptions}
-                                        selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.events || []) : []).map(id => id.toString())}
-                                        onChange={(values) => handleFilterChange('events', values)}
-                                        placeholder={isMainPanelApi ? "Select API events" : "Select events"}
-                                    />
-                                    {/* Show callUrl reference for API events */}
-                                    {isMainPanelApi && profile?.panels?.[0] && panelFiltersState[profile.panels[0].panelId]?.events?.length > 0 && (() => {
-                                        const selectedEvent = events.find(e => e.eventId === panelFiltersState[profile.panels[0].panelId]?.events[0]?.toString());
-                                        return selectedEvent?.callUrl ? (
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
-                                            </p>
-                                        ) : null;
-                                    })()}
-                                </div>
+                                    );
+                                })()}
+
                             </div>
 
                             {/* API Events Info Banner */}
@@ -3293,8 +3532,19 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     )}
                 </Card>
 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                {/* Stats Cards - ONLY for non-special graphs */}
+                {(() => {
+                    const mainPanel = profile?.panels?.[0];
+                    const filterConfig = (mainPanel as any)?.filterConfig;
+                    const graphType = filterConfig?.graphType;
+                    
+                    // Skip stats cards for special graph types
+                    if (graphType === 'percentage' || graphType === 'funnel') {
+                        return null;
+                    }
+                    
+                    return (
+                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                     {/* Total Count Card */}
                     <div
                         className="group"
@@ -3481,6 +3731,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         </Card>
                     </div>
                 </div>
+                    );
+                })()}
 
                 {/* Main Chart - Count Events Only */}
                 {normalEventKeys.length > 0 && (() => {
@@ -3492,41 +3744,79 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     const filterConfig = (mainPanel as any)?.filterConfig;
                     const graphType = filterConfig?.graphType;
 
-                    if (mainPanel?.type === 'special' || graphType === 'percentage' || graphType === 'funnel') {
-                        const eventColors = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {});
-                        const eventNames = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.eventName }), {});
+                    const eventColors = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {});
+                    const eventNames = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.eventName }), {});
 
-                        // Render Percentage Graph
-                        if (graphType === 'percentage' && filterConfig?.percentageConfig) {
-                            const percentageConfig = filterConfig.percentageConfig;
-                            return (
+                    // Percentage Graph - EXCLUSIVE RENDERING
+                    const percentageConfig = filterConfig?.percentageConfig;
+                    const panelFilters = panelFiltersState[mainPanelId || ''] || {};
+
+                    if (graphType === 'percentage' && percentageConfig) {
+                        // Use activePercentageEvents for parent and activePercentageChildEvents for child
+                        const activeParentEvents = panelFilters.activePercentageEvents && panelFilters.activePercentageEvents.length > 0
+                            ? panelFilters.activePercentageEvents
+                            : percentageConfig.parentEvents;
+
+                        const activeChildEvents = panelFilters.activePercentageChildEvents && panelFilters.activePercentageChildEvents.length > 0
+                            ? panelFilters.activePercentageChildEvents
+                            : percentageConfig.childEvents;
+
+                        return (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.5 }}
+                            >
                                 <PercentageGraph
                                     data={graphData}
                                     dateRange={dateRange}
-                                    parentEvents={percentageConfig.parentEvents || []}
-                                    childEvents={percentageConfig.childEvents || []}
+                                    parentEvents={activeParentEvents}
+                                    childEvents={activeChildEvents}
                                     eventColors={eventColors}
                                     eventNames={eventNames}
-                                    filters={percentageConfig.filters || {}}
-                                    showCombinedPercentage={percentageConfig.showCombinedPercentage !== false}
                                     isHourly={isHourly}
                                 />
-                            );
-                        }
+                            </motion.div>
+                        );
+                    }
 
-                        // Render Funnel Graph
-                        if (graphType === 'funnel' && filterConfig?.funnelConfig) {
-                            const funnelConfig = filterConfig.funnelConfig;
-                            return (
+                    // Funnel Graph - EXCLUSIVE RENDERING
+                    const funnelConfig = filterConfig?.funnelConfig;
+
+                    if (graphType === 'funnel' && funnelConfig) {
+                        // Use all stages from config
+                        const activeStages = funnelConfig.stages.map((stage: any) => {
+                            const evt = events.find(e => String(e.eventId) === String(stage.eventId));
+                            return {
+                                eventId: stage.eventId,
+                                eventName: evt?.eventName || stage.label || stage.eventName || stage.eventId,
+                                color: evt?.color || stage.color
+                            };
+                        });
+
+                        const activeChildEvents = funnelConfig.multipleChildEvents || [];
+
+                        return (
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.5 }}
+                            >
                                 <FunnelGraph
                                     data={graphData}
-                                    stages={funnelConfig.stages || []}
-                                    multipleChildEvents={funnelConfig.multipleChildEvents || []}
+                                    stages={activeStages}
+                                    multipleChildEvents={activeChildEvents}
                                     eventColors={eventColors}
                                     eventNames={eventNames}
                                 />
-                            );
-                        }
+                            </motion.div>
+                        );
+                    }
+
+                    // Default Charts - Only render if NOT a percentage or funnel graph
+                    // Skip default charts if this is a special graph type
+                    if (graphType === 'percentage' || graphType === 'funnel') {
+                        return null;
                     }
 
                     // Calculate event stats for badges and sort by count
@@ -5162,7 +5452,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 })()}
 
                 {/* Hourly Stats Card - shown below Pie Charts for ≤8 day ranges when enabled */}
-                {isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && (
+                {isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && !isFirstPanelSpecialGraph && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}

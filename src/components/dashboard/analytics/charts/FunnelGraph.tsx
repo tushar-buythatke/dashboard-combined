@@ -42,12 +42,13 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
     const funnelData = useMemo<FunnelStageData[]>(() => {
         if (!data || data.length === 0 || stages.length === 0) return [];
 
-        // Calculate counts for each stage using successCount
+        // Calculate counts for each stage using successCount or count
         const stageCounts = stages.map((stage) => {
             let count = 0;
             data.forEach((record) => {
                 const successKey = `${stage.eventId}_success`;
-                count += Number(record[successKey] || 0);
+                const countKey = `${stage.eventId}_count`;
+                count += Number(record[successKey] || record[countKey] || 0);
             });
             return { ...stage, count };
         });
@@ -59,7 +60,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
         const processedStages: FunnelStageData[] = stageCounts.slice(0, -1).map((stage, index) => {
             const prevCount = index > 0 ? stageCounts[index - 1].count : stage.count;
             const dropoff = prevCount > 0 ? ((prevCount - stage.count) / prevCount) * 100 : 0;
-            
+
             return {
                 eventId: stage.eventId,
                 eventName: stage.eventName || eventNames[stage.eventId] || stage.eventId,
@@ -77,7 +78,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 let count = 0;
                 data.forEach((record) => {
                     const successKey = `${childEventId}_success`;
-                    count += Number(record[successKey] || 0);
+                    const countKey = `${childEventId}_count`;
+                    count += Number(record[successKey] || record[countKey] || 0);
                 });
 
                 return {
@@ -108,7 +110,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             const lastStage = stageCounts[stageCounts.length - 1];
             const prevCount = stageCounts[stageCounts.length - 2]?.count || lastStage.count;
             const dropoff = prevCount > 0 ? ((prevCount - lastStage.count) / prevCount) * 100 : 0;
-            
+
             processedStages.push({
                 eventId: lastStage.eventId,
                 eventName: lastStage.eventName || eventNames[lastStage.eventId] || lastStage.eventId,
@@ -165,102 +167,110 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 </div>
             </CardHeader>
             <CardContent className="p-6 md:p-8">
-                <div className="space-y-8">
+                <div className="relative h-[350px] mt-8 flex items-end justify-center gap-4 px-4 md:px-12">
+                    {/* Background Grid Lines */}
+                    <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
+                        {/* 100% Line */}
+                        <div className="absolute top-0 left-0 w-full border-t border-dashed border-slate-300 dark:border-slate-600">
+                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">100%</span>
+                        </div>
+                        {/* 75% Line */}
+                        <div className="absolute top-1/4 left-0 w-full border-t border-dashed border-slate-200 dark:border-slate-700 opacity-50">
+                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">75%</span>
+                        </div>
+                        {/* 50% Line */}
+                        <div className="absolute top-2/4 left-0 w-full border-t border-dashed border-slate-200 dark:border-slate-700 opacity-50">
+                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">50%</span>
+                        </div>
+                        {/* 25% Line */}
+                        <div className="absolute top-3/4 left-0 w-full border-t border-dashed border-slate-200 dark:border-slate-700 opacity-50">
+                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">25%</span>
+                        </div>
+                        {/* 0% Line */}
+                        <div className="absolute bottom-0 left-0 w-full border-t border-slate-300 dark:border-slate-600" />
+                    </div>
+
                     {funnelData.map((stage, index) => {
-                        const width = stage.percentage;
+                        const height = Math.max(stage.percentage, 2); // Min height for visibility
                         const isFirst = index === 0;
 
                         return (
-                            <div key={stage.eventId} className="relative">
-                                {/* Dropoff Indicator (between stages) */}
+                            <div key={stage.eventId} className="relative z-10 flex flex-col items-center group flex-1 max-w-[120px]">
+                                {/* Dropoff Label (conditionally shown on hover or always?) */}
                                 {!isFirst && (
-                                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 text-xs">
-                                        <ArrowDown className="h-4 w-4 text-red-500" />
-                                        <span className="font-semibold text-red-600 dark:text-red-400">
-                                            -{stage.dropoffPercentage.toFixed(1)}% dropoff
-                                        </span>
+                                    <div className="absolute -left-1/2 top-1/2 -ml-2 text-[10px] font-bold text-red-500 bg-white/80 dark:bg-slate-900/80 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 whitespace-nowrap">
+                                        -{stage.dropoffPercentage.toFixed(1)}%
                                     </div>
                                 )}
 
-                                {/* Stage Container */}
-                                <div className="space-y-2">
-                                    {/* Stage Header */}
-                                    <div className="flex items-center justify-between px-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-full h-6 w-6 flex items-center justify-center">
-                                                {index + 1}
-                                            </span>
-                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                                {stage.eventName}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                                                {stage.count.toLocaleString()}
-                                            </span>
-                                            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 min-w-[60px] text-right">
-                                                {stage.percentage.toFixed(1)}%
-                                            </span>
-                                        </div>
-                                    </div>
+                                {/* Percentage Label */}
+                                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:scale-110 transition-transform">
+                                    {stage.percentage.toFixed(1)}%
+                                </div>
 
-                                    {/* Funnel Bar */}
+                                {/* Bar Container */}
+                                <div className="w-full relative flex items-end justify-center h-full">
+                                    {/* Vertical Bar */}
                                     {!stage.isMultiple ? (
-                                        <div className="flex justify-center">
-                                            <div
-                                                className={cn(
-                                                    'rounded-lg transition-all duration-300 hover:shadow-xl cursor-pointer',
-                                                    'flex flex-col items-center justify-center text-white font-semibold',
-                                                    'relative overflow-hidden group'
-                                                )}
-                                                style={{
-                                                    width: `${width}%`,
-                                                    minWidth: '30%',
-                                                    height: '80px',
-                                                    backgroundColor: stage.color,
-                                                }}
-                                            >
-                                                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                                <span className="text-2xl font-bold relative z-10">{stage.percentage.toFixed(1)}%</span>
-                                                <span className="text-xs opacity-90 relative z-10">{stage.count.toLocaleString()} events</span>
+                                        <div
+                                            className={cn(
+                                                "w-full rounded-t-lg transition-all duration-500 hover:brightness-110 cursor-pointer relative overflow-hidden shadow-lg",
+                                                // Gradients
+                                                "bg-gradient-to-t from-opacity-90 to-opacity-100"
+                                            )}
+                                            style={{
+                                                height: `${height}%`,
+                                                backgroundColor: stage.color,
+                                            }}
+                                        >
+                                            {/* Hover highlight */}
+                                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                                            {/* Count inside bar */}
+                                            <div className="absolute bottom-2 inset-x-0 text-center text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {stage.count.toLocaleString()}
                                             </div>
                                         </div>
                                     ) : (
-                                        /* Multi-segment bar for last stage */
-                                        <div className="flex justify-center">
-                                            <div
-                                                className="flex rounded-lg overflow-hidden shadow-lg"
-                                                style={{
-                                                    width: `${width}%`,
-                                                    minWidth: '30%',
-                                                    height: '80px',
-                                                }}
-                                            >
-                                                {stage.children?.map((child, childIndex) => {
-                                                    const childWidth = stage.count > 0 ? (child.count / stage.count) * 100 : 0;
-                                                    return (
-                                                        <div
-                                                            key={child.eventId}
-                                                            className={cn(
-                                                                'flex flex-col items-center justify-center text-white font-semibold transition-all duration-300 hover:brightness-110 cursor-pointer',
-                                                                childIndex > 0 && 'border-l-2 border-white/30'
-                                                            )}
-                                                            style={{
-                                                                width: `${childWidth}%`,
-                                                                backgroundColor: child.color,
-                                                            }}
-                                                            title={`${child.eventName}: ${child.count.toLocaleString()} (${child.percentage.toFixed(1)}%)`}
-                                                        >
-                                                            <span className="text-sm font-bold">{child.percentage.toFixed(1)}%</span>
-                                                            <span className="text-xs opacity-90 truncate px-2 max-w-full" title={child.eventName}>
-                                                                {child.eventName}
-                                                            </span>
+                                        <div
+                                            className="w-full flex items-end rounded-t-lg overflow-hidden shadow-lg"
+                                            style={{ height: `${height}%` }}
+                                        >
+                                            {stage.children?.map((child, idx) => {
+                                                const childHeightPct = stage.count > 0 ? (child.count / stage.count) * 100 : 0;
+                                                return (
+                                                    <div
+                                                        key={child.eventId}
+                                                        className="flex-1 h-full hover:brightness-125 transition-all relative group/child"
+                                                        style={{
+                                                            backgroundColor: child.color,
+                                                            height: '100%' // They share the full height of the parent stack? No, side by side or stacked? 
+                                                            // User wants decomposition of the last stage. 
+                                                            // If they are strictly parts of the total, stacked is better for height consistency, 
+                                                            // but typically multi-select breakdown implies comparing them side-by-side or stacked.
+                                                            // Let's go with Stacked proportional vertical segments? No, that's hard to read.
+                                                            // Let's do horizontal distribution within the bar (side-by-side slices)
+                                                        }}
+                                                        title={`${child.eventName}: ${child.count.toLocaleString()} (${child.percentage.toFixed(1)}%)`}
+                                                    >
+                                                        <div className="absolute bottom-1 inset-x-0 text-center text-[8px] text-white opacity-0 group-hover/child:opacity-100 truncate px-1">
+                                                            {child.eventName}
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )}
+                                </div>
+
+                                {/* X-Axis Label */}
+                                <div className="mt-3 text-center">
+                                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[100px]" title={stage.eventName}>
+                                        {stage.eventName}
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                                        Step {index + 1}
+                                    </div>
                                 </div>
                             </div>
                         );
