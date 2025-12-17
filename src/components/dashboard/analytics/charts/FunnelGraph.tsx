@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Filter, TrendingDown, ArrowDown } from 'lucide-react';
+import { Filter, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FunnelGraphProps {
@@ -10,7 +10,7 @@ interface FunnelGraphProps {
         eventName: string;
         color?: string;
     }>;
-    multipleChildEvents: string[]; // Last stage can have multiple events
+    multipleChildEvents: string[];
     eventColors: Record<string, string>;
     eventNames: Record<string, string>;
 }
@@ -19,8 +19,8 @@ interface FunnelStageData {
     eventId: string;
     eventName: string;
     count: number;
-    percentage: number; // Relative to first stage (100%)
-    dropoffPercentage: number; // Dropoff from previous stage
+    percentage: number;
+    dropoffPercentage: number;
     color: string;
     isMultiple?: boolean;
     children?: Array<{
@@ -32,17 +32,14 @@ interface FunnelStageData {
     }>;
 }
 
-/**
- * Funnel Graph Component
- * Shows conversion funnel visualization with percentages and dropoffs
- * Uses successCount from graph API data
- * Formula: (current_stage_successCount / first_stage_successCount) × 100
- */
 export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames }: FunnelGraphProps) {
+    const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
+
     const funnelData = useMemo<FunnelStageData[]>(() => {
         if (!data || data.length === 0 || stages.length === 0) return [];
 
-        // Calculate counts for each stage using successCount or count
+        const funnelPalette = ['#6366f1', '#4f46e5', '#7c3aed', '#8b5cf6'];
+
         const stageCounts = stages.map((stage) => {
             let count = 0;
             data.forEach((record) => {
@@ -53,10 +50,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             return { ...stage, count };
         });
 
-        // First stage count is the base (100%)
         const baseCount = stageCounts[0]?.count || 1;
 
-        // Process all stages except the last one
         const processedStages: FunnelStageData[] = stageCounts.slice(0, -1).map((stage, index) => {
             const prevCount = index > 0 ? stageCounts[index - 1].count : stage.count;
             const dropoff = prevCount > 0 ? ((prevCount - stage.count) / prevCount) * 100 : 0;
@@ -67,14 +62,14 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 count: stage.count,
                 percentage: (stage.count / baseCount) * 100,
                 dropoffPercentage: dropoff,
-                color: stage.color || eventColors[stage.eventId] || '#3b82f6',
+                // Force consistent purple/blue palette for main stages
+                color: funnelPalette[index % funnelPalette.length],
                 isMultiple: false,
             };
         });
 
-        // Process last stage with multiple children
         if (multipleChildEvents && multipleChildEvents.length > 0) {
-            const lastStageChildren = multipleChildEvents.map((childEventId) => {
+            const lastStageChildren = multipleChildEvents.map((childEventId, idx) => {
                 let count = 0;
                 data.forEach((record) => {
                     const successKey = `${childEventId}_success`;
@@ -87,7 +82,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     eventName: eventNames[childEventId] || childEventId,
                     count,
                     percentage: (count / baseCount) * 100,
-                    color: eventColors[childEventId] || '#3b82f6',
+                    // Use palette variants for child segments as well
+                    color: funnelPalette[idx % funnelPalette.length],
                 };
             });
 
@@ -101,12 +97,11 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 count: totalLastStageCount,
                 percentage: (totalLastStageCount / baseCount) * 100,
                 dropoffPercentage: dropoff,
-                color: '#3b82f6',
+                color: funnelPalette[(stages.length - 1) % funnelPalette.length],
                 isMultiple: true,
                 children: lastStageChildren,
-            } as FunnelStageData);
+            });
         } else if (stageCounts.length > 0) {
-            // Single last stage
             const lastStage = stageCounts[stageCounts.length - 1];
             const prevCount = stageCounts[stageCounts.length - 2]?.count || lastStage.count;
             const dropoff = prevCount > 0 ? ((prevCount - lastStage.count) / prevCount) * 100 : 0;
@@ -117,7 +112,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 count: lastStage.count,
                 percentage: (lastStage.count / baseCount) * 100,
                 dropoffPercentage: dropoff,
-                color: lastStage.color || eventColors[lastStage.eventId] || '#3b82f6',
+                // Use final palette color for last stage
+                color: funnelPalette[(stages.length - 1) % funnelPalette.length],
                 isMultiple: false,
             });
         }
@@ -143,8 +139,6 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
         );
     }
 
-    const maxWidth = 100;
-
     return (
         <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl">
             <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-blue-50/80 to-cyan-50/60 dark:from-blue-900/20 dark:to-cyan-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
@@ -167,115 +161,87 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 </div>
             </CardHeader>
             <CardContent className="p-6 md:p-8">
-                <div className="relative h-[350px] mt-8 flex items-end justify-center gap-4 px-4 md:px-12">
-                    {/* Background Grid Lines */}
-                    <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
-                        {/* 100% Line */}
-                        <div className="absolute top-0 left-0 w-full border-t border-dashed border-slate-300 dark:border-slate-600">
-                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">100%</span>
-                        </div>
-                        {/* 75% Line */}
-                        <div className="absolute top-1/4 left-0 w-full border-t border-dashed border-slate-200 dark:border-slate-700 opacity-50">
-                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">75%</span>
-                        </div>
-                        {/* 50% Line */}
-                        <div className="absolute top-2/4 left-0 w-full border-t border-dashed border-slate-200 dark:border-slate-700 opacity-50">
-                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">50%</span>
-                        </div>
-                        {/* 25% Line */}
-                        <div className="absolute top-3/4 left-0 w-full border-t border-dashed border-slate-200 dark:border-slate-700 opacity-50">
-                            <span className="absolute -top-3 left-0 text-[10px] text-muted-foreground bg-white dark:bg-slate-900 px-1">25%</span>
-                        </div>
-                        {/* 0% Line */}
-                        <div className="absolute bottom-0 left-0 w-full border-t border-slate-300 dark:border-slate-600" />
+                <div className="relative h-[320px] flex items-end justify-center gap-10 px-8">
+                    {/* Grid Lines (no percentage labels, just guides) */}
+                    <div className="absolute inset-x-0 top-0 h-full pointer-events-none">
+                        {[100, 75, 50, 25].map((level) => (
+                            <div
+                                key={level}
+                                className="absolute left-0 w-full border-t border-dashed border-slate-200 dark:border-slate-700"
+                                style={{ top: `${100 - level}%` }}
+                            />
+                        ))}
                     </div>
 
                     {funnelData.map((stage, index) => {
-                        const height = Math.max(stage.percentage, 2); // Min height for visibility
-                        const isFirst = index === 0;
+                        const heightPct = Math.max(Math.min(stage.percentage, 100), 5); // clamp 5–100
 
                         return (
-                            <div key={stage.eventId} className="relative z-10 flex flex-col items-center group flex-1 max-w-[120px]">
-                                {/* Dropoff Label (conditionally shown on hover or always?) */}
-                                {!isFirst && (
-                                    <div className="absolute -left-1/2 top-1/2 -ml-2 text-[10px] font-bold text-red-500 bg-white/80 dark:bg-slate-900/80 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 whitespace-nowrap">
-                                        -{stage.dropoffPercentage.toFixed(1)}%
-                                    </div>
-                                )}
-
-                                {/* Percentage Label */}
-                                <div className="mb-2 text-sm font-bold text-slate-700 dark:text-slate-300 group-hover:scale-110 transition-transform">
+                            <div
+                                key={stage.eventId}
+                                className="flex flex-col items-center group w-16 sm:w-20 md:w-24 h-full cursor-pointer"
+                                onClick={() => setSelectedStage(stage)}
+                            >
+                                {/* Percentage label above bar */}
+                                <div className="mb-1 text-sm font-bold text-slate-800 dark:text-slate-100">
                                     {stage.percentage.toFixed(1)}%
                                 </div>
 
-                                {/* Bar Container */}
-                                <div className="w-full relative flex items-end justify-center h-full">
-                                    {/* Vertical Bar */}
-                                    {!stage.isMultiple ? (
-                                        <div
-                                            className={cn(
-                                                "w-full rounded-t-lg transition-all duration-500 hover:brightness-110 cursor-pointer relative overflow-hidden shadow-lg",
-                                                // Gradients
-                                                "bg-gradient-to-t from-opacity-90 to-opacity-100"
-                                            )}
-                                            style={{
-                                                height: `${height}%`,
-                                                backgroundColor: stage.color,
-                                            }}
-                                        >
-                                            {/* Hover highlight */}
-                                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                                            {/* Count inside bar */}
-                                            <div className="absolute bottom-2 inset-x-0 text-center text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                                                {stage.count.toLocaleString()}
-                                            </div>
+                                {/* Bar aligned to grid (percentage-based height) */}
+                                <div className="flex-1 flex items-end w-full">
+                                    <div
+                                        className="relative w-full bg-indigo-800 hover:bg-indigo-900 transition-colors shadow-md border border-slate-300 dark:border-slate-700 rounded-none"
+                                        style={{ height: `${heightPct}%` }}
+                                    >
+                                        <div className="absolute bottom-2 inset-x-0 text-center text-white text-[11px] sm:text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {stage.count.toLocaleString()}
                                         </div>
-                                    ) : (
-                                        <div
-                                            className="w-full flex items-end rounded-t-lg overflow-hidden shadow-lg"
-                                            style={{ height: `${height}%` }}
-                                        >
-                                            {stage.children?.map((child, idx) => {
-                                                const childHeightPct = stage.count > 0 ? (child.count / stage.count) * 100 : 0;
-                                                return (
-                                                    <div
-                                                        key={child.eventId}
-                                                        className="flex-1 h-full hover:brightness-125 transition-all relative group/child"
-                                                        style={{
-                                                            backgroundColor: child.color,
-                                                            height: '100%' // They share the full height of the parent stack? No, side by side or stacked? 
-                                                            // User wants decomposition of the last stage. 
-                                                            // If they are strictly parts of the total, stacked is better for height consistency, 
-                                                            // but typically multi-select breakdown implies comparing them side-by-side or stacked.
-                                                            // Let's go with Stacked proportional vertical segments? No, that's hard to read.
-                                                            // Let's do horizontal distribution within the bar (side-by-side slices)
-                                                        }}
-                                                        title={`${child.eventName}: ${child.count.toLocaleString()} (${child.percentage.toFixed(1)}%)`}
-                                                    >
-                                                        <div className="absolute bottom-1 inset-x-0 text-center text-[8px] text-white opacity-0 group-hover/child:opacity-100 truncate px-1">
-                                                            {child.eventName}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    </div>
                                 </div>
 
-                                {/* X-Axis Label */}
-                                <div className="mt-3 text-center">
-                                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[100px]" title={stage.eventName}>
-                                        {stage.eventName}
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground mt-0.5">
-                                        Step {index + 1}
+                                {/* Label as Stage 1 / Stage 2 / ... */}
+                                <div className="mt-2 text-center">
+                                    <div className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                        Stage {index + 1}
                                     </div>
                                 </div>
                             </div>
                         );
                     })}
                 </div>
+
+                {/* Expanded details on click */}
+                {selectedStage && (
+                    <div className="mt-4 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/70 max-w-md mx-auto text-xs">
+                        <div className="flex items-start justify-between mb-1">
+                            <div>
+                                <p className="text-sm font-semibold mb-1">{selectedStage.eventName}</p>
+                                <p className="text-slate-600 dark:text-slate-300">Step {funnelData.findIndex(s => s.eventId === selectedStage.eventId) + 1}</p>
+                            </div>
+                            <button
+                                type="button"
+                                className="text-[11px] text-muted-foreground hover:text-foreground"
+                                onClick={() => setSelectedStage(null)}
+                            >
+                                Clear
+                            </button>
+                        </div>
+                        <div className="space-y-1">
+                            <p>
+                                <span className="font-semibold">Percentage:</span> {selectedStage.percentage.toFixed(1)}%
+                            </p>
+                            <p>
+                                <span className="font-semibold">Count:</span> {selectedStage.count.toLocaleString()}
+                            </p>
+                            {!selectedStage.isMultiple && (
+                                <p>
+                                    <span className="font-semibold">Drop-off from previous:</span>{' '}
+                                    {selectedStage.dropoffPercentage.toFixed(1)}%
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Summary Footer */}
                 <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -294,7 +260,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         </div>
                         <div>
                             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                {funnelData[funnelData.length - 1]?.percentage.toFixed(1) || 0}%
+                                {funnelData[funnelData.length - 1]?.percentage.toFixed(1)}%
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">Conversion Rate</div>
                         </div>

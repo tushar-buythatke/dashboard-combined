@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ReferenceLine } from 'recharts';
 import { Percent, TrendingUp, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -37,11 +37,23 @@ export function PercentageGraph({
     isHourly = true,
 }: PercentageGraphProps) {
 
+    const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
+
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return [];
 
-        // Group by time period
-        const groupedData: Record<string, { parentTotal: number; childTotal: number; timestamp: number }> = {};
+        const statusCodes = (filters?.statusCodes || []).filter(Boolean);
+        const cacheStatuses = (filters?.cacheStatus || []).filter(Boolean);
+        const hasStatusFilter = statusCodes.length > 0;
+        const hasCacheFilter = cacheStatuses.length > 0;
+
+        const groupedData: Record<string, {
+            parentTotal: number;
+            childTotal: number;
+            timestamp: number;
+            parentBreakdown: Record<string, number>;
+            childBreakdown: Record<string, number>;
+        }> = {};
 
         data.forEach((record) => {
             const date = new Date(record.timestamp || record.date);
@@ -54,27 +66,78 @@ export function PercentageGraph({
                     parentTotal: 0,
                     childTotal: 0,
                     timestamp: date.getTime(),
+                    parentBreakdown: {},
+                    childBreakdown: {},
                 };
             }
 
-            // Sum parent events using successCount or count
             parentEvents.forEach((eventId) => {
-                const successKey = `${eventId}_success`;
-                const countKey = `${eventId}_count`;
-                const count = Number(record[successKey] || record[countKey] || 0);
+                let count = 0;
+
+                if (hasStatusFilter || hasCacheFilter) {
+                    const baseName = eventNames[eventId] || `Event ${eventId}`;
+                    const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                    if (hasStatusFilter) {
+                        statusCodes.forEach((status) => {
+                            const statusKey = `${eventKey}_status_${status}`;
+                            const successKey = `${statusKey}_success`;
+                            const countKey = `${statusKey}_count`;
+                            count += Number(record[successKey] || record[countKey] || 0);
+                        });
+                    } else if (hasCacheFilter) {
+                        cacheStatuses.forEach((cache) => {
+                            const cacheKey = `${eventKey}_cache_${cache}`;
+                            const successKey = `${cacheKey}_success`;
+                            const countKey = `${cacheKey}_count`;
+                            count += Number(record[successKey] || record[countKey] || 0);
+                        });
+                    }
+                } else {
+                    const successKey = `${eventId}_success`;
+                    const countKey = `${eventId}_count`;
+                    count = Number(record[successKey] || record[countKey] || 0);
+                }
+
                 groupedData[timeKey].parentTotal += count;
+                groupedData[timeKey].parentBreakdown[eventId] =
+                    (groupedData[timeKey].parentBreakdown[eventId] || 0) + count;
             });
 
-            // Sum child events using successCount or count
             childEvents.forEach((eventId) => {
-                const successKey = `${eventId}_success`;
-                const countKey = `${eventId}_count`;
-                const count = Number(record[successKey] || record[countKey] || 0);
+                let count = 0;
+
+                if (hasStatusFilter || hasCacheFilter) {
+                    const baseName = eventNames[eventId] || `Event ${eventId}`;
+                    const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                    if (hasStatusFilter) {
+                        statusCodes.forEach((status) => {
+                            const statusKey = `${eventKey}_status_${status}`;
+                            const successKey = `${statusKey}_success`;
+                            const countKey = `${statusKey}_count`;
+                            count += Number(record[successKey] || record[countKey] || 0);
+                        });
+                    } else if (hasCacheFilter) {
+                        cacheStatuses.forEach((cache) => {
+                            const cacheKey = `${eventKey}_cache_${cache}`;
+                            const successKey = `${cacheKey}_success`;
+                            const countKey = `${cacheKey}_count`;
+                            count += Number(record[successKey] || record[countKey] || 0);
+                        });
+                    }
+                } else {
+                    const successKey = `${eventId}_success`;
+                    const countKey = `${eventId}_count`;
+                    count = Number(record[successKey] || record[countKey] || 0);
+                }
+
                 groupedData[timeKey].childTotal += count;
+                groupedData[timeKey].childBreakdown[eventId] =
+                    (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
             });
         });
 
-        // Calculate percentages
         return Object.entries(groupedData)
             .map(([timeKey, values]) => ({
                 time: timeKey,
@@ -82,9 +145,11 @@ export function PercentageGraph({
                 parentCount: values.parentTotal,
                 childCount: values.childTotal,
                 timestamp: values.timestamp,
+                parentBreakdown: values.parentBreakdown,
+                childBreakdown: values.childBreakdown,
             }))
             .sort((a, b) => a.timestamp - b.timestamp);
-    }, [data, parentEvents, childEvents, isHourly]);
+    }, [data, parentEvents, childEvents, isHourly, filters, eventNames]);
 
     // Calculate overall statistics
     const overallStats = useMemo(() => {
@@ -188,9 +253,11 @@ export function PercentageGraph({
                 </div>
 
                 {/* Line Chart */}
-                <div className="h-80 mt-4">
+                <div className="h-[420px] mt-4">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
+                        <AreaChart
+                            data={chartData}
+                        >
                             <defs>
                                 <linearGradient id="percentageGradient" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -210,10 +277,21 @@ export function PercentageGraph({
                                 label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
                                 domain={[0, 'auto']}
                             />
+                            <ReferenceLine
+                                y={overallStats.percentage}
+                                stroke="#facc15"
+                                strokeWidth={2}
+                                strokeDasharray="4 4"
+                                label={{ value: 'Avg', position: 'right', fill: '#facc15', fontSize: 11 }}
+                            />
                             <Tooltip
                                 content={({ active, payload }) => {
                                     if (active && payload && payload.length) {
                                         const data = payload[0].payload;
+                                        const parentBreakdown = (data.parentBreakdown || {}) as Record<string, number>;
+                                        const childBreakdown = (data.childBreakdown || {}) as Record<string, number>;
+                                        const parentEntries = Object.entries(parentBreakdown);
+                                        const childEntries = Object.entries(childBreakdown);
                                         return (
                                             <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
                                                 <p className="text-sm font-semibold mb-2">{data.time}</p>
@@ -227,6 +305,28 @@ export function PercentageGraph({
                                                     <p className="text-blue-600 dark:text-blue-400">
                                                         Parent: {data.parentCount.toLocaleString()}
                                                     </p>
+                                                    {childEntries.length > 0 && (
+                                                        <div className="mt-2">
+                                                            <p className="font-semibold mb-1 text-xs text-green-700 dark:text-green-300">Child breakdown</p>
+                                                            {childEntries.map(([eventId, count]) => (
+                                                                <div key={eventId} className="flex items-center justify-between">
+                                                                    <span>{eventNames[eventId] || eventId}</span>
+                                                                    <span className="font-mono">{count.toLocaleString()}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {parentEntries.length > 0 && (
+                                                        <div className="mt-2">
+                                                            <p className="font-semibold mb-1 text-xs text-blue-700 dark:text-blue-300">Parent breakdown</p>
+                                                            {parentEntries.map(([eventId, count]) => (
+                                                                <div key={eventId} className="flex items-center justify-between">
+                                                                    <span>{eventNames[eventId] || eventId}</span>
+                                                                    <span className="font-mono">{count.toLocaleString()}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -241,10 +341,68 @@ export function PercentageGraph({
                                 strokeWidth={3}
                                 fill="url(#percentageGradient)"
                                 name="Child/Parent %"
+                                activeDot={{ r: 4 }}
+                                onClick={(e: any) => {
+                                    if (!e || !e.activePayload || !e.activePayload.length) return;
+                                    const payload = e.activePayload[0].payload;
+                                    setSelectedPoint(payload);
+                                }}
                             />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
+
+                {selectedPoint && (
+                    <div className="mt-4 p-4 rounded-xl border border-purple-200 dark:border-purple-500/30 bg-white/80 dark:bg-slate-900/70 shadow-md max-w-md">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                                <p className="text-sm font-semibold mb-1">{selectedPoint.time}</p>
+                                <p className="text-xs text-purple-600 dark:text-purple-400 font-bold">
+                                    Percentage: {selectedPoint.percentage.toFixed(2)}%
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                className="text-[11px] text-muted-foreground hover:text-foreground"
+                                onClick={() => setSelectedPoint(null)}
+                            >
+                                Clear
+                            </button>
+                        </div>
+                        <div className="space-y-1 text-xs">
+                            <p className="text-green-600 dark:text-green-400">
+                                Child: {selectedPoint.childCount.toLocaleString()}
+                            </p>
+                            <p className="text-blue-600 dark:text-blue-400">
+                                Parent: {selectedPoint.parentCount.toLocaleString()}
+                            </p>
+
+                            {selectedPoint.childBreakdown && (
+                                <div className="mt-2">
+                                    <p className="font-semibold mb-1 text-xs text-green-700 dark:text-green-300">Child breakdown</p>
+                                    {Object.entries(selectedPoint.childBreakdown as Record<string, number>).map(([eventId, count]) => (
+                                        <div key={eventId} className="flex items-center justify-between">
+                                            <span>{eventNames[eventId] || eventId}</span>
+                                            <span className="font-mono">{count.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {selectedPoint.parentBreakdown && (
+                                <div className="mt-2">
+                                    <p className="font-semibold mb-1 text-xs text-blue-700 dark:text-blue-300">Parent breakdown</p>
+                                    {Object.entries(selectedPoint.parentBreakdown as Record<string, number>).map(([eventId, count]) => (
+                                        <div key={eventId} className="flex items-center justify-between">
+                                            <span>{eventNames[eventId] || eventId}</span>
+                                            <span className="font-mono">{count.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Legend */}
                 <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">

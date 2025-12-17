@@ -1439,6 +1439,8 @@ interface FilterState {
     activePercentageEvents?: string[]; // Event IDs for active percentage PARENT events (denominator)
     activePercentageChildEvents?: string[]; // Event IDs for active percentage CHILD events (numerator)
     activeFunnelChildEvents?: string[]; // Event IDs for active funnel multiple child breakdown
+    percentageStatusCodes?: string[];
+    percentageCacheStatus?: string[];
 }
 
 interface DateRangeState {
@@ -2131,14 +2133,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             const eventConfig = eventConfigMap.get(eventId);
             const isAvgEvent = eventConfig?.isAvgEvent === 1;
 
-            // Add to overall totals
+            // Add overall totals
             existing.count += record.count || 0;
             existing.successCount += record.successCount || 0;
             existing.failCount += record.failCount || 0;
 
-            // Add per-event data
+            // Add per-event data keyed by safe event name
             const eventName = eventNameMap.get(eventId) || `Event ${eventId}`;
-            const eventKey = eventName.replace(/[^a-zA-Z0-9]/g, '_'); // Safe key for object property
+            const eventKey = eventName.replace(/[^a-zA-Z0-9]/g, '_');
 
             if (!existing[`${eventKey}_count`]) {
                 existing[`${eventKey}_count`] = 0;
@@ -2150,6 +2152,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             existing[`${eventKey}_count`] += record.count || 0;
             existing[`${eventKey}_success`] += record.successCount || 0;
             existing[`${eventKey}_fail`] += record.failCount || 0;
+
+            // Also aggregate by raw numeric eventId for special graphs (percentage/funnel)
+            if (!existing[`${eventId}_count`]) {
+                existing[`${eventId}_count`] = 0;
+                existing[`${eventId}_success`] = 0;
+                existing[`${eventId}_fail`] = 0;
+            }
+            existing[`${eventId}_count`] += record.count || 0;
+            existing[`${eventId}_success`] += record.successCount || 0;
+            existing[`${eventId}_fail`] += record.failCount || 0;
 
             // CAPTURE STATUS CODE & CACHE STATUS BREAKDOWNS (if available)
             // This enables "Percentage Graph" to filter by status/cache even for specific Events
@@ -2749,7 +2761,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         // Determine value type based on filter key
         // activeStages, activePercentageEvents, activeFunnelChildEvents use string IDs
         // platform, pos, source, events use numeric IDs
-        const isStringFilter = ['activeStages', 'activePercentageEvents', 'activeFunnelChildEvents'].includes(type);
+        const isStringFilter = ['activeStages', 'activePercentageEvents', 'activePercentageChildEvents', 'activeFunnelChildEvents', 'percentageStatusCodes', 'percentageCacheStatus'].includes(type as string);
         
         const finalValues = isStringFilter
             ? values
@@ -3155,6 +3167,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                     const isFunnelGraph = mainGraphType === 'funnel';
                                     const funnelConfig = mainPanelConfig?.funnelConfig;
 
+                                    const configuredStatusCodes = percentageConfig?.filters?.statusCodes || [];
+                                    const configuredCacheStatus = percentageConfig?.filters?.cacheStatus || [];
+                                    const activeStatusCodes = (currentFilters as Partial<FilterState>).percentageStatusCodes || configuredStatusCodes;
+                                    const activeCacheStatus = (currentFilters as Partial<FilterState>).percentageCacheStatus || configuredCacheStatus;
+
                                     // Specialized Filters for Percentage Graph
                                     if (isPercentageGraph && percentageConfig) {
                                         return (
@@ -3244,12 +3261,81 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         />
                                                     </div>
                                                 </div>
+                                                {(configuredStatusCodes.length > 0 || configuredCacheStatus.length > 0) && (
+                                                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        {configuredStatusCodes.length > 0 && (
+                                                            <div className="space-y-1.5">
+                                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</Label>
+                                                                <div className="space-y-1">
+                                                                    {configuredStatusCodes.map((code: string) => {
+                                                                        const isChecked = (activeStatusCodes || configuredStatusCodes).includes(code);
+                                                                        return (
+                                                                            <div key={code} className="flex items-center gap-2">
+                                                                                <Checkbox
+                                                                                    id={`percentage-status-${code}`}
+                                                                                    checked={isChecked}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        const base = (activeStatusCodes && activeStatusCodes.length > 0) ? activeStatusCodes : configuredStatusCodes;
+                                                                                        const next = checked
+                                                                                            ? Array.from(new Set([...base, code]))
+                                                                                            : base.filter((c: string) => c !== code);
+                                                                                        handleFilterChange('percentageStatusCodes', next);
+                                                                                    }}
+                                                                                />
+                                                                                <label htmlFor={`percentage-status-${code}`} className="text-xs cursor-pointer">
+                                                                                    {code}
+                                                                                </label>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {configuredCacheStatus.length > 0 && (
+                                                            <div className="space-y-1.5">
+                                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</Label>
+                                                                <div className="space-y-1">
+                                                                    {configuredCacheStatus.map((cache: string) => {
+                                                                        const isChecked = (activeCacheStatus || configuredCacheStatus).includes(cache);
+                                                                        return (
+                                                                            <div key={cache} className="flex items-center gap-2">
+                                                                                <Checkbox
+                                                                                    id={`percentage-cache-${cache}`}
+                                                                                    checked={isChecked}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        const base = (activeCacheStatus && activeCacheStatus.length > 0) ? activeCacheStatus : configuredCacheStatus;
+                                                                                        const next = checked
+                                                                                            ? Array.from(new Set([...base, cache]))
+                                                                                            : base.filter((c: string) => c !== cache);
+                                                                                        handleFilterChange('percentageCacheStatus', next);
+                                                                                    }}
+                                                                                />
+                                                                                <label htmlFor={`percentage-cache-${cache}`} className="text-xs cursor-pointer">
+                                                                                    {cache}
+                                                                                </label>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     }
 
-                                    // Specialized Filters for Funnel Graph - EDITABLE DROPDOWNS
+                                    // Specialized Filters for Funnel Graph - dropdowns like Template Builder
                                     if (isFunnelGraph && funnelConfig) {
+                                        const defaultStageIds = funnelConfig.stages.map((s: any) => s.eventId);
+                                        const activeStageIds = (currentFilters.activeStages && currentFilters.activeStages.length > 0)
+                                            ? currentFilters.activeStages
+                                            : defaultStageIds;
+
+                                        const activeChildEventsForMain = (currentFilters.activeFunnelChildEvents && currentFilters.activeFunnelChildEvents.length > 0)
+                                            ? currentFilters.activeFunnelChildEvents
+                                            : (funnelConfig.multipleChildEvents || []);
+
                                         return (
                                             <div className="col-span-12 space-y-4">
                                                 <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
@@ -3262,13 +3348,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         Define conversion stages: e1 (parent) → e2 → e3 → ... → last (multiple children)
                                                     </p>
 
-                                                    {/* Funnel Stages - Individual Dropdowns */}
+                                                    {/* Funnel Stages - Individual Dropdowns (e1, e2, e3...) with add/remove */}
                                                     <div className="space-y-3">
                                                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                                                             Funnel Stages
                                                         </label>
-                                                        {funnelConfig.stages.map((stage: any, idx: number) => {
-                                                            const event = events.find(e => String(e.eventId) === String(stage.eventId));
+                                                        {(activeStageIds.length > 0 ? activeStageIds : defaultStageIds).map((currentId: string, idx: number) => {
+                                                            const selectedId = currentId || defaultStageIds[idx] || '';
                                                             return (
                                                                 <div key={idx} className="flex items-center gap-2">
                                                                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex-shrink-0">
@@ -3276,16 +3362,49 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                     </span>
                                                                     <select
                                                                         className="flex-1 h-10 px-3 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                                        value={stage.eventId}
-                                                                        disabled
+                                                                        value={selectedId}
+                                                                        onChange={(e) => {
+                                                                            const newId = e.target.value;
+                                                                            const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                            base[idx] = newId;
+                                                                            handleFilterChange('activeStages', base);
+                                                                        }}
                                                                     >
-                                                                        <option value={stage.eventId}>
-                                                                            {event?.eventName || stage.label || stage.eventName || stage.eventId}
-                                                                        </option>
+                                                                        <option value="">Select event</option>
+                                                                        {events.map(ev => (
+                                                                            <option key={ev.eventId} value={ev.eventId}>
+                                                                                {ev.eventName}
+                                                                            </option>
+                                                                        ))}
                                                                     </select>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="text-[11px] text-red-500 hover:text-red-700 px-1 disabled:opacity-40"
+                                                                        disabled={(activeStageIds.length || defaultStageIds.length) <= 1}
+                                                                        onClick={() => {
+                                                                            const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                            const next = base.filter((_, i) => i !== idx);
+                                                                            handleFilterChange('activeStages', next);
+                                                                        }}
+                                                                    >
+                                                                        Remove
+                                                                    </button>
                                                                 </div>
                                                             );
                                                         })}
+                                                        <div>
+                                                            <button
+                                                                type="button"
+                                                                className="mt-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+                                                                onClick={() => {
+                                                                    const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                    const next = [...base, ''];
+                                                                    handleFilterChange('activeStages', next);
+                                                                }}
+                                                            >
+                                                                + Add Stage
+                                                            </button>
+                                                        </div>
                                                     </div>
 
                                                     {/* Final Stage (Multiple Events) - Multi-Select */}
@@ -3294,25 +3413,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                                                                 Final Stage (Multiple Events)
                                                             </label>
-                                                            <div className="flex flex-wrap gap-2 bg-white dark:bg-slate-800 rounded-md p-3 border border-cyan-200 dark:border-cyan-700">
-                                                                {funnelConfig.multipleChildEvents.map((eventId: string) => {
-                                                                    const event = events.find(e => String(e.eventId) === String(eventId));
-                                                                    const eventName = event?.eventName || eventId;
-                                                                    const eventColor = event?.color || '#3b82f6';
-                                                                    return (
-                                                                        <span 
-                                                                            key={eventId}
-                                                                            className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 dark:bg-slate-700 border border-gray-300 dark:border-gray-600"
-                                                                        >
-                                                                            <span 
-                                                                                className="w-2 h-2 rounded-full mr-1.5" 
-                                                                                style={{ backgroundColor: eventColor }}
-                                                                            />
-                                                                            {eventName}
-                                                                        </span>
-                                                                    );
-                                                                })}
-                                                            </div>
+                                                            <MultiSelectDropdown
+                                                                options={events.map(ev => ({ value: String(ev.eventId), label: ev.eventName }))}
+                                                                selected={activeChildEventsForMain}
+                                                                onChange={(values) => handleFilterChange('activeFunnelChildEvents', values)}
+                                                                placeholder="Select final stage events"
+                                                            />
                                                             <p className="text-xs text-gray-500 dark:text-gray-400 italic">
                                                                 These events will be shown with different colors in the final bar
                                                             </p>
@@ -3761,6 +3867,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             ? panelFilters.activePercentageChildEvents
                             : percentageConfig.childEvents;
 
+                        const configuredStatusCodes = percentageConfig.filters?.statusCodes || [];
+                        const configuredCacheStatus = percentageConfig.filters?.cacheStatus || [];
+                        const activeStatusCodes = panelFilters.percentageStatusCodes && panelFilters.percentageStatusCodes.length > 0
+                            ? panelFilters.percentageStatusCodes
+                            : configuredStatusCodes;
+                        const activeCacheStatus = panelFilters.percentageCacheStatus && panelFilters.percentageCacheStatus.length > 0
+                            ? panelFilters.percentageCacheStatus
+                            : configuredCacheStatus;
+
                         return (
                             <motion.div
                                 initial={{ opacity: 0, y: 20 }}
@@ -3774,6 +3889,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                     childEvents={activeChildEvents}
                                     eventColors={eventColors}
                                     eventNames={eventNames}
+                                    filters={{
+                                        ...(percentageConfig?.filters || {}),
+                                        statusCodes: activeStatusCodes,
+                                        cacheStatus: activeCacheStatus
+                                    }}
                                     isHourly={isHourly}
                                 />
                             </motion.div>
@@ -3784,17 +3904,24 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     const funnelConfig = filterConfig?.funnelConfig;
 
                     if (graphType === 'funnel' && funnelConfig) {
-                        // Use all stages from config
-                        const activeStages = funnelConfig.stages.map((stage: any) => {
-                            const evt = events.find(e => String(e.eventId) === String(stage.eventId));
-                            return {
-                                eventId: stage.eventId,
-                                eventName: evt?.eventName || stage.label || stage.eventName || stage.eventId,
-                                color: evt?.color || stage.color
-                            };
-                        });
+                        const activeStageIds = panelFilters.activeStages && panelFilters.activeStages.length > 0
+                            ? panelFilters.activeStages
+                            : funnelConfig.stages.map((s: any) => s.eventId);
 
-                        const activeChildEvents = funnelConfig.multipleChildEvents || [];
+                        const activeStages = funnelConfig.stages
+                            .filter((stage: any) => activeStageIds.includes(stage.eventId))
+                            .map((stage: any) => {
+                                const evt = events.find(e => String(e.eventId) === String(stage.eventId));
+                                return {
+                                    eventId: stage.eventId,
+                                    eventName: evt?.eventName || stage.label || stage.eventName || stage.eventId,
+                                    color: evt?.color || stage.color
+                                };
+                            });
+
+                        const activeChildEvents = panelFilters.activeFunnelChildEvents && panelFilters.activeFunnelChildEvents.length > 0
+                            ? panelFilters.activeFunnelChildEvents
+                            : (funnelConfig.multipleChildEvents || []);
 
                         return (
                             <motion.div
@@ -6106,7 +6233,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         ) || [];
 
                                         const activeChildEvents = panelConfig.percentageConfig.childEvents?.filter((id: string) =>
-                                            !currentPanelFilters.activePercentageEvents || currentPanelFilters.activePercentageEvents.includes(id)
+                                            !currentPanelFilters.activePercentageChildEvents || currentPanelFilters.activePercentageChildEvents.includes(id)
                                         ) || [];
 
                                         return (
