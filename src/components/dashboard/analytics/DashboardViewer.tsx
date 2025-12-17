@@ -5426,6 +5426,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                                                 {/* Filter Dropdowns Grid */}
                                                 {/* Special UI for Percentage and Funnel Graphs */}
+                                                {(() => {
+
+                                                    return null;
+                                                })()}
                                                 {panelGraphType === 'percentage' && panelConfig?.percentageConfig ? (
                                                     <div className="space-y-4">
                                                         <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 rounded-lg border-2 border-purple-300 dark:border-purple-500/30">
