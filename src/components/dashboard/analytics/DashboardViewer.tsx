@@ -2215,27 +2215,36 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
     // Auto-select first event for API Performance Metrics
     useEffect(() => {
-        if (eventKeys.length > 0 && isMainPanelApi && !apiSelectedEventKey) {
+        if (eventKeys.length > 0 && isMainPanelApi) {
             // For API events, try to find status 200 first
             const status200 = eventKeys.find(ek => {
                 const eventName = ek.eventName || '';
                 return eventName === '200' || eventName.includes('status_200');
             });
             const keyToSelect = status200 ? status200.eventKey : eventKeys[0].eventKey;
-            setApiSelectedEventKey(keyToSelect);
+            if (!apiSelectedEventKey || !eventKeys.find(ek => ek.eventKey === apiSelectedEventKey)) {
+                setApiSelectedEventKey(keyToSelect);
+            }
         }
-    }, [eventKeys, isMainPanelApi, apiSelectedEventKey]);
+    }, [eventKeys, isMainPanelApi]);
 
     // Auto-select first event for 8-Day Overlay
     useEffect(() => {
-        if (eventKeys.length > 0 && !overlaySelectedEventKey) {
-            setOverlaySelectedEventKey(eventKeys[0].eventKey);
+        if (eventKeys.length > 0) {
+            if (!overlaySelectedEventKey || !eventKeys.find(ek => ek.eventKey === overlaySelectedEventKey)) {
+                setOverlaySelectedEventKey(eventKeys[0].eventKey);
+            }
         }
-    }, [eventKeys, overlaySelectedEventKey]);
+    }, [eventKeys]);
 
-    // Note: We don't auto-select for Error Event Tracking
-    // Let all events show by default, users can click legend to filter
-    // This prevents empty graphs when selected event has no data
+    // Auto-select first event for Error Event Tracking
+    useEffect(() => {
+        if (eventKeys.length > 0) {
+            if (!errorSelectedEventKey || !eventKeys.find(ek => ek.eventKey === errorSelectedEventKey)) {
+                setErrorSelectedEventKey(eventKeys[0].eventKey);
+            }
+        }
+    }, [eventKeys]);
 
 
     // Function to refresh a single panel's data
@@ -3434,11 +3443,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     });
                     
                     // If in deviation mode, show only the overlay chart with toggle button
+                    // For hourly: only show 8-Day Overlay if date range <= 8 days
                     if (isHourly && mainChartType === 'deviation') {
-                        // Filter to show only selected event or all events
-                        const filteredEventKeys = overlaySelectedEventKey
-                            ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
-                            : normalEventKeys.map(e => e.eventKey);
+                        const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+                        if (daysDiff <= 8) {
+                            // Filter to show only selected event or all events
+                            const filteredEventKeys = overlaySelectedEventKey
+                                ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                : normalEventKeys.map(e => e.eventKey);
                         
                         return (
                             <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
@@ -3480,6 +3492,60 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                 </CardContent>
                             </Card>
                         );
+                        }
+                    }
+                    
+                    // If in deviation mode for DAILY data, show daily overlay comparison
+                    // Only show for date ranges <= 8 days
+                    if (!isHourly && mainChartType === 'deviation') {
+                        const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+                        if (daysDiff <= 8) {
+                            // Filter to show only selected event or all events
+                            const filteredEventKeys = overlaySelectedEventKey
+                                ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                : normalEventKeys.map(e => e.eventKey);
+                        
+                        return (
+                            <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                <CardHeader className="pb-2 px-3 md:px-6">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <BarChart3 className="h-5 w-5 text-purple-600" />
+                                            <CardTitle className="text-base md:text-lg">Daily Overlay Comparison</CardTitle>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                            onClick={() => {
+                                                setPanelChartType(prev => {
+                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                    if (!mainPanelId) return prev;
+                                                    return {
+                                                        ...prev,
+                                                        [mainPanelId]: 'default',
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            ← Event Trends
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                    <DayWiseComparisonChart 
+                                        data={graphData}
+                                        dateRange={dateRange}
+                                        eventKeys={filteredEventKeys}
+                                        eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}  
+                                        eventStats={eventStatsForBadges}
+                                        selectedEventKey={overlaySelectedEventKey}
+                                        onEventClick={handleOverlayEventClick}
+                                    />
+                                </CardContent>
+                            </Card>
+                        );
+                        }
                     }
                     
                     // Otherwise show the regular chart
@@ -3515,6 +3581,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     if (isHourly) {
                                                         return 'Hourly Event Trends';
                                                     }
+                                                    if (mainChartType === 'deviation') {
+                                                        return 'Daily Overlay Comparison';
+                                                    }
                                                     return 'Daily Event Trends with Average';
                                                 })()}
                                             </CardTitle>
@@ -3530,37 +3599,38 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         })()}
                                                     </span>
                                                 ) : (
-                                                    <span className="hidden md:inline">Daily trends with average reference line</span>
+                                                    <span className="hidden md:inline">Daily event counts • Toggle for overlay comparison</span>
                                                 )}
                                                 <span className="md:hidden">Tap data points for insights</span>
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {isHourly && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                                onClick={() => {
-                                                    setPanelChartType(prev => {
-                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                        if (!mainPanelId) return prev;
-                                                        const current = prev[mainPanelId] ?? 'default';
-                                                        return {
-                                                            ...prev,
-                                                            [mainPanelId]: current === 'deviation' ? 'default' : 'deviation',
-                                                        };
-                                                    });
-                                                }}
-                                            >
-                                                {(() => {
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                            onClick={() => {
+                                                setPanelChartType(prev => {
                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                    if (!mainPanelId) return prev;
+                                                    const current = prev[mainPanelId] ?? 'default';
+                                                    return {
+                                                        ...prev,
+                                                        [mainPanelId]: current === 'deviation' ? 'default' : 'deviation',
+                                                    };
+                                                });
+                                            }}
+                                        >
+                                            {(() => {
+                                                const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                if (isHourly) {
                                                     return mainChartType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
-                                                })()}
-                                            </Button>
-                                        )}
+                                                }
+                                                return mainChartType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
+                                            })()}
+                                        </Button>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -3569,9 +3639,26 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                 {(() => {
                                     const mainPanelId = profile?.panels?.[0]?.panelId;
                                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                    const showingOverlay = isHourly && mainChartType === 'deviation';
+                                    const showingHourlyOverlay = isHourly && mainChartType === 'deviation';
+                                    const showingDailyOverlay = !isHourly && mainChartType === 'deviation';
                                     
-                                    return !showingOverlay && normalEventKeys.length > 0 && (
+                                    // Show legend for daily overlay, but not for hourly overlay (8-Day has its own badges)
+                                    if (showingDailyOverlay && normalEventKeys.length > 0) {
+                                        return (
+                                            <CollapsibleLegend
+                                                eventKeys={sortedNormalEventKeys}
+                                                events={events}
+                                                isExpanded={mainLegendExpanded}
+                                                onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
+                                                maxVisibleItems={5}
+                                                graphData={graphData}
+                                                selectedEventKey={overlaySelectedEventKey}
+                                                onEventClick={handleOverlayEventClick}
+                                            />
+                                        );
+                                    }
+                                    
+                                    return !showingHourlyOverlay && normalEventKeys.length > 0 && (
                                         <CollapsibleLegend
                                             eventKeys={sortedNormalEventKeys}
                                             events={events}
@@ -3637,14 +3724,26 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     );
                                                 }
 
-                                                if (!isHourly) {
-                                                    // Show daily average chart for >7 day ranges; component itself guards by daysDiff
+                                                // For daily overlay mode, show daily average chart with line + avg
+                                                if (!isHourly && mainChartType === 'deviation') {
+                                                    // Filter to show only selected event or all events
+                                                    const filteredEventKeys = overlaySelectedEventKey
+                                                        ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                                        : normalEventKeys.map(e => e.eventKey);
+                                                    
+                                                    const filteredEventStats = overlaySelectedEventKey
+                                                        ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
+                                                        : eventStatsForBadges;
+                                                    
                                                     return (
                                                         <DailyAverageChart 
                                                             data={graphData}
                                                             dateRange={dateRange}
-                                                            eventKeys={normalEventKeys.map(e => e.eventKey)}
+                                                            eventKeys={filteredEventKeys}
                                                             eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                            eventStats={filteredEventStats}
+                                                            selectedEventKey={overlaySelectedEventKey}
+                                                            onEventClick={handleOverlayEventClick}
                                                         />
                                                     );
                                                 }
@@ -3811,7 +3910,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     />
                                                     {/* Dynamic areas for normal (count) events only */}
                                                     {normalEventKeys.length > 0 ? normalEventKeys
-                                                        .filter(ek => !overlaySelectedEventKey || ek.eventKey === overlaySelectedEventKey)
+                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
                                                         .map((eventKeyInfo, index) => {
                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
@@ -5357,7 +5456,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             >
                                                                 {(() => {
                                                                     const currentType = panelChartType[panel.panelId] ?? 'deviation';
-                                                                    return currentType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
+                                                                    if (pIsHourly) {
+                                                                        return currentType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
+                                                                    }
+                                                                    return currentType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
                                                                 })()}
                                                             </Button>
                                                         </div>
@@ -5539,10 +5641,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 ? pNormalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
                                                 : pNormalEventKeys.map(e => e.eventKey);
                                             
-                                            const filteredEventStats = selectedEventKey
-                                                ? pEventStatsForBadges.filter(s => s.eventKey === selectedEventKey)
-                                                : pEventStatsForBadges;
-                                            
                                             return (
                                                 <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
                                                     <CardHeader className="pb-2">
@@ -5572,7 +5670,74 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             dateRange={currentPanelDateRange}
                                                             eventKeys={filteredEventKeys}
                                                             eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                            eventStats={filteredEventStats}
+                                                            eventStats={pEventStatsForBadges}
+                                                            selectedEventKey={selectedEventKey}
+                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                        />
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })()}
+
+                                        {/* Daily Overlay Comparison for Daily Panel Data - Show in deviation mode */}
+                                        {!pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
+                                            // Calculate event stats for panel overlay badges
+                                            const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
+                                                const eventKey = eventKeyInfo.eventKey;
+                                                let total = 0;
+                                                let success = 0;
+
+                                                pGraphData.forEach((item: any) => {
+                                                    total += item[`${eventKey}_count`] || 0;
+                                                    success += item[`${eventKey}_success`] || 0;
+                                                });
+
+                                                const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                                                return {
+                                                    eventKey,
+                                                    eventId: eventKeyInfo.eventId,
+                                                    total,
+                                                    successRate
+                                                };
+                                            });
+                                            
+                                            // Filter events based on selected event (if any)
+                                            const selectedEventKey = panelSelectedEventKey[panel.panelId];
+                                            const filteredEventKeys = selectedEventKey 
+                                                ? pNormalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                                                : pNormalEventKeys.map(e => e.eventKey);
+                                            
+                                            return (
+                                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                                    <CardHeader className="pb-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                                <CardTitle className="text-base font-semibold">Daily Overlay Comparison</CardTitle>
+                                                            </div>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                                onClick={() => {
+                                                                    setPanelChartType(prev => ({
+                                                                        ...prev,
+                                                                        [panel.panelId]: 'default',
+                                                                    }));
+                                                                }}
+                                                            >
+                                                                ← Event Trends
+                                                            </Button>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                                        <DayWiseComparisonChart 
+                                                            data={pGraphData}
+                                                            dateRange={currentPanelDateRange}
+                                                            eventKeys={filteredEventKeys}
+                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                            eventStats={pEventStatsForBadges}
                                                             selectedEventKey={selectedEventKey}
                                                             onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
                                                         />

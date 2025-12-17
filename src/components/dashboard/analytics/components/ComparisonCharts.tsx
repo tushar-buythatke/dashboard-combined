@@ -490,13 +490,16 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
  * Average Line Overlay for Daily Data (>7 days)
  * Shows daily trends with average line to identify dips
  */
-export function DailyAverageChart({ data, dateRange, eventKeys, eventColors }: ComparisonChartsProps) {
+export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
 
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
     
     // Only show this chart for > 7 days
     if (daysDiff <= 7) return null;
+
+    // Filter event keys based on selection
+    const filteredEventKeys = selectedEventKey ? eventKeys.filter(k => k === selectedEventKey) : eventKeys;
 
     // Group by day
     const dailyData: Record<string, any> = {};
@@ -515,7 +518,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors }: C
         }
         
         // Match the graphData shape used elsewhere: `${eventKey}_count` first, then plain key
-        const value = eventKeys.reduce((sum, key) => {
+        const value = filteredEventKeys.reduce((sum, key) => {
             const countKey = `${key}_count`;
             const raw = (record as any)[countKey] ?? (record as any)[key];
             const num = Number(raw) || 0;
@@ -536,6 +539,19 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors }: C
     // Calculate overall average
     const overallAvg = chartData.reduce((sum, d) => sum + d.value, 0) / chartData.length;
 
+    // Helper function to extract status code from event key
+    const extractStatusCode = (eventKey: string): number => {
+        const match = eventKey.match(/\b(\d{3})\b/);
+        return match ? parseInt(match[1]) : 999;
+    };
+
+    // Sort event stats by status code
+    const sortedEventStats = eventStats ? [...eventStats].sort((a, b) => {
+        const codeA = extractStatusCode(a.eventKey);
+        const codeB = extractStatusCode(b.eventKey);
+        return codeA - codeB;
+    }) : [];
+
     return (
         <Card className="border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-lg rounded-2xl">
             <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-emerald-50/80 to-green-50/60 dark:from-emerald-900/20 dark:to-green-900/10 border-b border-emerald-200/40 dark:border-emerald-500/20">
@@ -552,6 +568,50 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors }: C
                         </div>
                     </div>
                 </div>
+                {/* Event badges for selection */}
+                {sortedEventStats && sortedEventStats.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                        {sortedEventStats.map((stat) => {
+                            const isSelected = selectedEventKey === stat.eventKey;
+                            const statusCode = extractStatusCode(stat.eventKey);
+                            let bgColor = 'bg-slate-100 dark:bg-slate-800';
+                            let borderColor = 'border-slate-300 dark:border-slate-600';
+                            let textColor = 'text-slate-700 dark:text-slate-300';
+                            
+                            if (statusCode >= 200 && statusCode < 300) {
+                                bgColor = 'bg-green-50 dark:bg-green-900/20';
+                                borderColor = 'border-green-300 dark:border-green-600';
+                                textColor = 'text-green-700 dark:text-green-300';
+                            } else if (statusCode >= 400 && statusCode < 500) {
+                                bgColor = 'bg-orange-50 dark:bg-orange-900/20';
+                                borderColor = 'border-orange-300 dark:border-orange-600';
+                                textColor = 'text-orange-700 dark:text-orange-300';
+                            } else if (statusCode >= 500) {
+                                bgColor = 'bg-red-50 dark:bg-red-900/20';
+                                borderColor = 'border-red-300 dark:border-red-600';
+                                textColor = 'text-red-700 dark:text-red-300';
+                            }
+                            
+                            return (
+                                <button
+                                    key={stat.eventKey}
+                                    onClick={() => onEventClick?.(stat.eventKey)}
+                                    className={cn(
+                                        'px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all duration-200',
+                                        'hover:scale-105 cursor-pointer',
+                                        isSelected
+                                            ? `${bgColor} ${borderColor} ${textColor} shadow-md`
+                                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 opacity-60 hover:opacity-100'
+                                    )}
+                                >
+                                    <span className="font-semibold">{stat.eventKey}</span>
+                                    <span className="ml-2 opacity-75">{stat.total.toLocaleString()}</span>
+                                    <span className="ml-1.5 text-[10px] opacity-60">({stat.successRate.toFixed(1)}%)</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
             </CardHeader>
             <CardContent className="p-4 md:p-6">
                 <div className="h-[400px] w-full">
