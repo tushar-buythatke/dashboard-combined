@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { PanelCombineModal } from './PanelCombineModal';
 import { PanelPreview } from './PanelPreview';
-import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle, RefreshCw, Activity } from 'lucide-react';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
@@ -63,9 +63,11 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const [availableEvents, setAvailableEvents] = useState<EventConfig[]>([]);
     const [siteDetails, setSiteDetails] = useState<SiteDetail[]>([]);
     const [availableJobIds, setAvailableJobIds] = useState<string[]>([]); // Job IDs from API
+    const [availableStatusCodes, setAvailableStatusCodes] = useState<string[]>([]); // Status codes from API
+    const [availableCacheStatuses, setAvailableCacheStatuses] = useState<string[]>([]); // Cache statuses from API
     const [loadingJobIds, setLoadingJobIds] = useState(false);
 
-    // Function to fetch available job IDs from a sample API call
+    // Function to fetch available job IDs, status codes, and cache statuses from a sample API call
     const fetchAvailableJobIds = async (panelId?: string) => {
         const panel = panelId ? panels.find(p => p.panelId === panelId) : panels[0];
         if (!panel || panel.filters.events.length === 0) {
@@ -85,17 +87,42 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 panel.isApiEvent || false
             );
 
-            // Extract unique sourceStr values
+            // Extract unique sourceStr values (Job IDs)
             if (response?.data) {
                 const jobIds = new Set<string>();
+                const statusCodes = new Set<string>();
+                const cacheStatuses = new Set<string>();
+                
                 response.data.forEach((record: any) => {
+                    // Extract Job IDs
                     if (record.sourceStr && typeof record.sourceStr === 'string' && record.sourceStr.trim() !== '') {
                         jobIds.add(record.sourceStr);
                     }
+                    
+                    // Extract status codes and cache statuses from API event keys
+                    if (panel.isApiEvent) {
+                        Object.keys(record).forEach(key => {
+                            const statusMatch = key.match(/_status_(\d+)_/);
+                            const cacheMatch = key.match(/_cache_([^_]+)_/);
+                            if (statusMatch) statusCodes.add(statusMatch[1]);
+                            if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
+                        });
+                    }
                 });
+                
                 const sortedJobIds = Array.from(jobIds).sort();
+                const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+                const sortedCacheStatuses = Array.from(cacheStatuses).sort();
+                
                 setAvailableJobIds(sortedJobIds);
+                setAvailableStatusCodes(sortedStatusCodes);
+                setAvailableCacheStatuses(sortedCacheStatuses);
+                
                 console.log(`📋 Loaded ${sortedJobIds.length} job IDs:`, sortedJobIds);
+                if (panel.isApiEvent) {
+                    console.log(`📊 Loaded ${sortedStatusCodes.length} status codes:`, sortedStatusCodes);
+                    console.log(`🗄️ Loaded ${sortedCacheStatuses.length} cache statuses:`, sortedCacheStatuses);
+                }
             }
         } catch (error) {
             console.error('Failed to fetch job IDs:', error);
@@ -1105,15 +1132,17 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         {/* API Event filters for status code and cache status */}
                                                         {panel.isApiEvent && (
                                                             <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
-                                                                <Label className="text-xs font-medium mb-2 block">API Filters (Optional)</Label>
+                                                                <Label className="text-xs font-medium mb-3 block flex items-center gap-2">
+                                                                    <Activity className="h-3 w-3" />
+                                                                    API Filters (Optional)
+                                                                </Label>
                                                                 <div className="grid grid-cols-2 gap-3">
-                                                                    <div className="space-y-1">
+                                                                    <div className="space-y-1.5">
                                                                         <Label className="text-xs text-muted-foreground">Status Codes</Label>
-                                                                        <Input
-                                                                            placeholder="e.g., 200,201,400"
-                                                                            value={(panel as any).percentageConfig?.filters?.statusCodes?.join(',') || ''}
-                                                                            onChange={(e) => {
-                                                                                const codes = e.target.value.split(',').map(c => c.trim()).filter(Boolean);
+                                                                        <MultiSelectDropdown
+                                                                            options={availableStatusCodes.map(code => ({ value: code, label: code }))}
+                                                                            selected={(panel as any).percentageConfig?.filters?.statusCodes || []}
+                                                                            onChange={(values) => {
                                                                                 setPanels(prev => prev.map(p => 
                                                                                     p.panelId === panel.panelId 
                                                                                         ? { 
@@ -1122,23 +1151,28 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                                 ...(p as any).percentageConfig, 
                                                                                                 filters: { 
                                                                                                     ...((p as any).percentageConfig?.filters || {}),
-                                                                                                    statusCodes: codes 
+                                                                                                    statusCodes: values 
                                                                                                 }
                                                                                             }
                                                                                         }
                                                                                         : p
                                                                                 ));
                                                                             }}
-                                                                            className="h-8 text-xs"
+                                                                            placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Fetch data to load options"}
+                                                                            className="h-8"
                                                                         />
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            {availableStatusCodes.length > 0 
+                                                                                ? `${availableStatusCodes.length} codes available` 
+                                                                                : 'Click "Fetch Job IDs" to load'}
+                                                                        </p>
                                                                     </div>
-                                                                    <div className="space-y-1">
+                                                                    <div className="space-y-1.5">
                                                                         <Label className="text-xs text-muted-foreground">Cache Status</Label>
-                                                                        <Input
-                                                                            placeholder="e.g., HIT,MISS"
-                                                                            value={(panel as any).percentageConfig?.filters?.cacheStatus?.join(',') || ''}
-                                                                            onChange={(e) => {
-                                                                                const statuses = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                                                        <MultiSelectDropdown
+                                                                            options={availableCacheStatuses.map(status => ({ value: status, label: status }))}
+                                                                            selected={(panel as any).percentageConfig?.filters?.cacheStatus || []}
+                                                                            onChange={(values) => {
                                                                                 setPanels(prev => prev.map(p => 
                                                                                     p.panelId === panel.panelId 
                                                                                         ? { 
@@ -1147,15 +1181,21 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                                 ...(p as any).percentageConfig, 
                                                                                                 filters: { 
                                                                                                     ...((p as any).percentageConfig?.filters || {}),
-                                                                                                    cacheStatus: statuses 
+                                                                                                    cacheStatus: values 
                                                                                                 }
                                                                                             }
                                                                                         }
                                                                                         : p
                                                                                 ));
                                                                             }}
-                                                                            className="h-8 text-xs"
+                                                                            placeholder={availableCacheStatuses.length > 0 ? "Select cache statuses" : "Fetch data to load options"}
+                                                                            className="h-8"
                                                                         />
+                                                                        <p className="text-xs text-muted-foreground">
+                                                                            {availableCacheStatuses.length > 0 
+                                                                                ? `${availableCacheStatuses.length} statuses available` 
+                                                                                : 'Click "Fetch Job IDs" to load'}
+                                                                        </p>
                                                                     </div>
                                                                 </div>
                                                             </div>

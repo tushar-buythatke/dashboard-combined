@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Filter, TrendingDown, ArrowDown } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Filter, TrendingDown, X, BarChart3, TrendingUp, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FunnelGraphProps {
@@ -10,7 +12,7 @@ interface FunnelGraphProps {
         eventName: string;
         color?: string;
     }>;
-    multipleChildEvents: string[]; // Last stage can have multiple events
+    multipleChildEvents: string[];
     eventColors: Record<string, string>;
     eventNames: Record<string, string>;
 }
@@ -19,8 +21,8 @@ interface FunnelStageData {
     eventId: string;
     eventName: string;
     count: number;
-    percentage: number; // Relative to first stage (100%)
-    dropoffPercentage: number; // Dropoff from previous stage
+    percentage: number;
+    dropoffPercentage: number;
     color: string;
     isMultiple?: boolean;
     children?: Array<{
@@ -32,52 +34,56 @@ interface FunnelStageData {
     }>;
 }
 
-/**
- * Funnel Graph Component
- * Shows conversion funnel visualization with percentages and dropoffs
- * Uses successCount from graph API data
- * Formula: (current_stage_successCount / first_stage_successCount) × 100
- */
 export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames }: FunnelGraphProps) {
+    const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
+
     const funnelData = useMemo<FunnelStageData[]>(() => {
         if (!data || data.length === 0 || stages.length === 0) return [];
 
-        // Calculate counts for each stage using successCount
+        const funnelPalette = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af'];
+
         const stageCounts = stages.map((stage) => {
             let count = 0;
             data.forEach((record) => {
                 const successKey = `${stage.eventId}_success`;
-                count += Number(record[successKey] || 0);
+                const countKey = `${stage.eventId}_count`;
+                count += Number(record[successKey] || record[countKey] || 0);
             });
             return { ...stage, count };
         });
 
-        // First stage count is the base (100%)
         const baseCount = stageCounts[0]?.count || 1;
 
-        // Process all stages except the last one
-        const processedStages: FunnelStageData[] = stageCounts.slice(0, -1).map((stage, index) => {
-            const prevCount = index > 0 ? stageCounts[index - 1].count : stage.count;
+        // Check if we have multiple child events for the final stage
+        const hasMultipleChildren = multipleChildEvents && multipleChildEvents.length > 0;
+        
+        // Process ALL stages from the stages array as regular stages
+        const regularStages = stageCounts;
+        
+        const processedStages: FunnelStageData[] = regularStages.map((stage, index) => {
+            const prevCount = index > 0 ? regularStages[index - 1].count : stage.count;
             const dropoff = prevCount > 0 ? ((prevCount - stage.count) / prevCount) * 100 : 0;
-            
+
             return {
                 eventId: stage.eventId,
                 eventName: stage.eventName || eventNames[stage.eventId] || stage.eventId,
                 count: stage.count,
                 percentage: (stage.count / baseCount) * 100,
                 dropoffPercentage: dropoff,
-                color: stage.color || eventColors[stage.eventId] || '#3b82f6',
+                color: funnelPalette[index % funnelPalette.length],
                 isMultiple: false,
             };
         });
 
-        // Process last stage with multiple children
-        if (multipleChildEvents && multipleChildEvents.length > 0) {
-            const lastStageChildren = multipleChildEvents.map((childEventId) => {
+        // Add final stage with multiple children aggregate (AFTER all regular stages)
+        if (hasMultipleChildren) {
+            // Final stage is an aggregate of multiple child events (AC_process_success, AC_process_failed)
+            const lastStageChildren = multipleChildEvents.map((childEventId, idx) => {
                 let count = 0;
                 data.forEach((record) => {
                     const successKey = `${childEventId}_success`;
-                    count += Number(record[successKey] || 0);
+                    const countKey = `${childEventId}_count`;
+                    count += Number(record[successKey] || record[countKey] || 0);
                 });
 
                 return {
@@ -85,38 +91,23 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     eventName: eventNames[childEventId] || childEventId,
                     count,
                     percentage: (count / baseCount) * 100,
-                    color: eventColors[childEventId] || '#3b82f6',
+                    color: funnelPalette[idx % funnelPalette.length],
                 };
             });
 
             const totalLastStageCount = lastStageChildren.reduce((sum, child) => sum + child.count, 0);
-            const prevCount = stageCounts[stageCounts.length - 2]?.count || totalLastStageCount;
+            const prevCount = regularStages[regularStages.length - 1]?.count || totalLastStageCount;
             const dropoff = prevCount > 0 ? ((prevCount - totalLastStageCount) / prevCount) * 100 : 0;
 
             processedStages.push({
-                eventId: 'multiple',
-                eventName: stages[stages.length - 1]?.eventName || 'Final Stage',
+                eventId: 'final_multiple',
+                eventName: 'Final Stage (Combined)',
                 count: totalLastStageCount,
                 percentage: (totalLastStageCount / baseCount) * 100,
                 dropoffPercentage: dropoff,
-                color: '#3b82f6',
+                color: funnelPalette[(processedStages.length) % funnelPalette.length],
                 isMultiple: true,
                 children: lastStageChildren,
-            } as FunnelStageData);
-        } else if (stageCounts.length > 0) {
-            // Single last stage
-            const lastStage = stageCounts[stageCounts.length - 1];
-            const prevCount = stageCounts[stageCounts.length - 2]?.count || lastStage.count;
-            const dropoff = prevCount > 0 ? ((prevCount - lastStage.count) / prevCount) * 100 : 0;
-            
-            processedStages.push({
-                eventId: lastStage.eventId,
-                eventName: lastStage.eventName || eventNames[lastStage.eventId] || lastStage.eventId,
-                count: lastStage.count,
-                percentage: (lastStage.count / baseCount) * 100,
-                dropoffPercentage: dropoff,
-                color: lastStage.color || eventColors[lastStage.eventId] || '#3b82f6',
-                isMultiple: false,
             });
         }
 
@@ -141,156 +132,311 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
         );
     }
 
-    const maxWidth = 100;
-
     return (
-        <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl">
-            <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-blue-50/80 to-cyan-50/60 dark:from-blue-900/20 dark:to-cyan-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg">
-                            <Filter className="h-5 w-5 text-white" />
+        <>
+            <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-xl rounded-2xl">
+                <CardHeader className="pb-4 px-6 bg-gradient-to-r from-blue-50/80 to-cyan-50/60 dark:from-blue-900/20 dark:to-cyan-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                                <Filter className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-base md:text-lg">Conversion Funnel</CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Event flow analysis • {funnelData.length} stages
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <CardTitle className="text-base md:text-lg">Conversion Funnel</CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                Event flow analysis • {funnelData.length} stages
-                            </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <TrendingDown className="h-4 w-4" />
+                            <span>Success rate tracking</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <TrendingDown className="h-4 w-4" />
-                        <span>Success rate tracking</span>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="p-6 md:p-8">
-                <div className="space-y-8">
-                    {funnelData.map((stage, index) => {
-                        const width = stage.percentage;
-                        const isFirst = index === 0;
+                </CardHeader>
+                <CardContent className="p-6 md:p-8">
+                    <div className="relative h-[420px] flex items-end justify-center gap-4 md:gap-6 pl-12 pr-8 md:pl-14 md:pr-12">
+                        {/* Grid Lines - representing 0%, 25%, 50%, 75%, 100% */}
+                        <div className="absolute inset-x-0 bottom-0 h-full pointer-events-none" style={{ left: '3rem', right: '2rem' }}>
+                            {[0, 25, 50, 75, 100].map((level) => (
+                                <div
+                                    key={level}
+                                    className="absolute left-0 w-full flex items-center"
+                                    style={{ bottom: `${level}%` }}
+                                >
+                                    <span className="absolute -left-9 text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                                        {level}%
+                                    </span>
+                                    <div className="w-full border-t border-dashed border-gray-300 dark:border-gray-600/50" />
+                                </div>
+                            ))}
+                        </div>
 
-                        return (
-                            <div key={stage.eventId} className="relative">
-                                {/* Dropoff Indicator (between stages) */}
-                                {!isFirst && (
-                                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 flex items-center gap-2 text-xs">
-                                        <ArrowDown className="h-4 w-4 text-red-500" />
-                                        <span className="font-semibold text-red-600 dark:text-red-400">
-                                            -{stage.dropoffPercentage.toFixed(1)}% dropoff
-                                        </span>
-                                    </div>
-                                )}
+                        {funnelData.map((stage, index) => {
+                            const heightPct = Math.max(Math.min(stage.percentage, 100), 2);
+                            const isSelected = selectedStage?.eventId === stage.eventId;
+                            const isFinalMultiple = stage.isMultiple && stage.children;
 
-                                {/* Stage Container */}
-                                <div className="space-y-2">
-                                    {/* Stage Header */}
-                                    <div className="flex items-center justify-between px-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-full h-6 w-6 flex items-center justify-center">
-                                                {index + 1}
-                                            </span>
-                                            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                                {stage.eventName}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                                                {stage.count.toLocaleString()}
-                                            </span>
-                                            <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 min-w-[60px] text-right">
-                                                {stage.percentage.toFixed(1)}%
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Funnel Bar */}
-                                    {!stage.isMultiple ? (
-                                        <div className="flex justify-center">
+                            return (
+                                <div
+                                    key={stage.eventId}
+                                    className="flex flex-col items-center group w-16 sm:w-20 md:w-24 h-full cursor-pointer relative z-10"
+                                    onClick={() => setSelectedStage(stage)}
+                                >
+                                    {/* Bar container - aligned to bottom (0%) */}
+                                    <div className="flex-1 flex items-end w-full relative">
+                                        {!isFinalMultiple ? (
+                                            /* Regular single-event bar */
                                             <div
                                                 className={cn(
-                                                    'rounded-lg transition-all duration-300 hover:shadow-xl cursor-pointer',
-                                                    'flex flex-col items-center justify-center text-white font-semibold',
-                                                    'relative overflow-hidden group'
+                                                    "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-hidden",
+                                                    "bg-gradient-to-t from-indigo-400/90 to-indigo-500/90",
+                                                    "hover:from-indigo-500/90 hover:to-indigo-600/90",
+                                                    "border-2 border-indigo-500/30 dark:border-indigo-400/30",
+                                                    isSelected && "ring-4 ring-indigo-300/50 dark:ring-indigo-400/50 scale-105"
                                                 )}
-                                                style={{
-                                                    width: `${width}%`,
-                                                    minWidth: '30%',
-                                                    height: '80px',
-                                                    backgroundColor: stage.color,
-                                                }}
+                                                style={{ height: `${heightPct}%` }}
                                             >
-                                                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                                <span className="text-2xl font-bold relative z-10">{stage.percentage.toFixed(1)}%</span>
-                                                <span className="text-xs opacity-90 relative z-10">{stage.count.toLocaleString()} events</span>
+                                                {/* Percentage label INSIDE the bar */}
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <span className="text-white font-bold text-xs sm:text-sm md:text-base drop-shadow-lg">
+                                                        {stage.percentage.toFixed(1)}%
+                                                    </span>
+                                                </div>
+
+                                                {/* Count on hover */}
+                                                <div className={cn(
+                                                    "absolute inset-x-0 top-2 flex items-center justify-center text-white text-[9px] sm:text-[10px] font-semibold px-1 transition-opacity",
+                                                    isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                                )}>
+                                                    <span className="drop-shadow-lg bg-black/20 px-1.5 py-0.5 rounded text-center">
+                                                        {stage.count.toLocaleString()}
+                                                    </span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ) : (
-                                        /* Multi-segment bar for last stage */
-                                        <div className="flex justify-center">
+                                        ) : (
+                                            /* Final stage with multiple events - stacked segments showing INDIVIDUAL percentages */
                                             <div
-                                                className="flex rounded-lg overflow-hidden shadow-lg"
-                                                style={{
-                                                    width: `${width}%`,
-                                                    minWidth: '30%',
-                                                    height: '80px',
-                                                }}
+                                                className={cn(
+                                                    "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-hidden border-2 border-gray-300 dark:border-gray-600",
+                                                    isSelected && "ring-4 ring-purple-300/50 dark:ring-purple-400/50 scale-105"
+                                                )}
+                                                style={{ height: `${heightPct}%` }}
                                             >
-                                                {stage.children?.map((child, childIndex) => {
-                                                    const childWidth = stage.count > 0 ? (child.count / stage.count) * 100 : 0;
+                                                {/* Stacked segments for each child event - from bottom to top */}
+                                                {stage.children?.slice().reverse().map((child, childIdx) => {
+                                                    // Calculate height based on child's individual percentage relative to total
+                                                    const childHeightPct = (child.percentage / stage.percentage) * 100;
+                                                    // Pastel colors in blue/purple/indigo spectrum - consistent with theme
+                                                    const segmentColors = [
+                                                        'from-indigo-300/80 to-indigo-400/80',
+                                                        'from-purple-300/80 to-purple-400/80',
+                                                        'from-blue-300/80 to-blue-400/80',
+                                                        'from-violet-300/80 to-violet-400/80',
+                                                        'from-cyan-300/80 to-cyan-400/80',
+                                                        'from-fuchsia-300/80 to-fuchsia-400/80',
+                                                    ];
+                                                    
                                                     return (
                                                         <div
                                                             key={child.eventId}
                                                             className={cn(
-                                                                'flex flex-col items-center justify-center text-white font-semibold transition-all duration-300 hover:brightness-110 cursor-pointer',
-                                                                childIndex > 0 && 'border-l-2 border-white/30'
+                                                                "w-full bg-gradient-to-t relative",
+                                                                segmentColors[childIdx % segmentColors.length]
                                                             )}
-                                                            style={{
-                                                                width: `${childWidth}%`,
-                                                                backgroundColor: child.color,
-                                                            }}
-                                                            title={`${child.eventName}: ${child.count.toLocaleString()} (${child.percentage.toFixed(1)}%)`}
+                                                            style={{ height: `${childHeightPct}%` }}
                                                         >
-                                                            <span className="text-sm font-bold">{child.percentage.toFixed(1)}%</span>
-                                                            <span className="text-xs opacity-90 truncate px-2 max-w-full" title={child.eventName}>
-                                                                {child.eventName}
-                                                            </span>
+                                                            {/* Show INDIVIDUAL percentage for each segment */}
+                                                            {child.percentage > 10 && (
+                                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                                    <span className="text-white font-bold text-[10px] sm:text-xs drop-shadow-lg">
+                                                                        {child.percentage.toFixed(1)}%
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
 
-                {/* Summary Footer */}
-                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                {funnelData[0]?.count.toLocaleString() || 0}
+                                                {/* Count on hover - NO total percentage overlay */}
+                                                <div className={cn(
+                                                    "absolute inset-x-0 top-2 flex items-center justify-center text-white text-[9px] sm:text-[10px] font-semibold px-1 transition-opacity",
+                                                    isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                                )}>
+                                                    <span className="drop-shadow-lg bg-black/30 px-1.5 py-0.5 rounded text-center">
+                                                        {stage.count.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Stage label */}
+                                    <div className="mt-3 text-center">
+                                        <div className={cn(
+                                            "text-[10px] sm:text-xs font-semibold transition-colors",
+                                            isSelected 
+                                                ? "text-indigo-600 dark:text-indigo-400" 
+                                                : "text-gray-700 dark:text-gray-300"
+                                        )}>
+                                            Stage {index + 1}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* Summary Footer */}
+                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-200/50 dark:border-indigo-500/30">
+                                <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                                    {funnelData[0]?.count.toLocaleString() || 0}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1 font-medium">Started</div>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1">Started</div>
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200/50 dark:border-emerald-500/30">
+                                <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                                    {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1 font-medium">Completed</div>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1">Completed</div>
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                {funnelData[funnelData.length - 1]?.percentage.toFixed(1) || 0}%
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-500/30">
+                                <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                    {funnelData[funnelData.length - 1]?.percentage.toFixed(1)}%
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1 font-medium">Conversion Rate</div>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1">Conversion Rate</div>
                         </div>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+
+            {/* Expanded Stage Details Modal */}
+            <Dialog open={!!selectedStage} onOpenChange={(open) => !open && setSelectedStage(null)}>
+                <DialogContent
+                    showCloseButton={false}
+                    className="w-full sm:max-w-2xl max-h-[90vh] overflow-hidden p-0 bg-white dark:bg-slate-900"
+                >
+                    {selectedStage && (
+                        <>
+                            {/* Premium Header */}
+                            <div className="relative px-6 py-5 bg-gradient-to-r from-blue-600 via-cyan-600 to-teal-600 text-white">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                        <BarChart3 className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h2 className="text-xl font-bold">{selectedStage.eventName}</h2>
+                                        <p className="text-blue-100 text-sm">
+                                            Stage {funnelData.findIndex(s => s.eventId === selectedStage.eventId) + 1} of {funnelData.length}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setSelectedStage(null)}
+                                        className="ml-auto h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Main Content */}
+                            <div className="p-6 md:p-8">
+                                {/* Key Metrics Grid */}
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-blue-200/50 dark:border-blue-500/30 p-5 shadow-lg">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                                <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                            </div>
+                                            <span className="text-sm font-medium text-muted-foreground">Total Count</span>
+                                        </div>
+                                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                                            {selectedStage.count.toLocaleString()}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-purple-200/50 dark:border-purple-500/30 p-5 shadow-lg">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                                <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                            </div>
+                                            <span className="text-sm font-medium text-muted-foreground">Conversion %</span>
+                                        </div>
+                                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                            {selectedStage.percentage.toFixed(1)}%
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Drop-off Analysis (if not first stage) */}
+                                {funnelData.findIndex(s => s.eventId === selectedStage.eventId) > 0 && (
+                                    <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-orange-200/50 dark:border-orange-500/30 p-5 shadow-lg mb-6">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="h-8 w-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                                                <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                            </div>
+                                            <span className="text-sm font-semibold">Drop-off Analysis</span>
+                                        </div>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                                                {selectedStage.dropoffPercentage.toFixed(1)}%
+                                            </span>
+                                            <span className="text-sm text-muted-foreground">
+                                                dropped from previous stage
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Child Events Breakdown (for multiple events stage) */}
+                                {selectedStage.isMultiple && selectedStage.children && selectedStage.children.length > 0 && (
+                                    <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-500/30 p-5 shadow-lg">
+                                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+                                            <Filter className="h-4 w-4" />
+                                            Event Breakdown
+                                        </h3>
+                                        <div className="space-y-3">
+                                            {selectedStage.children.map((child, idx) => (
+                                                <div
+                                                    key={child.eventId}
+                                                    className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700"
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="h-3 w-3 rounded-full"
+                                                            style={{ backgroundColor: child.color }}
+                                                        />
+                                                        <span className="text-sm font-medium">{child.eventName}</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-sm font-bold">{child.count.toLocaleString()}</div>
+                                                        <div className="text-xs text-muted-foreground">
+                                                            {child.percentage.toFixed(1)}%
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Stage Info Footer */}
+                                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>Event ID: <code className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800">{selectedStage.eventId}</code></span>
+                                        <span>Click outside to close</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
