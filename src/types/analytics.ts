@@ -59,7 +59,7 @@ export interface VisualizationConfig {
         yAxisLabel: string;
     };
     pieCharts: {
-        type: 'platform' | 'pos' | 'source';
+        type: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus';
         enabled: boolean;
         aggregationMethod: AggregationMethod;
         position?: string;

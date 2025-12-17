@@ -351,7 +351,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         setPanels(panels.map(p => p.panelId === panelId ? { ...p, panelName: name } : p));
     };
 
-    const togglePieChart = (panelId: string, pieType: 'platform' | 'pos' | 'source') => {
+    const togglePieChart = (panelId: string, pieType: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus') => {
         setPanels(panels.map(p => {
             if (p.panelId === panelId) {
                 const updatedPies = p.visualizations.pieCharts.map(pie =>
@@ -380,10 +380,23 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             if (p.panelId === panelId) {
                 const newIsApiEvent = !p.isApiEvent;
                 // Clear event filters when switching modes to avoid ID conflicts
+                // Update pie charts to match the event type
+                const newPieCharts = newIsApiEvent 
+                    ? [
+                        { type: 'status' as const, enabled: true, aggregationMethod: 'count' as const },
+                        { type: 'cacheStatus' as const, enabled: true, aggregationMethod: 'count' as const }
+                    ]
+                    : [
+                        { type: 'platform' as const, enabled: true, aggregationMethod: 'count' as const },
+                        { type: 'pos' as const, enabled: true, aggregationMethod: 'count' as const },
+                        { type: 'source' as const, enabled: false, aggregationMethod: 'count' as const }
+                    ];
+                
                 return { 
                     ...p, 
                     isApiEvent: newIsApiEvent, 
-                    filters: { ...p.filters, events: [] } 
+                    filters: { ...p.filters, events: [] },
+                    visualizations: { ...p.visualizations, pieCharts: newPieCharts }
                 };
             }
             return p;
@@ -953,53 +966,121 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                             <div className="space-y-3">
                                                 <Label>Pie Charts</Label>
                                                 <div className="space-y-2">
-                                                    {['platform', 'pos', 'source'].map((type) => {
-                                                        const pieConfig = panel.visualizations.pieCharts.find(p => p.type === type);
-                                                        return (
-                                                            <div key={type} className="flex items-center space-x-2">
-                                                                <Checkbox
-                                                                    id={`${panel.panelId}-pie-${type}`}
-                                                                    checked={pieConfig?.enabled}
-                                                                    onCheckedChange={() => togglePieChart(panel.panelId, type as 'platform' | 'pos' | 'source')}
-                                                                />
-                                                                <Label htmlFor={`${panel.panelId}-pie-${type}`} className="cursor-pointer capitalize">
-                                                                    {type} Distribution
-                                                                </Label>
-                                                            </div>
-                                                        );
-                                                    })}
+                                                    {panel.isApiEvent ? (
+                                                        /* API Event Pie Charts - Status and Cache Status */
+                                                        <>
+                                                            {['status', 'cacheStatus'].map((type) => {
+                                                                const pieConfig = panel.visualizations.pieCharts.find(p => p.type === type);
+                                                                return (
+                                                                    <div key={type} className="flex items-center space-x-2">
+                                                                        <Checkbox
+                                                                            id={`${panel.panelId}-pie-${type}`}
+                                                                            checked={pieConfig?.enabled || (type === 'status' || type === 'cacheStatus')} // Auto-enable for API
+                                                                            onCheckedChange={() => togglePieChart(panel.panelId, type as any)}
+                                                                        />
+                                                                        <Label htmlFor={`${panel.panelId}-pie-${type}`} className="cursor-pointer capitalize">
+                                                                            {type === 'status' ? 'HTTP Status Codes' : 'Cache Status'} Distribution
+                                                                        </Label>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                                                                ⚡ API-specific distributions
+                                                            </p>
+                                                        </>
+                                                    ) : (
+                                                        /* Regular Event Pie Charts - Platform, POS, Source */
+                                                        ['platform', 'pos', 'source'].map((type) => {
+                                                            const pieConfig = panel.visualizations.pieCharts.find(p => p.type === type);
+                                                            return (
+                                                                <div key={type} className="flex items-center space-x-2">
+                                                                    <Checkbox
+                                                                        id={`${panel.panelId}-pie-${type}`}
+                                                                        checked={pieConfig?.enabled}
+                                                                        onCheckedChange={() => togglePieChart(panel.panelId, type as 'platform' | 'pos' | 'source')}
+                                                                    />
+                                                                    <Label htmlFor={`${panel.panelId}-pie-${type}`} className="cursor-pointer capitalize">
+                                                                        {type} Distribution
+                                                                    </Label>
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
                                                 </div>
                                             </div>
 
                                             <div className="space-y-3">
                                                 <Label>Additional Visualizations</Label>
                                                 <div className="space-y-2">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`${panel.panelId}-hourly-stats`}
-                                                            checked={panel.showHourlyStats}
-                                                            onCheckedChange={() => toggleHourlyStats(panel.panelId)}
-                                                        />
-                                                        <Label htmlFor={`${panel.panelId}-hourly-stats`} className="cursor-pointer">
-                                                            Hourly Stats Card (for ≤8 day ranges)
-                                                        </Label>
-                                                    </div>
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`${panel.panelId}-daily-deviation`}
-                                                            checked={panel.dailyDeviationCurve}
-                                                            onCheckedChange={() => {
-                                                                setPanels(prev => prev.map(p => 
-                                                                    p.panelId === panel.panelId 
-                                                                        ? { ...p, dailyDeviationCurve: !p.dailyDeviationCurve }
-                                                                        : p
-                                                                ));
-                                                            }}
-                                                        />
-                                                        <Label htmlFor={`${panel.panelId}-daily-deviation`} className="cursor-pointer">
-                                                            Daily Deviation Curve (8-Day Overlay for ≤8 day ranges)
-                                                        </Label>
-                                                    </div>
+                                                    {panel.isApiEvent ? (
+                                                        /* API Event Visualizations */
+                                                        <>
+                                                            <div className="p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
+                                                                <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2">
+                                                                    🚀 API Performance Metrics
+                                                                </p>
+                                                                <ul className="text-xs text-muted-foreground space-y-1">
+                                                                    <li>• Response Time (avg, median, mode)</li>
+                                                                    <li>• Data Transfer (bytes in/out)</li>
+                                                                    <li>• Server/Cloud/User Timing Breakdown</li>
+                                                                    <li>• Status Code Distribution</li>
+                                                                    <li>• Cache Hit/Miss Analysis</li>
+                                                                </ul>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`${panel.panelId}-daily-deviation`}
+                                                                    checked={panel.dailyDeviationCurve}
+                                                                    onCheckedChange={() => {
+                                                                        setPanels(prev => prev.map(p => 
+                                                                            p.panelId === panel.panelId 
+                                                                                ? { ...p, dailyDeviationCurve: !p.dailyDeviationCurve }
+                                                                                : p
+                                                                        ));
+                                                                    }}
+                                                                />
+                                                                <Label htmlFor={`${panel.panelId}-daily-deviation`} className="cursor-pointer">
+                                                                    8-Day Overlay Comparison (≤8 day ranges)
+                                                                </Label>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        /* Regular Event Visualizations */
+                                                        <>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`${panel.panelId}-hourly-stats`}
+                                                                    checked={panel.showHourlyStats}
+                                                                    onCheckedChange={() => toggleHourlyStats(panel.panelId)}
+                                                                />
+                                                                <Label htmlFor={`${panel.panelId}-hourly-stats`} className="cursor-pointer">
+                                                                    Hourly Stats Card (for ≤8 day ranges)
+                                                                </Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`${panel.panelId}-daily-deviation`}
+                                                                    checked={panel.dailyDeviationCurve}
+                                                                    onCheckedChange={() => {
+                                                                        setPanels(prev => prev.map(p => 
+                                                                            p.panelId === panel.panelId 
+                                                                                ? { ...p, dailyDeviationCurve: !p.dailyDeviationCurve }
+                                                                                : p
+                                                                        ));
+                                                                    }}
+                                                                />
+                                                                <Label htmlFor={`${panel.panelId}-daily-deviation`} className="cursor-pointer">
+                                                                    Daily Deviation Curve (8-Day Overlay for ≤8 day ranges)
+                                                                </Label>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <Label>Event Combination</Label>
+                                                <div className="space-y-2">
                                                     <div className="flex items-center space-x-2">
                                                         <Checkbox
                                                             id={`${panel.panelId}-combine-events`}

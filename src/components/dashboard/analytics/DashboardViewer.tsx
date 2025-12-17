@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useSpring, useMotionValue, useInView } from 'framer-motion';
 import type { DashboardProfile, EventConfig } from '@/types/analytics';
@@ -145,11 +145,23 @@ const CollapsibleLegend = ({
 }) => {
     if (!eventKeys || eventKeys.length === 0) return null;
 
-    const visibleItems = isExpanded ? eventKeys : eventKeys.slice(0, maxVisibleItems);
-    const hiddenCount = eventKeys.length - maxVisibleItems;
+    // Sort API events by status code numerically (200, 400, 499, 500, etc.)
+    const sortedEventKeys = [...eventKeys].sort((a, b) => {
+        // Extract status code from event name (e.g., "200", "status_200", etc.)
+        const extractStatusCode = (name: string) => {
+            const match = name.match(/\d{3}/);
+            return match ? parseInt(match[0]) : 999;
+        };
+        const aNum = extractStatusCode(a.eventName);
+        const bNum = extractStatusCode(b.eventName);
+        return aNum - bNum;
+    });
+
+    const visibleItems = isExpanded ? sortedEventKeys : sortedEventKeys.slice(0, maxVisibleItems);
+    const hiddenCount = sortedEventKeys.length - maxVisibleItems;
 
     // Calculate per-event totals and success rates from graphData
-    const eventStats = eventKeys.reduce((acc, eventKeyInfo) => {
+    const eventStats = sortedEventKeys.reduce((acc, eventKeyInfo) => {
         const eventKey = eventKeyInfo.eventKey;
         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
         const isErrorEvent = event?.isErrorEvent === 1;
@@ -211,7 +223,27 @@ const CollapsibleLegend = ({
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                 const isErrorEvent = event?.isErrorEvent === 1;
-                const color = event?.color || (isErrorEvent ? ERROR_COLORS[index % ERROR_COLORS.length] : EVENT_COLORS[index % EVENT_COLORS.length]);
+                
+                // Assign color based on status code for API events
+                let color;
+                // Extract status code from event name
+                const statusMatch = eventKeyInfo.eventName.match(/\d{3}/);
+                const statusCode = statusMatch ? parseInt(statusMatch[0]) : NaN;
+                if (!isNaN(statusCode)) {
+                    // HTTP status code coloring
+                    if (statusCode >= 200 && statusCode < 300) {
+                        color = '#22c55e'; // Green for 2xx (including 200)
+                    } else if (statusCode >= 400 && statusCode < 500) {
+                        color = '#f59e0b'; // Orange/yellow for 4xx
+                    } else if (statusCode >= 500) {
+                        color = '#ef4444'; // Red for 5xx
+                    } else {
+                        color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                    }
+                } else {
+                    color = event?.color || (isErrorEvent ? ERROR_COLORS[index % ERROR_COLORS.length] : EVENT_COLORS[index % EVENT_COLORS.length]);
+                }
+                
                 const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0, errorRate: 0, isErrorEvent: false, isAvgEvent: false, avgDelay: 0 };
                 const isSelected = selectedEventKey === eventKeyInfo.eventKey;
 
@@ -1549,15 +1581,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [_activePanelId, setActivePanelId] = useState<string | null>(null);
     const [mainLegendExpanded, setMainLegendExpanded] = useState(false);
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
+    const [apiSelectedEventKey, setApiSelectedEventKey] = useState<string | null>(null); // Independent selection for API Performance Metrics
     const [overlaySelectedEventKey, setOverlaySelectedEventKey] = useState<string | null>(null); // Independent selection for 8-Day Overlay
     const [errorSelectedEventKey, setErrorSelectedEventKey] = useState<string | null>(null); // Independent selection for Error Event Tracking
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
     const [panelSelectedEventKey, setPanelSelectedEventKey] = useState<Record<string, string | null>>({});
     const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
     
-    // API event metric view (timing, bytes, count)
-    const [apiMetricView, setApiMetricView] = useState<'timing' | 'bytes' | 'count'>('timing');
-    const [panelApiMetricView, setPanelApiMetricView] = useState<Record<string, 'timing' | 'bytes' | 'count'>>({});
+    // API event metric view - comprehensive metrics
+    const [apiMetricView, setApiMetricView] = useState<'timing' | 'timing-breakdown' | 'timing-anomaly' | 'bytes' | 'bytes-in' | 'count'>('timing');
+    const [panelApiMetricView, setPanelApiMetricView] = useState<Record<string, 'timing' | 'timing-breakdown' | 'timing-anomaly' | 'bytes' | 'bytes-in' | 'count'>>({});
 
     // Pinned tooltip for main chart - stores the data point to show in expanded view
     const [pinnedTooltip, setPinnedTooltip] = useState<{ dataPoint: any; label: string } | null>(null);
@@ -1582,6 +1615,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     
     // Panel-specific filter collapse states - collapsed by default for new panels
     const [panelFiltersCollapsed, setPanelFiltersCollapsed] = useState<Record<string, boolean>>({});
+    
+    // Memoize isMainPanelApi to prevent infinite re-render loop
+    // MUST be at top level, not inside conditional logic
+    const isMainPanelApi = useMemo(() => {
+        const mainPanelConfig = profile?.panels?.[0]?.filterConfig;
+        return mainPanelConfig?.isApiEvent === true;
+    }, [profile?.panels]);
     
     // Initialize panel filters as collapsed when profile loads
     useEffect(() => {
@@ -1631,6 +1671,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Function to handle event click in legend - toggle selection
     const handleEventClick = useCallback((eventKey: string) => {
         setSelectedEventKey(prev => prev === eventKey ? null : eventKey);
+    }, []);
+
+    // Function to handle event click in API Performance Metrics legend - independent selection
+    const handleApiEventClick = useCallback((eventKey: string) => {
+        setApiSelectedEventKey(prev => prev === eventKey ? null : eventKey);
     }, []);
 
     // Function to handle event click in 8-Day Overlay legend - independent selection
@@ -2136,18 +2181,30 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     }, [selectedSourceStrs, rawGraphResponse, dateRange, events, processGraphData, filterBySourceStr, profile]);
 
     // Auto-select first event when eventKeys change (default to showing only first event)
+    // For API events, prioritize status 200 if available
     useEffect(() => {
         if (eventKeys.length > 0 && !selectedEventKey) {
-            console.log('🎯 Auto-selecting first event:', eventKeys[0].eventKey);
-            setSelectedEventKey(eventKeys[0].eventKey);
+            let keyToSelect = eventKeys[0].eventKey;
+            
+            // For API events, try to find status 200
+            if (isMainPanelApi) {
+                const status200 = eventKeys.find(ek => {
+                    const eventName = ek.eventName || '';
+                    return eventName.includes('200') || eventName === '200';
+                });
+                if (status200) {
+                    keyToSelect = status200.eventKey;
+                }
+            }
+            
+            setSelectedEventKey(keyToSelect);
         }
-    }, [eventKeys]); // Remove selectedEventKey from deps to ensure it always checks
+    }, [eventKeys, isMainPanelApi]); // Remove selectedEventKey from deps to ensure it always checks
     
     // Auto-select first event for each panel when their eventKeys change
     useEffect(() => {
         panelsDataMap.forEach((panelData, panelId) => {
             if (panelData.eventKeys && panelData.eventKeys.length > 0 && !panelSelectedEventKey[panelId]) {
-                console.log(`🎯 Auto-selecting first event for panel ${panelId}:`, panelData.eventKeys[0].eventKey);
                 setPanelSelectedEventKey(prev => ({
                     ...prev,
                     [panelId]: panelData.eventKeys![0].eventKey
@@ -2156,7 +2213,27 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         });
     }, [panelsDataMap]); // Remove panelSelectedEventKey from deps to ensure it always checks
 
-    // Note: We don't auto-select for Error Event Tracking or 8-Day Overlay
+    // Auto-select first event for API Performance Metrics
+    useEffect(() => {
+        if (eventKeys.length > 0 && isMainPanelApi && !apiSelectedEventKey) {
+            // For API events, try to find status 200 first
+            const status200 = eventKeys.find(ek => {
+                const eventName = ek.eventName || '';
+                return eventName === '200' || eventName.includes('status_200');
+            });
+            const keyToSelect = status200 ? status200.eventKey : eventKeys[0].eventKey;
+            setApiSelectedEventKey(keyToSelect);
+        }
+    }, [eventKeys, isMainPanelApi, apiSelectedEventKey]);
+
+    // Auto-select first event for 8-Day Overlay
+    useEffect(() => {
+        if (eventKeys.length > 0 && !overlaySelectedEventKey) {
+            setOverlaySelectedEventKey(eventKeys[0].eventKey);
+        }
+    }, [eventKeys, overlaySelectedEventKey]);
+
+    // Note: We don't auto-select for Error Event Tracking
     // Let all events show by default, users can click legend to filter
     // This prevents empty graphs when selected event has no data
 
@@ -2287,7 +2364,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     graphDataLength: processedResult.data.length,
                     eventKeysCount: processedResult.eventKeys?.length || 0,
                     availableSourceStrs: sourceStrsInData.length,
-                    pieDataKeys: pieResponse ? Object.keys(pieResponse) : []
+                    pieDataKeys: pieResponse ? Object.keys(pieResponse) : [],
+                    pieDataStructure: pieResponse ? {
+                        hasData: !!pieResponse.data,
+                        hasStatus: !!(pieResponse.data?.status || pieResponse.status),
+                        hasCacheStatus: !!(pieResponse.data?.cacheStatus || pieResponse.cacheStatus)
+                    } : null
                 });
                 setGraphData(processedResult.data);
                 setEventKeys(processedResult.eventKeys || []);
@@ -2619,17 +2701,28 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Dropdown options with indicators for error/avg events
     // For API events, show only API events (isApiEvent === true)
     // For regular events, show only non-API events (isApiEvent !== true)
-    const mainPanelConfig = profile?.panels?.[0]?.filterConfig;
-    const isMainPanelApi = mainPanelConfig?.isApiEvent === true;
-    
-    console.log('🔍 Main Panel API Check:', { 
-        hasFilterConfig: !!mainPanelConfig, 
-        isApiEvent: mainPanelConfig?.isApiEvent, 
-        isMainPanelApi 
-    });
-    
     const eventOptions = events
         .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
+        .sort((a, b) => {
+            // For API events, prioritize status 200
+            if (isMainPanelApi) {
+                const aLabel = a.host && a.url ? `${a.host} - ${a.url}` : a.eventName;
+                const bLabel = b.host && b.url ? `${b.host} - ${b.url}` : b.eventName;
+                
+                // Check if event name contains "200"
+                const aIs200 = aLabel.includes('200') || a.eventName.includes('200');
+                const bIs200 = bLabel.includes('200') || b.eventName.includes('200');
+                
+                if (aIs200 && !bIs200) return -1;
+                if (!aIs200 && bIs200) return 1;
+                
+                // Then sort by status code if both are status events
+                const aStatus = parseInt(a.eventName) || 999;
+                const bStatus = parseInt(b.eventName) || 999;
+                return aStatus - bStatus;
+            }
+            return 0; // Keep original order for non-API events
+        })
         .map(e => {
         let label = e.isApiEvent && e.host && e.url
             ? `${e.host} - ${e.url}`  // API events show host/url
@@ -3343,8 +3436,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     // If in deviation mode, show only the overlay chart with toggle button
                     if (isHourly && mainChartType === 'deviation') {
                         // Filter to show only selected event or all events
-                        const filteredEventKeys = selectedEventKey
-                            ? normalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                        const filteredEventKeys = overlaySelectedEventKey
+                            ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
                             : normalEventKeys.map(e => e.eventKey);
                         
                         return (
@@ -3523,12 +3616,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                                                 if (isHourly && mainChartType === 'deviation') {
                                                     // Filter to show only selected event or all events
-                                                    const filteredEventKeys = selectedEventKey
-                                                        ? normalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                                                    const filteredEventKeys = overlaySelectedEventKey
+                                                        ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
                                                         : normalEventKeys.map(e => e.eventKey);
                                                     
-                                                    const filteredEventStats = selectedEventKey
-                                                        ? eventStatsForBadges.filter(s => s.eventKey === selectedEventKey)
+                                                    const filteredEventStats = overlaySelectedEventKey
+                                                        ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
                                                         : eventStatsForBadges;
                                                     
                                                     return (
@@ -3537,9 +3630,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             dateRange={dateRange}
                                                             eventKeys={filteredEventKeys}
                                                             eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                            eventStats={eventStatsForBadges}
-                                                            selectedEventKey={selectedEventKey}
-                                                            onEventClick={handleEventClick}
+                                                            eventStats={filteredEventStats}
+                                                            selectedEventKey={overlaySelectedEventKey}
+                                                            onEventClick={handleOverlayEventClick}
                                                         />
                                                     );
                                                 }
@@ -3718,7 +3811,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     />
                                                     {/* Dynamic areas for normal (count) events only */}
                                                     {normalEventKeys.length > 0 ? normalEventKeys
-                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                        .filter(ek => !overlaySelectedEventKey || ek.eventKey === overlaySelectedEventKey)
                                                         .map((eventKeyInfo, index) => {
                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
@@ -4006,8 +4099,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                 {/* API Events Chart - For isApiEvent panels showing status codes and timing metrics */}
                 {(() => {
-                    const mainPanelConfig = profile?.panels?.[0]?.filterConfig as any;
-                    const isApiEvent = mainPanelConfig?.isApiEvent || false;
+                    const isApiEvent = isMainPanelApi;
                     
                     if (!isApiEvent || eventKeys.length === 0) return null;
                     
@@ -4050,17 +4142,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                             onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
                                             maxVisibleItems={5}
                                             graphData={graphData}
-                                            selectedEventKey={selectedEventKey}
-                                            onEventClick={handleEventClick}
+                                            selectedEventKey={apiSelectedEventKey}
+                                            onEventClick={handleApiEventClick}
                                         />
                                     )}
 
                                     {/* Tabs for different metrics */}
-                                    <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
-                                        {(['timing', 'bytes', 'count'] as const).map((tab) => (
+                                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+                                        {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
                                             <button
                                                 key={tab}
-                                                onClick={() => setApiMetricView(tab)}
+                                                onClick={() => setApiMetricView(tab as any)}
                                                 className={cn(
                                                     "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
                                                     apiMetricView === tab
@@ -4068,12 +4160,32 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                                                 )}
                                             >
-                                                {tab === 'timing' && '⏱️ Response Time'}
-                                                {tab === 'bytes' && '📊 Data Transfer'}
+                                                {tab === 'timing' && '⏱️ Time (Avg)'}
+                                                {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
+                                                {tab === 'timing-anomaly' && '⚠️ Anomalies'}
+                                                {tab === 'bytes' && '📤 Bytes Out (Avg)'}
+                                                {tab === 'bytes-in' && '📥 Bytes In (Avg)'}
                                                 {tab === 'count' && '📈 Request Count'}
                                             </button>
                                         ))}
                                     </div>
+
+                                    {/* Info box for anomaly detection */}
+                                    {apiMetricView === 'timing-anomaly' && (
+                                        <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                            <div className="flex items-start gap-2">
+                                                <span className="text-amber-600 dark:text-amber-400 text-lg">⚠️</span>
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mb-1">
+                                                        Anomaly Detection Active
+                                                    </p>
+                                                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                        Red dots highlight response times exceeding 2 standard deviations above the mean. These may indicate performance issues requiring investigation.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
                                         {graphData.length > 0 ? (
@@ -4108,24 +4220,29 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         tickLine={false}
                                                         tickFormatter={(value) => {
                                                             if (!value || value <= 0) return '0';
-                                                            if (apiMetricView === 'timing') {
+                                                            const isTimingView = apiMetricView?.startsWith('timing');
+                                                            const isBytesView = apiMetricView?.startsWith('bytes');
+                                                            
+                                                            if (isTimingView) {
                                                                 // Milliseconds
                                                                 if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
                                                                 return `${value.toFixed(0)}ms`;
-                                                            } else if (apiMetricView === 'bytes') {
+                                                            } else if (isBytesView) {
                                                                 // Bytes
+                                                                if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}GB`;
                                                                 if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
                                                                 if (value >= 1000) return `${(value / 1000).toFixed(1)}KB`;
                                                                 return `${value.toFixed(0)}B`;
                                                             } else {
                                                                 // Count
+                                                                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
                                                                 if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
                                                                 return value;
                                                             }
                                                         }}
                                                         dx={-10}
                                                         label={{ 
-                                                            value: apiMetricView === 'timing' ? 'Time (ms)' : apiMetricView === 'bytes' ? 'Data (bytes)' : 'Count', 
+                                                            value: apiMetricView?.startsWith('timing') ? 'Time (ms)' : apiMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count', 
                                                             angle: -90, 
                                                             position: 'insideLeft', 
                                                             style: { fill: '#3b82f6', fontSize: 10 } 
@@ -4137,7 +4254,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     />
                                                     {/* Dynamic areas based on selected metric view */}
                                                     {eventKeys
-                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                        .filter(eventKeyInfo => !apiSelectedEventKey || eventKeyInfo.eventKey === apiSelectedEventKey)
                                                         .map((eventKeyInfo, index) => {
                                                         const color = EVENT_COLORS[index % EVENT_COLORS.length];
                                                         const eventKey = eventKeyInfo.eventKey;
@@ -4145,11 +4262,58 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         // Determine dataKey based on metric view
                                                         let dataKey = `${eventKey}_count`;
                                                         if (apiMetricView === 'timing') {
-                                                            // Show average total time (server to user)
+                                                            dataKey = `${eventKey}_avgServerToUser`;
+                                                        } else if (apiMetricView === 'timing-anomaly') {
+                                                            // Show avg timing but highlight anomalies (values > 2 std dev)
                                                             dataKey = `${eventKey}_avgServerToUser`;
                                                         } else if (apiMetricView === 'bytes') {
-                                                            // Show average bytes out (data sent to user)
                                                             dataKey = `${eventKey}_avgBytesOut`;
+                                                        } else if (apiMetricView === 'bytes-in') {
+                                                            dataKey = `${eventKey}_avgBytesIn`;
+                                                        }
+                                                        
+                                                        // For timing breakdown, show 3 separate areas
+                                                        if (apiMetricView === 'timing-breakdown') {
+                                                            return (
+                                                                <React.Fragment key={`api_breakdown_${eventKey}`}>
+                                                                    <Area
+                                                                        type="monotone"
+                                                                        dataKey={`${eventKey}_avgServerToCloud`}
+                                                                        name={`${eventKeyInfo.eventName} (Server)`}
+                                                                        stroke="#ef4444"
+                                                                        strokeWidth={2}
+                                                                        fillOpacity={0.3}
+                                                                        fill="#ef4444"
+                                                                        stackId={eventKey}
+                                                                    />
+                                                                    <Area
+                                                                        type="monotone"
+                                                                        dataKey={`${eventKey}_avgCloudToUser`}
+                                                                        name={`${eventKeyInfo.eventName} (Network)`}
+                                                                        stroke="#f59e0b"
+                                                                        strokeWidth={2}
+                                                                        fillOpacity={0.3}
+                                                                        fill="#f59e0b"
+                                                                        stackId={eventKey}
+                                                                    />
+                                                                </React.Fragment>
+                                                            );
+                                                        }
+                                                        
+                                                        // Calculate anomaly threshold if in anomaly mode
+                                                        let isAnomalyMode = apiMetricView === 'timing-anomaly';
+                                                        let anomalyThreshold = 0;
+                                                        if (isAnomalyMode) {
+                                                            // Calculate mean and standard deviation for this event
+                                                            const values = graphData
+                                                                .map(d => d[dataKey])
+                                                                .filter(v => typeof v === 'number' && v > 0);
+                                                            if (values.length > 0) {
+                                                                const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                                                                const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+                                                                const stdDev = Math.sqrt(variance);
+                                                                anomalyThreshold = mean + (2 * stdDev); // 2 standard deviations above mean
+                                                            }
                                                         }
                                                         
                                                         return (
@@ -4162,7 +4326,30 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                 strokeWidth={2.5}
                                                                 fillOpacity={1}
                                                                 fill={`url(#apiColor_${eventKey})`}
-                                                                dot={false}
+                                                                dot={isAnomalyMode ? ((props: any) => {
+                                                                    const value = props.payload?.[dataKey];
+                                                                    if (value && value > anomalyThreshold) {
+                                                                        return (
+                                                                            <circle
+                                                                                cx={props.cx}
+                                                                                cy={props.cy}
+                                                                                r={6}
+                                                                                fill="#ef4444"
+                                                                                stroke="#fff"
+                                                                                strokeWidth={2}
+                                                                            />
+                                                                        );
+                                                                    }
+                                                                    // Return invisible dot for non-anomalous points
+                                                                    return (
+                                                                        <circle
+                                                                            cx={props.cx}
+                                                                            cy={props.cy}
+                                                                            r={0}
+                                                                            fill="transparent"
+                                                                        />
+                                                                    );
+                                                                }) as any : false}
                                                                 activeDot={{
                                                                     r: 8,
                                                                     fill: color,
@@ -4324,26 +4511,36 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 {/* Pie Charts - Shown above Hourly Insights, hidden if only 1 item (100% share) */}
                 {(() => {
                     // Check if this is an API event panel
-                    const mainPanelConfig = profile?.panels?.[0]?.filterConfig as any;
-                    const isApiEvent = mainPanelConfig?.isApiEvent || false;
+                    const isApiEvent = isMainPanelApi;
                     
                     if (isApiEvent) {
                         // API Event Pie Charts - Status and CacheStatus distribution
-                        const statusData = pieChartData?.status ? Object.entries(pieChartData.status).map(([key, val]: [string, any]) => ({
+                        // Access the nested data property from the API response
+                        const apiData = pieChartData?.data || pieChartData;
+                        const statusData = apiData?.status ? Object.entries(apiData.status).map(([key, val]: [string, any]) => ({
                             name: `${val.status}`,
                             value: val.count
                         })) : [];
                         
-                        const cacheStatusData = pieChartData?.cacheStatus ? Object.entries(pieChartData.cacheStatus).map(([key, val]: [string, any]) => ({
+                        const cacheStatusData = apiData?.cacheStatus ? Object.entries(apiData.cacheStatus).map(([key, val]: [string, any]) => ({
                             name: val.cacheStatus || 'Unknown',
                             value: val.count
                         })) : [];
                         
-                        const showStatus = statusData.length > 1;
-                        const showCacheStatus = cacheStatusData.length > 1;
+                        // Sort status data with 200 first
+                        statusData.sort((a, b) => {
+                            if (a.name === '200') return -1;
+                            if (b.name === '200') return 1;
+                            return parseInt(a.name) - parseInt(b.name);
+                        });
+                        
+                        const showStatus = statusData.length > 0;
+                        const showCacheStatus = cacheStatusData.length > 0;
                         const visibleCount = [showStatus, showCacheStatus].filter(Boolean).length;
                         
-                        if (visibleCount === 0) return null;
+                        if (visibleCount === 0) {
+                            return null;
+                        }
                         
                         const gridClass = visibleCount === 1 ? "grid-cols-1 max-w-md mx-auto" : "grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto";
                         

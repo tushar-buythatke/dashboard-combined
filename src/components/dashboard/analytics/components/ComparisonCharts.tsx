@@ -87,15 +87,16 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     }));
 
     // Build base comparison data - aggregate by hour across all days
+    // Only aggregate the eventKeys that are passed in (filtered)
     const baseData = timePoints.map(({ hour, label }) => {
         const point: any = { hour, time: label };
         
-        daySeriesAsc.forEach(({ dayKey, label }) => {
+        daySeriesAsc.forEach(({ dayKey, label: dayLabel }) => {
             const dayData = groupedByDay[dayKey];
             const hourData = dayData.filter(d => d.hour === hour);
             
             if (hourData.length > 0 && eventKeys.length > 0) {
-                // Sum all event counts for this hour
+                // Sum only the filtered event counts for this hour
                 const totalCount = eventKeys.reduce((sum, eventKey) => {
                     const hourSum = hourData.reduce((hSum, d) => {
                         const value = Number(d[`${eventKey}_count`]) || Number(d[eventKey]) || 0;
@@ -104,7 +105,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                     return sum + hourSum;
                 }, 0);
 
-                point[label] = Math.round(totalCount / hourData.length);
+                point[dayLabel] = Math.round(totalCount / hourData.length);
             }
         });
         
@@ -212,8 +213,42 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                 {/* Event Stats Badges */}
                 {eventStats && eventStats.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
-                        {eventStats.map((stat, idx) => {
+                        {eventStats
+                            .slice()
+                            .sort((a, b) => {
+                                // Extract status codes and sort numerically (200, 400, 500, etc.)
+                                const extractStatusCode = (key: string) => {
+                                    const match = key.match(/\d{3}/);
+                                    return match ? parseInt(match[0]) : 999;
+                                };
+                                const aCode = extractStatusCode(a.eventKey);
+                                const bCode = extractStatusCode(b.eventKey);
+                                // If both are status codes, sort by code
+                                if (aCode !== 999 && bCode !== 999) {
+                                    return aCode - bCode;
+                                }
+                                // Otherwise sort by total count descending
+                                return b.total - a.total;
+                            })
+                            .map((stat, idx) => {
                             const isSelected = selectedEventKey === stat.eventKey;
+                            // Determine color based on status code
+                            const statusMatch = stat.eventKey.match(/\d{3}/);
+                            const statusCode = statusMatch ? parseInt(statusMatch[0]) : NaN;
+                            let badgeColor;
+                            if (!isNaN(statusCode)) {
+                                if (statusCode >= 200 && statusCode < 300) {
+                                    badgeColor = '#22c55e'; // Green for 2xx
+                                } else if (statusCode >= 400 && statusCode < 500) {
+                                    badgeColor = '#f59e0b'; // Orange for 4xx
+                                } else if (statusCode >= 500) {
+                                    badgeColor = '#ef4444'; // Red for 5xx
+                                } else {
+                                    badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
+                                }
+                            } else {
+                                badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
+                            }
                             return (
                                 <div
                                     key={stat.eventKey}
@@ -224,7 +259,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                             : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-102'
                                     }`}
                                 >
-                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length] }} />
+                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: badgeColor }} />
                                     <span className={`text-[11px] font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>{stat.eventKey}</span>
                                     <span className={`text-[11px] font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
                                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
