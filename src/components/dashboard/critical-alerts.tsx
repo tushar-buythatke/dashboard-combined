@@ -20,7 +20,7 @@ type AlertItem = {
 }
 
 export function CriticalAlertsPanel() {
-  const { data } = useSWR<{ items: AlertItem[] }>(["/pa-dasher-api/alerts/critical"], fetcher, {
+  const { data } = useSWR<{ items: AlertItem[] }>(["/pa-dasher-api/alerts/critical?isApi=1"], fetcher, {
     refreshInterval: 15_000,
   })
   const [acked, setAcked] = useState<Record<string, boolean>>({})

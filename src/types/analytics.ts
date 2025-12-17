@@ -51,6 +51,30 @@ export interface EventConfig {
 
 export type AggregationMethod = 'sum' | 'average' | 'count';
 
+// New graph type configurations
+export interface PercentageGraphConfig {
+    type: 'percentage';
+    parentEvents: string[]; // Multiple parent events to sum
+    childEvents: string[]; // Multiple child events to sum
+    filters?: {
+        statusCodes?: string[]; // For API events
+        cacheStatus?: string[]; // For API events
+    };
+    showCombinedPercentage: boolean; // Show overall percentage in legend
+}
+
+export interface FunnelGraphConfig {
+    type: 'funnel';
+    stages: {
+        eventId: string;
+        eventName: string;
+        color?: string;
+    }[];
+    multipleChildEvents: string[]; // Last stage can have multiple events
+}
+
+export type SpecialGraphType = PercentageGraphConfig | FunnelGraphConfig;
+
 export interface VisualizationConfig {
     lineGraph: {
         enabled: boolean;
@@ -69,7 +93,7 @@ export interface VisualizationConfig {
 export interface PanelConfig {
     panelId: string;
     panelName: string;
-    type: 'combined' | 'separate';
+    type: 'combined' | 'separate' | 'special'; // Add 'special' for new graph types
     position: {
         row: number;
         col: number;
@@ -78,6 +102,8 @@ export interface PanelConfig {
     };
     events: EventConfig[];
     visualizations: VisualizationConfig;
+    // Special graph configuration (mutually exclusive with regular visualizations)
+    specialGraph?: SpecialGraphType;
     // Filter config for persistence (numeric IDs)
     filterConfig?: {
         events: number[];
@@ -85,7 +111,7 @@ export interface PanelConfig {
         pos: number[];
         sources: number[];
         sourceStr?: string[]; // Job IDs (client-side filter)
-        graphType: 'line' | 'bar';
+        graphType: 'line' | 'bar' | 'percentage' | 'funnel'; // Add new graph types
         dailyDeviationCurve?: boolean; // For <7 days: show 7-day overlay comparison
         isApiEvent?: boolean; // Toggle for API events vs regular events
     };

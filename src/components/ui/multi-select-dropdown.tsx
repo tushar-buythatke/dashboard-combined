@@ -17,6 +17,7 @@ interface MultiSelectDropdownProps<T extends string | number = string> {
     showAllOption?: boolean;
     maxDisplayItems?: number;
     searchable?: boolean;
+    disabled?: boolean;
 }
 
 export function MultiSelectDropdown<T extends string | number = string>({
@@ -27,7 +28,8 @@ export function MultiSelectDropdown<T extends string | number = string>({
     className,
     showAllOption = true, // Now defaults to true
     maxDisplayItems = 2,
-    searchable = true // Now defaults to true
+    searchable = true, // Now defaults to true
+    disabled = false
 }: MultiSelectDropdownProps<T>) {
     const [open, setOpen] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
@@ -93,12 +95,13 @@ export function MultiSelectDropdown<T extends string | number = string>({
     }, [open]);
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
+                    disabled={disabled}
                     className={cn(
                         'w-full justify-between min-h-[40px] h-auto',
                         selected.length === 0 && 'text-muted-foreground',

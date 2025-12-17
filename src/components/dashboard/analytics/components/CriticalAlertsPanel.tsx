@@ -26,12 +26,14 @@ interface CriticalAlertsPanelProps {
     };
     alertDateRange: { from: Date; to: Date };
     alertsPage: number;
+    alertIsApi: number;
     events: EventConfig[];
     siteDetails: SiteDetail[];
     onToggleCollapse: () => void;
     onToggleExpanded: () => void;
     onFilterChange: (filters: any) => void;
     onDateRangeChange: (range: { from: Date; to: Date }) => void;
+    onIsApiChange: (isApi: number) => void;
     onLoadAlerts: (expanded?: boolean) => void;
     onPageChange: (page: number) => void;
 }
@@ -44,12 +46,14 @@ export function CriticalAlertsPanel({
     alertFilters,
     alertDateRange,
     alertsPage,
+    alertIsApi,
     events,
     siteDetails,
     onToggleCollapse,
     onToggleExpanded,
     onFilterChange,
     onDateRangeChange,
+    onIsApiChange,
     onLoadAlerts,
     onPageChange,
 }: CriticalAlertsPanelProps) {
@@ -243,7 +247,7 @@ export function CriticalAlertsPanel({
                                     <span className="text-xs text-muted-foreground">(Independent from dashboard)</span>
                                 </div>
                                 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
                                     {/* Date Range */}
                                     <div className="space-y-1">
                                         <Label className="text-xs text-muted-foreground">Date Range</Label>
@@ -313,6 +317,23 @@ export function CriticalAlertsPanel({
                                             placeholder="All Events"
                                             className="h-9"
                                         />
+                                    </div>
+
+                                    {/* Event Type Toggle - isApi */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">Event Type</Label>
+                                        <select
+                                            value={alertIsApi}
+                                            onChange={(e) => onIsApiChange(parseInt(e.target.value))}
+                                            className={cn(
+                                                "w-full h-9 px-3 rounded-md border text-sm",
+                                                "bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600",
+                                                "focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                            )}
+                                        >
+                                            <option value={0}>Regular Events</option>
+                                            <option value={1}>API Events</option>
+                                        </select>
                                     </div>
 
                                     {/* Refresh Button */}

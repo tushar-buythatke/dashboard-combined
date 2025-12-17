@@ -258,6 +258,7 @@ interface AlertAPIRequest {
     startTime: string;
     endTime: string;
     isHourly: boolean;
+    isApi?: number; // 0 = Regular events, 1 = API events
 }
 
 interface CriticalAlertDetails {
@@ -707,7 +708,8 @@ export class APIService {
         startDate: Date,
         endDate: Date,
         limit: number = 10,
-        page: number = 0
+        page: number = 0,
+        isApi: number = 0 // 0 = Regular events, 1 = API events
     ): Promise<CriticalAlert[]> {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
@@ -727,7 +729,8 @@ export class APIService {
             },
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),
-            isHourly
+            isHourly,
+            isApi // Add isApi field
         };
 
         console.log('Alert API Request:', requestBody);

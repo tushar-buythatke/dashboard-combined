@@ -11,7 +11,7 @@ interface PanelPreviewProps {
         pos: number[];
         sources: number[];
     };
-    graphType: 'line' | 'bar';
+    graphType: 'line' | 'bar' | 'percentage' | 'funnel';
     dateRange?: { from: Date; to: Date };
 }
 

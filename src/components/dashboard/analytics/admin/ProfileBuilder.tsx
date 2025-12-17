@@ -31,7 +31,7 @@ interface ProfileBuilderProps {
 
 // Extended panel config with filters using numeric IDs
 interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
-    type: 'separate' | 'combined' | 'alerts'; // Extended type to include alerts panel
+    type: 'separate' | 'combined' | 'alerts' | 'special'; // Extended type to include alerts panel and special graphs
     filters: {
         events: number[];      // Numeric event IDs
         platforms: number[];   // Numeric platform IDs
@@ -39,7 +39,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
         sources: number[];     // Numeric source IDs
         sourceStr: string[];   // Job IDs (client-side filter)
     };
-    graphType: 'line' | 'bar';
+    graphType: 'line' | 'bar' | 'percentage' | 'funnel';
     dateRange: {
         from: Date;
         to: Date;
@@ -137,12 +137,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         // Check if filterConfig was saved
                         const savedConfig = (p as any).filterConfig;
                         
-                        // Preserve the type if it's alerts panel
-                        const panelType = (p as any).type === 'alerts' ? 'alerts' : (p.type || 'separate');
+                        // Preserve the type if it's alerts panel or special
+                        const panelType = (p as any).type === 'alerts' ? 'alerts' : 
+                                        (p as any).type === 'special' ? 'special' : 
+                                        (p.type || 'separate');
                         
-                        return {
+                        const basePanel: any = {
                             ...p,
-                            type: panelType as 'separate' | 'combined' | 'alerts',
+                            type: panelType as 'separate' | 'combined' | 'alerts' | 'special',
                             filters: savedConfig ? {
                                 events: savedConfig.events || [],
                                 platforms: savedConfig.platforms || [0],
@@ -157,7 +159,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 sources: [],    // All sources
                                 sourceStr: []   // No job filter by default
                             },
-                            graphType: (savedConfig?.graphType || 'line') as 'line' | 'bar',
+                            graphType: (savedConfig?.graphType || 'line') as 'line' | 'bar' | 'percentage' | 'funnel',
                             dateRange: savedConfig?.dateRange ? {
                                 from: new Date(savedConfig.dateRange.from),
                                 to: new Date(savedConfig.dateRange.to)
@@ -171,6 +173,18 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             // Load API event flag
                             isApiEvent: savedConfig?.isApiEvent || false
                         };
+                        
+                        // Restore percentageConfig if it exists
+                        if (savedConfig?.percentageConfig) {
+                            basePanel.percentageConfig = savedConfig.percentageConfig;
+                        }
+                        
+                        // Restore funnelConfig if it exists
+                        if (savedConfig?.funnelConfig) {
+                            basePanel.funnelConfig = savedConfig.funnelConfig;
+                        }
+                        
+                        return basePanel;
                     });
                     
                     // Check if profile already has alerts panel, if not add one at beginning
@@ -334,8 +348,32 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         }));
     };
 
-    const updatePanelGraphType = (panelId: string, graphType: 'line' | 'bar') => {
-        setPanels(panels.map(p => p.panelId === panelId ? { ...p, graphType } : p));
+    const updatePanelGraphType = (panelId: string, graphType: 'line' | 'bar' | 'percentage' | 'funnel') => {
+        setPanels(panels.map(p => {
+            if (p.panelId === panelId) {
+                const updated = { ...p, graphType };
+                
+                // Initialize config for special graph types
+                if (graphType === 'percentage' && !(p as any).percentageConfig) {
+                    (updated as any).percentageConfig = {
+                        parentEvents: [],
+                        childEvents: [],
+                        filters: {},
+                        showCombinedPercentage: true
+                    };
+                }
+                
+                if (graphType === 'funnel' && !(p as any).funnelConfig) {
+                    (updated as any).funnelConfig = {
+                        stages: [{ eventId: '', eventName: '' }],
+                        multipleChildEvents: []
+                    };
+                }
+                
+                return updated;
+            }
+            return p;
+        }));
     };
 
     const updatePanelDateRange = (panelId: string, dateRange: DateRange | undefined) => {
@@ -463,15 +501,12 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         // Filter out alerts panels before saving - alerts are stored via criticalAlerts config, not as regular panels
         const regularPanels: PanelConfig[] = panels
             .filter(p => p.type !== 'alerts')
-            .map(p => ({
-                panelId: p.panelId,
-                panelName: p.panelName,
-                type: p.type,
-                position: p.position,
-                events: p.events,
-                visualizations: p.visualizations,
-                // Store filter config in panel for persistence
-                filterConfig: {
+            .map(p => {
+                const isPercentageGraph = p.graphType === 'percentage';
+                const isFunnelGraph = p.graphType === 'funnel';
+                const panelType = (isPercentageGraph || isFunnelGraph) ? 'special' : p.type;
+                
+                const filterConfig: any = {
                     events: p.filters.events,
                     platforms: p.filters.platforms,
                     pos: p.filters.pos,
@@ -485,8 +520,29 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     showHourlyStats: p.showHourlyStats,
                     dailyDeviationCurve: p.dailyDeviationCurve,
                     isApiEvent: p.isApiEvent || false // Save API event flag
+                };
+                
+                // Save percentageConfig for percentage graphs
+                if (isPercentageGraph && (p as any).percentageConfig) {
+                    filterConfig.percentageConfig = (p as any).percentageConfig;
                 }
-            } as any));
+                
+                // Save funnelConfig for funnel graphs
+                if (isFunnelGraph && (p as any).funnelConfig) {
+                    filterConfig.funnelConfig = (p as any).funnelConfig;
+                }
+                
+                return {
+                    panelId: p.panelId,
+                    panelName: p.panelName,
+                    type: panelType,
+                    position: p.position,
+                    events: p.events,
+                    visualizations: p.visualizations,
+                    // Store filter config in panel for persistence
+                    filterConfig
+                } as any;
+            });
 
         const profile: DashboardProfile = {
             profileId: initialProfileId || `profile_${Date.now()}`,
@@ -624,12 +680,13 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 <div className="text-sm text-muted-foreground">
                                                     Type: <span className="font-medium">{panel.type}</span>
                                                 </div>
-                                                <div className="flex flex-wrap gap-1">
+                                                <div className="flex flex-wrap gap-2">
                                                     {panel.events.map(e => (
                                                         <span
                                                             key={e.eventId}
-                                                            className="text-xs px-2 py-1 rounded bg-secondary"
-                                                            style={{ borderLeft: `3px solid ${e.color}` }}
+                                                            className="text-sm font-medium px-3 py-1.5 rounded bg-secondary"
+                                                            style={{ borderLeft: `4px solid ${e.color}` }}
+                                                            title={e.eventName}
                                                         >
                                                             {e.eventName}
                                                         </span>
@@ -776,18 +833,20 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                         {/* API Events Toggle */}
                                         <div className={cn(
                                             "flex items-center justify-between p-4 rounded-lg border",
-                                            availableEvents.filter(e => e.isApiEvent === true).length > 0
+                                            availableEvents.filter(e => e.isApiEvent === true).length > 0 && panel.graphType !== 'percentage' && panel.graphType !== 'funnel'
                                                 ? "bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200 dark:border-purple-500/30"
                                                 : "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60"
                                         )}>
                                             <div className="flex flex-col">
                                                 <Label className="font-semibold text-base">Event Type</Label>
                                                 <p className="text-xs text-muted-foreground mt-1">
-                                                    {availableEvents.filter(e => e.isApiEvent === true).length === 0
-                                                        ? "No API events available for this feature"
-                                                        : panel.isApiEvent 
-                                                            ? "Monitoring API events (host/url/callUrl)"
-                                                            : "Monitoring regular feature events"}
+                                                    {panel.graphType === 'percentage' || panel.graphType === 'funnel'
+                                                        ? "Event type selection disabled for special graphs"
+                                                        : availableEvents.filter(e => e.isApiEvent === true).length === 0
+                                                            ? "No API events available for this feature"
+                                                            : panel.isApiEvent 
+                                                                ? "Monitoring API events (host/url/callUrl)"
+                                                                : "Monitoring regular feature events"}
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -795,7 +854,11 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 <Switch
                                                     checked={panel.isApiEvent || false}
                                                     onCheckedChange={() => toggleApiEvent(panel.panelId)}
-                                                    disabled={availableEvents.filter(e => e.isApiEvent === true).length === 0}
+                                                    disabled={
+                                                        availableEvents.filter(e => e.isApiEvent === true).length === 0 || 
+                                                        panel.graphType === 'percentage' || 
+                                                        panel.graphType === 'funnel'
+                                                    }
                                                 />
                                             </div>
                                         </div>
@@ -814,16 +877,28 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         }))}
                                                     selected={panel.filters.events.map(id => id.toString())}
                                                     onChange={(values) => updatePanelFilter(panel.panelId, 'events', values)}
-                                                    placeholder={panel.isApiEvent ? "Select API events" : "Select events"}
+                                                    placeholder={
+                                                        panel.graphType === 'percentage' || panel.graphType === 'funnel'
+                                                            ? "Disabled for special graphs"
+                                                            : panel.isApiEvent 
+                                                                ? "Select API events" 
+                                                                : "Select events"
+                                                    }
+                                                    disabled={panel.graphType === 'percentage' || panel.graphType === 'funnel'}
+                                                    className={panel.graphType === 'percentage' || panel.graphType === 'funnel' ? 'opacity-50 cursor-not-allowed' : ''}
                                                 />
-                                                {panel.isApiEvent && panel.filters.events.length > 0 && (
+                                                {panel.graphType === 'percentage' || panel.graphType === 'funnel' ? (
+                                                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                                                        Events configured in graph settings below
+                                                    </p>
+                                                ) : panel.isApiEvent && panel.filters.events.length > 0 ? (
                                                     <p className="text-xs text-muted-foreground">
                                                         {(() => {
                                                             const selectedEvent = availableEvents.find(e => e.eventId === panel.filters.events[0]?.toString());
                                                             return selectedEvent?.callUrl ? `Call URL: ${selectedEvent.callUrl}` : '';
                                                         })()}
                                                     </p>
-                                                )}
+                                                ) : null}
                                             </div>
                                             {!panel.isApiEvent && (
                                                 <>
@@ -943,8 +1018,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 <Label>Graph Type</Label>
                                                 <RadioGroup
                                                     value={panel.graphType}
-                                                    onValueChange={(val) => updatePanelGraphType(panel.panelId, val as 'line' | 'bar')}
-                                                    className="flex gap-4"
+                                                    onValueChange={(val) => updatePanelGraphType(panel.panelId, val as 'line' | 'bar' | 'percentage' | 'funnel')}
+                                                    className="flex flex-col gap-3"
                                                 >
                                                     <div className="flex items-center space-x-2">
                                                         <RadioGroupItem value="line" id={`${panel.panelId}-line`} />
@@ -960,9 +1035,232 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                             Bar Chart
                                                         </Label>
                                                     </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <RadioGroupItem value="percentage" id={`${panel.panelId}-percentage`} />
+                                                        <Label htmlFor={`${panel.panelId}-percentage`} className="flex items-center gap-2 cursor-pointer">
+                                                            <span className="h-4 w-4">%</span>
+                                                            Percentage Graph
+                                                        </Label>
+                                                    </div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <RadioGroupItem value="funnel" id={`${panel.panelId}-funnel`} />
+                                                        <Label htmlFor={`${panel.panelId}-funnel`} className="flex items-center gap-2 cursor-pointer">
+                                                            <span className="h-4 w-4">▼</span>
+                                                            Funnel Graph
+                                                        </Label>
+                                                    </div>
                                                 </RadioGroup>
                                             </div>
 
+                                            {/* Conditional configuration based on graph type */}
+                                            {panel.graphType === 'percentage' ? (
+                                                /* Percentage Graph Configuration */
+                                                <div className="space-y-3 col-span-2">
+                                                    <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-lg border-2 border-purple-300 dark:border-purple-500/50">
+                                                        <Label className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-3 block">
+                                                            📊 Percentage Graph Configuration
+                                                        </Label>
+                                                        <p className="text-xs text-muted-foreground mb-4">
+                                                            Calculate: (Child Events Count / Parent Events Count) × 100
+                                                        </p>
+                                                        
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-medium">Parent Events (Multiple)</Label>
+                                                                <MultiSelectDropdown
+                                                                    options={availableEvents.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                                                    selected={(panel as any).percentageConfig?.parentEvents || []}
+                                                                    onChange={(values) => {
+                                                                        setPanels(prev => prev.map(p => 
+                                                                            p.panelId === panel.panelId 
+                                                                                ? { ...p, percentageConfig: { ...(p as any).percentageConfig, parentEvents: values } }
+                                                                                : p
+                                                                        ));
+                                                                    }}
+                                                                    placeholder="Select parent events"
+                                                                    className="h-9"
+                                                                />
+                                                                <p className="text-xs text-muted-foreground">Events to use as denominator</p>
+                                                            </div>
+                                                            
+                                                            <div className="space-y-2">
+                                                                <Label className="text-xs font-medium">Child Events (Multiple)</Label>
+                                                                <MultiSelectDropdown
+                                                                    options={availableEvents.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                                                    selected={(panel as any).percentageConfig?.childEvents || []}
+                                                                    onChange={(values) => {
+                                                                        setPanels(prev => prev.map(p => 
+                                                                            p.panelId === panel.panelId 
+                                                                                ? { ...p, percentageConfig: { ...(p as any).percentageConfig, childEvents: values } }
+                                                                                : p
+                                                                        ));
+                                                                    }}
+                                                                    placeholder="Select child events"
+                                                                    className="h-9"
+                                                                />
+                                                                <p className="text-xs text-muted-foreground">Events to use as numerator</p>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* API Event filters for status code and cache status */}
+                                                        {panel.isApiEvent && (
+                                                            <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
+                                                                <Label className="text-xs font-medium mb-2 block">API Filters (Optional)</Label>
+                                                                <div className="grid grid-cols-2 gap-3">
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-xs text-muted-foreground">Status Codes</Label>
+                                                                        <Input
+                                                                            placeholder="e.g., 200,201,400"
+                                                                            value={(panel as any).percentageConfig?.filters?.statusCodes?.join(',') || ''}
+                                                                            onChange={(e) => {
+                                                                                const codes = e.target.value.split(',').map(c => c.trim()).filter(Boolean);
+                                                                                setPanels(prev => prev.map(p => 
+                                                                                    p.panelId === panel.panelId 
+                                                                                        ? { 
+                                                                                            ...p, 
+                                                                                            percentageConfig: { 
+                                                                                                ...(p as any).percentageConfig, 
+                                                                                                filters: { 
+                                                                                                    ...((p as any).percentageConfig?.filters || {}),
+                                                                                                    statusCodes: codes 
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                        : p
+                                                                                ));
+                                                                            }}
+                                                                            className="h-8 text-xs"
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-xs text-muted-foreground">Cache Status</Label>
+                                                                        <Input
+                                                                            placeholder="e.g., HIT,MISS"
+                                                                            value={(panel as any).percentageConfig?.filters?.cacheStatus?.join(',') || ''}
+                                                                            onChange={(e) => {
+                                                                                const statuses = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                                                                setPanels(prev => prev.map(p => 
+                                                                                    p.panelId === panel.panelId 
+                                                                                        ? { 
+                                                                                            ...p, 
+                                                                                            percentageConfig: { 
+                                                                                                ...(p as any).percentageConfig, 
+                                                                                                filters: { 
+                                                                                                    ...((p as any).percentageConfig?.filters || {}),
+                                                                                                    cacheStatus: statuses 
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                        : p
+                                                                                ));
+                                                                            }}
+                                                                            className="h-8 text-xs"
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ) : panel.graphType === 'funnel' ? (
+                                                /* Funnel Graph Configuration */
+                                                <div className="space-y-3 col-span-2">
+                                                    <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-500/50">
+                                                        <Label className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3 block">
+                                                            🔽 Funnel Graph Configuration
+                                                        </Label>
+                                                        <p className="text-xs text-muted-foreground mb-4">
+                                                            Define conversion stages: e1 (parent) → e2 → e3 → ... → last (multiple children)
+                                                        </p>
+                                                        
+                                                        {/* Funnel Stages */}
+                                                        <div className="space-y-3">
+                                                            {((panel as any).funnelConfig?.stages || []).map((stage: any, index: number) => (
+                                                                <div key={index} className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 rounded border border-blue-200 dark:border-blue-500/30">
+                                                                    <span className="text-xs font-bold text-blue-600 dark:text-blue-400 w-8">e{index + 1}</span>
+                                                                    <select
+                                                                        value={stage.eventId || ''}
+                                                                        onChange={(e) => {
+                                                                            const eventId = e.target.value;
+                                                                            const eventName = availableEvents.find(ev => ev.eventId === eventId)?.eventName || '';
+                                                                            setPanels(prev => prev.map(p => {
+                                                                                if (p.panelId === panel.panelId) {
+                                                                                    const stages = [...((p as any).funnelConfig?.stages || [])];
+                                                                                    stages[index] = { eventId, eventName };
+                                                                                    return { ...p, funnelConfig: { ...(p as any).funnelConfig, stages } };
+                                                                                }
+                                                                                return p;
+                                                                            }));
+                                                                        }}
+                                                                        className="flex-1 h-8 px-2 rounded border text-xs bg-white dark:bg-slate-700 border-blue-300 dark:border-blue-600"
+                                                                    >
+                                                                        <option value="">Select event</option>
+                                                                        {availableEvents.map(e => (
+                                                                            <option key={e.eventId} value={e.eventId}>{e.eventName}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => {
+                                                                            setPanels(prev => prev.map(p => {
+                                                                                if (p.panelId === panel.panelId) {
+                                                                                    const stages = [...((p as any).funnelConfig?.stages || [])];
+                                                                                    stages.splice(index, 1);
+                                                                                    return { ...p, funnelConfig: { ...(p as any).funnelConfig, stages } };
+                                                                                }
+                                                                                return p;
+                                                                            }));
+                                                                        }}
+                                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            ))}
+                                                            
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setPanels(prev => prev.map(p => {
+                                                                        if (p.panelId === panel.panelId) {
+                                                                            const stages = [...((p as any).funnelConfig?.stages || []), { eventId: '', eventName: '' }];
+                                                                            return { ...p, funnelConfig: { ...(p as any).funnelConfig, stages } };
+                                                                        }
+                                                                        return p;
+                                                                    }));
+                                                                }}
+                                                                className="w-full h-8 text-xs"
+                                                            >
+                                                                <Plus className="h-3 w-3 mr-1" />
+                                                                Add Stage
+                                                            </Button>
+                                                        </div>
+
+                                                        {/* Last Stage (Multiple Children) */}
+                                                        <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-500/30">
+                                                            <Label className="text-xs font-medium mb-2 block">Final Stage (Multiple Events)</Label>
+                                                            <MultiSelectDropdown
+                                                                options={availableEvents.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                                                selected={(panel as any).funnelConfig?.multipleChildEvents || []}
+                                                                onChange={(values) => {
+                                                                    setPanels(prev => prev.map(p => 
+                                                                        p.panelId === panel.panelId 
+                                                                            ? { ...p, funnelConfig: { ...(p as any).funnelConfig, multipleChildEvents: values } }
+                                                                            : p
+                                                                    ));
+                                                                }}
+                                                                placeholder="Select final stage events"
+                                                                className="h-9"
+                                                            />
+                                                            <p className="text-xs text-muted-foreground mt-1">These events will be shown with different colors in the final bar</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                /* Regular Line/Bar Chart Configuration */
+                                                <>
                                             <div className="space-y-3">
                                                 <Label>Pie Charts</Label>
                                                 <div className="space-y-2">
@@ -1032,7 +1330,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     id={`${panel.panelId}-daily-deviation`}
                                                                     checked={panel.dailyDeviationCurve}
                                                                     onCheckedChange={() => {
-                                                                        setPanels(prev => prev.map(p => 
+                                                                        setPanels(prev => prev.map(p =>
                                                                             p.panelId === panel.panelId 
                                                                                 ? { ...p, dailyDeviationCurve: !p.dailyDeviationCurve }
                                                                                 : p
@@ -1099,6 +1397,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                     </div>
                                                 </div>
                                             </div>
+                                                </>
+                                            )}
                                         </div>
 
                                         {/* Live Graph Preview */}

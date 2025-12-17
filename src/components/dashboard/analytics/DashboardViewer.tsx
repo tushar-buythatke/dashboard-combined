@@ -11,8 +11,9 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell, Users, LayoutDashboard } from 'lucide-react';
+import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell, Users, LayoutDashboard, Percent } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ExpandedPieChartModal, type ExpandedPieData } from './components/ExpandedPieChartModal';
 import { CriticalAlertsPanel } from './components/CriticalAlertsPanel';
 import { DayWiseComparisonChart, HourlyDeviationChart, DailyAverageChart } from './components/ComparisonCharts';
+import { PercentageGraph } from './charts/PercentageGraph';
+import { FunnelGraph } from './charts/FunnelGraph';
 import {
     ResponsiveContainer,
     AreaChart,
@@ -40,7 +43,8 @@ import {
     Legend,
     PieChart,
     Pie,
-    Cell
+    Cell,
+    ReferenceLine
 } from 'recharts';
 
 // Animated Number Counter Component - fast 0 -> value animation
@@ -223,7 +227,7 @@ const CollapsibleLegend = ({
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                 const isErrorEvent = event?.isErrorEvent === 1;
-                
+
                 // Assign color based on status code for API events
                 let color;
                 // Extract status code from event name
@@ -243,7 +247,7 @@ const CollapsibleLegend = ({
                 } else {
                     color = event?.color || (isErrorEvent ? ERROR_COLORS[index % ERROR_COLORS.length] : EVENT_COLORS[index % EVENT_COLORS.length]);
                 }
-                
+
                 const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0, errorRate: 0, isErrorEvent: false, isAvgEvent: false, avgDelay: 0 };
                 const isSelected = selectedEventKey === eventKeyInfo.eventKey;
 
@@ -855,6 +859,7 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                         success: stats?.success || 0,
                                         fail: stats?.fail || 0,
                                         avgDelay: hourAvgDelay,
+                                        avgLine: isAvgEvent ? overallAvgDelay : avgPerHour, // Add average line
                                         isSelected: hour === selectedHour,
                                         isPeak: hour === peakHour
                                     };
@@ -871,7 +876,7 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                     tick={{ fontSize: 9, fill: 'currentColor' }}
                                     tickLine={false}
                                     axisLine={{ stroke: 'currentColor', strokeOpacity: 0.2 }}
-                                    interval={availableHours.length > 12 ? 1 : 0}
+                                    interval={availableHours.length > 18 ? 2 : availableHours.length > 12 ? 1 : 0}
                                 />
                                 <YAxis
                                     tick={{ fontSize: 9, fill: 'currentColor' }}
@@ -933,6 +938,20 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                         />
                                     ))}
                                 </Bar>
+                                {/* Yellow dashed average line */}
+                                <ReferenceLine 
+                                    y={isAvgEvent ? overallAvgDelay : avgPerHour} 
+                                    stroke="#fbbf24" 
+                                    strokeDasharray="5 5" 
+                                    strokeWidth={2}
+                                    label={{ 
+                                        value: `Avg: ${isAvgEvent ? formatDelay(overallAvgDelay) : avgPerHour.toFixed(0)}`,
+                                        position: 'right',
+                                        fill: '#f59e0b',
+                                        fontSize: 10,
+                                        fontWeight: 'bold'
+                                    }}
+                                />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -1415,6 +1434,9 @@ interface FilterState {
     pos: number[];
     sources: number[];
     events: number[];
+    // New fields for togglable filters
+    activeStages?: string[]; // Event IDs for active funnel stages
+    activePercentageEvents?: string[]; // Event IDs for active percentage events
 }
 
 interface DateRangeState {
@@ -1491,7 +1513,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Theme and organization context
     const { currentTheme, isAutosnipe, themePalette } = useTheme();
     const { selectedOrganization } = useOrganization();
-    
+
     const [profile, setProfile] = useState<DashboardProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [dataLoading, setDataLoading] = useState(false);
@@ -1537,6 +1559,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [alertsExpanded, setAlertsExpanded] = useState(false);
     const [alertsPage, setAlertsPage] = useState(0);
     const [alertsPanelCollapsed, setAlertsPanelCollapsed] = useState(true);
+    const [alertIsApi, setAlertIsApi] = useState(0); // 0 = Regular events, 1 = API events
 
     // Alert-specific filters (independent from main dashboard)
     const [alertFilters, setAlertFilters] = useState<{
@@ -1587,17 +1610,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
     const [panelSelectedEventKey, setPanelSelectedEventKey] = useState<Record<string, string | null>>({});
     const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
-    
+
     // API event metric view - comprehensive metrics
     const [apiMetricView, setApiMetricView] = useState<'timing' | 'timing-breakdown' | 'timing-anomaly' | 'bytes' | 'bytes-in' | 'count'>('timing');
     const [panelApiMetricView, setPanelApiMetricView] = useState<Record<string, 'timing' | 'timing-breakdown' | 'timing-anomaly' | 'bytes' | 'bytes-in' | 'count'>>({});
 
     // Pinned tooltip for main chart - stores the data point to show in expanded view
     const [pinnedTooltip, setPinnedTooltip] = useState<{ dataPoint: any; label: string } | null>(null);
-    
+
     // Pinned tooltips for panel charts - keyed by panelId
     const [panelPinnedTooltips, setPanelPinnedTooltips] = useState<Record<string, { dataPoint: any; label: string } | null>>({});
-    
+
     // Toast for panel navigation notifications
     const { toast } = useToast();
 
@@ -1609,20 +1632,20 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
     const [pendingRefresh, setPendingRefresh] = useState<boolean>(false);
     const initialLoadComplete = useRef<boolean>(false);
-    
+
     // Filter panel collapse state - collapsed by default (main dashboard only)
     const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(false); // Default to expanded so API filters are visible
-    
+
     // Panel-specific filter collapse states - collapsed by default for new panels
     const [panelFiltersCollapsed, setPanelFiltersCollapsed] = useState<Record<string, boolean>>({});
-    
+
     // Memoize isMainPanelApi to prevent infinite re-render loop
     // MUST be at top level, not inside conditional logic
     const isMainPanelApi = useMemo(() => {
         const mainPanelConfig = profile?.panels?.[0]?.filterConfig;
         return mainPanelConfig?.isApiEvent === true;
     }, [profile?.panels]);
-    
+
     // Initialize panel filters as collapsed when profile loads
     useEffect(() => {
         if (profile?.panels) {
@@ -1633,7 +1656,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             setPanelFiltersCollapsed(initialCollapseState);
         }
     }, [profile?.panels]);
-    
+
     // Note: Auto-selection disabled for 8-Day Overlay
     // Show all events by default to prevent empty graphs
     // User can click legend to filter specific events
@@ -1926,7 +1949,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Creates separate data series per event for proper bifurcation
     // Handles avgEvents by plotting avgDelay (time) instead of count
     // Handles API events by grouping by status/cacheStatus instead of eventId
-    const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[], isApiEvent: boolean = false) => {
+    const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[], isApiEvent: boolean = false, graphType?: string) => {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
 
@@ -1939,7 +1962,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         });
 
         // For API events, we group by status/cacheStatus instead of eventId
-        if (isApiEvent) {
+        // UNLESS it's a special graph type (percentage/funnel) which needs specific endpoint comparisons
+        // In that case, we fall through to the "Regular" logic but capture status codes as sub-metrics
+        const useApiAggregation = isApiEvent && graphType !== 'percentage' && graphType !== 'funnel';
+
+        if (useApiAggregation) {
             const timeMap = new Map<string, any>();
             const statusSet = new Set<string>();
             const cacheStatusSet = new Set<string>();
@@ -1996,7 +2023,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 existing[`${statusKey}_count`] += record.count || 0;
                 existing[`${statusKey}_success`] += record.successCount || 0;
                 existing[`${statusKey}_fail`] += record.failCount || 0;
-                
+
                 // Accumulate timing metrics for averaging
                 if (record.avgBytesIn) existing[`${statusKey}_avgBytesIn`] += parseFloat(record.avgBytesIn);
                 if (record.avgBytesOut) existing[`${statusKey}_avgBytesOut`] += parseFloat(record.avgBytesOut);
@@ -2122,6 +2149,30 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             existing[`${eventKey}_success`] += record.successCount || 0;
             existing[`${eventKey}_fail`] += record.failCount || 0;
 
+            // CAPTURE STATUS CODE & CACHE STATUS BREAKDOWNS (if available)
+            // This enables "Percentage Graph" to filter by status/cache even for specific Events
+            if (record.status) {
+                const status = String(record.status);
+                const statusKey = `${eventKey}_status_${status}`;
+                if (!existing[`${statusKey}_count`]) {
+                    existing[`${statusKey}_count`] = 0;
+                    existing[`${statusKey}_success`] = 0;
+                }
+                existing[`${statusKey}_count`] += record.count || 0;
+                existing[`${statusKey}_success`] += record.successCount || 0;
+            }
+
+            if (record.cacheStatus) {
+                const cache = String(record.cacheStatus);
+                const cacheKey = `${eventKey}_cache_${cache}`;
+                if (!existing[`${cacheKey}_count`]) {
+                    existing[`${cacheKey}_count`] = 0;
+                    existing[`${cacheKey}_success`] = 0;
+                }
+                existing[`${cacheKey}_count`] += record.count || 0;
+                existing[`${cacheKey}_success`] += record.successCount || 0;
+            }
+
             // For avg events, accumulate delay values (will average later)
             if (isAvgEvent && record.avgDelay) {
                 existing[`${eventKey}_avgDelay`] += record.avgDelay;
@@ -2174,7 +2225,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             const mainPanelConfig = profile?.panels?.[0]?.filterConfig as any;
             const isApiEvent = mainPanelConfig?.isApiEvent || false;
             // Then process the filtered data
-            const processedResult = processGraphData(filteredResponse, dateRange.from, dateRange.to, events, isApiEvent);
+            // Then process the filtered data
+            const processedResult = processGraphData(filteredResponse, dateRange.from, dateRange.to, events, isApiEvent, mainPanelConfig?.graphType);
             setGraphData(processedResult.data);
             setEventKeys(processedResult.eventKeys || []);
         }
@@ -2185,7 +2237,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     useEffect(() => {
         if (eventKeys.length > 0 && !selectedEventKey) {
             let keyToSelect = eventKeys[0].eventKey;
-            
+
             // For API events, try to find status 200
             if (isMainPanelApi) {
                 const status200 = eventKeys.find(ek => {
@@ -2196,11 +2248,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     keyToSelect = status200.eventKey;
                 }
             }
-            
+
             setSelectedEventKey(keyToSelect);
         }
     }, [eventKeys, isMainPanelApi]); // Remove selectedEventKey from deps to ensure it always checks
-    
+
     // Auto-select first event for each panel when their eventKeys change
     useEffect(() => {
         panelsDataMap.forEach((panelData, panelId) => {
@@ -2261,9 +2313,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             const userPanelFilters = panelFiltersState[panelId];
             const existingPanelData = panelsDataMap.get(panelId);
 
-            console.log(`🔍 DEBUG - Panel Config:`, panelConfig);
-            console.log(`👤 DEBUG - User Panel Filters:`, userPanelFilters);
-            console.log(`📦 DEBUG - Existing Panel Data Filters:`, existingPanelData?.filters);
+
 
             // FIXED: Use currentPanelFilters logic - match what the UI shows
             // Priority: 1) User edited filters (panelFiltersState), 2) Last successful call (panelData.filters), 3) Panel config defaults
@@ -2274,12 +2324,27 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 sources: panelConfig?.sources || []
             };
 
+            // For special graphs (percentage/funnel), extract ALL required event IDs
+            let eventIdsToFetch = currentPanelFilters.events;
+            if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
+                const { parentEvents = [], childEvents = [] } = panelConfig.percentageConfig;
+                eventIdsToFetch = [...new Set([...parentEvents.map((id: string) => parseInt(id)), ...childEvents.map((id: string) => parseInt(id))])];
+
+            } else if (panelConfig?.graphType === 'funnel' && panelConfig?.funnelConfig) {
+                const { stages = [], multipleChildEvents = [] } = panelConfig.funnelConfig;
+                const stageEventIds = stages.map((s: any) => parseInt(s.eventId)).filter((id: number) => !isNaN(id));
+                const childEventIds = multipleChildEvents.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
+                eventIdsToFetch = [...new Set([...stageEventIds, ...childEventIds])];
+
+            }
+
             // Now use currentPanelFilters - empty arrays mean "all" (sent to API as [])
+            // For special graphs, use saved config filters from template builder
             const panelFilters: FilterState = {
-                events: currentPanelFilters.events,
-                platforms: currentPanelFilters.platforms,
-                pos: currentPanelFilters.pos,
-                sources: currentPanelFilters.sources
+                events: eventIdsToFetch,
+                platforms: panelConfig?.platforms || currentPanelFilters.platforms,
+                pos: panelConfig?.pos || currentPanelFilters.pos,
+                sources: panelConfig?.sources || currentPanelFilters.sources
             };
             const panelDateRange = panelDateRanges[panelId] || dateRange;
 
@@ -2297,6 +2362,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             // Check if panel has API events (any event with isApiEvent flag)
             const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
 
+            // Check if this is a special graph (percentage or funnel)
+            const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel';
+
             // For API events, send empty arrays for platform/pos/source (API groups by status/cacheStatus)
             const graphResponse = await apiService.getGraphData(
                 panelFilters.events, // Only eventIds are used for API events
@@ -2309,19 +2377,22 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             );
 
             // Pie chart is optional - don't fail the whole refresh if it fails
+            // Skip pie chart API call for special graphs (percentage/funnel)
             let pieResponse = null;
-            try {
-                pieResponse = await apiService.getPieChartData(
-                    panelFilters.events,
-                    hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
-                    hasApiEvents ? [] : panelFilters.pos, // Empty for API events
-                    hasApiEvents ? [] : panelFilters.sources, // Empty for API events
-                    panelDateRange.from,
-                    panelDateRange.to,
-                    hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
-                );
-            } catch (pieErr) {
-                console.warn(`⚠️ Pie chart data failed for panel ${panelId}, continuing without it:`, pieErr);
+            if (!isSpecialGraph) {
+                try {
+                    pieResponse = await apiService.getPieChartData(
+                        panelFilters.events,
+                        hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
+                        hasApiEvents ? [] : panelFilters.pos, // Empty for API events
+                        hasApiEvents ? [] : panelFilters.sources, // Empty for API events
+                        panelDateRange.from,
+                        panelDateRange.to,
+                        hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
+                    );
+                } catch (pieErr) {
+                    console.warn(`⚠️ Pie chart data failed for panel ${panelId}, continuing without it:`, pieErr);
+                }
             }
 
             // Extract available sourceStrs from the raw response
@@ -2330,14 +2401,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             // Apply sourceStr filter (client-side) then process
             const filteredResponse = filterBySourceStr(graphResponse, currentSourceStrFilter);
             const isApiEventPanel = panelConfig?.isApiEvent || false;
-            const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel);
+            const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel, panelConfig?.graphType);
 
-            console.log(`✅ PANEL ${panelId} - Processed data:`, {
-                dataLength: processedResult.data.length,
-                eventKeysCount: processedResult.eventKeys.length,
-                availableSourceStrs: sourceStrsInData.length,
-                pieData: pieResponse ? 'received' : 'null'
-            });
+
 
             // Update panelsDataMap for this panel
             setPanelsDataMap(prev => {
@@ -2369,23 +2435,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             // CRITICAL: If this is the first/main panel, also update the legacy state variables
             // The main panel UI uses these directly, not panelsDataMap
             if (profile.panels[0]?.panelId === panelId) {
-                console.log(`🔄 Updating main panel state variables with:`, {
-                    graphDataLength: processedResult.data.length,
-                    eventKeysCount: processedResult.eventKeys?.length || 0,
-                    availableSourceStrs: sourceStrsInData.length,
-                    pieDataKeys: pieResponse ? Object.keys(pieResponse) : [],
-                    pieDataStructure: pieResponse ? {
-                        hasData: !!pieResponse.data,
-                        hasStatus: !!(pieResponse.data?.status || pieResponse.status),
-                        hasCacheStatus: !!(pieResponse.data?.cacheStatus || pieResponse.cacheStatus)
-                    } : null
-                });
+
                 setGraphData(processedResult.data);
                 setEventKeys(processedResult.eventKeys || []);
                 setPieChartData(pieResponse);
                 setRawGraphResponse(graphResponse); // Store for re-processing
                 setLastUpdated(new Date());
-                console.log(`✅ Main panel state variables updated!`);
+
             }
         } catch (err) {
             console.error(`Failed to refresh panel ${panelId}:`, err);
@@ -2406,6 +2462,19 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         }
     }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr]);
 
+    // Auto-load all panel data when profile and events are ready
+    useEffect(() => {
+        if (!profile || events.length === 0 || initialLoadComplete.current) return;
+
+        console.log('🚀 Auto-loading all panels...');
+        initialLoadComplete.current = true;
+
+        // Load all panels
+        profile.panels.forEach((panel) => {
+            refreshPanelData(panel.panelId);
+        });
+    }, [profile, events, refreshPanelData]);
+
     // Load critical alerts - uses alert-specific filters (independent)
     const loadAlerts = useCallback(async (expanded: boolean = false) => {
         if (!profile || events.length === 0) return;
@@ -2414,7 +2483,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         try {
             // Check if profile has Critical Alerts config with specific event selection
             const profileEventFilter = profile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || [];
-            
+
             // Priority: profile-level event filter > runtime alert filters > all events
             const eventIds = profileEventFilter.length > 0
                 ? profileEventFilter
@@ -2431,7 +2500,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 alertDateRange.from,
                 alertDateRange.to,
                 limit,
-                alertsPage
+                alertsPage,
+                alertIsApi // Pass isApi parameter
             );
             setCriticalAlerts(alerts);
             onAlertsUpdate?.(alerts); // Send alerts to parent
@@ -2474,9 +2544,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         : (panelConfig?.sources || [])
                 };
 
-                console.log(`Panel ${panel.panelId} - Using filters:`, panelFilters);
-                console.log(`User panel filters:`, userPanelFilters);
-                console.log(`Panel config:`, panelConfig);
+
 
                 // Check if panel has API events
                 const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
@@ -2512,8 +2580,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     // Extract available sourceStrs from raw response
                     const graphSourceStrs = extractSourceStrs(graphResponse);
                     // Check if this panel is configured for API events
+                    // Check if this panel is configured for API events
                     const isApiEventPanel = panelConfig?.isApiEvent || false;
-                    const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel);
+                    const processedResult = processGraphData(graphResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel, panelConfig?.graphType);
 
                     return {
                         panelId: panel.panelId,
@@ -2599,18 +2668,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     useEffect(() => {
         // Auto-load data on initial mount AND when switching profiles
         // User wants to see fresh data immediately without clicking Apply Changes
+        // CHANGED: Removed strict initialLoadComplete check to ensure data loads even if flag was set but data is missing
         if (!loading && profile && events.length > 0) {
-            console.log('🔄 Loading data for profile:', profile.profileName);
+            // Force load if we have a profile but no data/alerts yet, or just generally on profile change
             loadData();
-            loadAlerts(); // Load critical alerts too
-            // Clear pending refresh after load
+            loadAlerts(); 
             setPendingRefresh(false);
-            // Clear all panel filter changes after load
             setPanelFilterChanges({});
-            // Mark initial load as complete
             initialLoadComplete.current = true;
-            
-            // Show toast notification when profile loads
+
             toast({
                 title: `📊 ${profile.profileName}`,
                 description: `Loaded ${profile.panels.length} panel${profile.panels.length !== 1 ? 's' : ''} with latest data`,
@@ -2717,14 +2783,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             if (isMainPanelApi) {
                 const aLabel = a.host && a.url ? `${a.host} - ${a.url}` : a.eventName;
                 const bLabel = b.host && b.url ? `${b.host} - ${b.url}` : b.eventName;
-                
+
                 // Check if event name contains "200"
                 const aIs200 = aLabel.includes('200') || a.eventName.includes('200');
                 const bIs200 = bLabel.includes('200') || b.eventName.includes('200');
-                
+
                 if (aIs200 && !bIs200) return -1;
                 if (!aIs200 && bIs200) return 1;
-                
+
                 // Then sort by status code if both are status events
                 const aStatus = parseInt(a.eventName) || 999;
                 const bStatus = parseInt(b.eventName) || 999;
@@ -2733,22 +2799,22 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             return 0; // Keep original order for non-API events
         })
         .map(e => {
-        let label = e.isApiEvent && e.host && e.url
-            ? `${e.host} - ${e.url}`  // API events show host/url
-            : e.eventName;             // Regular events show eventName
-        const tags: string[] = [];
-        if (e.isErrorEvent === 1) tags.push('[isError]');
-        if (e.isAvgEvent === 1) tags.push('[isAvg]');
-        if (tags.length > 0) {
-            label = `${e.eventName} ${tags.join(' ')}`;
-        }
-        return {
-            value: e.eventId,
-            label,
-            isErrorEvent: e.isErrorEvent === 1,
-            isAvgEvent: e.isAvgEvent === 1
-        };
-    });
+            let label = e.isApiEvent && e.host && e.url
+                ? `${e.host} - ${e.url}`  // API events show host/url
+                : e.eventName;             // Regular events show eventName
+            const tags: string[] = [];
+            if (e.isErrorEvent === 1) tags.push('[isError]');
+            if (e.isAvgEvent === 1) tags.push('[isAvg]');
+            if (tags.length > 0) {
+                label = `${e.eventName} ${tags.join(' ')}`;
+            }
+            return {
+                value: e.eventId,
+                label,
+                isErrorEvent: e.isErrorEvent === 1,
+                isAvgEvent: e.isAvgEvent === 1
+            };
+        });
     const platformOptions = PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }));
     const posOptions = siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }));
     const sourceOptions = SOURCES.map(s => ({ value: s.id.toString(), label: s.name }));
@@ -2787,6 +2853,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const avgEventKeys = eventKeys.filter(ek => ek.isAvgEvent === 1);
     const errorEventKeys = eventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
     const normalEventKeys = eventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+
+    // Check if first panel is a special graph (percentage or funnel)
+    const firstPanel = profile?.panels?.[0];
+    const firstPanelFilterConfig = (firstPanel as any)?.filterConfig;
+    const isFirstPanelSpecialGraph = firstPanelFilterConfig?.graphType === 'percentage' || firstPanelFilterConfig?.graphType === 'funnel';
 
     // Format delay value based on event feature (prepared for future use)
     // Price Alert (feature 1) = value is already in MINUTES
@@ -2920,8 +2991,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             {/* Center glow */}
                             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-radial from-green-500/5 via-transparent to-transparent rounded-full blur-3xl" />
                             {/* Scanline effect */}
-                            <div className="absolute inset-0 opacity-[0.02]" style={{ 
-                                backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(34, 197, 94, 0.1) 2px, rgba(34, 197, 94, 0.1) 4px)' 
+                            <div className="absolute inset-0 opacity-[0.02]" style={{
+                                backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(34, 197, 94, 0.1) 2px, rgba(34, 197, 94, 0.1) 4px)'
                             }} />
                         </>
                     ) : (
@@ -2949,12 +3020,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         alertFilters={alertFilters}
                         alertDateRange={alertDateRange}
                         alertsPage={alertsPage}
+                        alertIsApi={alertIsApi}
                         events={events}
                         siteDetails={siteDetails}
                         onToggleCollapse={() => setAlertsPanelCollapsed(!alertsPanelCollapsed)}
                         onToggleExpanded={() => setAlertsExpanded(!alertsExpanded)}
                         onFilterChange={setAlertFilters}
                         onDateRangeChange={setAlertDateRange}
+                        onIsApiChange={setAlertIsApi}
                         onLoadAlerts={loadAlerts}
                         onPageChange={setAlertsPage}
                     />
@@ -2976,8 +3049,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             {/* Center glow */}
                             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-radial from-green-500/5 via-transparent to-transparent rounded-full blur-3xl" />
                             {/* Scanline effect */}
-                            <div className="absolute inset-0 opacity-[0.02]" style={{ 
-                                backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(34, 197, 94, 0.1) 2px, rgba(34, 197, 94, 0.1) 4px)' 
+                            <div className="absolute inset-0 opacity-[0.02]" style={{
+                                backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(34, 197, 94, 0.1) 2px, rgba(34, 197, 94, 0.1) 4px)'
                             }} />
                         </>
                     ) : (
@@ -2993,7 +3066,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-radial from-indigo-200/10 via-transparent to-transparent dark:from-indigo-500/5 rounded-full blur-3xl" />
                         </>
                     )}
-            </div>
+                </div>
 
                 {error && (
                     <div
@@ -3009,7 +3082,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 >
                     {/* Purple/Pink Gradient Accent Bar */}
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
-                    
+
                     <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -3229,7 +3302,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         <Card className="relative rounded-2xl bg-gradient-to-br from-purple-500/10 via-violet-500/8 to-fuchsia-500/10 dark:from-purple-500/15 dark:via-violet-500/12 dark:to-fuchsia-500/15 border border-purple-200/60 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-[0_8px_25px_rgba(147,51,234,0.08)] hover:shadow-[0_15px_35px_rgba(147,51,234,0.20)]">
                             {/* Purple/Pink Gradient Accent Bar */}
                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
-                            
+
                             {/* Animated background shimmer */}
                             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/8 to-purple-500/0" />
                             {/* Glow effect on hover */}
@@ -3412,8 +3485,50 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 {/* Main Chart - Count Events Only */}
                 {normalEventKeys.length > 0 && (() => {
                     const mainPanelId = profile?.panels?.[0]?.panelId;
+                    const mainPanel = profile?.panels?.[0];
                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                    
+
+                    // Check if this is a special graph panel (percentage or funnel)
+                    const filterConfig = (mainPanel as any)?.filterConfig;
+                    const graphType = filterConfig?.graphType;
+
+                    if (mainPanel?.type === 'special' || graphType === 'percentage' || graphType === 'funnel') {
+                        const eventColors = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {});
+                        const eventNames = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.eventName }), {});
+
+                        // Render Percentage Graph
+                        if (graphType === 'percentage' && filterConfig?.percentageConfig) {
+                            const percentageConfig = filterConfig.percentageConfig;
+                            return (
+                                <PercentageGraph
+                                    data={graphData}
+                                    dateRange={dateRange}
+                                    parentEvents={percentageConfig.parentEvents || []}
+                                    childEvents={percentageConfig.childEvents || []}
+                                    eventColors={eventColors}
+                                    eventNames={eventNames}
+                                    filters={percentageConfig.filters || {}}
+                                    showCombinedPercentage={percentageConfig.showCombinedPercentage !== false}
+                                    isHourly={isHourly}
+                                />
+                            );
+                        }
+
+                        // Render Funnel Graph
+                        if (graphType === 'funnel' && filterConfig?.funnelConfig) {
+                            const funnelConfig = filterConfig.funnelConfig;
+                            return (
+                                <FunnelGraph
+                                    data={graphData}
+                                    stages={funnelConfig.stages || []}
+                                    multipleChildEvents={funnelConfig.multipleChildEvents || []}
+                                    eventColors={eventColors}
+                                    eventNames={eventNames}
+                                />
+                            );
+                        }
+                    }
+
                     // Calculate event stats for badges and sort by count
                     const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
                         const eventKey = eventKeyInfo.eventKey;
@@ -3434,14 +3549,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             successRate
                         };
                     });
-                    
+
                     // Sort normalEventKeys by total count descending (highest first) for legend
                     const sortedNormalEventKeys = [...normalEventKeys].sort((a, b) => {
                         const aTotal = eventStatsForBadges.find(s => s.eventKey === a.eventKey)?.total || 0;
                         const bTotal = eventStatsForBadges.find(s => s.eventKey === b.eventKey)?.total || 0;
                         return bTotal - aTotal;
                     });
-                    
+
                     // If in deviation mode, show only the overlay chart with toggle button
                     // For hourly: only show 8-Day Overlay if date range <= 8 days
                     if (isHourly && mainChartType === 'deviation') {
@@ -3451,50 +3566,50 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             const filteredEventKeys = overlaySelectedEventKey
                                 ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
                                 : normalEventKeys.map(e => e.eventKey);
-                        
-                        return (
-                            <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
-                                <CardHeader className="pb-2 px-3 md:px-6">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <BarChart3 className="h-5 w-5 text-purple-600" />
-                                            <CardTitle className="text-base md:text-lg">8-Day Hourly Comparison</CardTitle>
+
+                            return (
+                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                    <CardHeader className="pb-2 px-3 md:px-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                <CardTitle className="text-base md:text-lg">8-Day Hourly Comparison</CardTitle>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                onClick={() => {
+                                                    setPanelChartType(prev => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        if (!mainPanelId) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            [mainPanelId]: 'default',
+                                                        };
+                                                    });
+                                                }}
+                                            >
+                                                ← Event Trends
+                                            </Button>
                                         </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                            onClick={() => {
-                                                setPanelChartType(prev => {
-                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                    if (!mainPanelId) return prev;
-                                                    return {
-                                                        ...prev,
-                                                        [mainPanelId]: 'default',
-                                                    };
-                                                });
-                                            }}
-                                        >
-                                            ← Event Trends
-                                        </Button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                    <DayWiseComparisonChart 
-                                        data={graphData}
-                                        dateRange={dateRange}
-                                        eventKeys={filteredEventKeys}
-                                        eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}  
-                                        eventStats={eventStatsForBadges}
-                                        selectedEventKey={overlaySelectedEventKey}
-                                        onEventClick={handleOverlayEventClick}
-                                    />
-                                </CardContent>
-                            </Card>
-                        );
+                                    </CardHeader>
+                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                        <DayWiseComparisonChart
+                                            data={graphData}
+                                            dateRange={dateRange}
+                                            eventKeys={filteredEventKeys}
+                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                            eventStats={eventStatsForBadges}
+                                            selectedEventKey={overlaySelectedEventKey}
+                                            onEventClick={handleOverlayEventClick}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            );
                         }
                     }
-                    
+
                     // If in deviation mode for DAILY data, show daily overlay comparison
                     // Only show for date ranges <= 8 days
                     if (!isHourly && mainChartType === 'deviation') {
@@ -3504,147 +3619,161 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             const filteredEventKeys = overlaySelectedEventKey
                                 ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
                                 : normalEventKeys.map(e => e.eventKey);
-                        
-                        return (
-                            <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
-                                <CardHeader className="pb-2 px-3 md:px-6">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <BarChart3 className="h-5 w-5 text-purple-600" />
-                                            <CardTitle className="text-base md:text-lg">Daily Overlay Comparison</CardTitle>
+
+                            return (
+                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                    <CardHeader className="pb-2 px-3 md:px-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                <CardTitle className="text-base md:text-lg">Daily Overlay Comparison</CardTitle>
+                                            </div>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                onClick={() => {
+                                                    setPanelChartType(prev => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        if (!mainPanelId) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            [mainPanelId]: 'default',
+                                                        };
+                                                    });
+                                                }}
+                                            >
+                                                ← Event Trends
+                                            </Button>
                                         </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                            onClick={() => {
-                                                setPanelChartType(prev => {
-                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                    if (!mainPanelId) return prev;
-                                                    return {
-                                                        ...prev,
-                                                        [mainPanelId]: 'default',
-                                                    };
-                                                });
-                                            }}
-                                        >
-                                            ← Event Trends
-                                        </Button>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                    <DayWiseComparisonChart 
-                                        data={graphData}
-                                        dateRange={dateRange}
-                                        eventKeys={filteredEventKeys}
-                                        eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}  
-                                        eventStats={eventStatsForBadges}
-                                        selectedEventKey={overlaySelectedEventKey}
-                                        onEventClick={handleOverlayEventClick}
-                                    />
-                                </CardContent>
-                            </Card>
-                        );
+                                    </CardHeader>
+                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                        <DayWiseComparisonChart
+                                            data={graphData}
+                                            dateRange={dateRange}
+                                            eventKeys={filteredEventKeys}
+                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                            eventStats={eventStatsForBadges}
+                                            selectedEventKey={overlaySelectedEventKey}
+                                            onEventClick={handleOverlayEventClick}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            );
                         }
                     }
-                    
+
                     // Otherwise show the regular chart
                     return (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4 }}
-                    >
-                        <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
-                            <CardHeader className="pb-2 px-3 md:px-6">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
-                                    <div className="flex items-center gap-3">
-                                        <div
-                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/20"
-                                        >
-                                            <BarChart3 className="h-5 w-5 text-white" />
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.4 }}
+                        >
+                            <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                                <CardHeader className="pb-2 px-3 md:px-6">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/20"
+                                            >
+                                                <BarChart3 className="h-5 w-5 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <CardTitle className="text-base md:text-lg flex items-center gap-2">
+                                                    {/* API Event Indicator Badge */}
+                                                    {profile?.panels?.[0]?.filterConfig?.isApiEvent === true && (
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
+                                                            API
+                                                        </span>
+                                                    )}
+                                                    {(() => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                        if (isHourly && mainChartType === 'deviation') {
+                                                            return '8-Day Hourly Comparison';
+                                                        }
+                                                        if (isHourly) {
+                                                            return 'Hourly Event Trends';
+                                                        }
+                                                        if (mainChartType === 'deviation') {
+                                                            return 'Daily Overlay Comparison';
+                                                        }
+                                                        return 'Daily Event Trends with Average';
+                                                    })()}
+                                                </CardTitle>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {isHourly ? (
+                                                        <span className="hidden md:inline">
+                                                            {(() => {
+                                                                const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                                const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                                return mainChartType === 'deviation'
+                                                                    ? 'Compare hourly patterns across last 8 days'
+                                                                    : 'Hourly data points • Toggle for day-wise comparison';
+                                                            })()}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="hidden md:inline">Daily event counts • Toggle for overlay comparison</span>
+                                                    )}
+                                                    <span className="md:hidden">Tap data points for insights</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg flex items-center gap-2">
-                                                {/* API Event Indicator Badge */}
-                                                {profile?.panels?.[0]?.filterConfig?.isApiEvent === true && (
-                                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
-                                                        API
-                                                    </span>
-                                                )}
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                onClick={() => {
+                                                    setPanelChartType(prev => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        if (!mainPanelId) return prev;
+                                                        const current = prev[mainPanelId] ?? 'default';
+                                                        return {
+                                                            ...prev,
+                                                            [mainPanelId]: current === 'deviation' ? 'default' : 'deviation',
+                                                        };
+                                                    });
+                                                }}
+                                            >
                                                 {(() => {
                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
                                                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                                    if (isHourly && mainChartType === 'deviation') {
-                                                        return '8-Day Hourly Comparison';
-                                                    }
                                                     if (isHourly) {
-                                                        return 'Hourly Event Trends';
+                                                        return mainChartType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
                                                     }
-                                                    if (mainChartType === 'deviation') {
-                                                        return 'Daily Overlay Comparison';
-                                                    }
-                                                    return 'Daily Event Trends with Average';
+                                                    return mainChartType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
                                                 })()}
-                                            </CardTitle>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                {isHourly ? (
-                                                    <span className="hidden md:inline">
-                                                        {(() => {
-                                                            const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                            const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                                            return mainChartType === 'deviation'
-                                                                ? 'Compare hourly patterns across last 8 days'
-                                                                : 'Hourly data points • Toggle for day-wise comparison';
-                                                        })()}
-                                                    </span>
-                                                ) : (
-                                                    <span className="hidden md:inline">Daily event counts • Toggle for overlay comparison</span>
-                                                )}
-                                                <span className="md:hidden">Tap data points for insights</span>
-                                            </p>
+                                            </Button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                            onClick={() => {
-                                                setPanelChartType(prev => {
-                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                    if (!mainPanelId) return prev;
-                                                    const current = prev[mainPanelId] ?? 'default';
-                                                    return {
-                                                        ...prev,
-                                                        [mainPanelId]: current === 'deviation' ? 'default' : 'deviation',
-                                                    };
-                                                });
-                                            }}
-                                        >
-                                            {(() => {
-                                                const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                                if (isHourly) {
-                                                    return mainChartType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
-                                                }
-                                                return mainChartType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
-                                            })()}
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
-                                {/* Collapsible Legend - Only normal (count) events - Hide when showing overlay */}
-                                {(() => {
-                                    const mainPanelId = profile?.panels?.[0]?.panelId;
-                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                    const showingHourlyOverlay = isHourly && mainChartType === 'deviation';
-                                    const showingDailyOverlay = !isHourly && mainChartType === 'deviation';
-                                    
-                                    // Show legend for daily overlay, but not for hourly overlay (8-Day has its own badges)
-                                    if (showingDailyOverlay && normalEventKeys.length > 0) {
-                                        return (
+                                </CardHeader>
+                                <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
+                                    {/* Collapsible Legend - Only normal (count) events - Hide when showing overlay */}
+                                    {(() => {
+                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                        const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                        const showingHourlyOverlay = isHourly && mainChartType === 'deviation';
+                                        const showingDailyOverlay = !isHourly && mainChartType === 'deviation';
+
+                                        // Show legend for daily overlay, but not for hourly overlay (8-Day has its own badges)
+                                        if (showingDailyOverlay && normalEventKeys.length > 0) {
+                                            return (
+                                                <CollapsibleLegend
+                                                    eventKeys={sortedNormalEventKeys}
+                                                    events={events}
+                                                    isExpanded={mainLegendExpanded}
+                                                    onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
+                                                    maxVisibleItems={5}
+                                                    graphData={graphData}
+                                                    selectedEventKey={overlaySelectedEventKey}
+                                                    onEventClick={handleOverlayEventClick}
+                                                />
+                                            );
+                                        }
+
+                                        return !showingHourlyOverlay && normalEventKeys.length > 0 && (
                                             <CollapsibleLegend
                                                 eventKeys={sortedNormalEventKeys}
                                                 events={events}
@@ -3652,403 +3781,389 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
                                                 maxVisibleItems={5}
                                                 graphData={graphData}
-                                                selectedEventKey={overlaySelectedEventKey}
-                                                onEventClick={handleOverlayEventClick}
+                                                selectedEventKey={selectedEventKey}
+                                                onEventClick={handleEventClick}
                                             />
                                         );
-                                    }
-                                    
-                                    return !showingHourlyOverlay && normalEventKeys.length > 0 && (
-                                        <CollapsibleLegend
-                                            eventKeys={sortedNormalEventKeys}
-                                            events={events}
-                                            isExpanded={mainLegendExpanded}
-                                            onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
-                                            maxVisibleItems={5}
-                                            graphData={graphData}
-                                            selectedEventKey={selectedEventKey}
-                                            onEventClick={handleEventClick}
-                                        />
-                                    );
-                                })()}
+                                    })()}
 
-                                <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer">
-                                    {graphData.length > 0 ? (
-                                        <>
-                                            {/* Show deviation chart for days < 7 when toggled */}
-                                            {(() => {
-                                                const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                    <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer">
+                                        {graphData.length > 0 ? (
+                                            <>
+                                                {/* Show deviation chart for days < 7 when toggled */}
+                                                {(() => {
+                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
 
-                                                // Calculate event stats for badges
-                                                const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
-                                                    const eventKey = eventKeyInfo.eventKey;
-                                                    let total = 0;
-                                                    let success = 0;
+                                                    // Calculate event stats for badges
+                                                    const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
+                                                        const eventKey = eventKeyInfo.eventKey;
+                                                        let total = 0;
+                                                        let success = 0;
 
-                                                    graphData.forEach((item: any) => {
-                                                        total += item[`${eventKey}_count`] || 0;
-                                                        success += item[`${eventKey}_success`] || 0;
+                                                        graphData.forEach((item: any) => {
+                                                            total += item[`${eventKey}_count`] || 0;
+                                                            success += item[`${eventKey}_success`] || 0;
+                                                        });
+
+                                                        const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                                                        return {
+                                                            eventKey,
+                                                            eventId: eventKeyInfo.eventId,
+                                                            total,
+                                                            successRate
+                                                        };
                                                     });
 
-                                                    const successRate = total > 0 ? (success / total) * 100 : 0;
+                                                    if (isHourly && mainChartType === 'deviation') {
+                                                        // Filter to show only selected event or all events
+                                                        const filteredEventKeys = overlaySelectedEventKey
+                                                            ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                                            : normalEventKeys.map(e => e.eventKey);
 
-                                                    return {
-                                                        eventKey,
-                                                        eventId: eventKeyInfo.eventId,
-                                                        total,
-                                                        successRate
-                                                    };
-                                                });
+                                                        const filteredEventStats = overlaySelectedEventKey
+                                                            ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
+                                                            : eventStatsForBadges;
 
-                                                if (isHourly && mainChartType === 'deviation') {
-                                                    // Filter to show only selected event or all events
-                                                    const filteredEventKeys = overlaySelectedEventKey
-                                                        ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
-                                                        : normalEventKeys.map(e => e.eventKey);
-                                                    
-                                                    const filteredEventStats = overlaySelectedEventKey
-                                                        ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
-                                                        : eventStatsForBadges;
-                                                    
-                                                    return (
-                                                        <DayWiseComparisonChart 
-                                                            data={graphData}
-                                                            dateRange={dateRange}
-                                                            eventKeys={filteredEventKeys}
-                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                            eventStats={filteredEventStats}
-                                                            selectedEventKey={overlaySelectedEventKey}
-                                                            onEventClick={handleOverlayEventClick}
-                                                        />
-                                                    );
-                                                }
-
-                                                // For daily overlay mode, show daily average chart with line + avg
-                                                if (!isHourly && mainChartType === 'deviation') {
-                                                    // Filter to show only selected event or all events
-                                                    const filteredEventKeys = overlaySelectedEventKey
-                                                        ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
-                                                        : normalEventKeys.map(e => e.eventKey);
-                                                    
-                                                    const filteredEventStats = overlaySelectedEventKey
-                                                        ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
-                                                        : eventStatsForBadges;
-                                                    
-                                                    return (
-                                                        <DailyAverageChart 
-                                                            data={graphData}
-                                                            dateRange={dateRange}
-                                                            eventKeys={filteredEventKeys}
-                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                            eventStats={filteredEventStats}
-                                                            selectedEventKey={overlaySelectedEventKey}
-                                                            onEventClick={handleOverlayEventClick}
-                                                        />
-                                                    );
-                                                }
-
-                                                // Default chart rendering
-                                                return (
-                                                    <ResponsiveContainer width="100%" height="100%">
-                                            {/* Check if profile has bar chart type */}
-                                            {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
-                                                <BarChart
-                                                    data={graphData}
-                                                    margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
-                                                    barCategoryGap="15%"
-                                                    onClick={(chartState: any) => {
-                                                        console.log('BarChart onClick triggered:', chartState);
-                                                        if (chartState && chartState.activeIndex !== undefined) {
-                                                            const index = parseInt(chartState.activeIndex);
-                                                            const dataPoint = graphData[index];
-                                                            if (dataPoint) {
-                                                                setPinnedTooltip({
-                                                                    dataPoint,
-                                                                    label: chartState.activeLabel || dataPoint.date || ''
-                                                                });
-                                                            }
-                                                        }
-                                                    }}
-                                                >
-                                                    <defs>
-                                                        {/* Dynamic gradients for normal events */}
-                                                        {normalEventKeys.map((eventKeyInfo, index) => {
-                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                            return (
-                                                                <linearGradient key={`barGrad_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop offset="0%" stopColor={color} stopOpacity={1} />
-                                                                    <stop offset="100%" stopColor={color} stopOpacity={0.7} />
-                                                                </linearGradient>
-                                                            );
-                                                        })}
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                    <XAxis
-                                                        dataKey="date"
-                                                        tick={<CustomXAxisTick />}
-                                                        axisLine={{ stroke: '#e5e7eb' }}
-                                                        tickLine={false}
-                                                        height={45}
-                                                        interval={Math.floor(graphData.length / 8)}
-                                                    />
-                                                    {/* Left Y-axis for Count */}
-                                                    <YAxis
-                                                        yAxisId="left"
-                                                        tick={{ fill: '#6b7280', fontSize: 11 }}
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                        tickFormatter={(value) => {
-                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                            return value;
-                                                        }}
-                                                        dx={-10}
-                                                        label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
-                                                    />
-                                                    <Tooltip
-                                                        content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
-                                                        cursor={{ fill: 'rgba(168, 85, 247, 0.1)' }}
-                                                    />
-                                                    {/* Dynamic bars for normal (count) events only */}
-                                                    {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo) => {
-                                                        const eventKey = eventKeyInfo.eventKey;
                                                         return (
-                                                            <Bar
-                                                                key={`bar_${eventKey}`}
-                                                                dataKey={`${eventKey}_count`}
-                                                                name={eventKeyInfo.eventName}
-                                                                yAxisId="left"
-                                                                fill={`url(#barColor_${eventKey})`}
-                                                                radius={[3, 3, 0, 0]}
-                                                                maxBarSize={40}
-                                                                opacity={selectedEventKey && selectedEventKey !== eventKey ? 0.4 : 1}
-                                                                cursor="pointer"
-                                                                isAnimationActive={false}
-                                                                animationDuration={0}
+                                                            <DayWiseComparisonChart
+                                                                data={graphData}
+                                                                dateRange={dateRange}
+                                                                eventKeys={filteredEventKeys}
+                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                eventStats={filteredEventStats}
+                                                                selectedEventKey={overlaySelectedEventKey}
+                                                                onEventClick={handleOverlayEventClick}
                                                             />
                                                         );
-                                                    }) : (
-                                                        /* Fallback to overall totals when no event keys */
-                                                        <Bar
-                                                            dataKey="count"
-                                                            name="Total"
-                                                            yAxisId="left"
-                                                            fill="#6366f1"
-                                                            radius={[3, 3, 0, 0]}
-                                                            maxBarSize={40}
-                                                            isAnimationActive={false}
-                                                            animationDuration={0}
-                                                        />
-                                                    )}
-                                                </BarChart>
-                                            ) : (
-                                                <AreaChart
-                                                    data={graphData}
-                                                    margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
-                                                    onClick={(chartState: any) => {
-                                                        if (chartState && chartState.activeIndex !== undefined) {
-                                                            const index = parseInt(chartState.activeIndex);
-                                                            const dataPoint = graphData[index];
-                                                            if (dataPoint) {
-                                                                setPinnedTooltip({
-                                                                    dataPoint,
-                                                                    label: chartState.activeLabel || dataPoint.date || ''
-                                                                });
-                                                            }
-                                                        }
-                                                    }}
-                                                >
-                                                    <defs>
-                                                        {/* Dynamic gradients for each event */}
-                                                        {eventKeys.map((eventKeyInfo, index) => {
-                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                            return (
-                                                                <linearGradient key={`areaGrad_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                                                                </linearGradient>
-                                                            );
-                                                        })}
-                                                        {/* Glow filters for lines */}
-                                                        <filter id="glow">
-                                                            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                                                            <feMerge>
-                                                                <feMergeNode in="coloredBlur" />
-                                                                <feMergeNode in="SourceGraphic" />
-                                                            </feMerge>
-                                                        </filter>
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                    <XAxis
-                                                        dataKey="date"
-                                                        tick={<CustomXAxisTick isHourly={isHourly} />}
-                                                        axisLine={{ stroke: '#e5e7eb' }}
-                                                        tickLine={false}
-                                                        height={45}
-                                                        interval={Math.floor(graphData.length / 8)}
-                                                    />
-                                                    {/* Left Y-axis for Count */}
-                                                    <YAxis
-                                                        yAxisId="left"
-                                                        tick={{ fill: '#6b7280', fontSize: 11 }}
-                                                        axisLine={false}
-                                                        tickLine={false}
-                                                        tickFormatter={(value) => {
-                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                            return value;
-                                                        }}
-                                                        dx={-10}
-                                                        label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
-                                                    />
-                                                    <Tooltip
-                                                        content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
-                                                        cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
-                                                    />
-                                                    {/* Dynamic areas for normal (count) events only */}
-                                                    {normalEventKeys.length > 0 ? normalEventKeys
-                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
-                                                        .map((eventKeyInfo, index) => {
-                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                        const eventKey = eventKeyInfo.eventKey;
+                                                    }
+
+                                                    // For daily overlay mode, show daily average chart with line + avg
+                                                    if (!isHourly && mainChartType === 'deviation') {
+                                                        // Filter to show only selected event or all events
+                                                        const filteredEventKeys = overlaySelectedEventKey
+                                                            ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                                            : normalEventKeys.map(e => e.eventKey);
+
+                                                        const filteredEventStats = overlaySelectedEventKey
+                                                            ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
+                                                            : eventStatsForBadges;
+
                                                         return (
-                                                            <Area
-                                                                key={`area_${eventKey}`}
-                                                                type="monotone"
-                                                                dataKey={`${eventKey}_count`}
-                                                                name={eventKeyInfo.eventName}
-                                                                yAxisId="left"
-                                                                stroke={color}
-                                                                strokeWidth={2.5}
-                                                                fillOpacity={1}
-                                                                fill={`url(#areaColor_${eventKey})`}
-                                                                dot={false}
-                                                                activeDot={{
-                                                                    r: 8,
-                                                                    fill: color,
-                                                                    stroke: '#fff',
-                                                                    strokeWidth: 3,
-                                                                    filter: 'url(#glow)',
-                                                                    cursor: 'pointer',
-                                                                }}
-                                                                isAnimationActive={false}
-                                                                animationDuration={0}
+                                                            <DailyAverageChart
+                                                                data={graphData}
+                                                                dateRange={dateRange}
+                                                                eventKeys={filteredEventKeys}
+                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                eventStats={filteredEventStats}
+                                                                selectedEventKey={overlaySelectedEventKey}
+                                                                onEventClick={handleOverlayEventClick}
                                                             />
                                                         );
-                                                    }) : (
-                                                        /* Fallback to overall totals when no event keys */
-                                                        <Area
-                                                            type="monotone"
-                                                            dataKey="count"
-                                                            name="Total"
-                                                            yAxisId="left"
-                                                            stroke="#6366f1"
-                                                            strokeWidth={2.5}
-                                                            fillOpacity={0.3}
-                                                            fill="#6366f1"
-                                                            dot={false}
-                                                            activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                                                            isAnimationActive={false}
-                                                            animationDuration={0}
-                                                        />
-                                                    )}
-                                                </AreaChart>
-                                            )}
-                                        </ResponsiveContainer>
-                                );
-                            })()}
-                                        </>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                            <motion.div
-                                                animate={{ rotate: dataLoading ? 360 : 0 }}
-                                                transition={{ duration: 2, repeat: dataLoading ? Infinity : 0, ease: "linear" }}
-                                            >
-                                                <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
-                                            </motion.div>
-                                            <p className="text-sm">
-                                                {dataLoading ? 'Loading chart data...' : 'No data available for selected filters'}
-                                            </p>
-                                            {!dataLoading && (
-                                                <p className="text-xs mt-1 opacity-60">Try adjusting your filter selections</p>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
+                                                    }
 
-                            {/* Pinned Tooltip Overlay - Rendered outside chart for persistence */}
-                            {pinnedTooltip && (
-                                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                                    <div
-                                        className="fixed inset-0 bg-black/30 backdrop-blur-sm"
-                                        onClick={() => setPinnedTooltip(null)}
-                                    />
-                                    <div className="relative max-w-lg w-full">
-                                        {/* Modal Container */}
+                                                    // Default chart rendering
+                                                    return (
+                                                        <ResponsiveContainer width="100%" height="100%">
+                                                            {/* Check if profile has bar chart type */}
+                                                            {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
+                                                                <BarChart
+                                                                    data={graphData}
+                                                                    margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
+                                                                    barCategoryGap="15%"
+                                                                    onClick={(chartState: any) => {
+                                                                        console.log('BarChart onClick triggered:', chartState);
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = graphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPinnedTooltip({
+                                                                                    dataPoint,
+                                                                                    label: chartState.activeLabel || dataPoint.date || ''
+                                                                                });
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <defs>
+                                                                        {/* Dynamic gradients for normal events */}
+                                                                        {normalEventKeys.map((eventKeyInfo, index) => {
+                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            return (
+                                                                                <linearGradient key={`barGrad_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="0%" stopColor={color} stopOpacity={1} />
+                                                                                    <stop offset="100%" stopColor={color} stopOpacity={0.7} />
+                                                                                </linearGradient>
+                                                                            );
+                                                                        })}
+                                                                    </defs>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <XAxis
+                                                                        dataKey="date"
+                                                                        tick={<CustomXAxisTick />}
+                                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                                        tickLine={false}
+                                                                        height={45}
+                                                                        interval={Math.floor(graphData.length / 8)}
+                                                                    />
+                                                                    {/* Left Y-axis for Count */}
+                                                                    <YAxis
+                                                                        yAxisId="left"
+                                                                        tick={{ fill: '#6b7280', fontSize: 11 }}
+                                                                        axisLine={false}
+                                                                        tickLine={false}
+                                                                        tickFormatter={(value) => {
+                                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                                                                            return value;
+                                                                        }}
+                                                                        dx={-10}
+                                                                        label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
+                                                                    />
+                                                                    <Tooltip
+                                                                        content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
+                                                                        cursor={{ fill: 'rgba(168, 85, 247, 0.1)' }}
+                                                                    />
+                                                                    {/* Dynamic bars for normal (count) events only */}
+                                                                    {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo) => {
+                                                                        const eventKey = eventKeyInfo.eventKey;
+                                                                        return (
+                                                                            <Bar
+                                                                                key={`bar_${eventKey}`}
+                                                                                dataKey={`${eventKey}_count`}
+                                                                                name={eventKeyInfo.eventName}
+                                                                                yAxisId="left"
+                                                                                fill={`url(#barColor_${eventKey})`}
+                                                                                radius={[3, 3, 0, 0]}
+                                                                                maxBarSize={40}
+                                                                                opacity={selectedEventKey && selectedEventKey !== eventKey ? 0.4 : 1}
+                                                                                cursor="pointer"
+                                                                                isAnimationActive={false}
+                                                                                animationDuration={0}
+                                                                            />
+                                                                        );
+                                                                    }) : (
+                                                                        /* Fallback to overall totals when no event keys */
+                                                                        <Bar
+                                                                            dataKey="count"
+                                                                            name="Total"
+                                                                            yAxisId="left"
+                                                                            fill="#6366f1"
+                                                                            radius={[3, 3, 0, 0]}
+                                                                            maxBarSize={40}
+                                                                            isAnimationActive={false}
+                                                                            animationDuration={0}
+                                                                        />
+                                                                    )}
+                                                                </BarChart>
+                                                            ) : (
+                                                                <AreaChart
+                                                                    data={graphData}
+                                                                    margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
+                                                                    onClick={(chartState: any) => {
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = graphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPinnedTooltip({
+                                                                                    dataPoint,
+                                                                                    label: chartState.activeLabel || dataPoint.date || ''
+                                                                                });
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <defs>
+                                                                        {/* Dynamic gradients for each event */}
+                                                                        {eventKeys.map((eventKeyInfo, index) => {
+                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            return (
+                                                                                <linearGradient key={`areaGrad_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                                                                                </linearGradient>
+                                                                            );
+                                                                        })}
+                                                                        {/* Glow filters for lines */}
+                                                                        <filter id="glow">
+                                                                            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                                                            <feMerge>
+                                                                                <feMergeNode in="coloredBlur" />
+                                                                                <feMergeNode in="SourceGraphic" />
+                                                                            </feMerge>
+                                                                        </filter>
+                                                                    </defs>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <XAxis
+                                                                        dataKey="date"
+                                                                        tick={<CustomXAxisTick isHourly={isHourly} />}
+                                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                                        tickLine={false}
+                                                                        height={45}
+                                                                        interval={Math.floor(graphData.length / 8)}
+                                                                    />
+                                                                    {/* Left Y-axis for Count */}
+                                                                    <YAxis
+                                                                        yAxisId="left"
+                                                                        tick={{ fill: '#6b7280', fontSize: 11 }}
+                                                                        axisLine={false}
+                                                                        tickLine={false}
+                                                                        tickFormatter={(value) => {
+                                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                                                                            return value;
+                                                                        }}
+                                                                        dx={-10}
+                                                                        label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
+                                                                    />
+                                                                    <Tooltip
+                                                                        content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
+                                                                        cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                                    />
+                                                                    {/* Dynamic areas for normal (count) events only */}
+                                                                    {normalEventKeys.length > 0 ? normalEventKeys
+                                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                                        .map((eventKeyInfo, index) => {
+                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            const eventKey = eventKeyInfo.eventKey;
+                                                                            return (
+                                                                                <Area
+                                                                                    key={`area_${eventKey}`}
+                                                                                    type="monotone"
+                                                                                    dataKey={`${eventKey}_count`}
+                                                                                    name={eventKeyInfo.eventName}
+                                                                                    yAxisId="left"
+                                                                                    stroke={color}
+                                                                                    strokeWidth={2.5}
+                                                                                    fillOpacity={1}
+                                                                                    fill={`url(#areaColor_${eventKey})`}
+                                                                                    dot={false}
+                                                                                    activeDot={{
+                                                                                        r: 8,
+                                                                                        fill: color,
+                                                                                        stroke: '#fff',
+                                                                                        strokeWidth: 3,
+                                                                                        filter: 'url(#glow)',
+                                                                                        cursor: 'pointer',
+                                                                                    }}
+                                                                                    isAnimationActive={false}
+                                                                                    animationDuration={0}
+                                                                                />
+                                                                            );
+                                                                        }) : (
+                                                                        /* Fallback to overall totals when no event keys */
+                                                                        <Area
+                                                                            type="monotone"
+                                                                            dataKey="count"
+                                                                            name="Total"
+                                                                            yAxisId="left"
+                                                                            stroke="#6366f1"
+                                                                            strokeWidth={2.5}
+                                                                            fillOpacity={0.3}
+                                                                            fill="#6366f1"
+                                                                            dot={false}
+                                                                            activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                                                                            isAnimationActive={false}
+                                                                            animationDuration={0}
+                                                                        />
+                                                                    )}
+                                                                </AreaChart>
+                                                            )}
+                                                        </ResponsiveContainer>
+                                                    );
+                                                })()}
+                                            </>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                <motion.div
+                                                    animate={{ rotate: dataLoading ? 360 : 0 }}
+                                                    transition={{ duration: 2, repeat: dataLoading ? Infinity : 0, ease: "linear" }}
+                                                >
+                                                    <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
+                                                </motion.div>
+                                                <p className="text-sm">
+                                                    {dataLoading ? 'Loading chart data...' : 'No data available for selected filters'}
+                                                </p>
+                                                {!dataLoading && (
+                                                    <p className="text-xs mt-1 opacity-60">Try adjusting your filter selections</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+
+                                {/* Pinned Tooltip Overlay - Rendered outside chart for persistence */}
+                                {pinnedTooltip && (
+                                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                                         <div
-                                            className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]"
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            {/* Floating Close Button - Outside the card */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setPinnedTooltip(null)}
-                                                className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
-                                                aria-label="Close details"
+                                            className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                            onClick={() => setPinnedTooltip(null)}
+                                        />
+                                        <div className="relative max-w-lg w-full">
+                                            {/* Modal Container */}
+                                            <div
+                                                className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]"
+                                                onClick={(e) => e.stopPropagation()}
                                             >
-                                                <X className="h-5 w-5" />
-                                            </button>
+                                                {/* Floating Close Button - Outside the card */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPinnedTooltip(null)}
+                                                    className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                    aria-label="Close details"
+                                                >
+                                                    <X className="h-5 w-5" />
+                                                </button>
 
-                                            {/* Card Content */}
-                                            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
-                                                {/* Decorative header gradient */}
-                                                <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+                                                {/* Card Content */}
+                                                <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                    {/* Decorative header gradient */}
+                                                    <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
 
-                                                <div className="max-h-[70vh] overflow-y-auto p-1">
-                                                    <CustomTooltip
-                                                        active={true}
-                                                        payload={eventKeys.map((ek, idx) => {
-                                                            const event = events.find(e => String(e.eventId) === ek.eventId);
-                                                            const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
-                                                            return {
-                                                                dataKey: `${ek.eventKey}_count`,
-                                                                name: ek.eventName,
-                                                                value: pinnedTooltip.dataPoint[`${ek.eventKey}_count`] || 0,
-                                                                color,
-                                                                stroke: color,
-                                                                payload: pinnedTooltip.dataPoint
-                                                            };
-                                                        }).filter(p => p.value > 0)}
-                                                        label={pinnedTooltip.label}
-                                                        events={events}
-                                                        eventKeys={eventKeys}
-                                                        isPinned={true}
-                                                        onClose={() => setPinnedTooltip(null)}
-                                                    />
-                                                </div>
+                                                    <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                        <CustomTooltip
+                                                            active={true}
+                                                            payload={eventKeys.map((ek, idx) => {
+                                                                const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                                const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                return {
+                                                                    dataKey: `${ek.eventKey}_count`,
+                                                                    name: ek.eventName,
+                                                                    value: pinnedTooltip.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                                    color,
+                                                                    stroke: color,
+                                                                    payload: pinnedTooltip.dataPoint
+                                                                };
+                                                            }).filter(p => p.value > 0)}
+                                                            label={pinnedTooltip.label}
+                                                            events={events}
+                                                            eventKeys={eventKeys}
+                                                            isPinned={true}
+                                                            onClose={() => setPinnedTooltip(null)}
+                                                        />
+                                                    </div>
 
-                                                {/* Footer hint */}
-                                                <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-gray-800 text-center">
-                                                    <span className="text-xs text-muted-foreground">Click outside or press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px] font-mono mx-1">ESC</kbd> to close</span>
+                                                    {/* Footer hint */}
+                                                    <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-gray-800 text-center">
+                                                        <span className="text-xs text-muted-foreground">Click outside or press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px] font-mono mx-1">ESC</kbd> to close</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                        </Card>
-                    </motion.div>
+                            </Card>
+                        </motion.div>
                     );
                 })()}
 
-                {/* Time Delay Chart - For isAvg Events Only */}
-                {avgEventKeys.length > 0 && (
+                {/* Time Delay Chart - For isAvg Events Only (skip for special graphs) */}
+                {avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -4154,32 +4269,32 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 {avgEventKeys
                                                     .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
                                                     .map((eventKeyInfo, index) => {
-                                                    const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                    const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                    const eventKey = eventKeyInfo.eventKey;
-                                                    return (
-                                                        <Area
-                                                            key={`time_${eventKey}`}
-                                                            type="monotone"
-                                                            dataKey={`${eventKey}_avgDelay`}
-                                                            name={eventKeyInfo.eventName}
-                                                            stroke={color}
-                                                            strokeWidth={2.5}
-                                                            fillOpacity={1}
-                                                            fill={`url(#timeColor_${eventKey})`}
-                                                            dot={false}
-                                                            activeDot={{
-                                                                r: 8,
-                                                                fill: color,
-                                                                stroke: '#fff',
-                                                                strokeWidth: 3,
-                                                                cursor: 'pointer',
-                                                            }}
-                                                            isAnimationActive={false}
-                                                            animationDuration={0}
-                                                        />
-                                                    );
-                                                })}
+                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                        const eventKey = eventKeyInfo.eventKey;
+                                                        return (
+                                                            <Area
+                                                                key={`time_${eventKey}`}
+                                                                type="monotone"
+                                                                dataKey={`${eventKey}_avgDelay`}
+                                                                name={eventKeyInfo.eventName}
+                                                                stroke={color}
+                                                                strokeWidth={2.5}
+                                                                fillOpacity={1}
+                                                                fill={`url(#timeColor_${eventKey})`}
+                                                                dot={false}
+                                                                activeDot={{
+                                                                    r: 8,
+                                                                    fill: color,
+                                                                    stroke: '#fff',
+                                                                    strokeWidth: 3,
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                                isAnimationActive={false}
+                                                                animationDuration={0}
+                                                            />
+                                                        );
+                                                    })}
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
@@ -4199,9 +4314,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 {/* API Events Chart - For isApiEvent panels showing status codes and timing metrics */}
                 {(() => {
                     const isApiEvent = isMainPanelApi;
-                    
+
                     if (!isApiEvent || eventKeys.length === 0) return null;
-                    
+
                     return (
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
@@ -4321,7 +4436,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             if (!value || value <= 0) return '0';
                                                             const isTimingView = apiMetricView?.startsWith('timing');
                                                             const isBytesView = apiMetricView?.startsWith('bytes');
-                                                            
+
                                                             if (isTimingView) {
                                                                 // Milliseconds
                                                                 if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
@@ -4340,11 +4455,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             }
                                                         }}
                                                         dx={-10}
-                                                        label={{ 
-                                                            value: apiMetricView?.startsWith('timing') ? 'Time (ms)' : apiMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count', 
-                                                            angle: -90, 
-                                                            position: 'insideLeft', 
-                                                            style: { fill: '#3b82f6', fontSize: 10 } 
+                                                        label={{
+                                                            value: apiMetricView?.startsWith('timing') ? 'Time (ms)' : apiMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count',
+                                                            angle: -90,
+                                                            position: 'insideLeft',
+                                                            style: { fill: '#3b82f6', fontSize: 10 }
                                                         }}
                                                     />
                                                     <Tooltip
@@ -4355,112 +4470,112 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     {eventKeys
                                                         .filter(eventKeyInfo => !apiSelectedEventKey || eventKeyInfo.eventKey === apiSelectedEventKey)
                                                         .map((eventKeyInfo, index) => {
-                                                        const color = EVENT_COLORS[index % EVENT_COLORS.length];
-                                                        const eventKey = eventKeyInfo.eventKey;
-                                                        
-                                                        // Determine dataKey based on metric view
-                                                        let dataKey = `${eventKey}_count`;
-                                                        if (apiMetricView === 'timing') {
-                                                            dataKey = `${eventKey}_avgServerToUser`;
-                                                        } else if (apiMetricView === 'timing-anomaly') {
-                                                            // Show avg timing but highlight anomalies (values > 2 std dev)
-                                                            dataKey = `${eventKey}_avgServerToUser`;
-                                                        } else if (apiMetricView === 'bytes') {
-                                                            dataKey = `${eventKey}_avgBytesOut`;
-                                                        } else if (apiMetricView === 'bytes-in') {
-                                                            dataKey = `${eventKey}_avgBytesIn`;
-                                                        }
-                                                        
-                                                        // For timing breakdown, show 3 separate areas
-                                                        if (apiMetricView === 'timing-breakdown') {
-                                                            return (
-                                                                <React.Fragment key={`api_breakdown_${eventKey}`}>
-                                                                    <Area
-                                                                        type="monotone"
-                                                                        dataKey={`${eventKey}_avgServerToCloud`}
-                                                                        name={`${eventKeyInfo.eventName} (Server)`}
-                                                                        stroke="#ef4444"
-                                                                        strokeWidth={2}
-                                                                        fillOpacity={0.3}
-                                                                        fill="#ef4444"
-                                                                        stackId={eventKey}
-                                                                    />
-                                                                    <Area
-                                                                        type="monotone"
-                                                                        dataKey={`${eventKey}_avgCloudToUser`}
-                                                                        name={`${eventKeyInfo.eventName} (Network)`}
-                                                                        stroke="#f59e0b"
-                                                                        strokeWidth={2}
-                                                                        fillOpacity={0.3}
-                                                                        fill="#f59e0b"
-                                                                        stackId={eventKey}
-                                                                    />
-                                                                </React.Fragment>
-                                                            );
-                                                        }
-                                                        
-                                                        // Calculate anomaly threshold if in anomaly mode
-                                                        let isAnomalyMode = apiMetricView === 'timing-anomaly';
-                                                        let anomalyThreshold = 0;
-                                                        if (isAnomalyMode) {
-                                                            // Calculate mean and standard deviation for this event
-                                                            const values = graphData
-                                                                .map(d => d[dataKey])
-                                                                .filter(v => typeof v === 'number' && v > 0);
-                                                            if (values.length > 0) {
-                                                                const mean = values.reduce((a, b) => a + b, 0) / values.length;
-                                                                const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
-                                                                const stdDev = Math.sqrt(variance);
-                                                                anomalyThreshold = mean + (2 * stdDev); // 2 standard deviations above mean
+                                                            const color = EVENT_COLORS[index % EVENT_COLORS.length];
+                                                            const eventKey = eventKeyInfo.eventKey;
+
+                                                            // Determine dataKey based on metric view
+                                                            let dataKey = `${eventKey}_count`;
+                                                            if (apiMetricView === 'timing') {
+                                                                dataKey = `${eventKey}_avgServerToUser`;
+                                                            } else if (apiMetricView === 'timing-anomaly') {
+                                                                // Show avg timing but highlight anomalies (values > 2 std dev)
+                                                                dataKey = `${eventKey}_avgServerToUser`;
+                                                            } else if (apiMetricView === 'bytes') {
+                                                                dataKey = `${eventKey}_avgBytesOut`;
+                                                            } else if (apiMetricView === 'bytes-in') {
+                                                                dataKey = `${eventKey}_avgBytesIn`;
                                                             }
-                                                        }
-                                                        
-                                                        return (
-                                                            <Area
-                                                                key={`api_${eventKey}_${apiMetricView}`}
-                                                                type="monotone"
-                                                                dataKey={dataKey}
-                                                                name={eventKeyInfo.eventName}
-                                                                stroke={color}
-                                                                strokeWidth={2.5}
-                                                                fillOpacity={1}
-                                                                fill={`url(#apiColor_${eventKey})`}
-                                                                dot={isAnomalyMode ? ((props: any) => {
-                                                                    const value = props.payload?.[dataKey];
-                                                                    if (value && value > anomalyThreshold) {
+
+                                                            // For timing breakdown, show 3 separate areas
+                                                            if (apiMetricView === 'timing-breakdown') {
+                                                                return (
+                                                                    <React.Fragment key={`api_breakdown_${eventKey}`}>
+                                                                        <Area
+                                                                            type="monotone"
+                                                                            dataKey={`${eventKey}_avgServerToCloud`}
+                                                                            name={`${eventKeyInfo.eventName} (Server)`}
+                                                                            stroke="#ef4444"
+                                                                            strokeWidth={2}
+                                                                            fillOpacity={0.3}
+                                                                            fill="#ef4444"
+                                                                            stackId={eventKey}
+                                                                        />
+                                                                        <Area
+                                                                            type="monotone"
+                                                                            dataKey={`${eventKey}_avgCloudToUser`}
+                                                                            name={`${eventKeyInfo.eventName} (Network)`}
+                                                                            stroke="#f59e0b"
+                                                                            strokeWidth={2}
+                                                                            fillOpacity={0.3}
+                                                                            fill="#f59e0b"
+                                                                            stackId={eventKey}
+                                                                        />
+                                                                    </React.Fragment>
+                                                                );
+                                                            }
+
+                                                            // Calculate anomaly threshold if in anomaly mode
+                                                            let isAnomalyMode = apiMetricView === 'timing-anomaly';
+                                                            let anomalyThreshold = 0;
+                                                            if (isAnomalyMode) {
+                                                                // Calculate mean and standard deviation for this event
+                                                                const values = graphData
+                                                                    .map(d => d[dataKey])
+                                                                    .filter(v => typeof v === 'number' && v > 0);
+                                                                if (values.length > 0) {
+                                                                    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+                                                                    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+                                                                    const stdDev = Math.sqrt(variance);
+                                                                    anomalyThreshold = mean + (2 * stdDev); // 2 standard deviations above mean
+                                                                }
+                                                            }
+
+                                                            return (
+                                                                <Area
+                                                                    key={`api_${eventKey}_${apiMetricView}`}
+                                                                    type="monotone"
+                                                                    dataKey={dataKey}
+                                                                    name={eventKeyInfo.eventName}
+                                                                    stroke={color}
+                                                                    strokeWidth={2.5}
+                                                                    fillOpacity={1}
+                                                                    fill={`url(#apiColor_${eventKey})`}
+                                                                    dot={isAnomalyMode ? ((props: any) => {
+                                                                        const value = props.payload?.[dataKey];
+                                                                        if (value && value > anomalyThreshold) {
+                                                                            return (
+                                                                                <circle
+                                                                                    cx={props.cx}
+                                                                                    cy={props.cy}
+                                                                                    r={6}
+                                                                                    fill="#ef4444"
+                                                                                    stroke="#fff"
+                                                                                    strokeWidth={2}
+                                                                                />
+                                                                            );
+                                                                        }
+                                                                        // Return invisible dot for non-anomalous points
                                                                         return (
                                                                             <circle
                                                                                 cx={props.cx}
                                                                                 cy={props.cy}
-                                                                                r={6}
-                                                                                fill="#ef4444"
-                                                                                stroke="#fff"
-                                                                                strokeWidth={2}
+                                                                                r={0}
+                                                                                fill="transparent"
                                                                             />
                                                                         );
-                                                                    }
-                                                                    // Return invisible dot for non-anomalous points
-                                                                    return (
-                                                                        <circle
-                                                                            cx={props.cx}
-                                                                            cy={props.cy}
-                                                                            r={0}
-                                                                            fill="transparent"
-                                                                        />
-                                                                    );
-                                                                }) as any : false}
-                                                                activeDot={{
-                                                                    r: 8,
-                                                                    fill: color,
-                                                                    stroke: '#fff',
-                                                                    strokeWidth: 3,
-                                                                    cursor: 'pointer',
-                                                                }}
-                                                                isAnimationActive={false}
-                                                                animationDuration={0}
-                                                            />
-                                                        );
-                                                    })}
+                                                                    }) as any : false}
+                                                                    activeDot={{
+                                                                        r: 8,
+                                                                        fill: color,
+                                                                        stroke: '#fff',
+                                                                        strokeWidth: 3,
+                                                                        cursor: 'pointer',
+                                                                    }}
+                                                                    isAnimationActive={false}
+                                                                    animationDuration={0}
+                                                                />
+                                                            );
+                                                        })}
                                                 </AreaChart>
                                             </ResponsiveContainer>
                                         ) : (
@@ -4478,8 +4593,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     );
                 })()}
 
-                {/* Error Events Chart - For isError Events Only (not isAvg) */}
-                {errorEventKeys.length > 0 && (
+                {/* Error Events Chart - For isError Events Only (skip for special graphs) */}
+                {errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -4565,32 +4680,32 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 {errorEventKeys
                                                     .filter(ek => !errorSelectedEventKey || ek.eventKey === errorSelectedEventKey)
                                                     .map((eventKeyInfo) => {
-                                                    const eventKey = eventKeyInfo.eventKey;
-                                                    return (
-                                                        <React.Fragment key={`error_main_${eventKey}`}>
-                                                            <Area
-                                                                type="monotone"
-                                                                dataKey={`${eventKey}_success`}
-                                                                name={`${eventKeyInfo.eventName} (Errors)`}
-                                                                stroke="#ef4444"
-                                                                strokeWidth={2.5}
-                                                                fill="url(#errorGradient)"
-                                                                dot={false}
-                                                                activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
-                                                            />
-                                                            <Area
-                                                                type="monotone"
-                                                                dataKey={`${eventKey}_fail`}
-                                                                name={`${eventKeyInfo.eventName} (OK)`}
-                                                                stroke="#22c55e"
-                                                                strokeWidth={2}
-                                                                fill="url(#okGradient)"
-                                                                dot={false}
-                                                                activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
-                                                            />
-                                                        </React.Fragment>
-                                                    );
-                                                })}
+                                                        const eventKey = eventKeyInfo.eventKey;
+                                                        return (
+                                                            <React.Fragment key={`error_main_${eventKey}`}>
+                                                                <Area
+                                                                    type="monotone"
+                                                                    dataKey={`${eventKey}_success`}
+                                                                    name={`${eventKeyInfo.eventName} (Errors)`}
+                                                                    stroke="#ef4444"
+                                                                    strokeWidth={2.5}
+                                                                    fill="url(#errorGradient)"
+                                                                    dot={false}
+                                                                    activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
+                                                                />
+                                                                <Area
+                                                                    type="monotone"
+                                                                    dataKey={`${eventKey}_fail`}
+                                                                    name={`${eventKeyInfo.eventName} (OK)`}
+                                                                    stroke="#22c55e"
+                                                                    strokeWidth={2}
+                                                                    fill="url(#okGradient)"
+                                                                    dot={false}
+                                                                    activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
+                                                                />
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
@@ -4611,7 +4726,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 {(() => {
                     // Check if this is an API event panel
                     const isApiEvent = isMainPanelApi;
-                    
+
                     if (isApiEvent) {
                         // API Event Pie Charts - Status and CacheStatus distribution
                         // Access the nested data property from the API response
@@ -4620,29 +4735,29 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             name: `${val.status}`,
                             value: val.count
                         })) : [];
-                        
+
                         const cacheStatusData = apiData?.cacheStatus ? Object.entries(apiData.cacheStatus).map(([key, val]: [string, any]) => ({
                             name: val.cacheStatus || 'Unknown',
                             value: val.count
                         })) : [];
-                        
+
                         // Sort status data with 200 first
                         statusData.sort((a, b) => {
                             if (a.name === '200') return -1;
                             if (b.name === '200') return 1;
                             return parseInt(a.name) - parseInt(b.name);
                         });
-                        
+
                         const showStatus = statusData.length > 0;
                         const showCacheStatus = cacheStatusData.length > 0;
                         const visibleCount = [showStatus, showCacheStatus].filter(Boolean).length;
-                        
+
                         if (visibleCount === 0) {
                             return null;
                         }
-                        
+
                         const gridClass = visibleCount === 1 ? "grid-cols-1 max-w-md mx-auto" : "grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto";
-                        
+
                         return (
                             <div className={cn("grid gap-3 md:gap-4", gridClass)}>
                                 {/* Status Code Distribution */}
@@ -4716,7 +4831,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         </Card>
                                     </div>
                                 )}
-                                
+
                                 {/* Cache Status Distribution */}
                                 {showCacheStatus && (
                                     <div>
@@ -4791,8 +4906,19 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             </div>
                         );
                     }
-                    
-                    // Regular Event Pie Charts - Platform, POS, Source
+
+                    // Check if ANY panel is a special graph (percentage or funnel)
+                    // If so, we hide the top-level pie charts to avoid clutter/confusion
+                    const isAnyPanelSpecial = profile?.panels?.some((p: any) =>
+                        p.filterConfig?.graphType === 'percentage' || p.filterConfig?.graphType === 'funnel' ||
+                        p.graphType === 'percentage' || p.graphType === 'funnel'
+                    );
+
+                    // If special graph exists, don't show pie charts
+                    if (isAnyPanelSpecial) {
+                        return null;
+                    }
+
                     // Process pie chart data - combine duplicates and filter out single-item charts
                     const platformData = pieChartData?.platform ? combinePieChartDuplicates(pieChartData.platform) : [];
                     const posData = pieChartData?.pos ? combinePieChartDuplicates(pieChartData.pos) : [];
@@ -5047,6 +5173,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 )}
 
                 {/* Additional Panels (if profile has more than one panel) */}
+                {/* Render additional panels normally - each panel will check if it's a special graph */}
                 {profile.panels.length > 1 && profile.panels.slice(1).map((panel, panelIndex) => {
                     const panelData = panelsDataMap.get(panel.panelId);
                     const pGraphData = panelData?.graphData || [];
@@ -5065,9 +5192,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     const panelGraphType = panelConfig?.graphType || 'line';
 
                     // Calculate totals for this panel (using event keys if available)
-                    const pTotalCount = pGraphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
-                    const pTotalSuccess = pGraphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
-                    const pTotalFail = pGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
+                    let pTotalCount = 0;
+                    let pTotalSuccess = 0;
+                    let pTotalFail = 0;
+
+                    // Skip stats card display for percentage and funnel graphs
+                    if (panelGraphType !== 'percentage' && panelGraphType !== 'funnel') {
+                        // Standard Logic - only for regular line/bar charts
+                        pTotalCount = pGraphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
+                        pTotalSuccess = pGraphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
+                        pTotalFail = pGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
+                    }
 
                     // Dropdown options for this panel's filters (with isError/isAvg badges)
                     // For API events, show only API events (isApiEvent === true)
@@ -5075,22 +5210,22 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     const pEventOptions = events
                         .filter(e => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                         .map(e => {
-                        let label = e.isApiEvent && e.host && e.url 
-                            ? `${e.host} - ${e.url}`  // API events show host/url
-                            : e.eventName;             // Regular events show eventName
-                        const tags: string[] = [];
-                        if (e.isErrorEvent === 1) tags.push('[isError]');
-                        if (e.isAvgEvent === 1) tags.push('[isAvg]');
-                        if (tags.length > 0) {
-                            label = `${e.eventName} ${tags.join(' ')}`;
-                        }
-                        return {
-                            value: e.eventId,
-                            label,
-                            isErrorEvent: e.isErrorEvent === 1,
-                            isAvgEvent: e.isAvgEvent === 1
-                        };
-                    });
+                            let label = e.isApiEvent && e.host && e.url
+                                ? `${e.host} - ${e.url}`  // API events show host/url
+                                : e.eventName;             // Regular events show eventName
+                            const tags: string[] = [];
+                            if (e.isErrorEvent === 1) tags.push('[isError]');
+                            if (e.isAvgEvent === 1) tags.push('[isAvg]');
+                            if (tags.length > 0) {
+                                label = `${e.eventName} ${tags.join(' ')}`;
+                            }
+                            return {
+                                value: e.eventId,
+                                label,
+                                isErrorEvent: e.isErrorEvent === 1,
+                                isAvgEvent: e.isAvgEvent === 1
+                            };
+                        });
                     const pPlatformOptions = PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }));
                     const pPosOptions = siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }));
                     const pSourceOptions = SOURCES.map(s => ({ value: s.id.toString(), label: s.name }));
@@ -5162,9 +5297,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         "px-2 py-0.5 rounded-full text-xs font-medium",
                                                         panelGraphType === 'bar'
                                                             ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
-                                                            : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
+                                                            : panelGraphType === 'percentage'
+                                                                ? "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
+                                                                : panelGraphType === 'funnel'
+                                                                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                                                                    : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
                                                     )}>
-                                                        {panelGraphType === 'bar' ? 'Bar Chart' : 'Line Chart'}
+                                                        {panelGraphType === 'bar' ? 'Bar Chart'
+                                                            : panelGraphType === 'percentage' ? 'Percentage Analysis'
+                                                                : panelGraphType === 'funnel' ? 'Funnel Analysis'
+                                                                    : 'Line Chart'}
                                                     </span>
                                                     <span className="text-muted-foreground">•</span>
                                                     <span>{pEventKeys.length} events tracked</span>
@@ -5209,745 +5351,903 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 </Button>
                                             </div>
                                             {!panelFiltersCollapsed[panel.panelId] && (
-                                            <motion.div
-                                                animate={panelFilterChanges[panel.panelId] ? { scale: [1, 1.02, 1] } : {}}
-                                                transition={panelFilterChanges[panel.panelId] ? { duration: 1.5, repeat: Infinity } : {}}
-                                            >
-                                                <InteractiveButton
-                                                    onClick={() => handlePanelRefresh(panel.panelId)}
-                                                    disabled={isPanelLoading}
-                                                    size="sm"
-                                                    className={cn(
-                                                        "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] w-full sm:w-auto",
-                                                        panelFilterChanges[panel.panelId]
-                                                            ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
-                                                            : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
-                                                    )}
-                                                    loading={isPanelLoading}
+                                                <motion.div
+                                                    animate={panelFilterChanges[panel.panelId] ? { scale: [1, 1.02, 1] } : {}}
+                                                    transition={panelFilterChanges[panel.panelId] ? { duration: 1.5, repeat: Infinity } : {}}
                                                 >
-                                                    <RefreshCw className="w-4 h-4 mr-1.5" />
-                                                    {panelFilterChanges[panel.panelId] ? "⚡ APPLY FILTERS" : "Refresh Alerts"}
-                                                    {panelFilterChanges[panel.panelId] && (
-                                                        <motion.div
-                                                            className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
-                                                            animate={{ scale: [1, 1.3, 1] }}
-                                                            transition={{ duration: 0.8, repeat: Infinity }}
-                                                        >
-                                                            !
-                                                        </motion.div>
-                                                    )}
-                                                </InteractiveButton>
-                                            </motion.div>
+                                                    <InteractiveButton
+                                                        onClick={() => handlePanelRefresh(panel.panelId)}
+                                                        disabled={isPanelLoading}
+                                                        size="sm"
+                                                        className={cn(
+                                                            "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] w-full sm:w-auto",
+                                                            panelFilterChanges[panel.panelId]
+                                                                ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
+                                                                : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
+                                                        )}
+                                                        loading={isPanelLoading}
+                                                    >
+                                                        <RefreshCw className="w-4 h-4 mr-1.5" />
+                                                        {panelFilterChanges[panel.panelId] ? "⚡ APPLY FILTERS" : "Refresh Alerts"}
+                                                        {panelFilterChanges[panel.panelId] && (
+                                                            <motion.div
+                                                                className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                                                                animate={{ scale: [1, 1.3, 1] }}
+                                                                transition={{ duration: 0.8, repeat: Infinity }}
+                                                            >
+                                                                !
+                                                            </motion.div>
+                                                        )}
+                                                    </InteractiveButton>
+                                                </motion.div>
                                             )}
                                         </div>
 
                                         {!panelFiltersCollapsed[panel.panelId] && (
-                                        <>
-                                        {/* Date Range Picker for Panel */}
-                                        <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
-                                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <CalendarIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                                                    <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Date Range</span>
+                                            <>
+                                                {/* Date Range Picker for Panel */}
+                                                <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <CalendarIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                                            <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Date Range</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
+                                                            <input
+                                                                type="date"
+                                                                value={currentPanelDateRange.from.toISOString().split('T')[0]}
+                                                                onChange={(e) => {
+                                                                    const newFrom = new Date(e.target.value);
+                                                                    updatePanelDateRange(panel.panelId, newFrom, currentPanelDateRange.to);
+                                                                }}
+                                                                className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
+                                                            />
+                                                            <span className="text-gray-500 text-sm">to</span>
+                                                            <input
+                                                                type="date"
+                                                                value={currentPanelDateRange.to.toISOString().split('T')[0]}
+                                                                onChange={(e) => {
+                                                                    const newTo = new Date(e.target.value);
+                                                                    updatePanelDateRange(panel.panelId, currentPanelDateRange.from, newTo);
+                                                                }}
+                                                                className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
+                                                            />
+                                                        </div>
+                                                        <span className={cn(
+                                                            "text-xs px-2 py-0.5 rounded-full",
+                                                            pIsHourly
+                                                                ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
+                                                                : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+                                                        )}>
+                                                            {pIsHourly ? 'Hourly' : 'Daily'} data
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                                                    <input
-                                                        type="date"
-                                                        value={currentPanelDateRange.from.toISOString().split('T')[0]}
-                                                        onChange={(e) => {
-                                                            const newFrom = new Date(e.target.value);
-                                                            updatePanelDateRange(panel.panelId, newFrom, currentPanelDateRange.to);
-                                                        }}
-                                                        className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
-                                                    />
-                                                    <span className="text-gray-500 text-sm">to</span>
-                                                    <input
-                                                        type="date"
-                                                        value={currentPanelDateRange.to.toISOString().split('T')[0]}
-                                                        onChange={(e) => {
-                                                            const newTo = new Date(e.target.value);
-                                                            updatePanelDateRange(panel.panelId, currentPanelDateRange.from, newTo);
-                                                        }}
-                                                        className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
-                                                    />
-                                                </div>
-                                                <span className={cn(
-                                                    "text-xs px-2 py-0.5 rounded-full",
-                                                    pIsHourly
-                                                        ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
-                                                        : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
-                                                )}>
-                                                    {pIsHourly ? 'Hourly' : 'Daily'} data
-                                                </span>
-                                            </div>
-                                        </div>
 
-                                        {/* Filter Dropdowns Grid */}
-                                        <div className={cn(
-                                            "grid gap-3 sm:gap-4",
-                                            panelConfig?.isApiEvent 
-                                                ? "grid-cols-1" // API events: only show Events dropdown
-                                                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" // Regular events: show all 4 dropdowns
-                                        )}>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                                                    {panelConfig?.isApiEvent ? 'API Events (Host / URL)' : 'Events'}
-                                                </label>
-                                                <MultiSelectDropdown
-                                                    options={pEventOptions}
-                                                    selected={currentPanelFilters.events.map(id => id.toString())}
-                                                    onChange={(values) => {
-                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                        updatePanelFilter(panel.panelId, 'events', numericValues);
-                                                    }}
-                                                    placeholder={panelConfig?.isApiEvent ? "Select API events" : "Select events"}
-                                                />
-                                                {/* Show callUrl reference for API events */}
-                                                {panelConfig?.isApiEvent && currentPanelFilters.events.length > 0 && (() => {
-                                                    const selectedEvent = events.find(e => e.eventId === currentPanelFilters.events[0]?.toString());
-                                                    return selectedEvent?.callUrl ? (
-                                                        <p className="text-xs text-muted-foreground mt-1">
-                                                            Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                {/* Filter Dropdowns Grid */}
+                                                {/* Special UI for Percentage and Funnel Graphs */}
+                                                {panelGraphType === 'percentage' && panelConfig?.percentageConfig ? (
+                                                    <div className="space-y-4">
+                                                        <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 rounded-lg border-2 border-purple-300 dark:border-purple-500/30">
+                                                            <h4 className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
+                                                                <Percent className="h-4 w-4" />
+                                                                Percentage Graph - Event Selection
+                                                            </h4>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                <div className="space-y-2">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
+                                                                        Parent Events (Denominator)
+                                                                    </label>
+                                                                    <div className="space-y-2">
+                                                                        {panelConfig.percentageConfig.parentEvents?.map((eventId: string) => {
+                                                                            const event = events.find(e => e.eventId === eventId);
+                                                                            const isActive = !currentPanelFilters.activePercentageEvents || currentPanelFilters.activePercentageEvents.includes(eventId);
+                                                                            return event ? (
+                                                                                <div key={eventId} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border border-purple-200 dark:border-purple-700">
+                                                                                    <Checkbox
+                                                                                        id={`parent-${panel.panelId}-${eventId}`}
+                                                                                        checked={isActive}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            const allEvents = [...(panelConfig.percentageConfig.parentEvents || []), ...(panelConfig.percentageConfig.childEvents || [])];
+                                                                                            const currentActive = currentPanelFilters.activePercentageEvents || allEvents;
+                                                                                            const newActive = checked
+                                                                                                ? [...new Set([...currentActive, eventId])]
+                                                                                                : currentActive.filter((id: string) => id !== eventId);
+
+                                                                                            setPanelFiltersState(prev => ({
+                                                                                                ...prev,
+                                                                                                [panel.panelId]: {
+                                                                                                    ...prev[panel.panelId],
+                                                                                                    activePercentageEvents: newActive
+                                                                                                }
+                                                                                            }));
+                                                                                            setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                                        }}
+                                                                                    />
+                                                                                    <label htmlFor={`parent-${panel.panelId}-${eventId}`} className="text-sm font-medium cursor-pointer select-none flex-1">
+                                                                                        {event.eventName}
+                                                                                    </label>
+                                                                                </div>
+                                                                            ) : null;
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
+                                                                        Child Events (Numerator)
+                                                                    </label>
+                                                                    <div className="space-y-2">
+                                                                        {panelConfig.percentageConfig.childEvents?.map((eventId: string) => {
+                                                                            const event = events.find(e => e.eventId === eventId);
+                                                                            const isActive = !currentPanelFilters.activePercentageEvents || currentPanelFilters.activePercentageEvents.includes(eventId);
+                                                                            return event ? (
+                                                                                <div key={eventId} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border border-green-200 dark:border-green-700">
+                                                                                    <Checkbox
+                                                                                        id={`child-${panel.panelId}-${eventId}`}
+                                                                                        checked={isActive}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            const allEvents = [...(panelConfig.percentageConfig.parentEvents || []), ...(panelConfig.percentageConfig.childEvents || [])];
+                                                                                            const currentActive = currentPanelFilters.activePercentageEvents || allEvents;
+                                                                                            const newActive = checked
+                                                                                                ? [...new Set([...currentActive, eventId])]
+                                                                                                : currentActive.filter((id: string) => id !== eventId);
+
+                                                                                            setPanelFiltersState(prev => ({
+                                                                                                ...prev,
+                                                                                                [panel.panelId]: {
+                                                                                                    ...prev[panel.panelId],
+                                                                                                    activePercentageEvents: newActive
+                                                                                                }
+                                                                                            }));
+                                                                                            setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                                        }}
+                                                                                    />
+                                                                                    <label htmlFor={`child-${panel.panelId}-${eventId}`} className="text-sm font-medium cursor-pointer select-none flex-1">
+                                                                                        {event.eventName}
+                                                                                    </label>
+                                                                                </div>
+                                                                            ) : null;
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="mt-3 text-xs text-muted-foreground text-center">
+                                                                Formula: (Child Count / Parent Count) × 100
+                                                            </div>
+                                                        </div>
+                                                        {/* Platform, POS, Source filters for percentage graph */}
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
+                                                                <MultiSelectDropdown
+                                                                    options={pPlatformOptions}
+                                                                    selected={currentPanelFilters.platforms.map(id => id.toString())}
+                                                                    onChange={(values) => {
+                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                        updatePanelFilter(panel.panelId, 'platforms', numericValues);
+                                                                    }}
+                                                                    placeholder="Select platforms"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
+                                                                <MultiSelectDropdown
+                                                                    options={pPosOptions}
+                                                                    selected={currentPanelFilters.pos.map(id => id.toString())}
+                                                                    onChange={(values) => {
+                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                        updatePanelFilter(panel.panelId, 'pos', numericValues);
+                                                                    }}
+                                                                    placeholder="Select POS"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
+                                                                <MultiSelectDropdown
+                                                                    options={pSourceOptions}
+                                                                    selected={currentPanelFilters.sources.map(id => id.toString())}
+                                                                    onChange={(values) => {
+                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                        updatePanelFilter(panel.panelId, 'sources', numericValues);
+                                                                    }}
+                                                                    placeholder="Select sources"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : panelGraphType === 'funnel' && panelConfig?.funnelConfig ? (
+                                                    <div className="space-y-4">
+                                                        <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-lg border-2 border-blue-300 dark:border-blue-500/30">
+                                                            <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
+                                                                <Filter className="h-4 w-4" />
+                                                                Funnel Graph Configuration
+                                                            </h4>
+                                                            <div className="space-y-3">
+                                                                <div>
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
+                                                                        Funnel Stages
+                                                                    </label>
+                                                                    {panelConfig.funnelConfig.stages?.map((stage: any, index: number) => {
+                                                                        const event = events.find(e => e.eventId === stage.eventId);
+                                                                        const isChecked = !currentPanelFilters.activeStages || currentPanelFilters.activeStages.includes(stage.eventId);
+
+                                                                        return event ? (
+                                                                            <div key={index} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 mb-2">
+                                                                                <Checkbox
+                                                                                    id={`stage-${panel.panelId}-${stage.eventId}`}
+                                                                                    checked={isChecked}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        const currentActive = currentPanelFilters.activeStages || panelConfig.funnelConfig.stages.map((s: any) => s.eventId);
+                                                                                        let newActive;
+                                                                                        if (checked) {
+                                                                                            // We need to maintain order if possible, or just append?
+                                                                                            // Ideally, we filter original stages by existence in newActive
+                                                                                            newActive = [...new Set([...currentActive, stage.eventId])]; // Use Set to avoid duplicates
+                                                                                        } else {
+                                                                                            newActive = currentActive.filter((id: string) => id !== stage.eventId);
+                                                                                        }
+
+                                                                                        setPanelFiltersState(prev => ({
+                                                                                            ...prev,
+                                                                                            [panel.panelId]: {
+                                                                                                ...prev[panel.panelId],
+                                                                                                activeStages: newActive
+                                                                                            }
+                                                                                        }));
+                                                                                        setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                                    }}
+                                                                                />
+                                                                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold">
+                                                                                    {index + 1}
+                                                                                </span>
+                                                                                <label
+                                                                                    htmlFor={`stage-${panel.panelId}-${stage.eventId}`}
+                                                                                    className="text-sm font-medium cursor-pointer select-none"
+                                                                                >
+                                                                                    {event.eventName}
+                                                                                </label>
+                                                                            </div>
+                                                                        ) : null;
+                                                                    })}
+                                                                </div>
+                                                                {panelConfig.funnelConfig.multipleChildEvents && panelConfig.funnelConfig.multipleChildEvents.length > 0 && (
+                                                                    <div>
+                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
+                                                                            Final Stage (Multiple Events)
+                                                                        </label>
+                                                                        <div className="flex flex-wrap gap-2">
+                                                                            {panelConfig.funnelConfig.multipleChildEvents.map((eventId: string) => {
+                                                                                const event = events.find(e => e.eventId === eventId);
+                                                                                return event ? (
+                                                                                    <span key={eventId} className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 text-xs font-medium rounded-full border border-green-300 dark:border-green-600">
+                                                                                        {event.eventName}
+                                                                                    </span>
+                                                                                ) : null;
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="mt-3 text-xs text-muted-foreground text-center">
+                                                                Conversion funnel showing drop-off at each stage
+                                                            </div>
+                                                        </div>
+                                                        {/* Platform, POS, Source filters for funnel graph */}
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
+                                                                <MultiSelectDropdown
+                                                                    options={pPlatformOptions}
+                                                                    selected={currentPanelFilters.platforms.map(id => id.toString())}
+                                                                    onChange={(values) => {
+                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                        updatePanelFilter(panel.panelId, 'platforms', numericValues);
+                                                                    }}
+                                                                    placeholder="Select platforms"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
+                                                                <MultiSelectDropdown
+                                                                    options={pPosOptions}
+                                                                    selected={currentPanelFilters.pos.map(id => id.toString())}
+                                                                    onChange={(values) => {
+                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                        updatePanelFilter(panel.panelId, 'pos', numericValues);
+                                                                    }}
+                                                                    placeholder="Select POS"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
+                                                                <MultiSelectDropdown
+                                                                    options={pSourceOptions}
+                                                                    selected={currentPanelFilters.sources.map(id => id.toString())}
+                                                                    onChange={(values) => {
+                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                        updatePanelFilter(panel.panelId, 'sources', numericValues);
+                                                                    }}
+                                                                    placeholder="Select sources"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    /* Regular Graph Filters */
+                                                    <div className={cn(
+                                                        "grid gap-3 sm:gap-4",
+                                                        panelConfig?.isApiEvent
+                                                            ? "grid-cols-1" // API events: only show Events dropdown
+                                                            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" // Regular events: show all 4 dropdowns
+                                                    )}>
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                                                                {panelConfig?.isApiEvent ? 'API Events (Host / URL)' : 'Events'}
+                                                            </label>
+                                                            <MultiSelectDropdown
+                                                                options={pEventOptions}
+                                                                selected={currentPanelFilters.events.map(id => id.toString())}
+                                                                onChange={(values) => {
+                                                                    const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                    updatePanelFilter(panel.panelId, 'events', numericValues);
+                                                                }}
+                                                                placeholder={panelConfig?.isApiEvent ? "Select API events" : "Select events"}
+                                                            />
+                                                            {/* Show callUrl reference for API events */}
+                                                            {panelConfig?.isApiEvent && currentPanelFilters.events.length > 0 && (() => {
+                                                                const selectedEvent = events.find(e => e.eventId === currentPanelFilters.events[0]?.toString());
+                                                                return selectedEvent?.callUrl ? (
+                                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                                        Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                                    </p>
+                                                                ) : null;
+                                                            })()}
+                                                        </div>
+                                                        {/* Only show Platform/POS/Source for non-API events */}
+                                                        {!panelConfig?.isApiEvent && (
+                                                            <>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={pPlatformOptions}
+                                                                        selected={currentPanelFilters.platforms.map(id => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter(panel.panelId, 'platforms', numericValues);
+                                                                        }}
+                                                                        placeholder="Select platforms"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={pPosOptions}
+                                                                        selected={currentPanelFilters.pos.map(id => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter(panel.panelId, 'pos', numericValues);
+                                                                        }}
+                                                                        placeholder="Select POS"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={pSourceOptions}
+                                                                        selected={currentPanelFilters.sources.map(id => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter(panel.panelId, 'sources', numericValues);
+                                                                        }}
+                                                                        placeholder="Select sources"
+                                                                    />
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {/* API Events Info Banner */}
+                                                {panelConfig?.isApiEvent && panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
+                                                    <div className="mt-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
+                                                        <p className="text-xs text-muted-foreground">
+                                                            <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
                                                         </p>
-                                                    ) : null;
-                                                })()}
-                                            </div>
-                                            {/* Only show Platform/POS/Source for non-API events */}
-                                            {!panelConfig?.isApiEvent && (
-                                                <>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
-                                                        <MultiSelectDropdown
-                                                            options={pPlatformOptions}
-                                                            selected={currentPanelFilters.platforms.map(id => id.toString())}
-                                                            onChange={(values) => {
-                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                updatePanelFilter(panel.panelId, 'platforms', numericValues);
-                                                            }}
-                                                            placeholder="Select platforms"
-                                                        />
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
-                                                        <MultiSelectDropdown
-                                                            options={pPosOptions}
-                                                            selected={currentPanelFilters.pos.map(id => id.toString())}
-                                                            onChange={(values) => {
-                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                updatePanelFilter(panel.panelId, 'pos', numericValues);
-                                                            }}
-                                                            placeholder="Select POS"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
-                                                        <MultiSelectDropdown
-                                                            options={pSourceOptions}
-                                                            selected={currentPanelFilters.sources.map(id => id.toString())}
-                                                            onChange={(values) => {
-                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                updatePanelFilter(panel.panelId, 'sources', numericValues);
-                                                            }}
-                                                            placeholder="Select sources"
-                                                        />
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                        {/* API Events Info Banner */}
-                                        {panelConfig?.isApiEvent && (
-                                            <div className="mt-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
-                                                <p className="text-xs text-muted-foreground">
-                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
-                                                </p>
-                                            </div>
-                                        )}
-                                        </>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            {/* Panel Stats */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                <Card className="bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border-blue-500/20">
-                                    <CardContent className="pt-4 pb-3">
-                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                            <AnimatedNumber value={pTotalCount} />
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">Total</div>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/20">
-                                    <CardContent className="pt-4 pb-3">
-                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                            <AnimatedNumber value={pTotalSuccess} />
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">Success</div>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-red-500/10 to-orange-500/5 border-red-500/20">
-                                    <CardContent className="pt-4 pb-3">
-                                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                                            <AnimatedNumber value={pTotalFail} />
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">Failed</div>
-                                    </CardContent>
-                                </Card>
-                                <Card className="bg-gradient-to-br from-purple-500/10 to-violet-500/5 border-purple-500/20">
-                                    <CardContent className="pt-4 pb-3">
-                                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                            {pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0}%
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">Success Rate</div>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                            {/* Panel Stats - Hide for percentage and funnel graphs */}
+                            {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                                    <Card className="bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border-blue-500/20">
+                                        <CardContent className="pt-4 pb-3">
+                                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                                <AnimatedNumber value={pTotalCount} />
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">Total</div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/20">
+                                        <CardContent className="pt-4 pb-3">
+                                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                                <AnimatedNumber value={pTotalSuccess} />
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">Success</div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-gradient-to-br from-red-500/10 to-orange-500/5 border-red-500/20">
+                                        <CardContent className="pt-4 pb-3">
+                                            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                                <AnimatedNumber value={pTotalFail} />
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">Failed</div>
+                                        </CardContent>
+                                    </Card>
+                                    <Card className="bg-gradient-to-br from-purple-500/10 to-violet-500/5 border-purple-500/20">
+                                        <CardContent className="pt-4 pb-3">
+                                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                                {pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0}%
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">Success Rate</div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            )}
 
                             {/* Separate event keys by type for this panel */}
-                            {(() => {
-                                // Events with BOTH isAvg and isError go to isAvg
-                                const pAvgEventKeys = pEventKeys.filter(ek => ek.isAvgEvent === 1);
-                                const pErrorEventKeys = pEventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
-                                const pNormalEventKeys = pEventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+                            {
+                                (() => {
+                                    // Check if this panel is a special graph (percentage or funnel)
+                                    if (panelGraphType === 'percentage' && panelConfig?.percentageConfig) {
+                                        const eventColors = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {});
+                                        const eventNames = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.eventName }), {});
 
-                                // Helper function to format delay for this panel (prepared for future use)
-                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                const _formatPanelDelay = (value: number, _eventKeyInfo?: EventKeyInfo) => {
-                                    if (!value || value <= 0) return '0';
-                                    const eventConfig = events.find(e => String(e.eventId) === _eventKeyInfo?.eventId);
-                                    const featureId = eventConfig?.feature;
-                                    if (featureId === 1) {
-                                        if (value >= 60) return `${(value / 60).toFixed(1)}h`;
-                                        return `${value.toFixed(1)}m`;
+                                        // Apply active filters
+                                        const activeParentEvents = panelConfig.percentageConfig.parentEvents?.filter((id: string) =>
+                                            !currentPanelFilters.activePercentageEvents || currentPanelFilters.activePercentageEvents.includes(id)
+                                        ) || [];
+
+                                        const activeChildEvents = panelConfig.percentageConfig.childEvents?.filter((id: string) =>
+                                            !currentPanelFilters.activePercentageEvents || currentPanelFilters.activePercentageEvents.includes(id)
+                                        ) || [];
+
+                                        return (
+                                            <PercentageGraph
+                                                data={pGraphData}
+                                                dateRange={currentPanelDateRange}
+                                                parentEvents={activeParentEvents}
+                                                childEvents={activeChildEvents}
+                                                eventColors={eventColors}
+                                                eventNames={eventNames}
+                                                filters={panelConfig.percentageConfig.filters || {}}
+                                                showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
+                                                isHourly={pIsHourly}
+                                            />
+                                        );
                                     }
-                                    if (value >= 60) return `${(value / 60).toFixed(1)}m`;
-                                    return `${value.toFixed(1)}s`;
-                                };
 
-                                return (
-                                    <>
-                                        {/* Panel Chart - Normal Events (count) - Show when NOT in deviation mode */}
-                                        {pNormalEventKeys.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') !== 'deviation' && (
-                                            <Card className="border border-violet-200/60 dark:border-violet-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
-                                                <CardHeader className="pb-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <Activity className="w-4 h-4 text-purple-500" />
-                                                            <CardTitle className="text-base font-semibold">
-                                                                Event Trends (Count)
-                                                            </CardTitle>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs text-muted-foreground">{pNormalEventKeys.length} events</span>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                                                onClick={() => {
-                                                                    setPanelChartType(prev => {
-                                                                        const current = prev[panel.panelId] ?? 'default';
-                                                                        return {
-                                                                            ...prev,
-                                                                            [panel.panelId]: current === 'deviation' ? 'default' : 'deviation',
-                                                                        };
-                                                                    });
-                                                                }}
-                                                            >
-                                                                {(() => {
-                                                                    const currentType = panelChartType[panel.panelId] ?? 'deviation';
-                                                                    if (pIsHourly) {
-                                                                        return currentType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
-                                                                    }
-                                                                    return currentType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
-                                                                })()}
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="space-y-4">
-                                                    <CollapsibleLegend
-                                                        eventKeys={pNormalEventKeys}
-                                                        events={events}
-                                                        isExpanded={panelLegendExpanded[panel.panelId] || false}
-                                                        onToggle={() => togglePanelLegend(panel.panelId)}
-                                                        maxVisibleItems={4}
-                                                        graphData={pGraphData}
-                                                        selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
-                                                        onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                                    />
-                                                    <div className="h-[400px]">
-                                                        {pGraphData.length > 0 ? (
-                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart 
-                                                                    data={pGraphData} 
-                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-                                                                    onClick={(chartState: any) => {
-                                                                        if (chartState && chartState.activeIndex !== undefined) {
-                                                                            const index = parseInt(chartState.activeIndex);
-                                                                            const dataPoint = pGraphData[index];
-                                                                            if (dataPoint) {
-                                                                                setPanelPinnedTooltips(prev => ({
-                                                                                    ...prev,
-                                                                                    [panel.panelId]: {
-                                                                                        dataPoint,
-                                                                                        label: chartState.activeLabel || dataPoint.date || ''
-                                                                                    }
-                                                                                }));
-                                                                            }
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <defs>
-                                                                        {pNormalEventKeys.map((eventKeyInfo, index) => {
-                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                            return (
-                                                                                <linearGradient key={`normalGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                                                                                </linearGradient>
-                                                                            );
-                                                                        })}
-                                                                    </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
-                                                                    <YAxis
-                                                                        tick={{ fill: '#6b7280', fontSize: 10 }}
-                                                                        axisLine={false}
-                                                                        tickLine={false}
-                                                                        tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
-                                                                    />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                    {pNormalEventKeys
-                                                                        .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
-                                                                        .map((eventKeyInfo, index) => {
-                                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                        return (
-                                                                            <Area
-                                                                                key={`normal_${panel.panelId}_${eventKeyInfo.eventKey}`}
-                                                                                type="monotone"
-                                                                                dataKey={`${eventKeyInfo.eventKey}_count`}
-                                                                                name={eventKeyInfo.eventName}
-                                                                                stroke={color}
-                                                                                strokeWidth={2.5}
-                                                                                fill={`url(#normalColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
-                                                                                dot={{ fill: color, strokeWidth: 0, r: 3 }}
-                                                                                activeDot={{
-                                                                                    r: 8,
-                                                                                    fill: color,
-                                                                                    stroke: '#fff',
-                                                                                    strokeWidth: 3,
-                                                                                    cursor: 'pointer',
-                                                                                }}
-                                                                            />
-                                                                        );
-                                                                    })}
-                                                                </AreaChart>
-                                                            </ResponsiveContainer>
-                                                        ) : (
-                                                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
-                                                        )}
-                                                    </div>
-                                                </CardContent>
+                                    if (panelGraphType === 'funnel' && panelConfig?.funnelConfig) {
+                                        const eventColors = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {});
+                                        const eventNames = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.eventName }), {});
 
-                                                {/* Pinned Tooltip Modal for Panel Charts */}
-                                                {(() => {
-                                                    const pinnedData = panelPinnedTooltips[panel.panelId];
-                                                    if (!pinnedData) return null;
-                                                    
-                                                    return (
-                                                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                                                            <div
-                                                                className="fixed inset-0 bg-black/30 backdrop-blur-sm"
-                                                                onClick={() => setPanelPinnedTooltips(prev => {
-                                                                    const updated = { ...prev };
-                                                                    delete updated[panel.panelId];
-                                                                    return updated;
-                                                                })}
-                                                            />
-                                                            <div className="relative max-w-lg w-full">
-                                                                <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setPanelPinnedTooltips(prev => {
-                                                                            const updated = { ...prev };
-                                                                            delete updated[panel.panelId];
-                                                                            return updated;
-                                                                        })}
-                                                                        className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
-                                                                        aria-label="Close details"
-                                                                    >
-                                                                        <X className="h-5 w-5" />
-                                                                    </button>
-                                                                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
-                                                                        <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
-                                                                        <div className="max-h-[70vh] overflow-y-auto p-1">
-                                                                            <CustomTooltip
-                                                                                active={true}
-                                                                                payload={pNormalEventKeys.map((ek, idx) => {
-                                                                                    const event = events.find(e => String(e.eventId) === ek.eventId);
-                                                                                    const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
-                                                                                    return {
-                                                                                        dataKey: `${ek.eventKey}_count`,
-                                                                                        name: ek.eventName,
-                                                                                        value: pinnedData.dataPoint[`${ek.eventKey}_count`] || 0,
-                                                                                        color,
-                                                                                        payload: pinnedData.dataPoint,
-                                                                                        unit: '',
-                                                                                    };
-                                                                                })}
-                                                                                label={pinnedData.label}
-                                                                                events={events}
-                                                                                eventKeys={pNormalEventKeys}
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </Card>
-                                        )}
+                                        // Filter stages based on activeStages
+                                        const activeStages = panelConfig.funnelConfig.stages?.filter((s: any) =>
+                                            !currentPanelFilters.activeStages || currentPanelFilters.activeStages.includes(s.eventId)
+                                        ) || [];
 
-                                        {/* 8-Day Overlay Comparison for Hourly Panel Data - Show in deviation mode (default) */}
-                                        {pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
-                                            // Calculate event stats for panel overlay badges
-                                            const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
-                                                const eventKey = eventKeyInfo.eventKey;
-                                                let total = 0;
-                                                let success = 0;
+                                        return (
+                                            <FunnelGraph
+                                                data={pGraphData}
+                                                stages={activeStages}
+                                                multipleChildEvents={panelConfig.funnelConfig.multipleChildEvents || []}
+                                                eventColors={eventColors}
+                                                eventNames={eventNames}
+                                            />
+                                        );
+                                    }
 
-                                                pGraphData.forEach((item: any) => {
-                                                    total += item[`${eventKey}_count`] || 0;
-                                                    success += item[`${eventKey}_success`] || 0;
-                                                });
+                                    // Regular graph rendering for non-special graphs
+                                    // Events with BOTH isAvg and isError go to isAvg
+                                    const pAvgEventKeys = pEventKeys.filter(ek => ek.isAvgEvent === 1);
+                                    const pErrorEventKeys = pEventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
+                                    const pNormalEventKeys = pEventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
 
-                                                const successRate = total > 0 ? (success / total) * 100 : 0;
+                                    // Helper function to format delay for this panel (prepared for future use)
+                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                    const _formatPanelDelay = (value: number, _eventKeyInfo?: EventKeyInfo) => {
+                                        if (!value || value <= 0) return '0';
+                                        const eventConfig = events.find(e => String(e.eventId) === _eventKeyInfo?.eventId);
+                                        const featureId = eventConfig?.feature;
+                                        if (featureId === 1) {
+                                            if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                            return `${value.toFixed(1)}m`;
+                                        }
+                                        if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                        return `${value.toFixed(1)}s`;
+                                    };
 
-                                                return {
-                                                    eventKey,
-                                                    eventId: eventKeyInfo.eventId,
-                                                    total,
-                                                    successRate
-                                                };
-                                            });
-                                            
-                                            // Filter events based on selected event (if any)
-                                            const selectedEventKey = panelSelectedEventKey[panel.panelId];
-                                            const filteredEventKeys = selectedEventKey 
-                                                ? pNormalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
-                                                : pNormalEventKeys.map(e => e.eventKey);
-                                            
-                                            return (
-                                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                    return (
+                                        <>
+                                            {/* Panel Chart - Normal Events (count) - Show when NOT in deviation mode */}
+                                            {pNormalEventKeys.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') !== 'deviation' && (
+                                                <Card className="border border-violet-200/60 dark:border-violet-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
                                                     <CardHeader className="pb-2">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
-                                                                <BarChart3 className="h-5 w-5 text-purple-600" />
-                                                                <CardTitle className="text-base font-semibold">8-Day Hourly Comparison</CardTitle>
+                                                                <Activity className="w-4 h-4 text-purple-500" />
+                                                                <CardTitle className="text-base font-semibold">
+                                                                    Event Trends (Count)
+                                                                </CardTitle>
                                                             </div>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                                                onClick={() => {
-                                                                    setPanelChartType(prev => ({
-                                                                        ...prev,
-                                                                        [panel.panelId]: 'default',
-                                                                    }));
-                                                                }}
-                                                            >
-                                                                ← Event Trends
-                                                            </Button>
-                                                        </div>
-                                                    </CardHeader>
-                                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                                        <DayWiseComparisonChart 
-                                                            data={pGraphData}
-                                                            dateRange={currentPanelDateRange}
-                                                            eventKeys={filteredEventKeys}
-                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                            eventStats={pEventStatsForBadges}
-                                                            selectedEventKey={selectedEventKey}
-                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                                        />
-                                                    </CardContent>
-                                                </Card>
-                                            );
-                                        })()}
-
-                                        {/* Daily Overlay Comparison for Daily Panel Data - Show in deviation mode */}
-                                        {!pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
-                                            // Calculate event stats for panel overlay badges
-                                            const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
-                                                const eventKey = eventKeyInfo.eventKey;
-                                                let total = 0;
-                                                let success = 0;
-
-                                                pGraphData.forEach((item: any) => {
-                                                    total += item[`${eventKey}_count`] || 0;
-                                                    success += item[`${eventKey}_success`] || 0;
-                                                });
-
-                                                const successRate = total > 0 ? (success / total) * 100 : 0;
-
-                                                return {
-                                                    eventKey,
-                                                    eventId: eventKeyInfo.eventId,
-                                                    total,
-                                                    successRate
-                                                };
-                                            });
-                                            
-                                            // Filter events based on selected event (if any)
-                                            const selectedEventKey = panelSelectedEventKey[panel.panelId];
-                                            const filteredEventKeys = selectedEventKey 
-                                                ? pNormalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
-                                                : pNormalEventKeys.map(e => e.eventKey);
-                                            
-                                            return (
-                                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
-                                                    <CardHeader className="pb-2">
-                                                        <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
-                                                                <BarChart3 className="h-5 w-5 text-purple-600" />
-                                                                <CardTitle className="text-base font-semibold">Daily Overlay Comparison</CardTitle>
-                                                            </div>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                                                onClick={() => {
-                                                                    setPanelChartType(prev => ({
-                                                                        ...prev,
-                                                                        [panel.panelId]: 'default',
-                                                                    }));
-                                                                }}
-                                                            >
-                                                                ← Event Trends
-                                                            </Button>
-                                                        </div>
-                                                    </CardHeader>
-                                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                                        <DayWiseComparisonChart 
-                                                            data={pGraphData}
-                                                            dateRange={currentPanelDateRange}
-                                                            eventKeys={filteredEventKeys}
-                                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                            eventStats={pEventStatsForBadges}
-                                                            selectedEventKey={selectedEventKey}
-                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                                        />
-                                                    </CardContent>
-                                                </Card>
-                                            );
-                                        })()}
-
-                                        {/* Panel Chart - isAvg Events (Time Delay) */}
-                                        {/* Show combined or separate based on panel.type */}
-                                        {pAvgEventKeys.length > 0 && panel.type === 'combined' && (
-                                            <Card className="border border-amber-200/60 dark:border-amber-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
-                                                <CardHeader className="pb-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <Clock className="w-4 h-4 text-amber-500" />
-                                                            <CardTitle className="text-base font-semibold">Time Delay Trends (Combined)</CardTitle>
-                                                        </div>
-                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="space-y-4">
-                                                    <CollapsibleLegend
-                                                        eventKeys={pAvgEventKeys}
-                                                        events={events}
-                                                        isExpanded={panelLegendExpanded[`${panel.panelId}_avg`] || false}
-                                                        onToggle={() => togglePanelLegend(`${panel.panelId}_avg`)}
-                                                        maxVisibleItems={4}
-                                                        graphData={pGraphData}
-                                                        selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
-                                                        onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                                    />
-                                                    <div className="h-[400px]">
-                                                        {pGraphData.length > 0 ? (
-                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart 
-                                                                    data={pGraphData} 
-                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-                                                                    onClick={(chartState: any) => {
-                                                                        if (chartState && chartState.activeIndex !== undefined) {
-                                                                            const index = parseInt(chartState.activeIndex);
-                                                                            const dataPoint = pGraphData[index];
-                                                                            if (dataPoint) {
-                                                                                setPanelPinnedTooltips(prev => ({
-                                                                                    ...prev,
-                                                                                    [`${panel.panelId}_avg`]: {
-                                                                                        dataPoint,
-                                                                                        label: chartState.activeLabel || dataPoint.date || ''
-                                                                                    }
-                                                                                }));
-                                                                            }
-                                                                        }
+                                                                <span className="text-xs text-muted-foreground">{pNormalEventKeys.length} events</span>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                                    onClick={() => {
+                                                                        setPanelChartType(prev => {
+                                                                            const current = prev[panel.panelId] ?? 'default';
+                                                                            return {
+                                                                                ...prev,
+                                                                                [panel.panelId]: current === 'deviation' ? 'default' : 'deviation',
+                                                                            };
+                                                                        });
                                                                     }}
                                                                 >
-                                                                    <defs>
-                                                                        {pAvgEventKeys.map((eventKeyInfo, index) => {
-                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                            return (
-                                                                                <linearGradient key={`avgGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                                                                                </linearGradient>
-                                                                            );
-                                                                        })}
-                                                                    </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
-                                                                    <YAxis
-                                                                        tick={{ fill: '#f59e0b', fontSize: 10 }}
-                                                                        axisLine={false}
-                                                                        tickLine={false}
-                                                                        tickFormatter={(value) => {
-                                                                            if (!value || value <= 0) return '0';
-                                                                            const hasPriceAlert = pAvgEventKeys.some(ek => {
-                                                                                const ev = events.find(e => String(e.eventId) === ek.eventId);
-                                                                                return ev?.feature === 1;
-                                                                            });
-                                                                            if (hasPriceAlert) {
-                                                                                if (value >= 60) return `${(value / 60).toFixed(1)}h`;
-                                                                                return `${value.toFixed(1)}m`;
+                                                                    {(() => {
+                                                                        const currentType = panelChartType[panel.panelId] ?? 'deviation';
+                                                                        if (pIsHourly) {
+                                                                            return currentType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
+                                                                        }
+                                                                        return currentType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
+                                                                    })()}
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        <CollapsibleLegend
+                                                            eventKeys={pNormalEventKeys}
+                                                            events={events}
+                                                            isExpanded={panelLegendExpanded[panel.panelId] || false}
+                                                            onToggle={() => togglePanelLegend(panel.panelId)}
+                                                            maxVisibleItems={4}
+                                                            graphData={pGraphData}
+                                                            selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                        />
+                                                        <div className="h-[400px]">
+                                                            {pGraphData.length > 0 ? (
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <AreaChart
+                                                                        data={pGraphData}
+                                                                        margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                        onClick={(chartState: any) => {
+                                                                            if (chartState && chartState.activeIndex !== undefined) {
+                                                                                const index = parseInt(chartState.activeIndex);
+                                                                                const dataPoint = pGraphData[index];
+                                                                                if (dataPoint) {
+                                                                                    setPanelPinnedTooltips(prev => ({
+                                                                                        ...prev,
+                                                                                        [panel.panelId]: {
+                                                                                            dataPoint,
+                                                                                            label: chartState.activeLabel || dataPoint.date || ''
+                                                                                        }
+                                                                                    }));
+                                                                                }
                                                                             }
-                                                                            if (value >= 60) return `${(value / 60).toFixed(1)}m`;
-                                                                            return `${value.toFixed(1)}s`;
                                                                         }}
-                                                                    />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                    {pAvgEventKeys
-                                                                        .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
-                                                                        .map((eventKeyInfo, index) => {
-                                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                        return (
-                                                                            <Area
-                                                                                key={`avg_${panel.panelId}_${eventKeyInfo.eventKey}`}
-                                                                                type="monotone"
-                                                                                dataKey={`${eventKeyInfo.eventKey}_avgDelay`}
-                                                                                name={eventKeyInfo.eventName}
-                                                                                stroke={color}
-                                                                                strokeWidth={2.5}
-                                                                                fill={`url(#avgColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
-                                                                                dot={{ fill: color, strokeWidth: 0, r: 3 }}
-                                                                                activeDot={{
-                                                                                    r: 8,
-                                                                                    fill: color,
-                                                                                    stroke: '#fff',
-                                                                                    strokeWidth: 3,
-                                                                                    cursor: 'pointer',
-                                                                                }}
-                                                                            />
-                                                                        );
-                                                                    })}
-                                                                </AreaChart>
-                                                            </ResponsiveContainer>
-                                                        ) : (
-                                                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
-                                                        )}
-                                                    </div>
-                                                </CardContent>
-
-                                                {/* Pinned Tooltip Modal for Avg/Time Delay Charts */}
-                                                {(() => {
-                                                    const pinnedData = panelPinnedTooltips[`${panel.panelId}_avg`];
-                                                    if (!pinnedData) return null;
-                                                    
-                                                    return (
-                                                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                                                            <div
-                                                                className="fixed inset-0 bg-black/30 backdrop-blur-sm"
-                                                                onClick={() => setPanelPinnedTooltips(prev => {
-                                                                    const updated = { ...prev };
-                                                                    delete updated[`${panel.panelId}_avg`];
-                                                                    return updated;
-                                                                })}
-                                                            />
-                                                            <div className="relative max-w-lg w-full">
-                                                                <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setPanelPinnedTooltips(prev => {
-                                                                            const updated = { ...prev };
-                                                                            delete updated[`${panel.panelId}_avg`];
-                                                                            return updated;
-                                                                        })}
-                                                                        className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
-                                                                        aria-label="Close details"
                                                                     >
-                                                                        <X className="h-5 w-5" />
-                                                                    </button>
-                                                                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
-                                                                        <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600" />
-                                                                        <div className="max-h-[70vh] overflow-y-auto p-1">
-                                                                            <CustomTooltip
-                                                                                active={true}
-                                                                                payload={pAvgEventKeys.map((ek, idx) => {
-                                                                                    const event = events.find(e => String(e.eventId) === ek.eventId);
-                                                                                    const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
-                                                                                    return {
-                                                                                        dataKey: `${ek.eventKey}_avgDelay`,
-                                                                                        name: ek.eventName,
-                                                                                        value: pinnedData.dataPoint[`${ek.eventKey}_avgDelay`] || 0,
-                                                                                        color,
-                                                                                        payload: pinnedData.dataPoint,
-                                                                                        unit: '',
-                                                                                    };
-                                                                                })}
-                                                                                label={pinnedData.label}
-                                                                                events={events}
-                                                                                eventKeys={pAvgEventKeys}
-                                                                            />
+                                                                        <defs>
+                                                                            {pNormalEventKeys.map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                return (
+                                                                                    <linearGradient key={`normalGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                        <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                        <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                                                                                    </linearGradient>
+                                                                                );
+                                                                            })}
+                                                                        </defs>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <YAxis
+                                                                            tick={{ fill: '#6b7280', fontSize: 10 }}
+                                                                            axisLine={false}
+                                                                            tickLine={false}
+                                                                            tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                                                        />
+                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                        {pNormalEventKeys
+                                                                            .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
+                                                                            .map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                return (
+                                                                                    <Area
+                                                                                        key={`normal_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                                        type="monotone"
+                                                                                        dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                                                        name={eventKeyInfo.eventName}
+                                                                                        stroke={color}
+                                                                                        strokeWidth={2.5}
+                                                                                        fill={`url(#normalColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                                        dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                                        activeDot={{
+                                                                                            r: 8,
+                                                                                            fill: color,
+                                                                                            stroke: '#fff',
+                                                                                            strokeWidth: 3,
+                                                                                            cursor: 'pointer',
+                                                                                        }}
+                                                                                    />
+                                                                                );
+                                                                            })}
+                                                                    </AreaChart>
+                                                                </ResponsiveContainer>
+                                                            ) : (
+                                                                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                            )}
+                                                        </div>
+                                                    </CardContent>
+
+                                                    {/* Pinned Tooltip Modal for Panel Charts */}
+                                                    {(() => {
+                                                        const pinnedData = panelPinnedTooltips[panel.panelId];
+                                                        if (!pinnedData) return null;
+
+                                                        return (
+                                                            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                                                                <div
+                                                                    className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                                                    onClick={() => setPanelPinnedTooltips(prev => {
+                                                                        const updated = { ...prev };
+                                                                        delete updated[panel.panelId];
+                                                                        return updated;
+                                                                    })}
+                                                                />
+                                                                <div className="relative max-w-lg w-full">
+                                                                    <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPanelPinnedTooltips(prev => {
+                                                                                const updated = { ...prev };
+                                                                                delete updated[panel.panelId];
+                                                                                return updated;
+                                                                            })}
+                                                                            className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                                            aria-label="Close details"
+                                                                        >
+                                                                            <X className="h-5 w-5" />
+                                                                        </button>
+                                                                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                                            <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+                                                                            <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                                                <CustomTooltip
+                                                                                    active={true}
+                                                                                    payload={pNormalEventKeys.map((ek, idx) => {
+                                                                                        const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                                                        const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                                        return {
+                                                                                            dataKey: `${ek.eventKey}_count`,
+                                                                                            name: ek.eventName,
+                                                                                            value: pinnedData.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                                                            color,
+                                                                                            payload: pinnedData.dataPoint,
+                                                                                            unit: '',
+                                                                                        };
+                                                                                    })}
+                                                                                    label={pinnedData.label}
+                                                                                    events={events}
+                                                                                    eventKeys={pNormalEventKeys}
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </Card>
-                                        )}
+                                                        );
+                                                    })()}
+                                                </Card>
+                                            )}
 
-                                        {/* Panel Charts - Separate isAvg Events (one chart per event) */}
-                                        {pAvgEventKeys.length > 0 && panel.type === 'separate' && pAvgEventKeys.map((avgEventKeyInfo, avgIdx) => {
-                                            const avgEvent = events.find(e => String(e.eventId) === avgEventKeyInfo.eventId);
-                                            const avgColor = avgEvent?.color || EVENT_COLORS[avgIdx % EVENT_COLORS.length];
-                                            const featureId = avgEvent?.feature;
-                                            
-                                            return (
-                                                <Card key={`avg_sep_${panel.panelId}_${avgEventKeyInfo.eventKey}`} className="border border-amber-200/60 dark:border-amber-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                            {/* 8-Day Overlay Comparison for Hourly Panel Data - Show in deviation mode (default) */}
+                                            {pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
+                                                // Calculate event stats for panel overlay badges
+                                                const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
+                                                    const eventKey = eventKeyInfo.eventKey;
+                                                    let total = 0;
+                                                    let success = 0;
+
+                                                    pGraphData.forEach((item: any) => {
+                                                        total += item[`${eventKey}_count`] || 0;
+                                                        success += item[`${eventKey}_success`] || 0;
+                                                    });
+
+                                                    const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                                                    return {
+                                                        eventKey,
+                                                        eventId: eventKeyInfo.eventId,
+                                                        total,
+                                                        successRate
+                                                    };
+                                                });
+
+                                                // Filter events based on selected event (if any)
+                                                const selectedEventKey = panelSelectedEventKey[panel.panelId];
+                                                const filteredEventKeys = selectedEventKey
+                                                    ? pNormalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                                                    : pNormalEventKeys.map(e => e.eventKey);
+
+                                                return (
+                                                    <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                                        <CardHeader className="pb-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                                    <CardTitle className="text-base font-semibold">8-Day Hourly Comparison</CardTitle>
+                                                                </div>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                                    onClick={() => {
+                                                                        setPanelChartType(prev => ({
+                                                                            ...prev,
+                                                                            [panel.panelId]: 'default',
+                                                                        }));
+                                                                    }}
+                                                                >
+                                                                    ← Event Trends
+                                                                </Button>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                                            <DayWiseComparisonChart
+                                                                data={pGraphData}
+                                                                dateRange={currentPanelDateRange}
+                                                                eventKeys={filteredEventKeys}
+                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                eventStats={pEventStatsForBadges}
+                                                                selectedEventKey={selectedEventKey}
+                                                                onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                            />
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })()}
+
+                                            {/* Daily Overlay Comparison for Daily Panel Data - Show in deviation mode */}
+                                            {!pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
+                                                // Calculate event stats for panel overlay badges
+                                                const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
+                                                    const eventKey = eventKeyInfo.eventKey;
+                                                    let total = 0;
+                                                    let success = 0;
+
+                                                    pGraphData.forEach((item: any) => {
+                                                        total += item[`${eventKey}_count`] || 0;
+                                                        success += item[`${eventKey}_success`] || 0;
+                                                    });
+
+                                                    const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                                                    return {
+                                                        eventKey,
+                                                        eventId: eventKeyInfo.eventId,
+                                                        total,
+                                                        successRate
+                                                    };
+                                                });
+
+                                                // Filter events based on selected event (if any)
+                                                const selectedEventKey = panelSelectedEventKey[panel.panelId];
+                                                const filteredEventKeys = selectedEventKey
+                                                    ? pNormalEventKeys.filter(e => e.eventKey === selectedEventKey).map(e => e.eventKey)
+                                                    : pNormalEventKeys.map(e => e.eventKey);
+
+                                                return (
+                                                    <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                                        <CardHeader className="pb-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                                    <CardTitle className="text-base font-semibold">Daily Overlay Comparison</CardTitle>
+                                                                </div>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                                    onClick={() => {
+                                                                        setPanelChartType(prev => ({
+                                                                            ...prev,
+                                                                            [panel.panelId]: 'default',
+                                                                        }));
+                                                                    }}
+                                                                >
+                                                                    ← Event Trends
+                                                                </Button>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                                            <DayWiseComparisonChart
+                                                                data={pGraphData}
+                                                                dateRange={currentPanelDateRange}
+                                                                eventKeys={filteredEventKeys}
+                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                eventStats={pEventStatsForBadges}
+                                                                selectedEventKey={selectedEventKey}
+                                                                onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                            />
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })()}
+
+                                            {/* Panel Chart - isAvg Events (Time Delay) */}
+                                            {/* Show combined or separate based on panel.type */}
+                                            {pAvgEventKeys.length > 0 && panel.type === 'combined' && (
+                                                <Card className="border border-amber-200/60 dark:border-amber-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
                                                     <CardHeader className="pb-2">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
                                                                 <Clock className="w-4 h-4 text-amber-500" />
-                                                                <CardTitle className="text-base font-semibold">{avgEventKeyInfo.eventName}</CardTitle>
+                                                                <CardTitle className="text-base font-semibold">Time Delay Trends (Combined)</CardTitle>
                                                             </div>
-                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Event</span>
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
                                                         </div>
                                                     </CardHeader>
                                                     <CardContent className="space-y-4">
+                                                        <CollapsibleLegend
+                                                            eventKeys={pAvgEventKeys}
+                                                            events={events}
+                                                            isExpanded={panelLegendExpanded[`${panel.panelId}_avg`] || false}
+                                                            onToggle={() => togglePanelLegend(`${panel.panelId}_avg`)}
+                                                            maxVisibleItems={4}
+                                                            graphData={pGraphData}
+                                                            selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                        />
                                                         <div className="h-[400px]">
                                                             {pGraphData.length > 0 ? (
                                                                 <ResponsiveContainer width="100%" height="100%">
-                                                                    <AreaChart 
-                                                                        data={pGraphData} 
+                                                                    <AreaChart
+                                                                        data={pGraphData}
                                                                         margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                        onClick={(chartState: any) => {
+                                                                            if (chartState && chartState.activeIndex !== undefined) {
+                                                                                const index = parseInt(chartState.activeIndex);
+                                                                                const dataPoint = pGraphData[index];
+                                                                                if (dataPoint) {
+                                                                                    setPanelPinnedTooltips(prev => ({
+                                                                                        ...prev,
+                                                                                        [`${panel.panelId}_avg`]: {
+                                                                                            dataPoint,
+                                                                                            label: chartState.activeLabel || dataPoint.date || ''
+                                                                                        }
+                                                                                    }));
+                                                                                }
+                                                                            }
+                                                                        }}
                                                                     >
                                                                         <defs>
-                                                                            <linearGradient id={`avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="5%" stopColor={avgColor} stopOpacity={0.4} />
-                                                                                <stop offset="95%" stopColor={avgColor} stopOpacity={0.05} />
-                                                                            </linearGradient>
+                                                                            {pAvgEventKeys.map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                return (
+                                                                                    <linearGradient key={`avgGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                        <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                                                                        <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                                    </linearGradient>
+                                                                                );
+                                                                            })}
                                                                         </defs>
                                                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
                                                                         <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
@@ -5957,7 +6257,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             tickLine={false}
                                                                             tickFormatter={(value) => {
                                                                                 if (!value || value <= 0) return '0';
-                                                                                if (featureId === 1) {
+                                                                                const hasPriceAlert = pAvgEventKeys.some(ek => {
+                                                                                    const ev = events.find(e => String(e.eventId) === ek.eventId);
+                                                                                    return ev?.feature === 1;
+                                                                                });
+                                                                                if (hasPriceAlert) {
                                                                                     if (value >= 60) return `${(value / 60).toFixed(1)}h`;
                                                                                     return `${value.toFixed(1)}m`;
                                                                                 }
@@ -5965,22 +6269,32 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                                 return `${value.toFixed(1)}s`;
                                                                             }}
                                                                         />
-                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={[avgEventKeyInfo]} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                        <Area
-                                                                            type="monotone"
-                                                                            dataKey={`${avgEventKeyInfo.eventKey}_avgDelay`}
-                                                                            name={avgEventKeyInfo.eventName}
-                                                                            stroke={avgColor}
-                                                                            strokeWidth={2.5}
-                                                                            fill={`url(#avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey})`}
-                                                                            dot={{ fill: avgColor, strokeWidth: 0, r: 3 }}
-                                                                            activeDot={{
-                                                                                r: 8,
-                                                                                fill: avgColor,
-                                                                                stroke: '#fff',
-                                                                                strokeWidth: 3
-                                                                            }}
-                                                                        />
+                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                        {pAvgEventKeys
+                                                                            .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
+                                                                            .map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                return (
+                                                                                    <Area
+                                                                                        key={`avg_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                                        type="monotone"
+                                                                                        dataKey={`${eventKeyInfo.eventKey}_avgDelay`}
+                                                                                        name={eventKeyInfo.eventName}
+                                                                                        stroke={color}
+                                                                                        strokeWidth={2.5}
+                                                                                        fill={`url(#avgColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                                        dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                                        activeDot={{
+                                                                                            r: 8,
+                                                                                            fill: color,
+                                                                                            stroke: '#fff',
+                                                                                            strokeWidth: 3,
+                                                                                            cursor: 'pointer',
+                                                                                        }}
+                                                                                    />
+                                                                                );
+                                                                            })}
                                                                     </AreaChart>
                                                                 </ResponsiveContainer>
                                                             ) : (
@@ -5988,222 +6302,198 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             )}
                                                         </div>
                                                     </CardContent>
-                                                </Card>
-                                            );
-                                        })}
 
-                                        {/* Panel Chart - isError Events (Error Tracking) */}
-                                        {/* Show combined or separate based on panel.type */}
-                                        {pErrorEventKeys.length > 0 && panel.type === 'combined' && (
-                                            <Card className="border border-red-200/60 dark:border-red-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
-                                                <CardHeader className="pb-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <AlertTriangle className="w-4 h-4 text-red-500" />
-                                                            <CardTitle className="text-base font-semibold">Error Event Trends (Combined)</CardTitle>
-                                                        </div>
-                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="space-y-4">
-                                                    <CollapsibleLegend
-                                                        eventKeys={pErrorEventKeys}
-                                                        events={events}
-                                                        isExpanded={panelLegendExpanded[`${panel.panelId}_error`] || false}
-                                                        onToggle={() => togglePanelLegend(`${panel.panelId}_error`)}
-                                                        maxVisibleItems={4}
-                                                        graphData={pGraphData}
-                                                        selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
-                                                        onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                                    />
-                                                    <div className="h-[400px]">
-                                                        {pGraphData.length > 0 ? (
-                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart 
-                                                                    data={pGraphData} 
-                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-                                                                    onClick={(chartState: any) => {
-                                                                        if (chartState && chartState.activeIndex !== undefined) {
-                                                                            const index = parseInt(chartState.activeIndex);
-                                                                            const dataPoint = pGraphData[index];
-                                                                            if (dataPoint) {
-                                                                                setPanelPinnedTooltips(prev => ({
-                                                                                    ...prev,
-                                                                                    [`${panel.panelId}_error`]: {
-                                                                                        dataPoint,
-                                                                                        label: chartState.activeLabel || dataPoint.date || ''
-                                                                                    }
-                                                                                }));
-                                                                            }
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <defs>
-                                                                        {pErrorEventKeys.map((eventKeyInfo, index) => {
-                                                                            const errorColor = ERROR_COLORS[index % ERROR_COLORS.length];
-                                                                            return (
-                                                                                <linearGradient key={`errorGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
-                                                                                    <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
-                                                                                </linearGradient>
-                                                                            );
-                                                                        })}
-                                                                        <linearGradient id={`errorSuccessGrad_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
-                                                                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                                                                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
-                                                                        </linearGradient>
-                                                                    </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
-                                                                    <YAxis
-                                                                        tick={{ fill: '#ef4444', fontSize: 10 }}
-                                                                        axisLine={false}
-                                                                        tickLine={false}
-                                                                        tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
-                                                                    />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                    {pErrorEventKeys
-                                                                        .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
-                                                                        .map((eventKeyInfo, idx) => {
-                                                                        const eventKey = eventKeyInfo.eventKey;
-                                                                        const errorColor = ERROR_COLORS[idx % ERROR_COLORS.length];
-                                                                        return (
-                                                                            <React.Fragment key={`error_frag_${panel.panelId}_${eventKey}`}>
-                                                                                {/* Error count (distinct colors) */}
-                                                                                <Area
-                                                                                    type="monotone"
-                                                                                    dataKey={`${eventKey}_success`}
-                                                                                    name={`${eventKeyInfo.eventName} (Errors)`}
-                                                                                    stroke={errorColor}
-                                                                                    strokeWidth={2.5}
-                                                                                    fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
-                                                                                    dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
-                                                                                    activeDot={{
-                                                                                        r: 8,
-                                                                                        fill: errorColor,
-                                                                                        stroke: '#fff',
-                                                                                        strokeWidth: 3,
-                                                                                        cursor: 'pointer',
-                                                                                    }}
-                                                                                />
-                                                                                {/* Non-error count (green) */}
-                                                                                <Area
-                                                                                    type="monotone"
-                                                                                    dataKey={`${eventKey}_fail`}
-                                                                                    name={`${eventKeyInfo.eventName} (OK)`}
-                                                                                    stroke="#22c55e"
-                                                                                    strokeWidth={2}
-                                                                                    fill={`url(#errorSuccessGrad_${panel.panelId})`}
-                                                                                    dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
-                                                                                    activeDot={{
-                                                                                        r: 6,
-                                                                                        fill: '#22c55e',
-                                                                                        stroke: '#fff',
-                                                                                        strokeWidth: 2,
-                                                                                        cursor: 'pointer',
-                                                                                    }}
-                                                                                />
-                                                                            </React.Fragment>
-                                                                        );
+                                                    {/* Pinned Tooltip Modal for Avg/Time Delay Charts */}
+                                                    {(() => {
+                                                        const pinnedData = panelPinnedTooltips[`${panel.panelId}_avg`];
+                                                        if (!pinnedData) return null;
+
+                                                        return (
+                                                            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                                                                <div
+                                                                    className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                                                    onClick={() => setPanelPinnedTooltips(prev => {
+                                                                        const updated = { ...prev };
+                                                                        delete updated[`${panel.panelId}_avg`];
+                                                                        return updated;
                                                                     })}
-                                                                </AreaChart>
-                                                            </ResponsiveContainer>
-                                                        ) : (
-                                                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
-                                                        )}
-                                                    </div>
-                                                </CardContent>
-
-                                                {/* Pinned Tooltip Modal for Error Charts */}
-                                                {(() => {
-                                                    const pinnedData = panelPinnedTooltips[`${panel.panelId}_error`];
-                                                    if (!pinnedData) return null;
-                                                    
-                                                    return (
-                                                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                                                            <div
-                                                                className="fixed inset-0 bg-black/30 backdrop-blur-sm"
-                                                                onClick={() => setPanelPinnedTooltips(prev => {
-                                                                    const updated = { ...prev };
-                                                                    delete updated[`${panel.panelId}_error`];
-                                                                    return updated;
-                                                                })}
-                                                            />
-                                                            <div className="relative max-w-lg w-full">
-                                                                <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setPanelPinnedTooltips(prev => {
-                                                                            const updated = { ...prev };
-                                                                            delete updated[`${panel.panelId}_error`];
-                                                                            return updated;
-                                                                        })}
-                                                                        className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
-                                                                        aria-label="Close details"
-                                                                    >
-                                                                        <X className="h-5 w-5" />
-                                                                    </button>
-                                                                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
-                                                                        <div className="h-1.5 w-full bg-gradient-to-r from-red-500 via-orange-500 to-red-600" />
-                                                                        <div className="max-h-[70vh] overflow-y-auto p-1">
-                                                                            <CustomTooltip
-                                                                                active={true}
-                                                                                payload={pErrorEventKeys.map((ek, idx) => {
-                                                                                    const event = events.find(e => String(e.eventId) === ek.eventId);
-                                                                                    const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
-                                                                                    return {
-                                                                                        dataKey: `${ek.eventKey}_count`,
-                                                                                        name: ek.eventName,
-                                                                                        value: pinnedData.dataPoint[`${ek.eventKey}_count`] || 0,
-                                                                                        color,
-                                                                                        payload: pinnedData.dataPoint,
-                                                                                        unit: '',
-                                                                                    };
-                                                                                })}
-                                                                                label={pinnedData.label}
-                                                                                events={events}
-                                                                                eventKeys={pErrorEventKeys}
-                                                                            />
+                                                                />
+                                                                <div className="relative max-w-lg w-full">
+                                                                    <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPanelPinnedTooltips(prev => {
+                                                                                const updated = { ...prev };
+                                                                                delete updated[`${panel.panelId}_avg`];
+                                                                                return updated;
+                                                                            })}
+                                                                            className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                                            aria-label="Close details"
+                                                                        >
+                                                                            <X className="h-5 w-5" />
+                                                                        </button>
+                                                                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                                            <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600" />
+                                                                            <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                                                <CustomTooltip
+                                                                                    active={true}
+                                                                                    payload={pAvgEventKeys.map((ek, idx) => {
+                                                                                        const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                                                        const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                                        return {
+                                                                                            dataKey: `${ek.eventKey}_avgDelay`,
+                                                                                            name: ek.eventName,
+                                                                                            value: pinnedData.dataPoint[`${ek.eventKey}_avgDelay`] || 0,
+                                                                                            color,
+                                                                                            payload: pinnedData.dataPoint,
+                                                                                            unit: '',
+                                                                                        };
+                                                                                    })}
+                                                                                    label={pinnedData.label}
+                                                                                    events={events}
+                                                                                    eventKeys={pAvgEventKeys}
+                                                                                />
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </Card>
-                                        )}
+                                                        );
+                                                    })()}
+                                                </Card>
+                                            )}
 
-                                        {/* Panel Charts - Separate isError Events (one chart per event) */}
-                                        {pErrorEventKeys.length > 0 && panel.type === 'separate' && pErrorEventKeys.map((errorEventKeyInfo, errorIdx) => {
-                                            const errorEvent = events.find(e => String(e.eventId) === errorEventKeyInfo.eventId);
-                                            const errorColor = errorEvent?.color || ERROR_COLORS[errorIdx % ERROR_COLORS.length];
-                                            
-                                            return (
-                                                <Card key={`error_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} className="border border-red-200/60 dark:border-red-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                            {/* Panel Charts - Separate isAvg Events (one chart per event) */}
+                                            {pAvgEventKeys.length > 0 && panel.type === 'separate' && pAvgEventKeys.map((avgEventKeyInfo, avgIdx) => {
+                                                const avgEvent = events.find(e => String(e.eventId) === avgEventKeyInfo.eventId);
+                                                const avgColor = avgEvent?.color || EVENT_COLORS[avgIdx % EVENT_COLORS.length];
+                                                const featureId = avgEvent?.feature;
+
+                                                return (
+                                                    <Card key={`avg_sep_${panel.panelId}_${avgEventKeyInfo.eventKey}`} className="border border-amber-200/60 dark:border-amber-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                                        <CardHeader className="pb-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Clock className="w-4 h-4 text-amber-500" />
+                                                                    <CardTitle className="text-base font-semibold">{avgEventKeyInfo.eventName}</CardTitle>
+                                                                </div>
+                                                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Event</span>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="space-y-4">
+                                                            <div className="h-[400px]">
+                                                                {pGraphData.length > 0 ? (
+                                                                    <ResponsiveContainer width="100%" height="100%">
+                                                                        <AreaChart
+                                                                            data={pGraphData}
+                                                                            margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                        >
+                                                                            <defs>
+                                                                                <linearGradient id={`avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor={avgColor} stopOpacity={0.4} />
+                                                                                    <stop offset="95%" stopColor={avgColor} stopOpacity={0.05} />
+                                                                                </linearGradient>
+                                                                            </defs>
+                                                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                            <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                            <YAxis
+                                                                                tick={{ fill: '#f59e0b', fontSize: 10 }}
+                                                                                axisLine={false}
+                                                                                tickLine={false}
+                                                                                tickFormatter={(value) => {
+                                                                                    if (!value || value <= 0) return '0';
+                                                                                    if (featureId === 1) {
+                                                                                        if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                                                        return `${value.toFixed(1)}m`;
+                                                                                    }
+                                                                                    if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                                                    return `${value.toFixed(1)}s`;
+                                                                                }}
+                                                                            />
+                                                                            <Tooltip content={<CustomTooltip events={events} eventKeys={[avgEventKeyInfo]} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                            <Area
+                                                                                type="monotone"
+                                                                                dataKey={`${avgEventKeyInfo.eventKey}_avgDelay`}
+                                                                                name={avgEventKeyInfo.eventName}
+                                                                                stroke={avgColor}
+                                                                                strokeWidth={2.5}
+                                                                                fill={`url(#avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey})`}
+                                                                                dot={{ fill: avgColor, strokeWidth: 0, r: 3 }}
+                                                                                activeDot={{
+                                                                                    r: 8,
+                                                                                    fill: avgColor,
+                                                                                    stroke: '#fff',
+                                                                                    strokeWidth: 3
+                                                                                }}
+                                                                            />
+                                                                        </AreaChart>
+                                                                    </ResponsiveContainer>
+                                                                ) : (
+                                                                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                                )}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })}
+
+                                            {/* Panel Chart - isError Events (Error Tracking) */}
+                                            {/* Show combined or separate based on panel.type */}
+                                            {pErrorEventKeys.length > 0 && panel.type === 'combined' && (
+                                                <Card className="border border-red-200/60 dark:border-red-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
                                                     <CardHeader className="pb-2">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
                                                                 <AlertTriangle className="w-4 h-4 text-red-500" />
-                                                                <CardTitle className="text-base font-semibold">{errorEventKeyInfo.eventName}</CardTitle>
+                                                                <CardTitle className="text-base font-semibold">Error Event Trends (Combined)</CardTitle>
                                                             </div>
-                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Event</span>
+                                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
                                                         </div>
                                                     </CardHeader>
                                                     <CardContent className="space-y-4">
+                                                        <CollapsibleLegend
+                                                            eventKeys={pErrorEventKeys}
+                                                            events={events}
+                                                            isExpanded={panelLegendExpanded[`${panel.panelId}_error`] || false}
+                                                            onToggle={() => togglePanelLegend(`${panel.panelId}_error`)}
+                                                            maxVisibleItems={4}
+                                                            graphData={pGraphData}
+                                                            selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                        />
                                                         <div className="h-[400px]">
                                                             {pGraphData.length > 0 ? (
                                                                 <ResponsiveContainer width="100%" height="100%">
-                                                                    <AreaChart 
-                                                                        data={pGraphData} 
+                                                                    <AreaChart
+                                                                        data={pGraphData}
                                                                         margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                        onClick={(chartState: any) => {
+                                                                            if (chartState && chartState.activeIndex !== undefined) {
+                                                                                const index = parseInt(chartState.activeIndex);
+                                                                                const dataPoint = pGraphData[index];
+                                                                                if (dataPoint) {
+                                                                                    setPanelPinnedTooltips(prev => ({
+                                                                                        ...prev,
+                                                                                        [`${panel.panelId}_error`]: {
+                                                                                            dataPoint,
+                                                                                            label: chartState.activeLabel || dataPoint.date || ''
+                                                                                        }
+                                                                                    }));
+                                                                                }
+                                                                            }
+                                                                        }}
                                                                     >
                                                                         <defs>
-                                                                            <linearGradient id={`errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
-                                                                                <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
-                                                                            </linearGradient>
-                                                                            <linearGradient id={`errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            {pErrorEventKeys.map((eventKeyInfo, index) => {
+                                                                                const errorColor = ERROR_COLORS[index % ERROR_COLORS.length];
+                                                                                return (
+                                                                                    <linearGradient key={`errorGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                        <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
+                                                                                        <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
+                                                                                    </linearGradient>
+                                                                                );
+                                                                            })}
+                                                                            <linearGradient id={`errorSuccessGrad_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
                                                                                 <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
                                                                                 <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                                                                             </linearGradient>
@@ -6216,39 +6506,264 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             tickLine={false}
                                                                             tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
                                                                         />
-                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={[errorEventKeyInfo]} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                        {/* Error count */}
-                                                                        <Area
-                                                                            type="monotone"
-                                                                            dataKey={`${errorEventKeyInfo.eventKey}_success`}
-                                                                            name={`Errors`}
-                                                                            stroke={errorColor}
-                                                                            strokeWidth={2.5}
-                                                                            fill={`url(#errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
-                                                                            dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
-                                                                            activeDot={{
-                                                                                r: 8,
-                                                                                fill: errorColor,
-                                                                                stroke: '#fff',
-                                                                                strokeWidth: 3
-                                                                            }}
-                                                                        />
-                                                                        {/* Non-error count (OK) */}
-                                                                        <Area
-                                                                            type="monotone"
-                                                                            dataKey={`${errorEventKeyInfo.eventKey}_fail`}
-                                                                            name={`OK`}
-                                                                            stroke="#22c55e"
-                                                                            strokeWidth={2}
-                                                                            fill={`url(#errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
-                                                                            dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
-                                                                            activeDot={{
-                                                                                r: 6,
-                                                                                fill: '#22c55e',
-                                                                                stroke: '#fff',
-                                                                                strokeWidth: 2
-                                                                            }}
-                                                                        />
+                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                        {pErrorEventKeys
+                                                                            .filter(ek => !panelSelectedEventKey[panel.panelId] || ek.eventKey === panelSelectedEventKey[panel.panelId])
+                                                                            .map((eventKeyInfo, idx) => {
+                                                                                const eventKey = eventKeyInfo.eventKey;
+                                                                                const errorColor = ERROR_COLORS[idx % ERROR_COLORS.length];
+                                                                                return (
+                                                                                    <React.Fragment key={`error_frag_${panel.panelId}_${eventKey}`}>
+                                                                                        {/* Error count (distinct colors) */}
+                                                                                        <Area
+                                                                                            type="monotone"
+                                                                                            dataKey={`${eventKey}_success`}
+                                                                                            name={`${eventKeyInfo.eventName} (Errors)`}
+                                                                                            stroke={errorColor}
+                                                                                            strokeWidth={2.5}
+                                                                                            fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
+                                                                                            dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
+                                                                                            activeDot={{
+                                                                                                r: 8,
+                                                                                                fill: errorColor,
+                                                                                                stroke: '#fff',
+                                                                                                strokeWidth: 3,
+                                                                                                cursor: 'pointer',
+                                                                                            }}
+                                                                                        />
+                                                                                        {/* Non-error count (green) */}
+                                                                                        <Area
+                                                                                            type="monotone"
+                                                                                            dataKey={`${eventKey}_fail`}
+                                                                                            name={`${eventKeyInfo.eventName} (OK)`}
+                                                                                            stroke="#22c55e"
+                                                                                            strokeWidth={2}
+                                                                                            fill={`url(#errorSuccessGrad_${panel.panelId})`}
+                                                                                            dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
+                                                                                            activeDot={{
+                                                                                                r: 6,
+                                                                                                fill: '#22c55e',
+                                                                                                stroke: '#fff',
+                                                                                                strokeWidth: 2,
+                                                                                                cursor: 'pointer',
+                                                                                            }}
+                                                                                        />
+                                                                                    </React.Fragment>
+                                                                                );
+                                                                            })}
+                                                                    </AreaChart>
+                                                                </ResponsiveContainer>
+                                                            ) : (
+                                                                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                            )}
+                                                        </div>
+                                                    </CardContent>
+
+                                                    {/* Pinned Tooltip Modal for Error Charts */}
+                                                    {(() => {
+                                                        const pinnedData = panelPinnedTooltips[`${panel.panelId}_error`];
+                                                        if (!pinnedData) return null;
+
+                                                        return (
+                                                            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                                                                <div
+                                                                    className="fixed inset-0 bg-black/30 backdrop-blur-sm"
+                                                                    onClick={() => setPanelPinnedTooltips(prev => {
+                                                                        const updated = { ...prev };
+                                                                        delete updated[`${panel.panelId}_error`];
+                                                                        return updated;
+                                                                    })}
+                                                                />
+                                                                <div className="relative max-w-lg w-full">
+                                                                    <div className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]" onClick={(e) => e.stopPropagation()}>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPanelPinnedTooltips(prev => {
+                                                                                const updated = { ...prev };
+                                                                                delete updated[`${panel.panelId}_error`];
+                                                                                return updated;
+                                                                            })}
+                                                                            className="absolute -top-3 -right-3 z-20 h-10 w-10 rounded-full bg-white dark:bg-slate-800 shadow-xl border-2 border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-500 transition-all duration-200"
+                                                                            aria-label="Close details"
+                                                                        >
+                                                                            <X className="h-5 w-5" />
+                                                                        </button>
+                                                                        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
+                                                                            <div className="h-1.5 w-full bg-gradient-to-r from-red-500 via-orange-500 to-red-600" />
+                                                                            <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                                                <CustomTooltip
+                                                                                    active={true}
+                                                                                    payload={pErrorEventKeys.map((ek, idx) => {
+                                                                                        const event = events.find(e => String(e.eventId) === ek.eventId);
+                                                                                        const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                                        return {
+                                                                                            dataKey: `${ek.eventKey}_count`,
+                                                                                            name: ek.eventName,
+                                                                                            value: pinnedData.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                                                            color,
+                                                                                            payload: pinnedData.dataPoint,
+                                                                                            unit: '',
+                                                                                        };
+                                                                                    })}
+                                                                                    label={pinnedData.label}
+                                                                                    events={events}
+                                                                                    eventKeys={pErrorEventKeys}
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </Card>
+                                            )}
+
+                                            {/* Panel Charts - Separate isError Events (one chart per event) */}
+                                            {pErrorEventKeys.length > 0 && panel.type === 'separate' && pErrorEventKeys.map((errorEventKeyInfo, errorIdx) => {
+                                                const errorEvent = events.find(e => String(e.eventId) === errorEventKeyInfo.eventId);
+                                                const errorColor = errorEvent?.color || ERROR_COLORS[errorIdx % ERROR_COLORS.length];
+
+                                                return (
+                                                    <Card key={`error_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} className="border border-red-200/60 dark:border-red-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                                        <CardHeader className="pb-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                                                                    <CardTitle className="text-base font-semibold">{errorEventKeyInfo.eventName}</CardTitle>
+                                                                </div>
+                                                                <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Event</span>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="space-y-4">
+                                                            <div className="h-[400px]">
+                                                                {pGraphData.length > 0 ? (
+                                                                    <ResponsiveContainer width="100%" height="100%">
+                                                                        <AreaChart
+                                                                            data={pGraphData}
+                                                                            margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                        >
+                                                                            <defs>
+                                                                                <linearGradient id={`errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
+                                                                                    <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
+                                                                                </linearGradient>
+                                                                                <linearGradient id={`errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                                                                                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                                                                                </linearGradient>
+                                                                            </defs>
+                                                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                            <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                            <YAxis
+                                                                                tick={{ fill: '#ef4444', fontSize: 10 }}
+                                                                                axisLine={false}
+                                                                                tickLine={false}
+                                                                                tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                                                            />
+                                                                            <Tooltip content={<CustomTooltip events={events} eventKeys={[errorEventKeyInfo]} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                            {/* Error count */}
+                                                                            <Area
+                                                                                type="monotone"
+                                                                                dataKey={`${errorEventKeyInfo.eventKey}_success`}
+                                                                                name={`Errors`}
+                                                                                stroke={errorColor}
+                                                                                strokeWidth={2.5}
+                                                                                fill={`url(#errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
+                                                                                dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
+                                                                                activeDot={{
+                                                                                    r: 8,
+                                                                                    fill: errorColor,
+                                                                                    stroke: '#fff',
+                                                                                    strokeWidth: 3
+                                                                                }}
+                                                                            />
+                                                                            {/* Non-error count (OK) */}
+                                                                            <Area
+                                                                                type="monotone"
+                                                                                dataKey={`${errorEventKeyInfo.eventKey}_fail`}
+                                                                                name={`OK`}
+                                                                                stroke="#22c55e"
+                                                                                strokeWidth={2}
+                                                                                fill={`url(#errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
+                                                                                dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
+                                                                                activeDot={{
+                                                                                    r: 6,
+                                                                                    fill: '#22c55e',
+                                                                                    stroke: '#fff',
+                                                                                    strokeWidth: 2
+                                                                                }}
+                                                                            />
+                                                                        </AreaChart>
+                                                                    </ResponsiveContainer>
+                                                                ) : (
+                                                                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                                )}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })}
+
+                                            {/* Fallback - All events in one chart if no type separation */}
+                                            {pNormalEventKeys.length === 0 && pAvgEventKeys.length === 0 && pErrorEventKeys.length === 0 && pEventKeys.length > 0 && (
+                                                <Card className="border border-violet-200/60 dark:border-violet-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                                    <CardHeader className="pb-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                                                <Activity className="w-4 h-4 text-purple-500" />
+                                                                Event Trends
+                                                            </CardTitle>
+                                                            <span className="text-xs text-muted-foreground">{pEventKeys.length} events</span>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="space-y-4">
+                                                        <CollapsibleLegend
+                                                            eventKeys={pEventKeys}
+                                                            events={events}
+                                                            isExpanded={panelLegendExpanded[panel.panelId] || false}
+                                                            onToggle={() => togglePanelLegend(panel.panelId)}
+                                                            maxVisibleItems={4}
+                                                            graphData={pGraphData}
+                                                            selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
+                                                            onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
+                                                        />
+                                                        <div className="h-[400px]">
+                                                            {pGraphData.length > 0 ? (
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                        <defs>
+                                                                            {pEventKeys.map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                return (
+                                                                                    <linearGradient key={`fallbackGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`fallbackColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                        <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                        <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                                                                                    </linearGradient>
+                                                                                );
+                                                                            })}
+                                                                        </defs>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                        <Tooltip content={<CustomTooltip events={events} eventKeys={pEventKeys} />} />
+                                                                        {pEventKeys.map((eventKeyInfo, index) => {
+                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            return (
+                                                                                <Area
+                                                                                    key={`fallback_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                                    type="monotone"
+                                                                                    dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                                                    name={eventKeyInfo.eventName}
+                                                                                    stroke={color}
+                                                                                    strokeWidth={2.5}
+                                                                                    fill={`url(#fallbackColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                                    dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                                />
+                                                                            );
+                                                                        })}
                                                                     </AreaChart>
                                                                 </ResponsiveContainer>
                                                             ) : (
@@ -6257,238 +6772,175 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         </div>
                                                     </CardContent>
                                                 </Card>
-                                            );
-                                        })}
+                                            )}
+                                        </>
+                                    );
+                                })()
+                            }
 
-                                        {/* Fallback - All events in one chart if no type separation */}
-                                        {pNormalEventKeys.length === 0 && pAvgEventKeys.length === 0 && pErrorEventKeys.length === 0 && pEventKeys.length > 0 && (
-                                            <Card className="border border-violet-200/60 dark:border-violet-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
-                                                <CardHeader className="pb-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                                            <Activity className="w-4 h-4 text-purple-500" />
-                                                            Event Trends
-                                                        </CardTitle>
-                                                        <span className="text-xs text-muted-foreground">{pEventKeys.length} events</span>
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="space-y-4">
-                                                    <CollapsibleLegend
-                                                        eventKeys={pEventKeys}
-                                                        events={events}
-                                                        isExpanded={panelLegendExpanded[panel.panelId] || false}
-                                                        onToggle={() => togglePanelLegend(panel.panelId)}
-                                                        maxVisibleItems={4}
-                                                        graphData={pGraphData}
-                                                        selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
-                                                        onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
-                                                    />
-                                                    <div className="h-[400px]">
-                                                        {pGraphData.length > 0 ? (
-                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
-                                                                    <defs>
-                                                                        {pEventKeys.map((eventKeyInfo, index) => {
-                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                            return (
-                                                                                <linearGradient key={`fallbackGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`fallbackColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                                                                                </linearGradient>
-                                                                            );
-                                                                        })}
-                                                                    </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
-                                                                    <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pEventKeys} />} />
-                                                                    {pEventKeys.map((eventKeyInfo, index) => {
-                                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                        return (
-                                                                            <Area
-                                                                                key={`fallback_${panel.panelId}_${eventKeyInfo.eventKey}`}
-                                                                                type="monotone"
-                                                                                dataKey={`${eventKeyInfo.eventKey}_count`}
-                                                                                name={eventKeyInfo.eventName}
-                                                                                stroke={color}
-                                                                                strokeWidth={2.5}
-                                                                                fill={`url(#fallbackColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
-                                                                                dot={{ fill: color, strokeWidth: 0, r: 3 }}
-                                                                            />
-                                                                        );
-                                                                    })}
-                                                                </AreaChart>
-                                                            </ResponsiveContainer>
-                                                        ) : (
-                                                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
-                                                        )}
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        )}
-                                    </>
-                                );
-                            })()}
+                            {/* Panel Pie Charts - shown ABOVE Hourly Insights - HIDE for special graphs */}
+                            {
+                                panelGraphType !== 'percentage' && panelGraphType !== 'funnel' &&
+                                panel.visualizations.pieCharts.some(p => p.enabled) && (() => {
+                                    // Process pie data for additional panels - combine duplicates and filter hidden
+                                    const processedPieConfigs = panel.visualizations.pieCharts.filter(p => p.enabled).map((pieConfig) => {
+                                        const pieType = pieConfig.type as 'platform' | 'pos' | 'source';
+                                        const rawPieData = pPieData?.[pieType];
+                                        const combinedPieData = combinePieChartDuplicates(rawPieData || []);
+                                        const showChart = shouldShowPieChart(combinedPieData);
+                                        return { pieConfig, pieType, pieData: combinedPieData, showChart };
+                                    }).filter(item => item.showChart);
 
-                            {/* Panel Pie Charts - shown ABOVE Hourly Insights */}
-                            {panel.visualizations.pieCharts.some(p => p.enabled) && (() => {
-                                // Process pie data for additional panels - combine duplicates and filter hidden
-                                const processedPieConfigs = panel.visualizations.pieCharts.filter(p => p.enabled).map((pieConfig) => {
-                                    const pieType = pieConfig.type as 'platform' | 'pos' | 'source';
-                                    const rawPieData = pPieData?.[pieType];
-                                    const combinedPieData = combinePieChartDuplicates(rawPieData || []);
-                                    const showChart = shouldShowPieChart(combinedPieData);
-                                    return { pieConfig, pieType, pieData: combinedPieData, showChart };
-                                }).filter(item => item.showChart);
+                                    // Dynamic grid based on visible charts
+                                    const gridCols = processedPieConfigs.length === 1 ? 'md:grid-cols-1 max-w-md mx-auto' :
+                                        processedPieConfigs.length === 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' :
+                                            'md:grid-cols-3';
 
-                                // Dynamic grid based on visible charts
-                                const gridCols = processedPieConfigs.length === 1 ? 'md:grid-cols-1 max-w-md mx-auto' :
-                                    processedPieConfigs.length === 2 ? 'md:grid-cols-2 max-w-2xl mx-auto' :
-                                        'md:grid-cols-3';
+                                    return processedPieConfigs.length > 0 ? (
+                                        <div className={cn("grid grid-cols-1 gap-4", gridCols)}>
+                                            {processedPieConfigs.map(({ pieConfig: _pieConfig, pieType, pieData }) => {
+                                                const pieTotal = pieData?.reduce((acc: number, item: any) => acc + item.value, 0) || 0;
 
-                                return processedPieConfigs.length > 0 ? (
-                                    <div className={cn("grid grid-cols-1 gap-4", gridCols)}>
-                                        {processedPieConfigs.map(({ pieConfig: _pieConfig, pieType, pieData }) => {
-                                            const pieTotal = pieData?.reduce((acc: number, item: any) => acc + item.value, 0) || 0;
+                                                const iconMap = {
+                                                    platform: <Activity className="h-4 w-4 text-white" />,
+                                                    pos: <Target className="h-4 w-4 text-white" />,
+                                                    source: <Zap className="h-4 w-4 text-white" />
+                                                };
+                                                const gradientMap = {
+                                                    platform: "from-indigo-500 to-violet-600",
+                                                    pos: "from-emerald-500 to-teal-600",
+                                                    source: "from-amber-500 to-orange-600"
+                                                };
+                                                const borderColorMap = {
+                                                    platform: "border-indigo-100 dark:border-indigo-500/20",
+                                                    pos: "border-emerald-100 dark:border-emerald-500/20",
+                                                    source: "border-amber-100 dark:border-amber-500/20"
+                                                };
+                                                const hoverBgMap = {
+                                                    platform: "hover:bg-indigo-100 dark:hover:bg-indigo-500/20",
+                                                    pos: "hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
+                                                    source: "hover:bg-amber-100 dark:hover:bg-amber-500/20"
+                                                };
 
-                                            const iconMap = {
-                                                platform: <Activity className="h-4 w-4 text-white" />,
-                                                pos: <Target className="h-4 w-4 text-white" />,
-                                                source: <Zap className="h-4 w-4 text-white" />
-                                            };
-                                            const gradientMap = {
-                                                platform: "from-indigo-500 to-violet-600",
-                                                pos: "from-emerald-500 to-teal-600",
-                                                source: "from-amber-500 to-orange-600"
-                                            };
-                                            const borderColorMap = {
-                                                platform: "border-indigo-100 dark:border-indigo-500/20",
-                                                pos: "border-emerald-100 dark:border-emerald-500/20",
-                                                source: "border-amber-100 dark:border-amber-500/20"
-                                            };
-                                            const hoverBgMap = {
-                                                platform: "hover:bg-indigo-100 dark:hover:bg-indigo-500/20",
-                                                pos: "hover:bg-emerald-100 dark:hover:bg-emerald-500/20",
-                                                source: "hover:bg-amber-100 dark:hover:bg-amber-500/20"
-                                            };
-
-                                            return (
-                                                <motion.div
-                                                    key={pieType}
-                                                    whileHover={{ scale: 1.02, y: -4 }}
-                                                    transition={{ type: "spring", stiffness: 300 }}
-                                                >
-                                                    <Card className={cn("border-2 overflow-hidden group", borderColorMap[pieType])}>
-                                                        <CardHeader className="pb-2">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-2">
-                                                                    <motion.div
-                                                                        className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", gradientMap[pieType])}
-                                                                        whileHover={{ rotate: 15 }}
-                                                                    >
-                                                                        {iconMap[pieType]}
-                                                                    </motion.div>
-                                                                    <CardTitle className="text-sm font-semibold text-foreground capitalize">{pieType}</CardTitle>
+                                                return (
+                                                    <motion.div
+                                                        key={pieType}
+                                                        whileHover={{ scale: 1.02, y: -4 }}
+                                                        transition={{ type: "spring", stiffness: 300 }}
+                                                    >
+                                                        <Card className={cn("border-2 overflow-hidden group", borderColorMap[pieType])}>
+                                                            <CardHeader className="pb-2">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <motion.div
+                                                                            className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", gradientMap[pieType])}
+                                                                            whileHover={{ rotate: 15 }}
+                                                                        >
+                                                                            {iconMap[pieType]}
+                                                                        </motion.div>
+                                                                        <CardTitle className="text-sm font-semibold text-foreground capitalize">{pieType}</CardTitle>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        {pieData?.length > 0 && (
+                                                                            <>
+                                                                                <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                                                                                    {pieData.length} types
+                                                                                </span>
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    className={cn("h-7 w-7", hoverBgMap[pieType])}
+                                                                                    onClick={() => openExpandedPie(pieType, pieType.charAt(0).toUpperCase() + pieType.slice(1), pieData)}
+                                                                                >
+                                                                                    <Maximize2 className="h-3.5 w-3.5" />
+                                                                                </Button>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-2">
-                                                                    {pieData?.length > 0 && (
-                                                                        <>
-                                                                            <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                                                                                {pieData.length} types
-                                                                            </span>
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className={cn("h-7 w-7", hoverBgMap[pieType])}
-                                                                                onClick={() => openExpandedPie(pieType, pieType.charAt(0).toUpperCase() + pieType.slice(1), pieData)}
-                                                                            >
-                                                                                <Maximize2 className="h-3.5 w-3.5" />
-                                                                            </Button>
-                                                                        </>
+                                                            </CardHeader>
+                                                            <CardContent>
+                                                                <div className="h-48">
+                                                                    {pieData?.length > 0 ? (
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <PieChart>
+                                                                                <Pie
+                                                                                    data={pieData}
+                                                                                    cx="50%"
+                                                                                    cy="45%"
+                                                                                    innerRadius={30}
+                                                                                    outerRadius={55}
+                                                                                    paddingAngle={4}
+                                                                                    dataKey="value"
+                                                                                    strokeWidth={2}
+                                                                                    stroke="rgba(255,255,255,0.8)"
+                                                                                    isAnimationActive={false}
+                                                                                    animationDuration={0}
+                                                                                >
+                                                                                    {pieData.map((_: any, index: number) => (
+                                                                                        <Cell
+                                                                                            key={`cell-${index}`}
+                                                                                            fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                                                        />
+                                                                                    ))}
+                                                                                </Pie>
+                                                                                <Tooltip content={<PieTooltip totalValue={pieTotal} category={pieType} />} />
+                                                                                <Legend
+                                                                                    iconType="circle"
+                                                                                    iconSize={8}
+                                                                                    layout="horizontal"
+                                                                                    verticalAlign="bottom"
+                                                                                    wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                                                />
+                                                                            </PieChart>
+                                                                        </ResponsiveContainer>
+                                                                    ) : (
+                                                                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                                            {iconMap[pieType]}
+                                                                            <span className="text-sm mt-2">No data</span>
+                                                                        </div>
                                                                     )}
                                                                 </div>
-                                                            </div>
-                                                        </CardHeader>
-                                                        <CardContent>
-                                                            <div className="h-48">
-                                                                {pieData?.length > 0 ? (
-                                                                    <ResponsiveContainer width="100%" height="100%">
-                                                                        <PieChart>
-                                                                            <Pie
-                                                                                data={pieData}
-                                                                                cx="50%"
-                                                                                cy="45%"
-                                                                                innerRadius={30}
-                                                                                outerRadius={55}
-                                                                                paddingAngle={4}
-                                                                                dataKey="value"
-                                                                                strokeWidth={2}
-                                                                                stroke="rgba(255,255,255,0.8)"
-                                                                                isAnimationActive={false}
-                                                                                animationDuration={0}
-                                                                            >
-                                                                                {pieData.map((_: any, index: number) => (
-                                                                                    <Cell
-                                                                                        key={`cell-${index}`}
-                                                                                        fill={PIE_COLORS[index % PIE_COLORS.length]}
-                                                                                    />
-                                                                                ))}
-                                                                            </Pie>
-                                                                            <Tooltip content={<PieTooltip totalValue={pieTotal} category={pieType} />} />
-                                                                            <Legend
-                                                                                iconType="circle"
-                                                                                iconSize={8}
-                                                                                layout="horizontal"
-                                                                                verticalAlign="bottom"
-                                                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                                                                            />
-                                                                        </PieChart>
-                                                                    </ResponsiveContainer>
-                                                                ) : (
-                                                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                                                        {iconMap[pieType]}
-                                                                        <span className="text-sm mt-2">No data</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </CardContent>
-                                                    </Card>
-                                                </motion.div>
-                                            );
-                                        })}
-                                    </div>
-                                ) : null;
-                            })()}
+                                                            </CardContent>
+                                                        </Card>
+                                                    </motion.div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : null;
+                                })()
+                            }
 
                             {/* Panel Hourly Stats Card - shown BELOW Pie Charts for ≤7 day ranges when enabled */}
-                            {isHourly && pGraphData.length > 0 && panelConfig?.showHourlyStats !== false && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.3 * (panelIndex + 1) }}
-                                >
-                                    <HourlyStatsCard graphData={pGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
-                                </motion.div>
-                            )}
+                            {
+                                isHourly && pGraphData.length > 0 && panelConfig?.showHourlyStats !== false &&
+                                panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 0.3 * (panelIndex + 1) }}
+                                    >
+                                        <HourlyStatsCard graphData={pGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
+                                    </motion.div>
+                                )
+                            }
                         </motion.div>
                     );
                 })}
 
                 {/* Expanded Pie Chart Modal */}
-                <ExpandedPieChartModal 
-                    open={pieModalOpen} 
+                <ExpandedPieChartModal
+                    open={pieModalOpen}
                     onClose={() => {
                         setSearchParams(prev => {
                             const next = new URLSearchParams(prev as any);
                             next.delete('expandedPie');
                             return next;
                         });
-                    }} 
+                    }}
                     pieData={expandedPie}
                 />
-            </motion.div>
+            </motion.div >
         </>
     );
 }
