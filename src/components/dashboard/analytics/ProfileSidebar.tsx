@@ -262,22 +262,57 @@ export function ProfileSidebar({
 
                         return (
                             <div key={profile.profileId} className="relative group">
+                                {/* Admin Delete Button - Positioned absolutely outside button */}
+                                {isAdmin && (
+                                    <div className="absolute top-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 hover:bg-red-100 dark:hover:bg-red-500/20"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <MoreVertical className="h-3 w-3" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-40">
+                                                <DropdownMenuItem
+                                                    className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-500/20"
+                                                    onClick={(e) => handleDeleteClick(e, profile)}
+                                                >
+                                                    <Trash2 className="h-3 w-3 mr-2" />
+                                                    Delete Profile
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                )}
+                                
                                 <button
                                     onClick={() => handleSelectProfile(profile.profileId)}
                                     className={cn(
-                                        "w-full text-left p-2.5 rounded-lg",
+                                        "w-full text-left p-2.5 rounded-lg relative",
                                         isSelected
                                             ? "bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-500/20 dark:to-indigo-500/15 border-[3px] border-purple-500 dark:border-purple-400 shadow-lg shadow-purple-500/20"
                                             : "bg-white/80 dark:bg-slate-800/70 border-[2px] border-purple-300/60 dark:border-purple-500/30 hover:border-purple-400 dark:hover:border-purple-500/50 hover:shadow-md"
                                     )}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className={cn(
-                                            "font-medium text-sm truncate pr-8",
-                                            isSelected ? "text-purple-900 dark:text-purple-100" : "text-gray-900 dark:text-gray-100"
-                                        )}>
-                                            {profile.profileName}
-                                        </span>
+                                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                            <span className={cn(
+                                                "font-medium text-sm truncate",
+                                                isSelected ? "text-purple-900 dark:text-purple-100" : "text-gray-900 dark:text-gray-100"
+                                            )}>
+                                                {profile.profileName}
+                                            </span>
+                                            {/* API Badge */}
+                                            {profile.panels?.[0]?.filterConfig?.isApiEvent === true && (
+                                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-sm flex-shrink-0">
+                                                    API
+                                                </span>
+                                            )}
+                                        </div>
                                         {isSelected && (
                                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
                                         )}
@@ -288,31 +323,6 @@ export function ProfileSidebar({
                                         <span>{stats.totalEvents} events</span>
                                     </div>
                                 </button>
-                                
-                                {/* Admin Delete Button - Fixed positioning without duplicate wrapper */}
-                                {isAdmin && (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-500/20 z-10"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
-                                                <MoreVertical className="h-3 w-3" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-40">
-                                            <DropdownMenuItem
-                                                className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-500/20"
-                                                onClick={(e) => handleDeleteClick(e, profile)}
-                                            >
-                                                <Trash2 className="h-3 w-3 mr-2" />
-                                                Delete Profile
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                )}
 
                                 {/* Panel Navigation Tree - Only show for selected profile */}
                                 {isSelected && profile.panels && profile.panels.length > 0 && onJumpToPanel && panelTreeExpanded && (

@@ -307,13 +307,15 @@ const __LeftSidebarNav = ({
     panels,
     activePanelId,
     onJumpToPanel,
-    panelStats
+    panelStats,
+    isMainPanelApi
 }: {
     profileName: string;
-    panels: Array<{ panelId: string; panelName: string; chartType?: string; }>;
+    panels: Array<{ panelId: string; panelName: string; chartType?: string; filterConfig?: { isApiEvent?: boolean; }; }>;
     activePanelId: string | null;
     onJumpToPanel: (panelId: string) => void;
     panelStats?: Record<string, { total: number; success: number; }>;
+    isMainPanelApi?: boolean;
 }) => {
     const [collapsed, setCollapsed] = useState(false);
 
@@ -344,7 +346,15 @@ const __LeftSidebarNav = ({
                                     </div>
                                     <div className="truncate">
                                         <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Configuration</p>
-                                        <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{profileName}</h3>
+                                        <div className="flex items-center gap-1.5">
+                                            <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{profileName}</h3>
+                                            {/* API Event Indicator in Sidebar Profile Name */}
+                                            {isMainPanelApi && (
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-sm flex-shrink-0">
+                                                    API
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -410,7 +420,7 @@ const __LeftSidebarNav = ({
                                                         {panel.panelName || `Panel ${index + 1}`}
                                                     </span>
                                                     {/* API Event Indicator in Sidebar */}
-                                                    {(panel as any).filterConfig?.isApiEvent && (
+                                                    {panel.filterConfig?.isApiEvent === true && (
                                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-sm">
                                                             API
                                                         </span>
@@ -1539,6 +1549,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [_activePanelId, setActivePanelId] = useState<string | null>(null);
     const [mainLegendExpanded, setMainLegendExpanded] = useState(false);
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
+    const [overlaySelectedEventKey, setOverlaySelectedEventKey] = useState<string | null>(null); // Independent selection for 8-Day Overlay
+    const [errorSelectedEventKey, setErrorSelectedEventKey] = useState<string | null>(null); // Independent selection for Error Event Tracking
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
     const [panelSelectedEventKey, setPanelSelectedEventKey] = useState<Record<string, string | null>>({});
     const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -1566,7 +1578,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const initialLoadComplete = useRef<boolean>(false);
     
     // Filter panel collapse state - collapsed by default (main dashboard only)
-    const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(true);
+    const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(false); // Default to expanded so API filters are visible
     
     // Panel-specific filter collapse states - collapsed by default for new panels
     const [panelFiltersCollapsed, setPanelFiltersCollapsed] = useState<Record<string, boolean>>({});
@@ -1582,19 +1594,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         }
     }, [profile?.panels]);
     
-    // Select first event by default when in overlay mode
-    useEffect(() => {
-        const mainPanelId = profile?.panels?.[0]?.panelId;
-        const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-        const showingOverlay = isHourly && mainChartType === 'deviation';
-        
-        if (showingOverlay && eventKeys.length > 0 && !selectedEventKey) {
-            const firstNormalEvent = eventKeys.find(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
-            if (firstNormalEvent) {
-                setSelectedEventKey(firstNormalEvent.eventKey);
-            }
-        }
-    }, [isHourly, panelChartType, profile?.panels, eventKeys, selectedEventKey]);
+    // Note: Auto-selection disabled for 8-Day Overlay
+    // Show all events by default to prevent empty graphs
+    // User can click legend to filter specific events
 
     // Function to jump to a panel (prepared for future use)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1629,6 +1631,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Function to handle event click in legend - toggle selection
     const handleEventClick = useCallback((eventKey: string) => {
         setSelectedEventKey(prev => prev === eventKey ? null : eventKey);
+    }, []);
+
+    // Function to handle event click in 8-Day Overlay legend - independent selection
+    const handleOverlayEventClick = useCallback((eventKey: string) => {
+        setOverlaySelectedEventKey(prev => prev === eventKey ? null : eventKey);
+    }, []);
+
+    // Function to handle event click in Error Event Tracking legend - independent selection
+    const handleErrorEventClick = useCallback((eventKey: string) => {
+        setErrorSelectedEventKey(prev => prev === eventKey ? null : eventKey);
     }, []);
 
     // Function to handle graph point click - select event and scroll to legend (used only from pills now)
@@ -2126,21 +2138,28 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Auto-select first event when eventKeys change (default to showing only first event)
     useEffect(() => {
         if (eventKeys.length > 0 && !selectedEventKey) {
+            console.log('🎯 Auto-selecting first event:', eventKeys[0].eventKey);
             setSelectedEventKey(eventKeys[0].eventKey);
         }
-    }, [eventKeys, selectedEventKey]);
+    }, [eventKeys]); // Remove selectedEventKey from deps to ensure it always checks
     
     // Auto-select first event for each panel when their eventKeys change
     useEffect(() => {
         panelsDataMap.forEach((panelData, panelId) => {
             if (panelData.eventKeys && panelData.eventKeys.length > 0 && !panelSelectedEventKey[panelId]) {
+                console.log(`🎯 Auto-selecting first event for panel ${panelId}:`, panelData.eventKeys[0].eventKey);
                 setPanelSelectedEventKey(prev => ({
                     ...prev,
                     [panelId]: panelData.eventKeys![0].eventKey
                 }));
             }
         });
-    }, [panelsDataMap, panelSelectedEventKey]);
+    }, [panelsDataMap]); // Remove panelSelectedEventKey from deps to ensure it always checks
+
+    // Note: We don't auto-select for Error Event Tracking or 8-Day Overlay
+    // Let all events show by default, users can click legend to filter
+    // This prevents empty graphs when selected event has no data
+
 
     // Function to refresh a single panel's data
     const refreshPanelData = useCallback(async (panelId: string) => {
@@ -2598,8 +2617,23 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const totalFail = graphData.reduce((sum, d) => sum + (d.failCount || 0), 0);
 
     // Dropdown options with indicators for error/avg events
-    const eventOptions = events.map(e => {
-        let label = e.eventName;
+    // For API events, show only API events (isApiEvent === true)
+    // For regular events, show only non-API events (isApiEvent !== true)
+    const mainPanelConfig = profile?.panels?.[0]?.filterConfig;
+    const isMainPanelApi = mainPanelConfig?.isApiEvent === true;
+    
+    console.log('🔍 Main Panel API Check:', { 
+        hasFilterConfig: !!mainPanelConfig, 
+        isApiEvent: mainPanelConfig?.isApiEvent, 
+        isMainPanelApi 
+    });
+    
+    const eventOptions = events
+        .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
+        .map(e => {
+        let label = e.isApiEvent && e.host && e.url
+            ? `${e.host} - ${e.url}`  // API events show host/url
+            : e.eventName;             // Regular events show eventName
         const tags: string[] = [];
         if (e.isErrorEvent === 1) tags.push('[isError]');
         if (e.isAvgEvent === 1) tags.push('[isAvg]');
@@ -2874,13 +2908,19 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     {/* Purple/Pink Gradient Accent Bar */}
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
                     
-                    <CardHeader className="pb-3 relative">
+                    <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
                         <div className="flex items-center justify-between">
                             <CardTitle className="text-lg font-bold flex items-center gap-2">
                                 <span
                                     className="w-2 h-2 rounded-full bg-primary"
                                 />
                                 <span className="font-bold text-lg">Filters</span>
+                                {/* API Event Badge */}
+                                {isMainPanelApi && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md animate-none">
+                                        API
+                                    </span>
+                                )}
                                 {pendingRefresh && (
                                     <span
                                         className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
@@ -2892,7 +2932,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFiltersCollapsed(!filtersCollapsed);
+                                }}
                                 className="h-8 w-8 p-0"
                             >
                                 {filtersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -2901,52 +2944,74 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     </CardHeader>
                     {!filtersCollapsed && (
                         <CardContent>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                                <div
-                                    className="space-y-2"
-                                >
-                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
-                                    <MultiSelectDropdown
-                                        options={platformOptions}
-                                        selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
-                                        onChange={(values) => handleFilterChange('platforms', values)}
-                                        placeholder="Select platforms"
-                                    />
-                                </div>
-                                <div
-                                    className="space-y-2"
-                                >
-                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
-                                    <MultiSelectDropdown
-                                        options={posOptions}
-                                        selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
-                                        onChange={(values) => handleFilterChange('pos', values)}
-                                        placeholder="Select POS"
-                                    />
-                                </div>
-                                <div
-                                    className="space-y-2"
-                                >
-                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
-                                    <MultiSelectDropdown
-                                        options={sourceOptions}
-                                        selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
-                                        onChange={(values) => handleFilterChange('sources', values)}
-                                        placeholder="Select sources"
-                                    />
-                                </div>
-                                <div
-                                    className="space-y-2"
-                                >
-                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Event</Label>
+                            <div className={cn(
+                                "grid gap-3 sm:gap-4",
+                                isMainPanelApi
+                                    ? "grid-cols-1" // API events: only show Events dropdown
+                                    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" // Regular events: all dropdowns
+                            )}>
+                                {/* Only show Platform/POS/Source for non-API events */}
+                                {!isMainPanelApi && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
+                                            <MultiSelectDropdown
+                                                options={platformOptions}
+                                                selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
+                                                onChange={(values) => handleFilterChange('platforms', values)}
+                                                placeholder="Select platforms"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
+                                            <MultiSelectDropdown
+                                                options={posOptions}
+                                                selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
+                                                onChange={(values) => handleFilterChange('pos', values)}
+                                                placeholder="Select POS"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
+                                            <MultiSelectDropdown
+                                                options={sourceOptions}
+                                                selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
+                                                onChange={(values) => handleFilterChange('sources', values)}
+                                                placeholder="Select sources"
+                                            />
+                                        </div>
+                                    </>
+                                )}
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                        {isMainPanelApi ? 'API Events (Host / URL)' : 'Event'}
+                                    </Label>
                                     <MultiSelectDropdown
                                         options={eventOptions}
                                         selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.events || []) : []).map(id => id.toString())}
                                         onChange={(values) => handleFilterChange('events', values)}
-                                        placeholder="Select events"
+                                        placeholder={isMainPanelApi ? "Select API events" : "Select events"}
                                     />
+                                    {/* Show callUrl reference for API events */}
+                                    {isMainPanelApi && profile?.panels?.[0] && panelFiltersState[profile.panels[0].panelId]?.events?.length > 0 && (() => {
+                                        const selectedEvent = events.find(e => e.eventId === panelFiltersState[profile.panels[0].panelId]?.events[0]?.toString());
+                                        return selectedEvent?.callUrl ? (
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                            </p>
+                                        ) : null;
+                                    })()}
                                 </div>
                             </div>
+
+                            {/* API Events Info Banner */}
+                            {isMainPanelApi && (
+                                <div className="mt-4 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
+                                    <p className="text-xs text-muted-foreground">
+                                        <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
+                                    </p>
+                                </div>
+                            )}
 
                             {/* Job ID (sourceStr) Filter - Only shown when data contains sourceStr values */}
                             {availableSourceStrs.length > 0 && (
@@ -3316,8 +3381,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         eventKeys={filteredEventKeys}
                                         eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}  
                                         eventStats={eventStatsForBadges}
-                                        selectedEventKey={selectedEventKey}
-                                        onEventClick={handleEventClick}
+                                        selectedEventKey={overlaySelectedEventKey}
+                                        onEventClick={handleOverlayEventClick}
                                     />
                                 </CardContent>
                             </Card>
@@ -3343,7 +3408,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         <div className="flex-1 min-w-0">
                                             <CardTitle className="text-base md:text-lg flex items-center gap-2">
                                                 {/* API Event Indicator Badge */}
-                                                {profile?.panels?.[0]?.filterConfig?.isApiEvent && (
+                                                {profile?.panels?.[0]?.filterConfig?.isApiEvent === true && (
                                                     <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
                                                         API
                                                     </span>
@@ -4167,8 +4232,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
                                         maxVisibleItems={5}
                                         graphData={graphData}
-                                        selectedEventKey={selectedEventKey}
-                                        onEventClick={handleEventClick}
+                                        selectedEventKey={errorSelectedEventKey}
+                                        onEventClick={handleErrorEventClick}
                                     />
                                 )}
 
@@ -4212,7 +4277,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 />
                                                 {/* For error events: success = error count, fail = non-error count */}
                                                 {errorEventKeys
-                                                    .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                    .filter(ek => !errorSelectedEventKey || ek.eventKey === errorSelectedEventKey)
                                                     .map((eventKeyInfo) => {
                                                     const eventKey = eventKeyInfo.eventKey;
                                                     return (
@@ -4709,8 +4774,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     const pTotalFail = pGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
 
                     // Dropdown options for this panel's filters (with isError/isAvg badges)
-                    const pEventOptions = events.map(e => {
-                        let label = e.eventName;
+                    // For API events, show only API events (isApiEvent === true)
+                    // For regular events, show only non-API events (isApiEvent !== true)
+                    const pEventOptions = events
+                        .filter(e => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                        .map(e => {
+                        let label = e.isApiEvent && e.host && e.url 
+                            ? `${e.host} - ${e.url}`  // API events show host/url
+                            : e.eventName;             // Regular events show eventName
                         const tags: string[] = [];
                         if (e.isErrorEvent === 1) tags.push('[isError]');
                         if (e.isAvgEvent === 1) tags.push('[isAvg]');
@@ -4916,9 +4987,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         </div>
 
                                         {/* Filter Dropdowns Grid */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                        <div className={cn(
+                                            "grid gap-3 sm:gap-4",
+                                            panelConfig?.isApiEvent 
+                                                ? "grid-cols-1" // API events: only show Events dropdown
+                                                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" // Regular events: show all 4 dropdowns
+                                        )}>
                                             <div className="space-y-1.5">
-                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Events</label>
+                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                                                    {panelConfig?.isApiEvent ? 'API Events (Host / URL)' : 'Events'}
+                                                </label>
                                                 <MultiSelectDropdown
                                                     options={pEventOptions}
                                                     selected={currentPanelFilters.events.map(id => id.toString())}
@@ -4926,46 +5004,68 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
                                                         updatePanelFilter(panel.panelId, 'events', numericValues);
                                                     }}
-                                                    placeholder="Select events"
+                                                    placeholder={panelConfig?.isApiEvent ? "Select API events" : "Select events"}
                                                 />
+                                                {/* Show callUrl reference for API events */}
+                                                {panelConfig?.isApiEvent && currentPanelFilters.events.length > 0 && (() => {
+                                                    const selectedEvent = events.find(e => e.eventId === currentPanelFilters.events[0]?.toString());
+                                                    return selectedEvent?.callUrl ? (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                        </p>
+                                                    ) : null;
+                                                })()}
                                             </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
-                                                <MultiSelectDropdown
-                                                    options={pPlatformOptions}
-                                                    selected={currentPanelFilters.platforms.map(id => id.toString())}
-                                                    onChange={(values) => {
-                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                        updatePanelFilter(panel.panelId, 'platforms', numericValues);
-                                                    }}
-                                                    placeholder="Select platforms"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
-                                                <MultiSelectDropdown
-                                                    options={pPosOptions}
-                                                    selected={currentPanelFilters.pos.map(id => id.toString())}
-                                                    onChange={(values) => {
-                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                        updatePanelFilter(panel.panelId, 'pos', numericValues);
-                                                    }}
-                                                    placeholder="Select POS"
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
-                                                <MultiSelectDropdown
-                                                    options={pSourceOptions}
-                                                    selected={currentPanelFilters.sources.map(id => id.toString())}
-                                                    onChange={(values) => {
-                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                        updatePanelFilter(panel.panelId, 'sources', numericValues);
-                                                    }}
-                                                    placeholder="Select sources"
-                                                />
-                                            </div>
+                                            {/* Only show Platform/POS/Source for non-API events */}
+                                            {!panelConfig?.isApiEvent && (
+                                                <>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
+                                                        <MultiSelectDropdown
+                                                            options={pPlatformOptions}
+                                                            selected={currentPanelFilters.platforms.map(id => id.toString())}
+                                                            onChange={(values) => {
+                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                updatePanelFilter(panel.panelId, 'platforms', numericValues);
+                                                            }}
+                                                            placeholder="Select platforms"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
+                                                        <MultiSelectDropdown
+                                                            options={pPosOptions}
+                                                            selected={currentPanelFilters.pos.map(id => id.toString())}
+                                                            onChange={(values) => {
+                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                updatePanelFilter(panel.panelId, 'pos', numericValues);
+                                                            }}
+                                                            placeholder="Select POS"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
+                                                        <MultiSelectDropdown
+                                                            options={pSourceOptions}
+                                                            selected={currentPanelFilters.sources.map(id => id.toString())}
+                                                            onChange={(values) => {
+                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                updatePanelFilter(panel.panelId, 'sources', numericValues);
+                                                            }}
+                                                            placeholder="Select sources"
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
+                                        {/* API Events Info Banner */}
+                                        {panelConfig?.isApiEvent && (
+                                            <div className="mt-3 p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
+                                                <p className="text-xs text-muted-foreground">
+                                                    <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
+                                                </p>
+                                            </div>
+                                        )}
                                         </>
                                         )}
                                     </div>
