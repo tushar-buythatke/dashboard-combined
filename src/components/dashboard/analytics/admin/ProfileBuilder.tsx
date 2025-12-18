@@ -76,18 +76,18 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
 
         setLoadingJobIds(true);
         try {
-            // Fetch sample data with panel's current filters
+            // Fetch sample data - for API events, pass empty arrays for platform/pos/source
             const response = await apiService.getGraphData(
                 panel.filters.events,
-                panel.filters.platforms.length > 0 ? panel.filters.platforms : [0],
-                panel.filters.pos.length > 0 ? panel.filters.pos : [],
-                panel.filters.sources.length > 0 ? panel.filters.sources : [],
+                panel.isApiEvent ? [] : (panel.filters.platforms.length > 0 ? panel.filters.platforms : [0]),
+                panel.isApiEvent ? [] : panel.filters.pos,
+                panel.isApiEvent ? [] : panel.filters.sources,
                 panel.dateRange.from,
                 panel.dateRange.to,
                 panel.isApiEvent || false
             );
 
-            // Extract unique sourceStr values (Job IDs)
+            // Extract unique sourceStr values (Job IDs), status codes, and cache statuses
             if (response?.data) {
                 const jobIds = new Set<string>();
                 const statusCodes = new Set<string>();
@@ -99,8 +99,17 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         jobIds.add(record.sourceStr);
                     }
                     
-                    // Extract status codes and cache statuses from API event keys
+                    // For API events, extract status and cacheStatus directly from record fields
                     if (panel.isApiEvent) {
+                        // Direct field extraction (API response format)
+                        if (record.status !== undefined && record.status !== null) {
+                            statusCodes.add(String(record.status));
+                        }
+                        if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                            cacheStatuses.add(record.cacheStatus);
+                        }
+                        
+                        // Also check key patterns for processed data format
                         Object.keys(record).forEach(key => {
                             const statusMatch = key.match(/_status_(\d+)_/);
                             const cacheMatch = key.match(/_cache_([^_]+)_/);
@@ -1095,7 +1104,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                             <div className="space-y-2">
                                                                 <Label className="text-xs font-medium">Parent Events (Multiple)</Label>
                                                                 <MultiSelectDropdown
-                                                                    options={availableEvents.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                                                    options={availableEvents
+                                                                        .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                        .map(e => ({ 
+                                                                            value: e.eventId, 
+                                                                            label: e.isApiEvent && e.host && e.url 
+                                                                                ? `${e.host} - ${e.url}` 
+                                                                                : e.eventName 
+                                                                        }))}
                                                                     selected={(panel as any).percentageConfig?.parentEvents || []}
                                                                     onChange={(values) => {
                                                                         setPanels(prev => prev.map(p => 
@@ -1113,7 +1129,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                             <div className="space-y-2">
                                                                 <Label className="text-xs font-medium">Child Events (Multiple)</Label>
                                                                 <MultiSelectDropdown
-                                                                    options={availableEvents.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                                                    options={availableEvents
+                                                                        .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                        .map(e => ({ 
+                                                                            value: e.eventId, 
+                                                                            label: e.isApiEvent && e.host && e.url 
+                                                                                ? `${e.host} - ${e.url}` 
+                                                                                : e.eventName 
+                                                                        }))}
                                                                     selected={(panel as any).percentageConfig?.childEvents || []}
                                                                     onChange={(values) => {
                                                                         setPanels(prev => prev.map(p => 
@@ -1132,10 +1155,31 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         {/* API Event filters for status code and cache status */}
                                                         {panel.isApiEvent && (
                                                             <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
-                                                                <Label className="text-xs font-medium mb-3 block flex items-center gap-2">
-                                                                    <Activity className="h-3 w-3" />
-                                                                    API Filters (Optional)
-                                                                </Label>
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <Label className="text-xs font-medium flex items-center gap-2">
+                                                                        <Activity className="h-3 w-3" />
+                                                                        API Filters (Optional)
+                                                                    </Label>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        onClick={() => fetchAvailableJobIds(panel.panelId)}
+                                                                        disabled={loadingJobIds || panel.filters.events.length === 0}
+                                                                        className="h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-300"
+                                                                    >
+                                                                        {loadingJobIds ? (
+                                                                            <>
+                                                                                <RefreshCw className="mr-1 h-3 w-3 animate-spin" />
+                                                                                Loading...
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <RefreshCw className="mr-1 h-3 w-3" />
+                                                                                Fetch API Filters
+                                                                            </>
+                                                                        )}
+                                                                    </Button>
+                                                                </div>
                                                                 <div className="grid grid-cols-2 gap-3">
                                                                     <div className="space-y-1.5">
                                                                         <Label className="text-xs text-muted-foreground">Status Codes</Label>
@@ -1158,13 +1202,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                         : p
                                                                                 ));
                                                                             }}
-                                                                            placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Fetch data to load options"}
+                                                                            placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Click 'Fetch API Filters'"}
                                                                             className="h-8"
+                                                                            disabled={availableStatusCodes.length === 0}
                                                                         />
                                                                         <p className="text-xs text-muted-foreground">
                                                                             {availableStatusCodes.length > 0 
                                                                                 ? `${availableStatusCodes.length} codes available` 
-                                                                                : 'Click "Fetch Job IDs" to load'}
+                                                                                : 'Click "Fetch API Filters" to load'}
                                                                         </p>
                                                                     </div>
                                                                     <div className="space-y-1.5">
@@ -1188,13 +1233,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                         : p
                                                                                 ));
                                                                             }}
-                                                                            placeholder={availableCacheStatuses.length > 0 ? "Select cache statuses" : "Fetch data to load options"}
+                                                                            placeholder={availableCacheStatuses.length > 0 ? "Select cache statuses" : "Click 'Fetch API Filters'"}
                                                                             className="h-8"
+                                                                            disabled={availableCacheStatuses.length === 0}
                                                                         />
                                                                         <p className="text-xs text-muted-foreground">
                                                                             {availableCacheStatuses.length > 0 
                                                                                 ? `${availableCacheStatuses.length} statuses available` 
-                                                                                : 'Click "Fetch Job IDs" to load'}
+                                                                                : 'Click "Fetch API Filters" to load'}
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -1222,7 +1268,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         value={stage.eventId || ''}
                                                                         onChange={(e) => {
                                                                             const eventId = e.target.value;
-                                                                            const eventName = availableEvents.find(ev => ev.eventId === eventId)?.eventName || '';
+                                                                            const selectedEvent = availableEvents.find(ev => ev.eventId === eventId);
+                                                                            const eventName = selectedEvent?.isApiEvent && selectedEvent?.host && selectedEvent?.url
+                                                                                ? `${selectedEvent.host} - ${selectedEvent.url}`
+                                                                                : selectedEvent?.eventName || '';
                                                                             setPanels(prev => prev.map(p => {
                                                                                 if (p.panelId === panel.panelId) {
                                                                                     const stages = [...((p as any).funnelConfig?.stages || [])];
@@ -1235,8 +1284,12 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         className="flex-1 h-8 px-2 rounded border text-xs bg-white dark:bg-slate-700 border-blue-300 dark:border-blue-600"
                                                                     >
                                                                         <option value="">Select event</option>
-                                                                        {availableEvents.map(e => (
-                                                                            <option key={e.eventId} value={e.eventId}>{e.eventName}</option>
+                                                                        {availableEvents
+                                                                            .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                            .map(e => (
+                                                                            <option key={e.eventId} value={e.eventId}>
+                                                                                {e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName}
+                                                                            </option>
                                                                         ))}
                                                                     </select>
                                                                     <Button
@@ -1282,7 +1335,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-500/30">
                                                             <Label className="text-xs font-medium mb-2 block">Final Stage (Multiple Events)</Label>
                                                             <MultiSelectDropdown
-                                                                options={availableEvents.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                                                options={availableEvents
+                                                                    .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                    .map(e => ({ 
+                                                                        value: e.eventId, 
+                                                                        label: e.isApiEvent && e.host && e.url 
+                                                                            ? `${e.host} - ${e.url}` 
+                                                                            : e.eventName 
+                                                                    }))}
                                                                 selected={(panel as any).funnelConfig?.multipleChildEvents || []}
                                                                 onChange={(values) => {
                                                                     setPanels(prev => prev.map(p => 
