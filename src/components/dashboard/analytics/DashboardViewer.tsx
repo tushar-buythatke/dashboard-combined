@@ -1645,6 +1645,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [autoRefreshMinutes, setAutoRefreshMinutes] = useState<number>(0);
     const [pendingRefresh, setPendingRefresh] = useState<boolean>(false);
     const initialLoadComplete = useRef<boolean>(false);
+    const lastAutoLoadedProfileId = useRef<string | null>(null);
 
     // Filter panel collapse state - collapsed by default (main dashboard only)
     const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(false); // Default to expanded so API filters are visible
@@ -1658,6 +1659,358 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         const mainPanelConfig = profile?.panels?.[0]?.filterConfig;
         return mainPanelConfig?.isApiEvent === true;
     }, [profile?.panels]);
+
+    // API Performance Metrics filtered data
+    const filteredApiData = useMemo(() => {
+        if (!isMainPanelApi || !profile?.panels[0]) return graphData;
+        
+        const mainPanelId = profile.panels[0].panelId;
+        const mainPanelFilters = panelFiltersState[mainPanelId] || {};
+        const statusCodes = (mainPanelFilters.percentageStatusCodes || []).filter(Boolean);
+        const cacheStatuses = (mainPanelFilters.percentageCacheStatus || []).filter(Boolean);
+        const hasStatusFilter = statusCodes.length > 0;
+        const hasCacheFilter = cacheStatuses.length > 0;
+        
+        if (!hasStatusFilter && !hasCacheFilter) return graphData;
+        
+        return graphData.map(record => {
+            const filteredRecord = { ...record };
+            
+            eventKeys.forEach(eventKeyInfo => {
+                const eventKey = eventKeyInfo.eventKey;
+                
+                let filteredCount = 0;
+                let filteredAvgServerToUser = 0;
+                let filteredAvgServerToCloud = 0;
+                let filteredAvgCloudToUser = 0;
+                let filteredAvgBytesOut = 0;
+                let filteredAvgBytesIn = 0;
+                let filterCount = 0;
+                
+                if (hasStatusFilter && hasCacheFilter) {
+                    // Both filters: combine status AND cache
+                    statusCodes.forEach((status) => {
+                        cacheStatuses.forEach((cache) => {
+                            const combinedKey = `${eventKey}_status_${status}_cache_${cache}`;
+                            const countKey = `${combinedKey}_count`;
+                            const avgServerToUserKey = `${combinedKey}_avgServerToUser`;
+                            const avgServerToCloudKey = `${combinedKey}_avgServerToCloud`;
+                            const avgCloudToUserKey = `${combinedKey}_avgCloudToUser`;
+                            const avgBytesOutKey = `${combinedKey}_avgBytesOut`;
+                            const avgBytesInKey = `${combinedKey}_avgBytesIn`;
+                            
+                            const count = Number(record[countKey] || 0);
+                            if (count > 0) {
+                                filteredCount += count;
+                                filteredAvgServerToUser += Number(record[avgServerToUserKey] || 0) * count;
+                                filteredAvgServerToCloud += Number(record[avgServerToCloudKey] || 0) * count;
+                                filteredAvgCloudToUser += Number(record[avgCloudToUserKey] || 0) * count;
+                                filteredAvgBytesOut += Number(record[avgBytesOutKey] || 0) * count;
+                                filteredAvgBytesIn += Number(record[avgBytesInKey] || 0) * count;
+                                filterCount += count;
+                            }
+                        });
+                    });
+                } else if (hasStatusFilter) {
+                    statusCodes.forEach((status) => {
+                        const statusKey = `${eventKey}_status_${status}`;
+                        const countKey = `${statusKey}_count`;
+                        const avgServerToUserKey = `${statusKey}_avgServerToUser`;
+                        const avgServerToCloudKey = `${statusKey}_avgServerToCloud`;
+                        const avgCloudToUserKey = `${statusKey}_avgCloudToUser`;
+                        const avgBytesOutKey = `${statusKey}_avgBytesOut`;
+                        const avgBytesInKey = `${statusKey}_avgBytesIn`;
+                        
+                        const count = Number(record[countKey] || 0);
+                        if (count > 0) {
+                            filteredCount += count;
+                            filteredAvgServerToUser += Number(record[avgServerToUserKey] || 0) * count;
+                            filteredAvgServerToCloud += Number(record[avgServerToCloudKey] || 0) * count;
+                            filteredAvgCloudToUser += Number(record[avgCloudToUserKey] || 0) * count;
+                            filteredAvgBytesOut += Number(record[avgBytesOutKey] || 0) * count;
+                            filteredAvgBytesIn += Number(record[avgBytesInKey] || 0) * count;
+                            filterCount += count;
+                        }
+                    });
+                } else if (hasCacheFilter) {
+                    cacheStatuses.forEach((cache) => {
+                        const cacheKey = `${eventKey}_cache_${cache}`;
+                        const countKey = `${cacheKey}_count`;
+                        const avgServerToUserKey = `${cacheKey}_avgServerToUser`;
+                        const avgServerToCloudKey = `${cacheKey}_avgServerToCloud`;
+                        const avgCloudToUserKey = `${cacheKey}_avgCloudToUser`;
+                        const avgBytesOutKey = `${cacheKey}_avgBytesOut`;
+                        const avgBytesInKey = `${cacheKey}_avgBytesIn`;
+                        
+                        const count = Number(record[countKey] || 0);
+                        if (count > 0) {
+                            filteredCount += count;
+                            filteredAvgServerToUser += Number(record[avgServerToUserKey] || 0) * count;
+                            filteredAvgServerToCloud += Number(record[avgServerToCloudKey] || 0) * count;
+                            filteredAvgCloudToUser += Number(record[avgCloudToUserKey] || 0) * count;
+                            filteredAvgBytesOut += Number(record[avgBytesOutKey] || 0) * count;
+                            filteredAvgBytesIn += Number(record[avgBytesInKey] || 0) * count;
+                            filterCount += count;
+                        }
+                    });
+                }
+                
+                // Calculate weighted averages - only update if we have filtered data
+                if (filterCount > 0) {
+                    filteredRecord[`${eventKeyInfo.eventKey}_count`] = filteredCount;
+                    filteredRecord[`${eventKeyInfo.eventKey}_avgServerToUser`] = filteredAvgServerToUser / filterCount;
+                    filteredRecord[`${eventKeyInfo.eventKey}_avgServerToCloud`] = filteredAvgServerToCloud / filterCount;
+                    filteredRecord[`${eventKeyInfo.eventKey}_avgCloudToUser`] = filteredAvgCloudToUser / filterCount;
+                    filteredRecord[`${eventKeyInfo.eventKey}_avgBytesOut`] = filteredAvgBytesOut / filterCount;
+                    filteredRecord[`${eventKeyInfo.eventKey}_avgBytesIn`] = filteredAvgBytesIn / filterCount;
+                }
+                // If no filtered data, keep original values (don't zero them out)
+            });
+            
+            return filteredRecord;
+        });
+    }, [graphData, eventKeys, events, isMainPanelApi, profile, panelFiltersState]);
+
+    const panelApiPerformanceSeriesMap = useMemo(() => {
+        const map: Record<string, any[]> = {};
+        if (!profile?.panels || profile.panels.length <= 1) return map;
+
+        const buildFromRaw = (rawData: any[], statusCodes: string[], cacheStatuses: string[], isHourlyBucket: boolean) => {
+            const hasStatus = statusCodes.length > 0;
+            const hasCache = cacheStatuses.length > 0;
+            const timeMap = new Map<string, any>();
+            const usedKeys = new Set<string>();
+
+            rawData.forEach((r: any) => {
+                if (!r?.timestamp) return;
+                const dt = new Date(r.timestamp);
+                const dateKey = isHourlyBucket
+                    ? dt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', hour12: true })
+                    : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                if (!timeMap.has(dateKey)) timeMap.set(dateKey, { date: dateKey, timestamp: r.timestamp });
+                const entry = timeMap.get(dateKey);
+
+                const matchesStatus = !hasStatus || statusCodes.includes(String(r.status));
+                const matchesCache = !hasCache || cacheStatuses.includes(String(r.cacheStatus || 'none'));
+                if (!matchesStatus || !matchesCache) return;
+
+                const eventId = String(r.eventId);
+                const eventConfig = events.find(e => String(e.eventId) === eventId);
+                const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
+                    ? `${eventConfig.host} - ${eventConfig.url}`
+                    : (eventConfig?.eventName || `Event ${eventId}`);
+                const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+                usedKeys.add(eventKey);
+
+                const count = Number(r.count || 0);
+                if (!entry[`${eventKey}_sumCount`]) {
+                    entry[`${eventKey}_count`] = 0;
+                    entry[`${eventKey}_sumCount`] = 0;
+                    entry[`${eventKey}_avgServerToUser_sum`] = 0;
+                    entry[`${eventKey}_avgServerToCloud_sum`] = 0;
+                    entry[`${eventKey}_avgCloudToUser_sum`] = 0;
+                    entry[`${eventKey}_avgBytesOut_sum`] = 0;
+                    entry[`${eventKey}_avgBytesIn_sum`] = 0;
+                }
+
+                const rawServerToUser = Number(r.avgServerToUser || 0);
+                const rawServerToCloud = Number(r.avgServerToCloud || 0);
+                const rawCloudToUser = Number(r.avgCloudToUser || 0);
+                const sumParts = rawServerToCloud + rawCloudToUser;
+                const effectiveServerToUser = rawServerToUser > 0 ? rawServerToUser : (sumParts > 0 ? sumParts : 0);
+
+                entry[`${eventKey}_count`] += count;
+                entry[`${eventKey}_sumCount`] += count;
+                entry[`${eventKey}_avgServerToUser_sum`] += effectiveServerToUser * count;
+                entry[`${eventKey}_avgServerToCloud_sum`] += rawServerToCloud * count;
+                entry[`${eventKey}_avgCloudToUser_sum`] += rawCloudToUser * count;
+                entry[`${eventKey}_avgBytesOut_sum`] += Number(r.avgBytesOut || 0) * count;
+                entry[`${eventKey}_avgBytesIn_sum`] += Number(r.avgBytesIn || 0) * count;
+            });
+
+            return Array.from(timeMap.values())
+                .map((entry) => {
+                    const out = { ...entry } as any;
+                    usedKeys.forEach((k) => {
+                        const denom = Number(out[`${k}_sumCount`] || 0);
+                        if (denom > 0) {
+                            out[`${k}_avgServerToUser`] = Number(out[`${k}_avgServerToUser_sum`] || 0) / denom;
+                            out[`${k}_avgServerToCloud`] = Number(out[`${k}_avgServerToCloud_sum`] || 0) / denom;
+                            out[`${k}_avgCloudToUser`] = Number(out[`${k}_avgCloudToUser_sum`] || 0) / denom;
+                            out[`${k}_avgBytesOut`] = Number(out[`${k}_avgBytesOut_sum`] || 0) / denom;
+                            out[`${k}_avgBytesIn`] = Number(out[`${k}_avgBytesIn_sum`] || 0) / denom;
+                        }
+                        delete out[`${k}_sumCount`];
+                        delete out[`${k}_avgServerToUser_sum`];
+                        delete out[`${k}_avgServerToCloud_sum`];
+                        delete out[`${k}_avgCloudToUser_sum`];
+                        delete out[`${k}_avgBytesOut_sum`];
+                        delete out[`${k}_avgBytesIn_sum`];
+                    });
+                    return out;
+                })
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        };
+
+        profile.panels.slice(1).forEach((p: any) => {
+            const panelId = p.panelId;
+            const panelConfig = (p as any).filterConfig;
+            if (!panelConfig?.isApiEvent) return;
+
+            const rawData: any[] = (panelsDataMap.get(panelId)?.rawGraphResponse?.data || []) as any[];
+            if (rawData.length === 0) {
+                map[panelId] = [];
+                return;
+            }
+
+            const pf = panelFiltersState[panelId] || {} as any;
+            const statusCodes = (pf.percentageStatusCodes || [])
+                .filter(Boolean)
+                .map((v: any) => String(v))
+                .filter((v: string) => /^\d+$/.test(v));
+            const cacheStatuses = (pf.percentageCacheStatus || []).filter(Boolean).map((v: any) => String(v));
+            const panelRange = panelDateRanges[panelId] || dateRange;
+            const isHourlyBucket = Math.ceil((panelRange.to.getTime() - panelRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 7;
+
+            map[panelId] = buildFromRaw(rawData, statusCodes, cacheStatuses, isHourlyBucket);
+        });
+
+        return map;
+    }, [profile?.panels, panelsDataMap, panelFiltersState, panelDateRanges, dateRange, events]);
+
+    const apiEndpointEventKeyInfos = useMemo(() => {
+        if (!isMainPanelApi || !profile?.panels?.[0]) return [] as EventKeyInfo[];
+
+        const mainPanelId = profile.panels[0].panelId;
+        const mainPanelConfig = (profile.panels[0] as any)?.filterConfig;
+        const mainPanelFilters = panelFiltersState[mainPanelId] || {};
+        const selectedEventIds = (mainPanelFilters.events && mainPanelFilters.events.length > 0)
+            ? mainPanelFilters.events
+            : (mainPanelConfig?.events || []);
+
+        const ids = (selectedEventIds || []).map((v: any) => String(v)).filter(Boolean);
+        return ids.map((id: string) => {
+            const ev = events.find(e => String(e.eventId) === String(id));
+            const name = ev?.isApiEvent && ev?.host && ev?.url
+                ? `${ev.host} - ${ev.url}`
+                : (ev?.eventName || `Event ${id}`);
+            return {
+                eventId: String(id),
+                eventName: name,
+                eventKey: name.replace(/[^a-zA-Z0-9]/g, '_'),
+                isErrorEvent: 0,
+                isAvgEvent: 0,
+            };
+        });
+    }, [isMainPanelApi, profile?.panels, panelFiltersState, events]);
+
+    // Build API Performance Metrics series directly from RAW API response so it works even in percentage/funnel views
+    const apiPerformanceSeries = useMemo(() => {
+        if (!isMainPanelApi || !profile?.panels?.[0]) return graphData;
+
+        const firstPanel = profile?.panels?.[0];
+        const firstPanelFilterConfig = (firstPanel as any)?.filterConfig;
+        const isFirstPanelSpecialGraphLocal = firstPanelFilterConfig?.graphType === 'percentage' || firstPanelFilterConfig?.graphType === 'funnel';
+
+        const mainPanelId = profile.panels[0].panelId;
+        const mainPanelFilters = panelFiltersState[mainPanelId] || {};
+        const statusCodes = ((isFirstPanelSpecialGraphLocal
+            ? (mainPanelFilters.percentageStatusCodes || [])
+            : (mainPanelFilters.apiStatusCodes || mainPanelFilters.percentageStatusCodes || [])) as any[])
+            .filter(Boolean)
+            .map(v => String(v))
+            .filter(v => /^\d+$/.test(v));
+        const cacheStatuses = ((isFirstPanelSpecialGraphLocal
+            ? (mainPanelFilters.percentageCacheStatus || [])
+            : (mainPanelFilters.apiCacheStatus || mainPanelFilters.percentageCacheStatus || [])) as any[])
+            .filter(Boolean)
+            .map(v => String(v));
+        const hasStatusFilter = statusCodes.length > 0;
+        const hasCacheFilter = cacheStatuses.length > 0;
+
+        const rawData: any[] = (panelsDataMap.get(mainPanelId)?.rawGraphResponse?.data || rawGraphResponse?.data || []) as any[];
+        if (!rawData || rawData.length === 0) return graphData;
+
+        // Group by hour/day
+        const timeMap = new Map<string, any>();
+        const usedKeys = new Set<string>();
+        rawData.forEach((r) => {
+            if (!r || !r.timestamp) return;
+            const dt = new Date(r.timestamp);
+            const dateKey = isHourly
+                ? dt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', hour12: true })
+                : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            if (!timeMap.has(dateKey)) {
+                timeMap.set(dateKey, { date: dateKey, timestamp: r.timestamp });
+            }
+            const entry = timeMap.get(dateKey);
+
+            const matchesStatus = !hasStatusFilter || statusCodes.includes(String(r.status));
+            const matchesCache = !hasCacheFilter || cacheStatuses.includes(String(r.cacheStatus || 'none'));
+            if (!matchesStatus || !matchesCache) return;
+
+            const eventId = String(r.eventId);
+            const eventConfig = events.find(e => String(e.eventId) === eventId);
+            const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
+                ? `${eventConfig.host} - ${eventConfig.url}`
+                : (eventConfig?.eventName || `Event ${eventId}`);
+            const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+            usedKeys.add(eventKey);
+
+            const count = Number(r.count || 0);
+            if (!entry[`${eventKey}_count`]) {
+                entry[`${eventKey}_count`] = 0;
+                entry[`${eventKey}_sumCount`]= 0;
+                entry[`${eventKey}_avgServerToUser_sum`] = 0;
+                entry[`${eventKey}_avgServerToCloud_sum`] = 0;
+                entry[`${eventKey}_avgCloudToUser_sum`] = 0;
+                entry[`${eventKey}_avgBytesOut_sum`] = 0;
+                entry[`${eventKey}_avgBytesIn_sum`] = 0;
+            }
+
+            entry[`${eventKey}_count`] += count;
+            entry[`${eventKey}_sumCount`] += count;
+            // avgServerToUser is authoritative (ms). Only fall back to sum of parts when avgServerToUser is 0.
+            const rawServerToUser = Number(r.avgServerToUser || 0);
+            const rawServerToCloud = Number(r.avgServerToCloud || 0);
+            const rawCloudToUser = Number(r.avgCloudToUser || 0);
+            const sumParts = rawServerToCloud + rawCloudToUser;
+            const effectiveServerToUser = rawServerToUser > 0 ? rawServerToUser : (sumParts > 0 ? sumParts : 0);
+            entry[`${eventKey}_avgServerToUser_sum`] += effectiveServerToUser * count;
+            entry[`${eventKey}_avgServerToCloud_sum`] += Number(r.avgServerToCloud || 0) * count;
+            entry[`${eventKey}_avgCloudToUser_sum`] += Number(r.avgCloudToUser || 0) * count;
+            entry[`${eventKey}_avgBytesOut_sum`] += Number(r.avgBytesOut || 0) * count;
+            entry[`${eventKey}_avgBytesIn_sum`] += Number(r.avgBytesIn || 0) * count;
+        });
+
+        const result = Array.from(timeMap.values())
+            .map((entry) => {
+                const out = { ...entry } as any;
+                // finalize weighted averages
+                usedKeys.forEach((key) => {
+                    const denom = Number(out[`${key}_sumCount`] || 0);
+                    if (denom > 0) {
+                        out[`${key}_avgServerToUser`] = Number(out[`${key}_avgServerToUser_sum`] || 0) / denom;
+                        out[`${key}_avgServerToCloud`] = Number(out[`${key}_avgServerToCloud_sum`] || 0) / denom;
+                        out[`${key}_avgCloudToUser`] = Number(out[`${key}_avgCloudToUser_sum`] || 0) / denom;
+                        out[`${key}_avgBytesOut`] = Number(out[`${key}_avgBytesOut_sum`] || 0) / denom;
+                        out[`${key}_avgBytesIn`] = Number(out[`${key}_avgBytesIn_sum`] || 0) / denom;
+                    }
+                    delete out[`${key}_sumCount`];
+                    delete out[`${key}_avgServerToUser_sum`];
+                    delete out[`${key}_avgServerToCloud_sum`];
+                    delete out[`${key}_avgCloudToUser_sum`];
+                    delete out[`${key}_avgBytesOut_sum`];
+                    delete out[`${key}_avgBytesIn_sum`];
+                });
+                return out;
+            })
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        return result;
+    }, [isMainPanelApi, profile?.panels, panelFiltersState, panelsDataMap, rawGraphResponse, events, isHourly, graphData]);
 
     // Initialize panel filters as collapsed when profile loads
     useEffect(() => {
@@ -2349,18 +2702,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
     // Auto-select first event for API Performance Metrics
     useEffect(() => {
-        if (eventKeys.length > 0 && isMainPanelApi) {
-            // For API events, try to find status 200 first
-            const status200 = eventKeys.find(ek => {
-                const eventName = ek.eventName || '';
-                return eventName === '200' || eventName.includes('status_200');
-            });
-            const keyToSelect = status200 ? status200.eventKey : eventKeys[0].eventKey;
-            if (!apiSelectedEventKey || !eventKeys.find(ek => ek.eventKey === apiSelectedEventKey)) {
-                setApiSelectedEventKey(keyToSelect);
-            }
+        if (!isMainPanelApi) return;
+        if (apiEndpointEventKeyInfos.length === 0) return;
+        const keyToSelect = apiEndpointEventKeyInfos[0].eventKey;
+        if (!apiSelectedEventKey || !apiEndpointEventKeyInfos.find((ek: EventKeyInfo) => ek.eventKey === apiSelectedEventKey)) {
+            setApiSelectedEventKey(keyToSelect);
         }
-    }, [eventKeys, isMainPanelApi]);
+    }, [apiEndpointEventKeyInfos, apiSelectedEventKey, isMainPanelApi]);
 
     // Auto-select first event for 8-Day Overlay
     useEffect(() => {
@@ -2441,14 +2789,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 ? selectedSourceStrs
                 : (panelSelectedSourceStrs[panelId] || []);
 
-            console.log(`🔄 PANEL REFRESH - Panel ID: ${panelId}`);
-            console.log(`📊 Panel filters being applied:`, panelFilters);
-            console.log(`🌐 Global filters state:`, filters);
-            console.log(`📅 Panel date range:`, panelDateRange);
-            console.log(`🔖 SourceStr filter:`, currentSourceStrFilter);
+            // console.log(`🔄 PANEL REFRESH - Panel ID: ${panelId}`);
+            // console.log(`📊 Panel filters being applied:`, panelFilters);
+            // console.log(`🌐 Global filters state:`, filters);
+            // console.log(`📅 Panel date range:`, panelDateRange);
+            // console.log(`🔖 SourceStr filter:`, currentSourceStrFilter);
 
-            // Check if panel has API events (any event with isApiEvent flag)
-            const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
+            // Check if panel has API events
+            // IMPORTANT: use panelConfig.isApiEvent (authoritative) instead of panel.events, which may not carry isApiEvent flags.
+            const hasApiEvents = panelConfig?.isApiEvent === true;
 
             // Check if this is a special graph (percentage or funnel)
             const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel';
@@ -2465,9 +2814,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             );
 
             // Pie chart is optional - don't fail the whole refresh if it fails
-            // Skip pie chart API call for special graphs (percentage/funnel)
+            // For API panels, we DO want status/cache pies even in special graphs.
             let pieResponse = null;
-            if (!isSpecialGraph) {
+            if (hasApiEvents || !isSpecialGraph) {
                 try {
                     pieResponse = await apiService.getPieChartData(
                         panelFilters.events,
@@ -2552,21 +2901,26 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
     // Auto-load all panel data when profile and events are ready
     useEffect(() => {
-        if (!profile || events.length === 0 || initialLoadComplete.current) return;
+        if (!profile || events.length === 0) return;
 
-        console.log('🚀 Auto-loading all panels...');
-        initialLoadComplete.current = true;
+        // DISABLE AUTO-LOADING - only load on manual refresh
+        // console.log('🚀 Auto-loading all panels...');
+        
+        // Check if we already have data for all panels
 
-        // Load all panels
-        profile.panels.forEach((panel) => {
-            refreshPanelData(panel.panelId);
-        });
-    }, [profile, events, refreshPanelData]);
+        // Load data for all panels
+        // profile.panels.forEach(panel => {
+        //     refreshPanelData(panel.panelId);
+        // });
+
+        // initialLoadComplete.current = true;
+    }, [profile, events, refreshPanelData, panelsDataMap]);
 
     // Load critical alerts - uses alert-specific filters (independent)
     const loadAlerts = useCallback(async (expanded: boolean = false) => {
         if (!profile || events.length === 0) return;
 
+// ...
         setAlertsLoading(true);
         try {
             // Check if profile has Critical Alerts config with specific event selection
@@ -2635,7 +2989,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
 
                 // Check if panel has API events
-                const hasApiEvents = panel.events.some((e: any) => e.isApiEvent === true);
+                // IMPORTANT: use panelConfig.isApiEvent (authoritative) instead of panel.events, which may not carry isApiEvent flags.
+                const hasApiEvents = panelConfig?.isApiEvent === true;
 
                 try {
                     // For API events, send empty arrays for platform/pos/source
@@ -2826,12 +3181,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         // User wants to see fresh data immediately without clicking Apply Changes
         // CHANGED: Removed strict initialLoadComplete check to ensure data loads even if flag was set but data is missing
         if (!loading && profile && events.length > 0) {
+            // IMPORTANT: Do NOT auto-fetch again on filter changes.
+            // Auto-load exactly once per profileId (until user switches profiles).
+            if (lastAutoLoadedProfileId.current === profileId) return;
             // Force load if we have a profile but no data/alerts yet, or just generally on profile change
             loadData();
             loadAlerts(); 
             setPendingRefresh(false);
             setPanelFilterChanges({});
             initialLoadComplete.current = true;
+            lastAutoLoadedProfileId.current = profileId;
 
             toast({
                 title: `📊 ${profile.profileName}`,
@@ -2839,7 +3198,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 duration: 2000,
             });
         }
-    }, [loading, profile, events, loadData, loadAlerts, toast]);
+    }, [loading, profileId, profile, events.length, graphData.length, toast]);
 
     // Set pending refresh when filters or date range change (only after initial load)
     useEffect(() => {
@@ -2918,49 +3277,31 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         
         setPanelLoadingApiFilters(prev => ({ ...prev, [panelId]: true }));
         try {
-            // For API events, pass empty arrays for platform/pos/source
-            const response = await apiService.getGraphData(
-                currentFilters.events,
-                [], // Empty for API events
-                [], // Empty for API events
-                [], // Empty for API events
-                panelDateRanges[panelId]?.from || dateRange.from,
-                panelDateRanges[panelId]?.to || dateRange.to,
-                true // isApiEvent
-            );
-            
-            if (response?.data) {
+            // IMPORTANT: No API call here. Derive options from already fetched panel rawGraphResponse.
+            const rawData: any[] = (panelsDataMap.get(panelId)?.rawGraphResponse?.data || []) as any[];
+            if (rawData.length > 0) {
                 const statusCodes = new Set<string>();
                 const cacheStatuses = new Set<string>();
-                
-                response.data.forEach((record: any) => {
-                    // Direct field extraction (API response format)
-                    if (record.status !== undefined && record.status !== null) {
+
+                rawData.forEach((record: any) => {
+                    if (record?.status !== undefined && record?.status !== null) {
                         statusCodes.add(String(record.status));
                     }
-                    if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                    if (record?.cacheStatus && typeof record.cacheStatus === 'string') {
                         cacheStatuses.add(record.cacheStatus);
                     }
-                    
-                    // Also check key patterns for processed data format
-                    Object.keys(record).forEach(key => {
-                        const statusMatch = key.match(/_status_(\d+)_/);
-                        const cacheMatch = key.match(/_cache_([^_]+)_/);
-                        if (statusMatch) statusCodes.add(statusMatch[1]);
-                        if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
-                    });
                 });
-                
+
                 const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
                 const sortedCacheStatuses = Array.from(cacheStatuses).sort();
-                
+
                 setPanelAvailableStatusCodes(prev => ({ ...prev, [panelId]: sortedStatusCodes }));
                 setPanelAvailableCacheStatuses(prev => ({ ...prev, [panelId]: sortedCacheStatuses }));
-                
+
                 // Auto-initialize filters with defaults
                 const defaultStatus = sortedStatusCodes.includes('200') ? ['200'] : sortedStatusCodes;
                 const defaultCache = sortedCacheStatuses;
-                
+
                 setPanelFiltersState(prev => ({
                     ...prev,
                     [panelId]: {
@@ -2969,15 +3310,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         percentageCacheStatus: defaultCache
                     }
                 }));
-                
-                toast({
-                    title: "✅ API Filters Loaded",
-                    description: `Found ${sortedStatusCodes.length} status codes, ${sortedCacheStatuses.length} cache statuses`,
-                    duration: 3000,
-                });
-                
-                // Refresh the panel data with new filters
-                await handlePanelRefresh(panelId);
             }
         } catch (error) {
             console.error('Failed to fetch panel API filters:', error);
@@ -2990,120 +3322,66 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         } finally {
             setPanelLoadingApiFilters(prev => ({ ...prev, [panelId]: false }));
         }
-    }, [profile, events, panelFiltersState, filters, panelDateRanges, dateRange, toast, handlePanelRefresh]);
+    }, [profile, events.length, panelsDataMap, panelFiltersState, filters, toast]);
 
     // Fetch API filters (status codes, cache statuses, job IDs) for main panel
+    // IMPORTANT: No API call here. We derive filter options from already-fetched rawGraphResponse.
     const fetchApiFilters = useCallback(async () => {
         if (!profile || !isMainPanelApi || !events || events.length === 0) return;
-        
+
         const mainPanel = profile.panels[0];
         if (!mainPanel) return;
-        
+
         const mainPanelId = mainPanel.panelId;
-        const currentFilters = panelFiltersState[mainPanelId] || filters;
-        
-        // Need at least one event selected
-        if (currentFilters.events.length === 0) {
-            toast({
-                title: "No events selected",
-                description: "Please select at least one event to fetch API filters",
-                variant: "destructive",
-                duration: 3000,
-            });
-            return;
-        }
-        
+        const rawData: any[] = (panelsDataMap.get(mainPanelId)?.rawGraphResponse?.data || rawGraphResponse?.data || []) as any[];
+        if (!rawData || rawData.length === 0) return;
+
         setLoadingApiFilters(true);
         try {
-            // For API events, pass empty arrays for platform/pos/source
-            const response = await apiService.getGraphData(
-                currentFilters.events,
-                [], // Empty for API events
-                [], // Empty for API events
-                [], // Empty for API events
-                dateRange.from,
-                dateRange.to,
-                true // isApiEvent
-            );
-            
-            if (response?.data) {
-                const jobIds = new Set<string>();
-                const statusCodes = new Set<string>();
-                const cacheStatuses = new Set<string>();
-                
-                response.data.forEach((record: any) => {
-                    // Extract Job IDs
-                    if (record.sourceStr && typeof record.sourceStr === 'string' && record.sourceStr.trim() !== '') {
-                        jobIds.add(record.sourceStr);
-                    }
-                    
-                    // Direct field extraction (API response format)
-                    if (record.status !== undefined && record.status !== null) {
-                        statusCodes.add(String(record.status));
-                    }
-                    if (record.cacheStatus && typeof record.cacheStatus === 'string') {
-                        cacheStatuses.add(record.cacheStatus);
-                    }
-                    
-                    // Also check key patterns for processed data format
-                    Object.keys(record).forEach(key => {
-                        const statusMatch = key.match(/_status_(\d+)_/);
-                        const cacheMatch = key.match(/_cache_([^_]+)_/);
-                        if (statusMatch) statusCodes.add(statusMatch[1]);
-                        if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
-                    });
-                });
-                
-                const sortedJobIds = Array.from(jobIds).sort();
-                const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-                const sortedCacheStatuses = Array.from(cacheStatuses).sort();
-                
-                setAvailableSourceStrs(sortedJobIds);
-                setAvailableStatusCodes(sortedStatusCodes);
-                setAvailableCacheStatuses(sortedCacheStatuses);
-                
-                // Auto-initialize filters with defaults
-                const defaultStatus = sortedStatusCodes.includes('200') ? ['200'] : sortedStatusCodes;
-                const defaultCache = sortedCacheStatuses;
-                
-                setPanelFiltersState(prev => ({
-                    ...prev,
-                    [mainPanelId]: {
-                        ...prev[mainPanelId],
-                        percentageStatusCodes: defaultStatus,
-                        percentageCacheStatus: defaultCache
-                    }
-                }));
-                
-                toast({
-                    title: "✅ API Filters Loaded",
-                    description: `Found ${sortedStatusCodes.length} status codes, ${sortedCacheStatuses.length} cache statuses, ${sortedJobIds.length} job IDs`,
-                    duration: 3000,
-                });
-                
-                console.log(`📊 Loaded API filters:`, {
-                    statusCodes: sortedStatusCodes,
-                    cacheStatuses: sortedCacheStatuses,
-                    jobIds: sortedJobIds
-                });
-                
-                // Refresh only the main panel data with the new filters
-                await handlePanelRefresh(mainPanelId);
-            }
-        } catch (error) {
-            console.error('Failed to fetch API filters:', error);
-            toast({
-                title: "Failed to fetch API filters",
-                description: "Please try again",
-                variant: "destructive",
-                duration: 3000,
+            const jobIds = new Set<string>();
+            const statusCodes = new Set<string>();
+            const cacheStatuses = new Set<string>();
+
+            rawData.forEach((record: any) => {
+                if (record?.sourceStr && typeof record.sourceStr === 'string' && record.sourceStr.trim() !== '') {
+                    jobIds.add(record.sourceStr);
+                }
+                if (record?.status !== undefined && record?.status !== null) {
+                    statusCodes.add(String(record.status));
+                }
+                if (record?.cacheStatus && typeof record.cacheStatus === 'string') {
+                    cacheStatuses.add(record.cacheStatus);
+                }
             });
+
+            const sortedJobIds = Array.from(jobIds).sort();
+            const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+            const sortedCacheStatuses = Array.from(cacheStatuses).sort();
+
+            setAvailableSourceStrs(sortedJobIds);
+            setAvailableStatusCodes(sortedStatusCodes);
+            setAvailableCacheStatuses(sortedCacheStatuses);
+
+            // Auto-initialize filters with defaults
+            const defaultStatus = sortedStatusCodes.includes('200') ? ['200'] : sortedStatusCodes;
+            const defaultCache = sortedCacheStatuses;
+
+            setPanelFiltersState(prev => ({
+                ...prev,
+                [mainPanelId]: {
+                    ...prev[mainPanelId],
+                    percentageStatusCodes: defaultStatus,
+                    percentageCacheStatus: defaultCache
+                }
+            }));
         } finally {
             setLoadingApiFilters(false);
         }
-    }, [profile, isMainPanelApi, events, filters, panelFiltersState, dateRange, toast, handlePanelRefresh]);
+    }, [profile, isMainPanelApi, events.length, panelsDataMap, rawGraphResponse]);
 
     const handleFilterChange = (type: keyof FilterState, values: string[]) => {
+        // console.log('handleFilterChange called:', { type, values });
+        
         // Determine value type based on filter key
         // activeStages, activePercentageEvents, activeFunnelChildEvents use string IDs
         // platform, pos, source, events use numeric IDs
@@ -3113,24 +3391,34 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             ? values
             : values.map(v => parseInt(v)).filter(id => !isNaN(id));
 
-        // Update the main panel's filter state (first panel)
+        // console.log('Final values after processing:', finalValues);
+
+        // Update the main panel's filter state (first panel) - SCOPED TO MAIN PANEL ONLY
         if (profile?.panels && profile.panels.length > 0) {
             const mainPanelId = profile.panels[0].panelId;
 
-            // Update panel-specific filters for the main panel
-            setPanelFiltersState(prev => ({
-                ...prev,
-                [mainPanelId]: {
-                    ...prev[mainPanelId],
-                    [type]: finalValues
-                }
-            }));
+            // console.log('Updating panel filters for:', mainPanelId);
 
-            // Mark that this panel's filters have changed
+            // Update panel-specific filters for the main panel ONLY
+            setPanelFiltersState(prev => {
+                const updated = {
+                    ...prev,
+                    [mainPanelId]: {
+                        ...prev[mainPanelId],
+                        [type]: finalValues
+                    }
+                };
+                // console.log('Updated panel filters state:', updated);
+                return updated;
+            });
+
+            // Mark that ONLY this specific panel's filters have changed
             setPanelFilterChanges(prev => ({
                 ...prev,
                 [mainPanelId]: true
             }));
+            
+            // Do NOT trigger global refresh - only main panel refresh will be triggered by useEffect
         }
 
         // Also update global state for backward compatibility (but this won't be used)
@@ -3359,9 +3647,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             {/* Autosnipe Matrix-style background */}
                             <div className="absolute inset-0 bg-gray-950" />
                             {/* Neon green glow top-left */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-green-500/20 via-emerald-400/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '3s' }} />
+                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-green-500/20 via-emerald-400/10 to-transparent rounded-full blur-3xl" />
                             {/* Neon green glow top-right */}
-                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-green-400/15 via-teal-400/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
+                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-green-400/15 via-teal-400/10 to-transparent rounded-full blur-3xl" />
                             {/* Bottom gradient bar - matrix green */}
                             <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-green-900/30 via-emerald-900/15 to-transparent" />
                             {/* Center glow */}
@@ -3375,9 +3663,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         <>
                             {/* Default purple theme background */}
                             {/* Top-left purple orb */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />
+                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl" />
                             {/* Top-right pink orb */}
-                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl" />
                             {/* Bottom gradient bar */}
                             <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-purple-100/40 via-pink-50/20 to-transparent dark:from-purple-900/20 dark:via-pink-900/10" />
                             {/* Center subtle mesh */}
@@ -3417,9 +3705,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             {/* Autosnipe Matrix-style background */}
                             <div className="absolute inset-0 bg-gray-950" />
                             {/* Neon green glow top-left */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-green-500/20 via-emerald-400/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '3s' }} />
+                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-green-500/20 via-emerald-400/10 to-transparent rounded-full blur-3xl" />
                             {/* Neon green glow top-right */}
-                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-green-400/15 via-teal-400/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s', animationDelay: '1s' }} />
+                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-green-400/15 via-teal-400/10 to-transparent rounded-full blur-3xl" />
                             {/* Bottom gradient bar - matrix green */}
                             <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-green-900/30 via-emerald-900/15 to-transparent" />
                             {/* Center glow */}
@@ -3433,9 +3721,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         <>
                             {/* Default purple theme background */}
                             {/* Top-left purple orb */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />
+                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl" />
                             {/* Top-right pink orb */}
-                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl animate-pulse" style={{ animationDuration: '5s', animationDelay: '1s' }} />
+                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl" />
                             {/* Bottom gradient bar */}
                             <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-purple-100/40 via-pink-50/20 to-transparent dark:from-purple-900/20 dark:via-pink-900/10" />
                             {/* Center subtle mesh */}
@@ -3582,7 +3870,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                 onChange={(selected) => {
                                                                     handleFilterChange('activePercentageEvents', selected);
                                                                 }}
-                                                                placeholder="Select Parent Events"
+                                                                placeholder="Select Parent Events (Multiple Supported)"
+                                                                maxDisplayItems={3}
                                                             />
                                                         </div>
                                                     </div>
@@ -3607,7 +3896,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                 onChange={(selected) => {
                                                                     handleFilterChange('activePercentageChildEvents', selected);
                                                                 }}
-                                                                placeholder="Select Child Events"
+                                                                placeholder="Select Child Events (Multiple Supported)"
+                                                                maxDisplayItems={3}
                                                             />
                                                         </div>
                                                     </div>
@@ -3901,16 +4191,24 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     }
                                                     codesOther.forEach(c => groupedOptions.push({ label: c, value: c }));
                                                     
-                                                    const currentSelected = profile?.panels?.[0] 
+                                                    const currentSelected = profile?.panels?.[0]
                                                         ? (panelFiltersState[profile.panels[0].panelId]?.percentageStatusCodes || [])
                                                         : [];
+
+                                                    const displaySelected = (() => {
+                                                        const s = new Set<string>(currentSelected);
+                                                        if (codes4xx.length > 0 && codes4xx.every(c => s.has(c))) s.add('4xx_group');
+                                                        if (codes5xx.length > 0 && codes5xx.every(c => s.has(c))) s.add('5xx_group');
+                                                        return Array.from(s);
+                                                    })();
                                                     
                                                     return (
                                                         <>
                                                             <MultiSelectDropdown
                                                                 options={groupedOptions}
-                                                                selected={currentSelected}
+                                                                selected={displaySelected}
                                                                 onChange={(values) => {
+                                                                    // console.log('Status code selection changed:', values);
                                                                     // Expand group selections to individual codes
                                                                     let expandedValues = [...values];
                                                                     if (values.includes('4xx_group')) {
@@ -3924,6 +4222,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                     const uniqueValues = Array.from(new Set(expandedValues));
                                                                     const defaultStatus = availableStatusCodes.includes('200') ? ['200'] : availableStatusCodes;
                                                                     const nextValues = uniqueValues.length === 0 ? [...defaultStatus] : uniqueValues;
+                                                                    // console.log('Final status codes to apply:', nextValues);
                                                                     handleFilterChange('percentageStatusCodes', nextValues);
                                                                 }}
                                                                 placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Loading..."}
@@ -4287,7 +4586,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     const panelFilters = panelFiltersState[mainPanelId || ''] || {};
 
                     if (graphType === 'percentage' && percentageConfig) {
-                        // Use activePercentageEvents for parent and activePercentageChildEvents for child
                         const activeParentEvents = panelFilters.activePercentageEvents && panelFilters.activePercentageEvents.length > 0
                             ? panelFilters.activePercentageEvents
                             : percentageConfig.parentEvents;
@@ -4305,27 +4603,57 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             ? panelFilters.percentageCacheStatus
                             : configuredCacheStatus;
 
+                        // Create separate percentage graphs for each child event
                         return (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5 }}
-                            >
-                                <PercentageGraph
-                                    data={graphData}
-                                    dateRange={dateRange}
-                                    parentEvents={activeParentEvents}
-                                    childEvents={activeChildEvents}
-                                    eventColors={eventColors}
-                                    eventNames={eventNames}
-                                    filters={{
-                                        ...(percentageConfig?.filters || {}),
-                                        statusCodes: activeStatusCodes,
-                                        cacheStatus: activeCacheStatus
-                                    }}
-                                    isHourly={isHourly}
-                                />
-                            </motion.div>
+                            <div className="space-y-6">
+                                {activeChildEvents.map((childEvent: string, index: number) => (
+                                    <PercentageGraph
+                                        key={`${activeParentEvents.join('-')}-${childEvent}-${index}`}
+                                        data={isMainPanelApi && mainPanelId
+                                            ? ((panelsDataMap.get(mainPanelId)?.rawGraphResponse?.data || rawGraphResponse?.data || []) as any[])
+                                            : graphData}
+                                        dateRange={dateRange}
+                                        parentEvents={activeParentEvents}
+                                        childEvents={[childEvent]} // Single child event per graph
+                                        eventColors={eventColors}
+                                        eventNames={eventNames}
+                                        filters={{
+                                            ...(percentageConfig?.filters || {}),
+                                            statusCodes: activeStatusCodes,
+                                            cacheStatus: activeCacheStatus
+                                        }}
+                                        isHourly={isHourly}
+                                        onToggleBackToFunnel={(profile?.panels?.[0] as any)?.previousGraphType === 'funnel' ? () => {
+                                            // Toggle back to funnel graph
+                                            if (profile && profile.panels && profile.panels[0]) {
+                                                const updatedConfig = {
+                                                    ...profile.panels[0].filterConfig,
+                                                    graphType: 'funnel' as const,
+                                                };
+                                                
+                                                const updatedProfile = {
+                                                    ...profile,
+                                                    panels: profile.panels.map((panel, index) => 
+                                                        index === 0 ? { 
+                                                            ...panel, 
+                                                            filterConfig: updatedConfig,
+                                                            previousGraphType: undefined
+                                                        } : panel
+                                                    )
+                                                };
+                                                
+                                                setProfile(updatedProfile as any);
+                                                
+                                                toast({
+                                                    title: "🔄 Switched to Funnel Analysis",
+                                                    description: "Back to funnel view",
+                                                    duration: 2000,
+                                                });
+                                            }
+                                        } : undefined}
+                                    />
+                                ))}
+                            </div>
                         );
                     }
 
@@ -4353,27 +4681,144 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             : (funnelConfig.multipleChildEvents || []);
 
                         return (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.5 }}
-                            >
+                            <div>
                                 <FunnelGraph
-                                    data={graphData}
+                                    data={isMainPanelApi ? filteredApiData : graphData}
                                     stages={activeStages}
                                     multipleChildEvents={activeChildEvents}
                                     eventColors={eventColors}
                                     eventNames={eventNames}
+                                    filters={isMainPanelApi ? {
+                                        statusCodes: (mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>).percentageStatusCodes || [],
+                                        cacheStatus: (mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>).percentageCacheStatus || []
+                                    } : undefined}
+                                    onViewAsPercentage={(parentEventId, childEventIds) => {
+                                        // Switch to percentage graph
+                                        if (profile && profile.panels && profile.panels[0]) {
+                                            const filterConfig = profile.panels[0].filterConfig;
+                                            const updatedConfig = {
+                                                ...filterConfig,
+                                                graphType: 'percentage' as const,
+                                                events: filterConfig?.events || [],
+                                                platforms: filterConfig?.platforms || [],
+                                                pos: filterConfig?.pos || [],
+                                                sources: filterConfig?.sources || [],
+                                                sourceStr: filterConfig?.sourceStr || [],
+                                                percentageConfig: {
+                                                    parentEvents: [parentEventId],
+                                                    childEvents: childEventIds,
+                                                    filters: {
+                                                        statusCodes: (mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>).percentageStatusCodes || [],
+                                                        cacheStatus: (mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>).percentageCacheStatus || []
+                                                    }
+                                                }
+                                            };
+
+                                            const updatedProfile = {
+                                                ...profile,
+                                                panels: profile.panels.map((panel, index) =>
+                                                    index === 0 ? {
+                                                        ...panel,
+                                                        filterConfig: updatedConfig,
+                                                        previousGraphType: panel.filterConfig?.graphType
+                                                    } : panel
+                                                )
+                                            };
+
+                                            setProfile(updatedProfile as any);
+                                        }
+                                    }}
                                 />
-                            </motion.div>
+                            </div>
                         );
                     }
 
-                    // Default Charts - Only render if NOT a percentage or funnel graph
-                    // Skip default charts if this is a special graph type
-                    if (graphType === 'percentage' || graphType === 'funnel') {
-                        return null;
-                    }
+                    // Apply API filtering to main panel graph data if this is an API panel
+                    const mainFilteredGraphData = (() => {
+                        if (!isMainPanelApi) return graphData;
+
+                        // In API aggregation mode (graphType != percentage/funnel), graphData is already broken out by status/cache.
+                        // Do not attempt to re-filter by status/cache using eventId-derived keys (it will zero-out the series).
+                        return graphData;
+
+                        const mainPanelFilters = mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>;
+                        const mainPanelConfig = (profile?.panels?.[0] as any)?.filterConfig;
+                        const mainPercentageConfig = mainPanelConfig?.percentageConfig;
+                        const mainConfiguredStatusCodes = mainPercentageConfig?.filters?.statusCodes || [];
+                        const mainConfiguredCacheStatus = mainPercentageConfig?.filters?.cacheStatus || [];
+
+                        const statusCodes = (mainPanelFilters.percentageStatusCodes || mainConfiguredStatusCodes || []).filter(Boolean);
+                        const cacheStatuses = (mainPanelFilters.percentageCacheStatus || mainConfiguredCacheStatus || []).filter(Boolean);
+                        const hasStatusFilter = statusCodes.length > 0;
+                        const hasCacheFilter = cacheStatuses.length > 0;
+
+                        if (!hasStatusFilter && !hasCacheFilter) return graphData;
+
+                        return graphData.map(record => {
+                            const filteredRecord = { ...record };
+
+                            normalEventKeys.forEach(eventKeyInfo => {
+                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                const baseName = event?.eventName || `Event ${eventKeyInfo.eventId}`;
+                                const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                                let filteredCount = 0;
+                                let filteredSuccess = 0;
+                                let filteredFail = 0;
+                                let filteredAvgDelay = 0;
+
+                                if (hasStatusFilter && hasCacheFilter) {
+                                    // Prefer combined keys if present; else fall back to status-only.
+                                    const hasCombinedKeys = statusCodes.some((status: string) =>
+                                        cacheStatuses.some((cache: string) => Object.prototype.hasOwnProperty.call(record, `${eventKey}_status_${status}_cache_${cache}_count`))
+                                    );
+
+                                    if (hasCombinedKeys) {
+                                        statusCodes.forEach((status: string) => {
+                                            cacheStatuses.forEach((cache: string) => {
+                                                const combinedKey = `${eventKey}_status_${status}_cache_${cache}`;
+                                                filteredCount += Number(record[`${combinedKey}_count`] || 0);
+                                                filteredSuccess += Number(record[`${combinedKey}_success`] || 0);
+                                                filteredFail += Number(record[`${combinedKey}_fail`] || 0);
+                                                filteredAvgDelay += Number(record[`${combinedKey}_avgDelay`] || 0);
+                                            });
+                                        });
+                                    } else {
+                                        statusCodes.forEach((status: string) => {
+                                            const statusKey = `${eventKey}_status_${status}`;
+                                            filteredCount += Number(record[`${statusKey}_count`] || 0);
+                                            filteredSuccess += Number(record[`${statusKey}_success`] || 0);
+                                            filteredFail += Number(record[`${statusKey}_fail`] || 0);
+                                            filteredAvgDelay += Number(record[`${statusKey}_avgDelay`] || 0);
+                                        });
+                                    }
+                                } else if (hasStatusFilter) {
+                                    statusCodes.forEach((status: string) => {
+                                        const statusKey = `${eventKey}_status_${status}`;
+                                        filteredCount += Number(record[`${statusKey}_count`] || 0);
+                                        filteredSuccess += Number(record[`${statusKey}_success`] || 0);
+                                        filteredFail += Number(record[`${statusKey}_fail`] || 0);
+                                        filteredAvgDelay += Number(record[`${statusKey}_avgDelay`] || 0);
+                                    });
+                                } else if (hasCacheFilter) {
+                                    cacheStatuses.forEach((cache: string) => {
+                                        const cacheKey = `${eventKey}_cache_${cache}`;
+                                        filteredCount += Number(record[`${cacheKey}_count`] || 0);
+                                        filteredSuccess += Number(record[`${cacheKey}_success`] || 0);
+                                        filteredFail += Number(record[`${cacheKey}_fail`] || 0);
+                                        filteredAvgDelay += Number(record[`${cacheKey}_avgDelay`] || 0);
+                                    });
+                                }
+
+                                filteredRecord[`${eventKeyInfo.eventKey}_count`] = filteredCount;
+                                filteredRecord[`${eventKeyInfo.eventKey}_success`] = filteredSuccess;
+                                filteredRecord[`${eventKeyInfo.eventKey}_fail`] = filteredFail;
+                                filteredRecord[`${eventKeyInfo.eventKey}_avgDelay`] = filteredAvgDelay;
+                            });
+
+                            return filteredRecord;
+                        });
+                    })();
 
                     // Calculate event stats for badges and sort by count
                     const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
@@ -4381,9 +4826,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         let total = 0;
                         let success = 0;
 
-                        graphData.forEach((item: any) => {
-                            total += item[`${eventKey}_count`] || 0;
-                            success += item[`${eventKey}_success`] || 0;
+                        mainFilteredGraphData.forEach((item: any) => {
+                            total += Number(item[`${eventKey}_count`] ?? item[eventKey] ?? 0);
+                            success += Number(item[`${eventKey}_success`] ?? item[`${eventKey}_successCount`] ?? 0);
                         });
 
                         const successRate = total > 0 ? (success / total) * 100 : 0;
@@ -4719,7 +5164,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                     margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
                                                                     barCategoryGap="15%"
                                                                     onClick={(chartState: any) => {
-                                                                        console.log('BarChart onClick triggered:', chartState);
                                                                         if (chartState && chartState.activeIndex !== undefined) {
                                                                             const index = parseInt(chartState.activeIndex);
                                                                             const dataPoint = graphData[index];
@@ -4775,10 +5219,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                     {/* Dynamic bars for normal (count) events only */}
                                                                     {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo) => {
                                                                         const eventKey = eventKeyInfo.eventKey;
+                                                                        const countKey = `${eventKey}_count`;
+                                                                        const resolvedCountKey = (graphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
+                                                                            ? countKey
+                                                                            : eventKey;
                                                                         return (
                                                                             <Bar
                                                                                 key={`bar_${eventKey}`}
-                                                                                dataKey={`${eventKey}_count`}
+                                                                                dataKey={resolvedCountKey}
                                                                                 name={eventKeyInfo.eventName}
                                                                                 yAxisId="left"
                                                                                 fill={`url(#barColor_${eventKey})`}
@@ -4876,11 +5324,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                             const eventKey = eventKeyInfo.eventKey;
+                                                                            const countKey = `${eventKey}_count`;
+                                                                            const resolvedCountKey = (graphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
+                                                                                ? countKey
+                                                                                : eventKey;
                                                                             return (
                                                                                 <Area
                                                                                     key={`area_${eventKey}`}
                                                                                     type="monotone"
-                                                                                    dataKey={`${eventKey}_count`}
+                                                                                    dataKey={resolvedCountKey}
                                                                                     name={eventKeyInfo.eventName}
                                                                                     yAxisId="left"
                                                                                     stroke={color}
@@ -5164,11 +5616,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     if (!isApiEvent || eventKeys.length === 0) return null;
 
                     return (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.6 }}
-                        >
+                        <div>
                             <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                                 <CardHeader className="pb-2 px-3 md:px-6">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
@@ -5194,9 +5642,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                 </CardHeader>
                                 <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
                                     {/* Collapsible Legend - Status codes and cache status */}
-                                    {eventKeys.length > 0 && (
+                                    {apiEndpointEventKeyInfos.length > 0 && (
                                         <CollapsibleLegend
-                                            eventKeys={eventKeys}
+                                            eventKeys={apiEndpointEventKeyInfos}
                                             events={events}
                                             isExpanded={mainLegendExpanded}
                                             onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
@@ -5248,14 +5696,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                     )}
 
                                     <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
-                                        {graphData.length > 0 ? (
+                                        {(isMainPanelApi ? apiPerformanceSeries : graphData).length > 0 ? (
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <AreaChart
-                                                    data={graphData}
-                                                    margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
+                                                    data={isMainPanelApi ? apiPerformanceSeries : graphData}
+                                                    margin={{ top: 10, right: 30, left: 18, bottom: 50 }}
                                                 >
                                                     <defs>
-                                                        {eventKeys.map((eventKeyInfo, index) => {
+                                                        {apiEndpointEventKeyInfos.map((eventKeyInfo: EventKeyInfo, index: number) => {
                                                             const color = EVENT_COLORS[index % EVENT_COLORS.length];
                                                             return (
                                                                 <linearGradient key={`apiGrad_${eventKeyInfo.eventKey}`} id={`apiColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
@@ -5272,10 +5720,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         axisLine={{ stroke: '#e5e7eb' }}
                                                         tickLine={false}
                                                         height={45}
-                                                        interval={Math.floor(graphData.length / 8)}
+                                                        interval={Math.max(0, Math.floor(((isMainPanelApi ? apiPerformanceSeries : graphData).length || 0) / 8))}
                                                     />
                                                     <YAxis
                                                         tick={{ fill: '#3b82f6', fontSize: 11 }}
+                                                        width={60}
                                                         axisLine={false}
                                                         tickLine={false}
                                                         tickFormatter={(value) => {
@@ -5284,8 +5733,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             const isBytesView = apiMetricView?.startsWith('bytes');
 
                                                             if (isTimingView) {
-                                                                // Milliseconds
-                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}s`;
                                                                 return `${value.toFixed(0)}ms`;
                                                             } else if (isBytesView) {
                                                                 // Bytes
@@ -5300,7 +5747,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                 return value;
                                                             }
                                                         }}
-                                                        dx={-10}
+                                                        dx={0}
                                                         label={{
                                                             value: apiMetricView?.startsWith('timing') ? 'Time (ms)' : apiMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count',
                                                             angle: -90,
@@ -5309,13 +5756,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         }}
                                                     />
                                                     <Tooltip
-                                                        content={<CustomTooltip events={events} eventKeys={eventKeys} />}
+                                                        content={<CustomTooltip events={events} eventKeys={apiEndpointEventKeyInfos} />}
                                                         cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '5 5' }}
                                                     />
                                                     {/* Dynamic areas based on selected metric view */}
-                                                    {eventKeys
-                                                        .filter(eventKeyInfo => !apiSelectedEventKey || eventKeyInfo.eventKey === apiSelectedEventKey)
-                                                        .map((eventKeyInfo, index) => {
+                                                    {apiEndpointEventKeyInfos
+                                                        .filter((eventKeyInfo: EventKeyInfo) => !apiSelectedEventKey || eventKeyInfo.eventKey === apiSelectedEventKey)
+                                                        .map((eventKeyInfo: EventKeyInfo, index: number) => {
                                                             const color = EVENT_COLORS[index % EVENT_COLORS.length];
                                                             const eventKey = eventKeyInfo.eventKey;
 
@@ -5364,8 +5811,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             let isAnomalyMode = apiMetricView === 'timing-anomaly';
                                                             let anomalyThreshold = 0;
                                                             if (isAnomalyMode) {
-                                                                // Calculate mean and standard deviation for this event
-                                                                const values = graphData
+                                                                // Calculate mean and standard deviation for this event using filtered data
+                                                                const values = (isMainPanelApi ? apiPerformanceSeries : filteredApiData)
                                                                     .map(d => d[dataKey])
                                                                     .filter(v => typeof v === 'number' && v > 0);
                                                                 if (values.length > 0) {
@@ -5425,17 +5872,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 </AreaChart>
                                             </ResponsiveContainer>
                                         ) : (
-                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                                <Activity className="h-12 w-12 mb-3 opacity-30" />
-                                                <p className="text-sm">
-                                                    {dataLoading ? 'Loading API metrics...' : 'No API data available'}
-                                                </p>
+                                            <div className="h-full flex items-center justify-center">
+                                                <p className="text-muted-foreground">No API performance data available</p>
                                             </div>
                                         )}
                                     </div>
                                 </CardContent>
                             </Card>
-                        </motion.div>
+                        </div>
                     );
                 })()}
 
@@ -6020,22 +6464,112 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                 {/* Additional Panels (if profile has more than one panel) */}
                 {/* Render additional panels normally - each panel will check if it's a special graph */}
-                {profile.panels.length > 1 && profile.panels.slice(1).map((panel, panelIndex) => {
-                    const panelData = panelsDataMap.get(panel.panelId);
-                    const pGraphData = panelData?.graphData || [];
-                    const pEventKeys = panelData?.eventKeys || [];
-                    const pPieData = panelData?.pieChartData;
-                    // Use the editable panel filter state (falls back to panelData.filters)
-                    const currentPanelFilters = panelFiltersState[panel.panelId] || panelData?.filters || {
-                        events: [],
-                        platforms: [],
-                        pos: [],
-                        sources: []
+                {profile.panels.length > 1 && (() => {
+                    // Helper function to apply API filtering to panel data
+                    const applyApiFiltering = (rawData: any[], panelConfig: any, filters: any, eventKeys: any[], filterType: 'percentage' | 'regular' = 'percentage') => {
+                        if (!panelConfig?.isApiEvent) return rawData;
+
+                        // If the dataset is already API-aggregated into series like `status_200_*` / `cache_dynamic_*`,
+                        // do NOT run the status/cache filtering logic below (it expects per-event keys and will zero out series).
+                        const isAlreadyAggregated = (eventKeys || []).some((ek: any) => {
+                            const k = ek?.eventKey;
+                            return typeof k === 'string' && (k.startsWith('status_') || k.startsWith('cache_'));
+                        });
+                        if (isAlreadyAggregated) return rawData;
+                        
+                        // Use different filter keys based on the filter type
+                        const statusCodes = (filterType === 'percentage'
+                            ? (filters.percentageStatusCodes || [])
+                            : (filters.apiStatusCodes || []))
+                            .filter(Boolean)
+                            .map((v: any) => String(v))
+                            .filter((v: string) => /^\d+$/.test(v));
+                        const cacheStatuses = (filterType === 'percentage'
+                            ? (filters.percentageCacheStatus || [])
+                            : (filters.apiCacheStatus || []))
+                            .filter(Boolean)
+                            .map((v: any) => String(v));
+                        
+                        const hasStatusFilter = statusCodes.length > 0;
+                        const hasCacheFilter = cacheStatuses.length > 0;
+                        
+                        if (!hasStatusFilter && !hasCacheFilter) return rawData;
+                        
+                        return rawData.map(record => {
+                            const filteredRecord = { ...record };
+                            
+                            // Filter each event key's data based on status/cache filters
+                            eventKeys.forEach(eventKeyInfo => {
+                                const eventKey = eventKeyInfo.eventKey;
+                                
+                                let filteredCount = 0;
+                                let filteredSuccess = 0;
+                                let filteredFail = 0;
+                                let filteredAvgDelay = 0;
+
+                                if (hasStatusFilter && hasCacheFilter) {
+                                    statusCodes.forEach((status: string) => {
+                                        cacheStatuses.forEach((cache: string) => {
+                                            const combinedKey = `${eventKey}_status_${status}_cache_${cache}`;
+                                            filteredCount += Number(record[`${combinedKey}_count`] || 0);
+                                            filteredSuccess += Number(record[`${combinedKey}_success`] || 0);
+                                            filteredFail += Number(record[`${combinedKey}_fail`] || 0);
+                                            filteredAvgDelay += Number(record[`${combinedKey}_avgDelay`] || 0);
+                                        });
+                                    });
+                                } else if (hasStatusFilter) {
+                                    statusCodes.forEach((status: string) => {
+                                        const statusKey = `${eventKey}_status_${status}`;
+                                        filteredCount += Number(record[`${statusKey}_count`] || 0);
+                                        filteredSuccess += Number(record[`${statusKey}_success`] || 0);
+                                        filteredFail += Number(record[`${statusKey}_fail`] || 0);
+                                        filteredAvgDelay += Number(record[`${statusKey}_avgDelay`] || 0);
+                                    });
+                                } else if (hasCacheFilter) {
+                                    cacheStatuses.forEach((cache: string) => {
+                                        const cacheKey = `${eventKey}_cache_${cache}`;
+                                        filteredCount += Number(record[`${cacheKey}_count`] || 0);
+                                        filteredSuccess += Number(record[`${cacheKey}_success`] || 0);
+                                        filteredFail += Number(record[`${cacheKey}_fail`] || 0);
+                                        filteredAvgDelay += Number(record[`${cacheKey}_avgDelay`] || 0);
+                                    });
+                                }
+
+                                filteredRecord[`${eventKeyInfo.eventKey}_count`] = filteredCount;
+                                filteredRecord[`${eventKeyInfo.eventKey}_success`] = filteredSuccess;
+                                filteredRecord[`${eventKeyInfo.eventKey}_fail`] = filteredFail;
+                                filteredRecord[`${eventKeyInfo.eventKey}_avgDelay`] = filteredAvgDelay;
+                            });
+                            
+                            return filteredRecord;
+                        });
                     };
-                    const currentPanelDateRange = panelDateRanges[panel.panelId] || dateRange;
-                    const isPanelLoading = panelLoading[panel.panelId] || false;
-                    const panelConfig = (panel as any).filterConfig;
-                    const panelGraphType = panelConfig?.graphType || 'line';
+                    
+                    return profile.panels.slice(1).map((panel, panelIndex) => {
+                        const panelData = panelsDataMap.get(panel.panelId);
+                        const rawPanelGraphData = panelData?.graphData || [];
+                        const pEventKeys = panelData?.eventKeys || [];
+                        const pPieData = panelData?.pieChartData;
+                        // Use the editable panel filter state (falls back to panelData.filters)
+                        const currentPanelFilters = panelFiltersState[panel.panelId] || panelData?.filters || {
+                            events: [],
+                            platforms: [],
+                            pos: [],
+                            sources: []
+                        };
+                        const currentPanelDateRange = panelDateRanges[panel.panelId] || dateRange;
+                        const isPanelLoading = panelLoading[panel.panelId] || false;
+                        const panelConfig = (panel as any)?.filterConfig;
+                        const panelGraphType = panelConfig?.graphType || 'line';
+                        
+                        // Apply API filtering to additional panel data if this is an API panel
+                        const filteredGraphData = applyApiFiltering(
+                            rawPanelGraphData,
+                            panelConfig,
+                            currentPanelFilters,
+                            pEventKeys,
+                            panelGraphType === 'percentage' || panelGraphType === 'funnel' ? 'percentage' : 'regular'
+                        );
 
                     // Calculate totals for this panel (using event keys if available)
                     let pTotalCount = 0;
@@ -6045,9 +6579,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     // Skip stats card display for percentage and funnel graphs
                     if (panelGraphType !== 'percentage' && panelGraphType !== 'funnel') {
                         // Standard Logic - only for regular line/bar charts
-                        pTotalCount = pGraphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
-                        pTotalSuccess = pGraphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
-                        pTotalFail = pGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
+                        pTotalCount = filteredGraphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
+                        pTotalSuccess = filteredGraphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
+                        pTotalFail = filteredGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
                     }
 
                     // Dropdown options for this panel's filters (with isError/isAvg badges)
@@ -6197,10 +6731,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 </Button>
                                             </div>
                                             {!panelFiltersCollapsed[panel.panelId] && (
-                                                <motion.div
-                                                    animate={panelFilterChanges[panel.panelId] ? { scale: [1, 1.02, 1] } : {}}
-                                                    transition={panelFilterChanges[panel.panelId] ? { duration: 1.5, repeat: Infinity } : {}}
-                                                >
+                                                <div>
                                                     <InteractiveButton
                                                         onClick={() => handlePanelRefresh(panel.panelId)}
                                                         disabled={isPanelLoading}
@@ -6219,13 +6750,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             <motion.div
                                                                 className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
                                                                 animate={{ scale: [1, 1.3, 1] }}
-                                                                transition={{ duration: 0.8, repeat: Infinity }}
+                                                                transition={{ duration: 0.8, repeat: 2 }}
                                                             >
                                                                 !
                                                             </motion.div>
                                                         )}
                                                     </InteractiveButton>
-                                                </motion.div>
+                                                </div>
                                             )}
                                         </div>
 
@@ -6399,7 +6930,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                                     <>
                                                                                         <MultiSelectDropdown
                                                                                             options={groupedOptions}
-                                                                                            selected={currentPanelFilters.percentageStatusCodes || []}
+                                                                                            selected={(() => {
+                                                                                                const panelSelected = currentPanelFilters.percentageStatusCodes || [];
+                                                                                                const s = new Set<string>(panelSelected);
+                                                                                                if (codes4xx.length > 0 && codes4xx.every(c => s.has(c))) s.add('4xx_group');
+                                                                                                if (codes5xx.length > 0 && codes5xx.every(c => s.has(c))) s.add('5xx_group');
+                                                                                                return Array.from(s);
+                                                                                            })()}
                                                                                             onChange={(values) => {
                                                                                                 let expandedValues = [...values];
                                                                                                 if (values.includes('4xx_group')) {
@@ -7051,18 +7588,234 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                             cacheStatus: currentPanelFilters.percentageCacheStatus || panelConfig.percentageConfig.filters?.cacheStatus || []
                                         };
 
+                                        const panelApiSeries = panelApiPerformanceSeriesMap[panel.panelId] || [];
+                                        const panelMetricView = panelApiMetricView[panel.panelId] || 'timing';
+                                        const apiEventIds = Array.from(new Set([...activeParentEvents, ...activeChildEvents].map(String)));
+                                        const apiEventKeyInfos = apiEventIds.map((id) => {
+                                            const ev = events.find(e => String(e.eventId) === String(id));
+                                            const name = ev?.isApiEvent && ev?.host && ev?.url
+                                                ? `${ev.host} - ${ev.url}`
+                                                : (ev?.eventName || `Event ${id}`);
+                                            return { eventId: String(id), eventName: name, eventKey: name.replace(/[^a-zA-Z0-9]/g, '_') };
+                                        });
+
                                         return (
-                                            <PercentageGraph
-                                                data={pGraphData}
-                                                dateRange={currentPanelDateRange}
-                                                parentEvents={activeParentEvents}
-                                                childEvents={activeChildEvents}
-                                                eventColors={eventColors}
-                                                eventNames={eventNames}
-                                                filters={mergedFilters}
-                                                showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
-                                                isHourly={pIsHourly}
-                                            />
+                                            <div className="space-y-6">
+                                                <PercentageGraph
+                                                    data={panelConfig?.isApiEvent
+                                                        ? ((panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []) as any[])
+                                                        : filteredGraphData}
+                                                    dateRange={currentPanelDateRange}
+                                                    parentEvents={activeParentEvents}
+                                                    childEvents={activeChildEvents}
+                                                    eventColors={eventColors}
+                                                    eventNames={eventNames}
+                                                    filters={mergedFilters}
+                                                    showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
+                                                    isHourly={pIsHourly}
+                                                />
+
+                                                {panelConfig?.isApiEvent && apiEventKeyInfos.length > 0 && (
+                                                    <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl">
+                                                        <CardHeader className="pb-2 px-3 md:px-6">
+                                                            <div className="flex items-center justify-between">
+                                                                <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
+                                                                <div className="flex flex-wrap gap-2">
+                                                                    {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
+                                                                        <button
+                                                                            key={tab}
+                                                                            onClick={() => setPanelApiMetricView(prev => ({ ...prev, [panel.panelId]: tab }))}
+                                                                            className={cn(
+                                                                                "px-2.5 py-1 text-xs font-medium rounded-lg transition-all",
+                                                                                panelMetricView === tab
+                                                                                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                                                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                                            )}
+                                                                        >
+                                                                            {tab === 'timing' && '⏱️ Time (Avg)'}
+                                                                            {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
+                                                                            {tab === 'timing-anomaly' && '⚠️ Anomalies'}
+                                                                            {tab === 'bytes' && '📤 Bytes Out'}
+                                                                            {tab === 'bytes-in' && '📥 Bytes In'}
+                                                                            {tab === 'count' && '📈 Count'}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                                            <div className="h-[280px] md:h-[360px] w-full">
+                                                                {panelApiSeries.length > 0 ? (
+                                                                    <ResponsiveContainer width="100%" height="100%">
+                                                                        <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
+                                                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                            <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
+                                                                            <YAxis
+                                                                                tick={{ fill: '#3b82f6', fontSize: 11 }}
+                                                                                axisLine={false}
+                                                                                tickLine={false}
+                                                                                tickFormatter={(value) => {
+                                                                                    if (!value || value <= 0) return '0';
+                                                                                    const isTimingView = panelMetricView?.startsWith('timing');
+                                                                                    const isBytesView = panelMetricView?.startsWith('bytes');
+                                                                                    if (isTimingView) {
+                                                                                        return `${value.toFixed(0)}ms`;
+                                                                                    }
+                                                                                    if (isBytesView) {
+                                                                                        if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}GB`;
+                                                                                        if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
+                                                                                        if (value >= 1000) return `${(value / 1000).toFixed(1)}KB`;
+                                                                                        return `${value.toFixed(0)}B`;
+                                                                                    }
+                                                                                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                                                                                    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                                                                                    return value;
+                                                                                }}
+                                                                                label={{
+                                                                                    value: panelMetricView?.startsWith('timing') ? 'Time (ms)' : panelMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count',
+                                                                                    angle: -90,
+                                                                                    position: 'insideLeft',
+                                                                                    style: { fill: '#3b82f6', fontSize: 10 }
+                                                                                }}
+                                                                            />
+                                                                            <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
+                                                                            {apiEventKeyInfos.map((ek, idx) => {
+                                                                                const color = EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                                let dataKey = `${ek.eventKey}_count`;
+                                                                                if (panelMetricView === 'timing' || panelMetricView === 'timing-anomaly') dataKey = `${ek.eventKey}_avgServerToUser`;
+                                                                                if (panelMetricView === 'bytes') dataKey = `${ek.eventKey}_avgBytesOut`;
+                                                                                if (panelMetricView === 'bytes-in') dataKey = `${ek.eventKey}_avgBytesIn`;
+
+                                                                                if (panelMetricView === 'timing-breakdown') {
+                                                                                    return (
+                                                                                        <React.Fragment key={`pbreak_${panel.panelId}_${ek.eventKey}`}>
+                                                                                            <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
+                                                                                            <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
+                                                                                        </React.Fragment>
+                                                                                    );
+                                                                                }
+
+                                                                                return (
+                                                                                    <Area
+                                                                                        key={`papi_${panel.panelId}_${ek.eventKey}_${panelMetricView}`}
+                                                                                        type="monotone"
+                                                                                        dataKey={dataKey}
+                                                                                        name={ek.eventName}
+                                                                                        stroke={color}
+                                                                                        strokeWidth={2.5}
+                                                                                        fillOpacity={0.12}
+                                                                                        fill={color}
+                                                                                        dot={false}
+                                                                                        isAnimationActive={false}
+                                                                                        animationDuration={0}
+                                                                                    />
+                                                                                );
+                                                                            })}
+                                                                        </AreaChart>
+                                                                    </ResponsiveContainer>
+                                                                ) : (
+                                                                    <div className="h-full flex items-center justify-center text-muted-foreground">No API performance data</div>
+                                                                )}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                )}
+
+                                                {panelConfig?.isApiEvent && (() => {
+                                                    const apiData = (pPieData as any)?.data || pPieData;
+                                                    const statusData = apiData?.status
+                                                        ? Object.entries(apiData.status).map(([_, val]: [string, any]) => ({ name: `${val.status}`, value: val.count }))
+                                                        : [];
+                                                    const cacheStatusData = apiData?.cacheStatus
+                                                        ? Object.entries(apiData.cacheStatus).map(([_, val]: [string, any]) => ({ name: val.cacheStatus || 'Unknown', value: val.count }))
+                                                        : [];
+
+                                                    statusData.sort((a: any, b: any) => {
+                                                        if (a.name === '200') return -1;
+                                                        if (b.name === '200') return 1;
+                                                        return parseInt(a.name) - parseInt(b.name);
+                                                    });
+
+                                                    const showStatus = statusData.length > 0;
+                                                    const showCacheStatus = cacheStatusData.length > 0;
+                                                    const visibleCount = [showStatus, showCacheStatus].filter(Boolean).length;
+                                                    if (visibleCount === 0) return null;
+
+                                                    const gridClass = visibleCount === 1 ? 'grid-cols-1 max-w-md mx-auto' : 'grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto';
+
+                                                    return (
+                                                        <div className={cn('grid gap-3 md:gap-4', gridClass)}>
+                                                            {showStatus && (
+                                                                <Card className="border border-blue-200/60 dark:border-blue-500/30 rounded-2xl overflow-hidden shadow-premium">
+                                                                    <CardHeader className="pb-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <CardTitle className="text-sm font-semibold">Status Codes</CardTitle>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-7 w-7"
+                                                                                onClick={() => openExpandedPie('status', 'Status Codes', statusData)}
+                                                                            >
+                                                                                <Maximize2 className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </CardHeader>
+                                                                    <CardContent>
+                                                                        <div className="h-52">
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <PieChart>
+                                                                                    <Pie data={statusData} cx="50%" cy="45%" innerRadius={35} outerRadius={65} paddingAngle={2} dataKey="value" strokeWidth={2} stroke="#fff" isAnimationActive={false}>
+                                                                                        {statusData.map((_: any, index: number) => (
+                                                                                            <Cell key={`p_status_${panel.panelId}_${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                                                        ))}
+                                                                                    </Pie>
+                                                                                    <Tooltip content={<PieTooltip totalValue={statusData.reduce((acc: number, item: any) => acc + item.value, 0)} category="Status Code" />} />
+                                                                                    <Legend iconType="circle" iconSize={8} layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
+                                                                                </PieChart>
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            )}
+
+                                                            {showCacheStatus && (
+                                                                <Card className="border border-purple-200/60 dark:border-purple-500/30 rounded-2xl overflow-hidden shadow-premium">
+                                                                    <CardHeader className="pb-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <CardTitle className="text-sm font-semibold">Cache Status</CardTitle>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-7 w-7"
+                                                                                onClick={() => openExpandedPie('cacheStatus', 'Cache Status', cacheStatusData)}
+                                                                            >
+                                                                                <Maximize2 className="h-3.5 w-3.5" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </CardHeader>
+                                                                    <CardContent>
+                                                                        <div className="h-52">
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <PieChart>
+                                                                                    <Pie data={cacheStatusData} cx="50%" cy="45%" innerRadius={35} outerRadius={65} paddingAngle={2} dataKey="value" strokeWidth={2} stroke="#fff" isAnimationActive={false}>
+                                                                                        {cacheStatusData.map((_: any, index: number) => (
+                                                                                            <Cell key={`p_cache_${panel.panelId}_${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                                                        ))}
+                                                                                    </Pie>
+                                                                                    <Tooltip content={<PieTooltip totalValue={cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0)} category="Cache Status" />} />
+                                                                                    <Legend iconType="circle" iconSize={8} layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
+                                                                                </PieChart>
+                                                                            </ResponsiveContainer>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* Note: Keep +1 panel pies as the original expandable pie charts (platform/pos/source). */}
+                                            </div>
                                         );
                                     }
 
@@ -7077,11 +7830,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                                         return (
                                             <FunnelGraph
-                                                data={pGraphData}
+                                                data={filteredGraphData}
                                                 stages={activeStages}
                                                 multipleChildEvents={panelConfig.funnelConfig.multipleChildEvents || []}
                                                 eventColors={eventColors}
                                                 eventNames={eventNames}
+                                                filters={panelConfig?.isApiEvent ? {
+                                                    statusCodes: currentPanelFilters.percentageStatusCodes || [],
+                                                    cacheStatus: currentPanelFilters.percentageCacheStatus || []
+                                                } : undefined}
                                             />
                                         );
                                     }
@@ -7091,6 +7848,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                     const pAvgEventKeys = pEventKeys.filter(ek => ek.isAvgEvent === 1);
                                     const pErrorEventKeys = pEventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
                                     const pNormalEventKeys = pEventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+
+                                    // Apply API filtering to graph data if this is an API panel
+                                    const apiFilteredGraphData = applyApiFiltering(filteredGraphData, panelConfig, currentPanelFilters, pEventKeys, 'regular');
 
                                     // Helper function to format delay for this panel (prepared for future use)
                                     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -7153,20 +7913,20 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             isExpanded={panelLegendExpanded[panel.panelId] || false}
                                                             onToggle={() => togglePanelLegend(panel.panelId)}
                                                             maxVisibleItems={4}
-                                                            graphData={pGraphData}
+                                                            graphData={filteredGraphData}
                                                             selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
                                                             onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
                                                         />
                                                         <div className="h-[400px]">
-                                                            {pGraphData.length > 0 ? (
+                                                            {filteredGraphData.length > 0 ? (
                                                                 <ResponsiveContainer width="100%" height="100%">
                                                                     <AreaChart
-                                                                        data={pGraphData}
+                                                                        data={filteredGraphData}
                                                                         margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                         onClick={(chartState: any) => {
                                                                             if (chartState && chartState.activeIndex !== undefined) {
                                                                                 const index = parseInt(chartState.activeIndex);
-                                                                                const dataPoint = pGraphData[index];
+                                                                                const dataPoint = filteredGraphData[index];
                                                                                 if (dataPoint) {
                                                                                     setPanelPinnedTooltips(prev => ({
                                                                                         ...prev,
@@ -7192,7 +7952,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             })}
                                                                         </defs>
                                                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                         <YAxis
                                                                             tick={{ fill: '#6b7280', fontSize: 10 }}
                                                                             axisLine={false}
@@ -7205,11 +7965,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             .map((eventKeyInfo, index) => {
                                                                                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                const countKey = `${eventKeyInfo.eventKey}_count`;
+                                                                                const resolvedCountKey = (filteredGraphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
+                                                                                    ? countKey
+                                                                                    : eventKeyInfo.eventKey;
                                                                                 return (
                                                                                     <Area
                                                                                         key={`normal_${panel.panelId}_${eventKeyInfo.eventKey}`}
                                                                                         type="monotone"
-                                                                                        dataKey={`${eventKeyInfo.eventKey}_count`}
+                                                                                        dataKey={resolvedCountKey}
                                                                                         name={eventKeyInfo.eventName}
                                                                                         stroke={color}
                                                                                         strokeWidth={2.5}
@@ -7271,9 +8035,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                                         const event = events.find(e => String(e.eventId) === ek.eventId);
                                                                                         const color = event?.color || EVENT_COLORS[idx % EVENT_COLORS.length];
                                                                                         return {
-                                                                                            dataKey: `${ek.eventKey}_count`,
+                                                                                            dataKey: Object.prototype.hasOwnProperty.call(pinnedData.dataPoint || {}, `${ek.eventKey}_count`) ? `${ek.eventKey}_count` : ek.eventKey,
                                                                                             name: ek.eventName,
-                                                                                            value: pinnedData.dataPoint[`${ek.eventKey}_count`] || 0,
+                                                                                            value: (pinnedData.dataPoint[`${ek.eventKey}_count`] ?? pinnedData.dataPoint[ek.eventKey] ?? 0) as any,
                                                                                             color,
                                                                                             payload: pinnedData.dataPoint,
                                                                                             unit: '',
@@ -7294,16 +8058,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                             )}
 
                                             {/* 8-Day Overlay Comparison for Hourly Panel Data - Show in deviation mode (default) */}
-                                            {pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
+                                            {pIsHourly && pNormalEventKeys.length > 0 && filteredGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
                                                 // Calculate event stats for panel overlay badges
                                                 const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
                                                     const eventKey = eventKeyInfo.eventKey;
                                                     let total = 0;
                                                     let success = 0;
 
-                                                    pGraphData.forEach((item: any) => {
-                                                        total += item[`${eventKey}_count`] || 0;
-                                                        success += item[`${eventKey}_success`] || 0;
+                                                    filteredGraphData.forEach((item: any) => {
+                                                        total += Number(item[`${eventKey}_count`] ?? item[eventKey] ?? 0);
+                                                        success += Number(item[`${eventKey}_success`] ?? item[`${eventKey}_successCount`] ?? 0);
                                                     });
 
                                                     const successRate = total > 0 ? (success / total) * 100 : 0;
@@ -7347,7 +8111,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         </CardHeader>
                                                         <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
                                                             <DayWiseComparisonChart
-                                                                data={pGraphData}
+                                                                data={filteredGraphData}
                                                                 dateRange={currentPanelDateRange}
                                                                 eventKeys={filteredEventKeys}
                                                                 eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
@@ -7361,14 +8125,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                             })()}
 
                                             {/* Daily Overlay Comparison for Daily Panel Data - Show in deviation mode */}
-                                            {!pIsHourly && pNormalEventKeys.length > 0 && pGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
+                                            {!pIsHourly && pNormalEventKeys.length > 0 && filteredGraphData.length > 0 && (panelChartType[panel.panelId] ?? 'deviation') === 'deviation' && (() => {
                                                 // Calculate event stats for panel overlay badges
                                                 const pEventStatsForBadges = pNormalEventKeys.map(eventKeyInfo => {
                                                     const eventKey = eventKeyInfo.eventKey;
                                                     let total = 0;
                                                     let success = 0;
 
-                                                    pGraphData.forEach((item: any) => {
+                                                    filteredGraphData.forEach((item: any) => {
                                                         total += item[`${eventKey}_count`] || 0;
                                                         success += item[`${eventKey}_success`] || 0;
                                                     });
@@ -7414,7 +8178,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         </CardHeader>
                                                         <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
                                                             <DayWiseComparisonChart
-                                                                data={pGraphData}
+                                                                data={filteredGraphData}
                                                                 dateRange={currentPanelDateRange}
                                                                 eventKeys={filteredEventKeys}
                                                                 eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
@@ -7447,20 +8211,20 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             isExpanded={panelLegendExpanded[`${panel.panelId}_avg`] || false}
                                                             onToggle={() => togglePanelLegend(`${panel.panelId}_avg`)}
                                                             maxVisibleItems={4}
-                                                            graphData={pGraphData}
+                                                            graphData={filteredGraphData}
                                                             selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
                                                             onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
                                                         />
                                                         <div className="h-[400px]">
-                                                            {pGraphData.length > 0 ? (
+                                                            {filteredGraphData.length > 0 ? (
                                                                 <ResponsiveContainer width="100%" height="100%">
                                                                     <AreaChart
-                                                                        data={pGraphData}
+                                                                        data={filteredGraphData}
                                                                         margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                         onClick={(chartState: any) => {
                                                                             if (chartState && chartState.activeIndex !== undefined) {
                                                                                 const index = parseInt(chartState.activeIndex);
-                                                                                const dataPoint = pGraphData[index];
+                                                                                const dataPoint = filteredGraphData[index];
                                                                                 if (dataPoint) {
                                                                                     setPanelPinnedTooltips(prev => ({
                                                                                         ...prev,
@@ -7486,7 +8250,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             })}
                                                                         </defs>
                                                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                         <YAxis
                                                                             tick={{ fill: '#f59e0b', fontSize: 10 }}
                                                                             axisLine={false}
@@ -7618,10 +8382,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         </CardHeader>
                                                         <CardContent className="space-y-4">
                                                             <div className="h-[400px]">
-                                                                {pGraphData.length > 0 ? (
+                                                                {filteredGraphData.length > 0 ? (
                                                                     <ResponsiveContainer width="100%" height="100%">
                                                                         <AreaChart
-                                                                            data={pGraphData}
+                                                                            data={filteredGraphData}
                                                                             margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                         >
                                                                             <defs>
@@ -7631,7 +8395,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                                 </linearGradient>
                                                                             </defs>
                                                                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                            <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                            <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                             <YAxis
                                                                                 tick={{ fill: '#f59e0b', fontSize: 10 }}
                                                                                 axisLine={false}
@@ -7693,20 +8457,20 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             isExpanded={panelLegendExpanded[`${panel.panelId}_error`] || false}
                                                             onToggle={() => togglePanelLegend(`${panel.panelId}_error`)}
                                                             maxVisibleItems={4}
-                                                            graphData={pGraphData}
+                                                            graphData={filteredGraphData}
                                                             selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
                                                             onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
                                                         />
                                                         <div className="h-[400px]">
-                                                            {pGraphData.length > 0 ? (
+                                                            {filteredGraphData.length > 0 ? (
                                                                 <ResponsiveContainer width="100%" height="100%">
                                                                     <AreaChart
-                                                                        data={pGraphData}
+                                                                        data={filteredGraphData}
                                                                         margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                         onClick={(chartState: any) => {
                                                                             if (chartState && chartState.activeIndex !== undefined) {
                                                                                 const index = parseInt(chartState.activeIndex);
-                                                                                const dataPoint = pGraphData[index];
+                                                                                const dataPoint = filteredGraphData[index];
                                                                                 if (dataPoint) {
                                                                                     setPanelPinnedTooltips(prev => ({
                                                                                         ...prev,
@@ -7735,7 +8499,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             </linearGradient>
                                                                         </defs>
                                                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                         <YAxis
                                                                             tick={{ fill: '#ef4444', fontSize: 10 }}
                                                                             axisLine={false}
@@ -7873,10 +8637,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         </CardHeader>
                                                         <CardContent className="space-y-4">
                                                             <div className="h-[400px]">
-                                                                {pGraphData.length > 0 ? (
+                                                                {filteredGraphData.length > 0 ? (
                                                                     <ResponsiveContainer width="100%" height="100%">
                                                                         <AreaChart
-                                                                            data={pGraphData}
+                                                                            data={filteredGraphData}
                                                                             margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                         >
                                                                             <defs>
@@ -7890,7 +8654,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                                 </linearGradient>
                                                                             </defs>
                                                                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                            <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                            <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                             <YAxis
                                                                                 tick={{ fill: '#ef4444', fontSize: 10 }}
                                                                                 axisLine={false}
@@ -7960,14 +8724,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                             isExpanded={panelLegendExpanded[panel.panelId] || false}
                                                             onToggle={() => togglePanelLegend(panel.panelId)}
                                                             maxVisibleItems={4}
-                                                            graphData={pGraphData}
+                                                            graphData={filteredGraphData}
                                                             selectedEventKey={panelSelectedEventKey[panel.panelId] || null}
                                                             onEventClick={(eventKey) => handlePanelEventClick(panel.panelId, eventKey)}
                                                         />
                                                         <div className="h-[400px]">
-                                                            {pGraphData.length > 0 ? (
+                                                            {filteredGraphData.length > 0 ? (
                                                                 <ResponsiveContainer width="100%" height="100%">
-                                                                    <AreaChart data={pGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                    <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
                                                                         <defs>
                                                                             {pEventKeys.map((eventKeyInfo, index) => {
                                                                                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
@@ -7981,7 +8745,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                             })}
                                                                         </defs>
                                                                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(pGraphData.length / 6)} />
+                                                                        <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                         <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
                                                                         <Tooltip content={<CustomTooltip events={events} eventKeys={pEventKeys} />} />
                                                                         {pEventKeys.map((eventKeyInfo, index) => {
@@ -8149,20 +8913,21 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                             {/* Panel Hourly Stats Card - shown BELOW Pie Charts for ≤7 day ranges when enabled */}
                             {
-                                isHourly && pGraphData.length > 0 && panelConfig?.showHourlyStats !== false &&
+                                isHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false &&
                                 panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
                                     <motion.div
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: 0.3 * (panelIndex + 1) }}
                                     >
-                                        <HourlyStatsCard graphData={pGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
+                                        <HourlyStatsCard graphData={filteredGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
                                     </motion.div>
                                 )
                             }
                         </motion.div>
                     );
-                })}
+                });
+            })()}
 
                 {/* Expanded Pie Chart Modal */}
                 <ExpandedPieChartModal

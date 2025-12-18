@@ -47,6 +47,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
     showHourlyStats: boolean;
     dailyDeviationCurve?: boolean;
     isApiEvent?: boolean; // Toggle for API events vs regular events
+    autoApiConfig?: boolean; // Auto-detect and configure API events
 }
 
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {

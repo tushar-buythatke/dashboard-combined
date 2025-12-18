@@ -47,7 +47,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
     }, [options, searchQuery]);
 
     const handleSelectAll = () => {
-        const allValues = options.map(o => o.value);
+        const allValues = filteredOptions.map(o => o.value);
         onChange(allValues);
     };
 

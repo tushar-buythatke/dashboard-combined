@@ -15,6 +15,11 @@ interface FunnelGraphProps {
     multipleChildEvents: string[];
     eventColors: Record<string, string>;
     eventNames: Record<string, string>;
+    filters?: {
+        statusCodes?: string[];
+        cacheStatus?: string[];
+    };
+    onViewAsPercentage?: (parentEventId: string, childEventIds: string[]) => void;
 }
 
 interface FunnelStageData {
@@ -34,7 +39,7 @@ interface FunnelStageData {
     }>;
 }
 
-export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames }: FunnelGraphProps) {
+export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage }: FunnelGraphProps) {
     const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
 
     const funnelData = useMemo<FunnelStageData[]>(() => {
@@ -42,12 +47,36 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
         const funnelPalette = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af'];
 
+        const statusCodes = (filters?.statusCodes || []).filter(Boolean);
+        const cacheStatuses = (filters?.cacheStatus || []).filter(Boolean);
+        const hasStatusFilter = statusCodes.length > 0;
+        const hasCacheFilter = cacheStatuses.length > 0;
+
         const stageCounts = stages.map((stage) => {
             let count = 0;
             data.forEach((record) => {
-                const successKey = `${stage.eventId}_success`;
-                const countKey = `${stage.eventId}_count`;
-                count += Number(record[successKey] || record[countKey] || 0);
+                if (hasStatusFilter || hasCacheFilter) {
+                    const baseName = eventNames[stage.eventId] || `Event ${stage.eventId}`;
+                    const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                    if (hasStatusFilter) {
+                        statusCodes.forEach((status) => {
+                            const statusKey = `${eventKey}_status_${status}`;
+                            const countKey = `${statusKey}_count`;
+                            count += Number(record[countKey] || 0);
+                        });
+                    } else if (hasCacheFilter) {
+                        cacheStatuses.forEach((cache) => {
+                            const cacheKey = `${eventKey}_cache_${cache}`;
+                            const countKey = `${cacheKey}_count`;
+                            count += Number(record[countKey] || 0);
+                        });
+                    }
+                } else {
+                    const successKey = `${stage.eventId}_success`;
+                    const countKey = `${stage.eventId}_count`;
+                    count += Number(record[successKey] || record[countKey] || 0);
+                }
             });
             return { ...stage, count };
         });
@@ -81,9 +110,28 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             const lastStageChildren = multipleChildEvents.map((childEventId, idx) => {
                 let count = 0;
                 data.forEach((record) => {
-                    const successKey = `${childEventId}_success`;
-                    const countKey = `${childEventId}_count`;
-                    count += Number(record[successKey] || record[countKey] || 0);
+                    if (hasStatusFilter || hasCacheFilter) {
+                        const baseName = eventNames[childEventId] || `Event ${childEventId}`;
+                        const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                        if (hasStatusFilter) {
+                            statusCodes.forEach((status) => {
+                                const statusKey = `${eventKey}_status_${status}`;
+                                const countKey = `${statusKey}_count`;
+                                count += Number(record[countKey] || 0);
+                            });
+                        } else if (hasCacheFilter) {
+                            cacheStatuses.forEach((cache) => {
+                                const cacheKey = `${eventKey}_cache_${cache}`;
+                                const countKey = `${cacheKey}_count`;
+                                count += Number(record[countKey] || 0);
+                            });
+                        }
+                    } else {
+                        const successKey = `${childEventId}_success`;
+                        const countKey = `${childEventId}_count`;
+                        count += Number(record[successKey] || record[countKey] || 0);
+                    }
                 });
 
                 return {
@@ -112,7 +160,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
         }
 
         return processedStages;
-    }, [data, stages, multipleChildEvents, eventColors, eventNames]);
+    }, [data, stages, multipleChildEvents, eventColors, eventNames, filters]);
 
     if (!funnelData || funnelData.length === 0) {
         return (
@@ -271,15 +319,18 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                         )}
                                     </div>
 
-                                    {/* Stage label */}
+                                    {/* Stage label with event name */}
                                     <div className="mt-3 text-center">
                                         <div className={cn(
-                                            "text-[10px] sm:text-xs font-semibold transition-colors",
+                                            "text-[10px] sm:text-xs font-semibold transition-colors mb-1",
                                             isSelected 
                                                 ? "text-indigo-600 dark:text-indigo-400" 
                                                 : "text-gray-700 dark:text-gray-300"
                                         )}>
-                                            Stage {index + 1}
+                                            {index + 1}. {stage.eventName}
+                                        </div>
+                                        <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                                            {stage.count.toLocaleString()} users
                                         </div>
                                     </div>
                                 </div>
@@ -287,9 +338,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         })}
                     </div>
 
-                    {/* Summary Footer */}
+                    {/* Summary Footer with Final Stage Toggle */}
                     <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-4 gap-4 text-center">
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-200/50 dark:border-indigo-500/30">
                                 <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
                                     {funnelData[0]?.count.toLocaleString() || 0}
@@ -307,6 +358,24 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     {funnelData[funnelData.length - 1]?.percentage.toFixed(1)}%
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1 font-medium">Conversion Rate</div>
+                            </div>
+                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-200/50 dark:border-orange-500/30">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full text-xs font-medium bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800"
+                                    onClick={() => {
+                                        if (onViewAsPercentage && stages.length > 0 && multipleChildEvents.length > 0) {
+                                            // Use first stage as parent and final stage children as child events
+                                            const parentEventId = stages[0].eventId;
+                                            onViewAsPercentage(parentEventId, multipleChildEvents);
+                                        }
+                                    }}
+                                >
+                                    <BarChart3 className="h-3 w-3 mr-1" />
+                                    View as %
+                                </Button>
+                                <div className="text-xs text-muted-foreground mt-1 font-medium">Final Stage Analysis</div>
                             </div>
                         </div>
                     </div>
