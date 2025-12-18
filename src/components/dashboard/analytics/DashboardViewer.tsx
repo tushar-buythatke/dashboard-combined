@@ -1949,6 +1949,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         const cacheSet = new Set<string>();
         
         rawData.forEach((record: any) => {
+            // Direct field extraction (API response format)
+            if (record.status !== undefined && record.status !== null) {
+                statusSet.add(String(record.status));
+            }
+            if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                cacheSet.add(record.cacheStatus);
+            }
+            
+            // Also check key patterns for processed data format
             Object.keys(record).forEach(key => {
                 const statusMatch = key.match(/_status_(\d+)_/);
                 const cacheMatch = key.match(/_cache_([^_]+)_/);
@@ -2706,6 +2715,74 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                 // Update available sourceStrs per panel
                 const isMainPanel = profile.panels[0]?.panelId === panelId;
+                
+                // Auto-extract status codes and cache statuses from raw data for API panels
+                const panel = profile.panels.find(p => p.panelId === panelId);
+                const panelConfig = (panel as any)?.filterConfig;
+                const isApiPanel = panelConfig?.isApiEvent || false;
+                
+                if (isApiPanel && data.rawGraphResponse?.data) {
+                    const statusCodes = new Set<string>();
+                    const cacheStatuses = new Set<string>();
+                    
+                    data.rawGraphResponse.data.forEach((record: any) => {
+                        // Direct field extraction (API response format)
+                        if (record.status !== undefined && record.status !== null) {
+                            statusCodes.add(String(record.status));
+                        }
+                        if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                            cacheStatuses.add(record.cacheStatus);
+                        }
+                        
+                        // Also check key patterns for processed data format
+                        Object.keys(record).forEach(key => {
+                            const statusMatch = key.match(/_status_(\d+)_/);
+                            const cacheMatch = key.match(/_cache_([^_]+)_/);
+                            if (statusMatch) statusCodes.add(statusMatch[1]);
+                            if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
+                        });
+                    });
+                    
+                    const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+                    const sortedCacheStatuses = Array.from(cacheStatuses).sort();
+                    
+                    if (isMainPanel) {
+                        setAvailableStatusCodes(sortedStatusCodes);
+                        setAvailableCacheStatuses(sortedCacheStatuses);
+                        // Auto-initialize filters with defaults if not already set
+                        const currentFilters = panelFiltersState[panelId];
+                        if (!currentFilters?.percentageStatusCodes || currentFilters.percentageStatusCodes.length === 0) {
+                            const defaultStatus = sortedStatusCodes.includes('200') ? ['200'] : sortedStatusCodes;
+                            const defaultCache = sortedCacheStatuses;
+                            setPanelFiltersState(prev => ({
+                                ...prev,
+                                [panelId]: {
+                                    ...prev[panelId],
+                                    percentageStatusCodes: defaultStatus,
+                                    percentageCacheStatus: defaultCache
+                                }
+                            }));
+                        }
+                    } else {
+                        setPanelAvailableStatusCodes(prev => ({ ...prev, [panelId]: sortedStatusCodes }));
+                        setPanelAvailableCacheStatuses(prev => ({ ...prev, [panelId]: sortedCacheStatuses }));
+                        // Auto-initialize filters with defaults if not already set
+                        const currentFilters = panelFiltersState[panelId];
+                        if (!currentFilters?.percentageStatusCodes || currentFilters.percentageStatusCodes.length === 0) {
+                            const defaultStatus = sortedStatusCodes.includes('200') ? ['200'] : sortedStatusCodes;
+                            const defaultCache = sortedCacheStatuses;
+                            setPanelFiltersState(prev => ({
+                                ...prev,
+                                [panelId]: {
+                                    ...prev[panelId],
+                                    percentageStatusCodes: defaultStatus,
+                                    percentageCacheStatus: defaultCache
+                                }
+                            }));
+                        }
+                    }
+                }
+                
                 if (isMainPanel) {
                     setAvailableSourceStrs(sourceStrsInData);
                     if (data.rawGraphResponse) {
@@ -2841,11 +2918,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         
         setPanelLoadingApiFilters(prev => ({ ...prev, [panelId]: true }));
         try {
+            // For API events, pass empty arrays for platform/pos/source
             const response = await apiService.getGraphData(
                 currentFilters.events,
-                currentFilters.platforms.length > 0 ? currentFilters.platforms : [0],
-                currentFilters.pos.length > 0 ? currentFilters.pos : [2],
-                currentFilters.sources.length > 0 ? currentFilters.sources : [],
+                [], // Empty for API events
+                [], // Empty for API events
+                [], // Empty for API events
                 panelDateRanges[panelId]?.from || dateRange.from,
                 panelDateRanges[panelId]?.to || dateRange.to,
                 true // isApiEvent
@@ -2856,6 +2934,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 const cacheStatuses = new Set<string>();
                 
                 response.data.forEach((record: any) => {
+                    // Direct field extraction (API response format)
+                    if (record.status !== undefined && record.status !== null) {
+                        statusCodes.add(String(record.status));
+                    }
+                    if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                        cacheStatuses.add(record.cacheStatus);
+                    }
+                    
+                    // Also check key patterns for processed data format
                     Object.keys(record).forEach(key => {
                         const statusMatch = key.match(/_status_(\d+)_/);
                         const cacheMatch = key.match(/_cache_([^_]+)_/);
@@ -2928,11 +3015,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         
         setLoadingApiFilters(true);
         try {
+            // For API events, pass empty arrays for platform/pos/source
             const response = await apiService.getGraphData(
                 currentFilters.events,
-                currentFilters.platforms.length > 0 ? currentFilters.platforms : [0],
-                currentFilters.pos.length > 0 ? currentFilters.pos : [2],
-                currentFilters.sources.length > 0 ? currentFilters.sources : [],
+                [], // Empty for API events
+                [], // Empty for API events
+                [], // Empty for API events
                 dateRange.from,
                 dateRange.to,
                 true // isApiEvent
@@ -2949,7 +3037,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         jobIds.add(record.sourceStr);
                     }
                     
-                    // Extract status codes and cache statuses from API event keys
+                    // Direct field extraction (API response format)
+                    if (record.status !== undefined && record.status !== null) {
+                        statusCodes.add(String(record.status));
+                    }
+                    if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                        cacheStatuses.add(record.cacheStatus);
+                    }
+                    
+                    // Also check key patterns for processed data format
                     Object.keys(record).forEach(key => {
                         const statusMatch = key.match(/_status_(\d+)_/);
                         const cacheMatch = key.match(/_cache_([^_]+)_/);
@@ -3428,6 +3524,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         const cacheSet = new Set<string>();
 
                                         rawData.forEach((record: any) => {
+                                            // Direct field extraction (API response format)
+                                            if (record.status !== undefined && record.status !== null) {
+                                                statusSet.add(String(record.status));
+                                            }
+                                            if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                                                cacheSet.add(record.cacheStatus);
+                                            }
+                                            
+                                            // Also check key patterns for processed data format
                                             Object.keys(record).forEach(key => {
                                                 const statusMatch = key.match(/_status_(\d+)_/);
                                                 const cacheMatch = key.match(/_cache_([^_]+)_/);
@@ -3466,11 +3571,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         </div>
                                                         <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-purple-100 dark:border-purple-900/30 shadow-sm">
                                                             <MultiSelectDropdown
-                                                                options={events.map(e => ({
-                                                                    value: String(e.eventId),
-                                                                    label: e.eventName,
-                                                                    color: e.color
-                                                                }))}
+                                                                options={events
+                                                                    .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                    .map(e => ({
+                                                                        value: String(e.eventId),
+                                                                        label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                        color: e.color
+                                                                    }))}
                                                                 selected={currentFilters.activePercentageEvents || percentageConfig.parentEvents}
                                                                 onChange={(selected) => {
                                                                     handleFilterChange('activePercentageEvents', selected);
@@ -3489,11 +3596,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         </div>
                                                         <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-green-100 dark:border-green-900/30 shadow-sm">
                                                             <MultiSelectDropdown
-                                                                options={events.map(e => ({
-                                                                    value: String(e.eventId),
-                                                                    label: e.eventName,
-                                                                    color: e.color
-                                                                }))}
+                                                                options={events
+                                                                    .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                    .map(e => ({
+                                                                        value: String(e.eventId),
+                                                                        label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                        color: e.color
+                                                                    }))}
                                                                 selected={currentFilters.activePercentageChildEvents || percentageConfig.childEvents}
                                                                 onChange={(selected) => {
                                                                     handleFilterChange('activePercentageChildEvents', selected);
@@ -3506,36 +3615,38 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 <div className="mt-3 text-xs text-muted-foreground text-center bg-white/50 dark:bg-black/20 p-2 rounded">
                                                     Formula: <span className="font-mono text-xs">(Child Count / Parent Count) × 100</span>
                                                 </div>
-                                                {/* Platform, POS, Source filters for percentage graph */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
-                                                        <MultiSelectDropdown
-                                                            options={platformOptions}
-                                                            selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
-                                                            onChange={(values) => handleFilterChange('platforms', values)}
-                                                            placeholder="Select platforms"
-                                                        />
+                                                {/* Platform, POS, Source filters for percentage graph - hide for API events */}
+                                                {!isMainPanelApi && (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
+                                                            <MultiSelectDropdown
+                                                                options={platformOptions}
+                                                                selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
+                                                                onChange={(values) => handleFilterChange('platforms', values)}
+                                                                placeholder="Select platforms"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
+                                                            <MultiSelectDropdown
+                                                                options={posOptions}
+                                                                selected={(currentFilters.pos || []).map((id: number) => id.toString())}
+                                                                onChange={(values) => handleFilterChange('pos', values)}
+                                                                placeholder="Select POS"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
+                                                            <MultiSelectDropdown
+                                                                options={sourceOptions}
+                                                                selected={(currentFilters.sources || []).map((id: number) => id.toString())}
+                                                                onChange={(values) => handleFilterChange('sources', values)}
+                                                                placeholder="Select sources"
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
-                                                        <MultiSelectDropdown
-                                                            options={posOptions}
-                                                            selected={(currentFilters.pos || []).map((id: number) => id.toString())}
-                                                            onChange={(values) => handleFilterChange('pos', values)}
-                                                            placeholder="Select POS"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
-                                                        <MultiSelectDropdown
-                                                            options={sourceOptions}
-                                                            selected={(currentFilters.sources || []).map((id: number) => id.toString())}
-                                                            onChange={(values) => handleFilterChange('sources', values)}
-                                                            placeholder="Select sources"
-                                                        />
-                                                    </div>
-                                                </div>
+                                                )}
                                             </div>
                                         );
                                     }
@@ -3586,9 +3697,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                         }}
                                                                     >
                                                                         <option value="">Select event</option>
-                                                                        {events.map(ev => (
+                                                                        {events
+                                                                            .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
+                                                                            .map(ev => (
                                                                             <option key={ev.eventId} value={ev.eventId}>
-                                                                                {ev.eventName}
+                                                                                {ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName}
                                                                             </option>
                                                                         ))}
                                                                     </select>
@@ -3629,7 +3742,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                 Final Stage (Multiple Events)
                                                             </label>
                                                             <MultiSelectDropdown
-                                                                options={events.map(ev => ({ value: String(ev.eventId), label: ev.eventName }))}
+                                                                options={events
+                                                                    .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
+                                                                    .map(ev => ({ 
+                                                                        value: String(ev.eventId), 
+                                                                        label: ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName 
+                                                                    }))}
                                                                 selected={activeChildEventsForMain}
                                                                 onChange={(values) => handleFilterChange('activeFunnelChildEvents', values)}
                                                                 placeholder="Select final stage events"
@@ -3641,36 +3759,38 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     )}
                                                 </div>
 
-                                                {/* Platform, POS, Source filters */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
-                                                        <MultiSelectDropdown
-                                                            options={platformOptions}
-                                                            selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
-                                                            onChange={(values) => handleFilterChange('platforms', values)}
-                                                            placeholder="Select platforms"
-                                                        />
+                                                {/* Platform, POS, Source filters - hide for API events */}
+                                                {!isMainPanelApi && (
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
+                                                            <MultiSelectDropdown
+                                                                options={platformOptions}
+                                                                selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
+                                                                onChange={(values) => handleFilterChange('platforms', values)}
+                                                                placeholder="Select platforms"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
+                                                            <MultiSelectDropdown
+                                                                options={posOptions}
+                                                                selected={(currentFilters.pos || []).map((id: number) => id.toString())}
+                                                                onChange={(values) => handleFilterChange('pos', values)}
+                                                                placeholder="Select POS"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1.5">
+                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
+                                                            <MultiSelectDropdown
+                                                                options={sourceOptions}
+                                                                selected={(currentFilters.sources || []).map((id: number) => id.toString())}
+                                                                onChange={(values) => handleFilterChange('sources', values)}
+                                                                placeholder="Select sources"
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
-                                                        <MultiSelectDropdown
-                                                            options={posOptions}
-                                                            selected={(currentFilters.pos || []).map((id: number) => id.toString())}
-                                                            onChange={(values) => handleFilterChange('pos', values)}
-                                                            placeholder="Select POS"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
-                                                        <MultiSelectDropdown
-                                                            options={sourceOptions}
-                                                            selected={(currentFilters.sources || []).map((id: number) => id.toString())}
-                                                            onChange={(values) => handleFilterChange('sources', values)}
-                                                            placeholder="Select sources"
-                                                        />
-                                                    </div>
-                                                </div>
+                                                )}
                                             </div>
                                         );
                                     }
@@ -3743,20 +3863,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             {isMainPanelApi && (
                                 <div className="mt-4 space-y-3">
                                     <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <p className="text-xs text-muted-foreground flex-1">
-                                                <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
-                                            </p>
-                                            <Button
-                                                onClick={fetchApiFilters}
-                                                disabled={loadingApiFilters || !events || events.length === 0}
-                                                size="sm"
-                                                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 whitespace-nowrap"
-                                            >
-                                                <RefreshCw className={cn("h-3 w-3", loadingApiFilters && "animate-spin")} />
-                                                {loadingApiFilters ? "Fetching..." : "Fetch API Filters"}
-                                            </Button>
-                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
+                                        </p>
                                     </div>
                                     
                                     {/* Status & Cache Filters */}
@@ -3768,24 +3877,64 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</Label>
-                                                <MultiSelectDropdown
-                                                    options={availableStatusCodes.map(code => ({ label: code, value: code }))}
-                                                    selected={
-                                                        profile?.panels?.[0] 
-                                                            ? (panelFiltersState[profile.panels[0].panelId]?.percentageStatusCodes || [])
-                                                            : []
+                                                {/* Show 2xx and 3xx individually, group only 4xx and 5xx */}
+                                                {(() => {
+                                                    const codes2xx = availableStatusCodes.filter(c => c.startsWith('2'));
+                                                    const codes3xx = availableStatusCodes.filter(c => c.startsWith('3'));
+                                                    const codes4xx = availableStatusCodes.filter(c => c.startsWith('4'));
+                                                    const codes5xx = availableStatusCodes.filter(c => c.startsWith('5'));
+                                                    const codesOther = availableStatusCodes.filter(c => !c.startsWith('2') && !c.startsWith('3') && !c.startsWith('4') && !c.startsWith('5'));
+                                                    
+                                                    // Build grouped options - 2xx and 3xx shown individually, 4xx and 5xx grouped
+                                                    const groupedOptions: Array<{ label: string; value: string }> = [];
+                                                    // Show 2xx codes individually
+                                                    codes2xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                    // Show 3xx codes individually
+                                                    codes3xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                    // Group 4xx codes with count breakdown
+                                                    if (codes4xx.length > 0) {
+                                                        groupedOptions.push({ label: `4xx Group (${codes4xx.join(', ')})`, value: '4xx_group' });
                                                     }
-                                                    onChange={(values) => {
-                                                        const defaultStatus = availableStatusCodes.includes('200') ? ['200'] : availableStatusCodes;
-                                                        const nextValues = values.length === 0 ? [...defaultStatus] : Array.from(new Set(values));
-                                                        handleFilterChange('percentageStatusCodes', nextValues);
-                                                    }}
-                                                    placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Click 'Fetch API Filters' to load"}
-                                                    disabled={availableStatusCodes.length === 0}
-                                                />
-                                                {availableStatusCodes.length === 0 && (
-                                                    <p className="text-xs text-muted-foreground">Click "Fetch API Filters" button above</p>
-                                                )}
+                                                    // Group 5xx codes with count breakdown
+                                                    if (codes5xx.length > 0) {
+                                                        groupedOptions.push({ label: `5xx Group (${codes5xx.join(', ')})`, value: '5xx_group' });
+                                                    }
+                                                    codesOther.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                    
+                                                    const currentSelected = profile?.panels?.[0] 
+                                                        ? (panelFiltersState[profile.panels[0].panelId]?.percentageStatusCodes || [])
+                                                        : [];
+                                                    
+                                                    return (
+                                                        <>
+                                                            <MultiSelectDropdown
+                                                                options={groupedOptions}
+                                                                selected={currentSelected}
+                                                                onChange={(values) => {
+                                                                    // Expand group selections to individual codes
+                                                                    let expandedValues = [...values];
+                                                                    if (values.includes('4xx_group')) {
+                                                                        expandedValues = expandedValues.filter(v => v !== '4xx_group');
+                                                                        expandedValues.push(...codes4xx);
+                                                                    }
+                                                                    if (values.includes('5xx_group')) {
+                                                                        expandedValues = expandedValues.filter(v => v !== '5xx_group');
+                                                                        expandedValues.push(...codes5xx);
+                                                                    }
+                                                                    const uniqueValues = Array.from(new Set(expandedValues));
+                                                                    const defaultStatus = availableStatusCodes.includes('200') ? ['200'] : availableStatusCodes;
+                                                                    const nextValues = uniqueValues.length === 0 ? [...defaultStatus] : uniqueValues;
+                                                                    handleFilterChange('percentageStatusCodes', nextValues);
+                                                                }}
+                                                                placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Loading..."}
+                                                                disabled={availableStatusCodes.length === 0}
+                                                            />
+                                                            {availableStatusCodes.length === 0 && (
+                                                                <p className="text-xs text-muted-foreground">Loading status codes...</p>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="space-y-1.5">
                                                 <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</Label>
@@ -3801,11 +3950,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         const nextValues = values.length === 0 ? [...defaultCache] : Array.from(new Set(values));
                                                         handleFilterChange('percentageCacheStatus', nextValues);
                                                     }}
-                                                    placeholder={availableCacheStatuses.length > 0 ? "Select cache statuses" : "Click 'Fetch API Filters' to load"}
+                                                    placeholder={availableCacheStatuses.length > 0 ? "Select cache statuses" : "Loading..."}
                                                     disabled={availableCacheStatuses.length === 0}
                                                 />
                                                 {availableCacheStatuses.length === 0 && (
-                                                    <p className="text-xs text-muted-foreground">Click "Fetch API Filters" button above</p>
+                                                    <p className="text-xs text-muted-foreground">Loading cache statuses...</p>
                                                 )}
                                             </div>
                                         </div>
@@ -6134,81 +6283,68 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                 <Percent className="h-4 w-4" />
                                                                 Percentage Graph - Event Selection
                                                             </h4>
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                                {/* Parent Events (Denominator) - Dropdown like main panel */}
                                                                 <div className="space-y-2">
-                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
-                                                                        Parent Events (Denominator)
-                                                                    </label>
-                                                                    <div className="space-y-2">
-                                                                        {panelConfig.percentageConfig.parentEvents?.map((eventId: string) => {
-                                                                            const event = events.find(e => e.eventId === eventId);
-                                                                            const isActive = !currentPanelFilters.activePercentageEvents || currentPanelFilters.activePercentageEvents.includes(eventId);
-                                                                            return event ? (
-                                                                                <div key={eventId} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border border-purple-200 dark:border-purple-700">
-                                                                                    <Checkbox
-                                                                                        id={`parent-${panel.panelId}-${eventId}`}
-                                                                                        checked={isActive}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            const allEvents = [...(panelConfig.percentageConfig.parentEvents || []), ...(panelConfig.percentageConfig.childEvents || [])];
-                                                                                            const currentActive = currentPanelFilters.activePercentageEvents || allEvents;
-                                                                                            const newActive = checked
-                                                                                                ? [...new Set([...currentActive, eventId])]
-                                                                                                : currentActive.filter((id: string) => id !== eventId);
-
-                                                                                            setPanelFiltersState(prev => ({
-                                                                                                ...prev,
-                                                                                                [panel.panelId]: {
-                                                                                                    ...prev[panel.panelId],
-                                                                                                    activePercentageEvents: newActive
-                                                                                                }
-                                                                                            }));
-                                                                                            setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
-                                                                                        }}
-                                                                                    />
-                                                                                    <label htmlFor={`parent-${panel.panelId}-${eventId}`} className="text-sm font-medium cursor-pointer select-none flex-1">
-                                                                                        {event.eventName}
-                                                                                    </label>
-                                                                                </div>
-                                                                            ) : null;
-                                                                        })}
+                                                                    <div className="flex items-center justify-between">
+                                                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                                            Parent Events (Denominator)
+                                                                        </label>
+                                                                    </div>
+                                                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-purple-100 dark:border-purple-900/30 shadow-sm">
+                                                                        <MultiSelectDropdown
+                                                                            options={events
+                                                                                .filter(e => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                                .map(e => ({
+                                                                                    value: String(e.eventId),
+                                                                                    label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                                    color: e.color
+                                                                                }))}
+                                                                            selected={currentPanelFilters.activePercentageEvents || panelConfig.percentageConfig.parentEvents}
+                                                                            onChange={(selected) => {
+                                                                                setPanelFiltersState(prev => ({
+                                                                                    ...prev,
+                                                                                    [panel.panelId]: {
+                                                                                        ...prev[panel.panelId],
+                                                                                        activePercentageEvents: selected
+                                                                                    }
+                                                                                }));
+                                                                                setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                            }}
+                                                                            placeholder="Select Parent Events"
+                                                                        />
                                                                     </div>
                                                                 </div>
-                                                                <div className="space-y-2">
-                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
-                                                                        Child Events (Numerator)
-                                                                    </label>
-                                                                    <div className="space-y-2">
-                                                                        {panelConfig.percentageConfig.childEvents?.map((eventId: string) => {
-                                                                            const event = events.find(e => e.eventId === eventId);
-                                                                            const isActive = !currentPanelFilters.activePercentageEvents || currentPanelFilters.activePercentageEvents.includes(eventId);
-                                                                            return event ? (
-                                                                                <div key={eventId} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border border-green-200 dark:border-green-700">
-                                                                                    <Checkbox
-                                                                                        id={`child-${panel.panelId}-${eventId}`}
-                                                                                        checked={isActive}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            const allEvents = [...(panelConfig.percentageConfig.parentEvents || []), ...(panelConfig.percentageConfig.childEvents || [])];
-                                                                                            const currentActive = currentPanelFilters.activePercentageEvents || allEvents;
-                                                                                            const newActive = checked
-                                                                                                ? [...new Set([...currentActive, eventId])]
-                                                                                                : currentActive.filter((id: string) => id !== eventId);
 
-                                                                                            setPanelFiltersState(prev => ({
-                                                                                                ...prev,
-                                                                                                [panel.panelId]: {
-                                                                                                    ...prev[panel.panelId],
-                                                                                                    activePercentageEvents: newActive
-                                                                                                }
-                                                                                            }));
-                                                                                            setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
-                                                                                        }}
-                                                                                    />
-                                                                                    <label htmlFor={`child-${panel.panelId}-${eventId}`} className="text-sm font-medium cursor-pointer select-none flex-1">
-                                                                                        {event.eventName}
-                                                                                    </label>
-                                                                                </div>
-                                                                            ) : null;
-                                                                        })}
+                                                                {/* Child Events (Numerator) - Dropdown like main panel */}
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                                            Child Events (Numerator)
+                                                                        </label>
+                                                                    </div>
+                                                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-green-100 dark:border-green-900/30 shadow-sm">
+                                                                        <MultiSelectDropdown
+                                                                            options={events
+                                                                                .filter(e => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                                .map(e => ({
+                                                                                    value: String(e.eventId),
+                                                                                    label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                                    color: e.color
+                                                                                }))}
+                                                                            selected={currentPanelFilters.activePercentageChildEvents || panelConfig.percentageConfig.childEvents}
+                                                                            onChange={(selected) => {
+                                                                                setPanelFiltersState(prev => ({
+                                                                                    ...prev,
+                                                                                    [panel.panelId]: {
+                                                                                        ...prev[panel.panelId],
+                                                                                        activePercentageChildEvents: selected
+                                                                                    }
+                                                                                }));
+                                                                                setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                            }}
+                                                                            placeholder="Select Child Events"
+                                                                        />
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -6221,20 +6357,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                         {panelConfig?.isApiEvent && (
                                                             <div className="mt-4 space-y-3">
                                                                 <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
-                                                                    <div className="flex items-start justify-between gap-3">
-                                                                        <p className="text-xs text-muted-foreground flex-1">
-                                                                            <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by status codes and cache status
-                                                                        </p>
-                                                                        <Button
-                                                                            onClick={() => fetchPanelApiFilters(panel.panelId)}
-                                                                            disabled={panelLoadingApiFilters[panel.panelId] || !events || events.length === 0}
-                                                                            size="sm"
-                                                                            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 whitespace-nowrap"
-                                                                        >
-                                                                            <RefreshCw className={cn("h-3 w-3", panelLoadingApiFilters[panel.panelId] && "animate-spin")} />
-                                                                            {panelLoadingApiFilters[panel.panelId] ? "Fetching..." : "Fetch API Filters"}
-                                                                        </Button>
-                                                                    </div>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by status codes and cache status
+                                                                    </p>
                                                                 </div>
                                                                 
                                                                 <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 rounded-lg border-2 border-indigo-300 dark:border-indigo-500/30">
@@ -6245,29 +6370,68 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                                         <div className="space-y-1.5">
                                                                             <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</label>
-                                                                            <MultiSelectDropdown
-                                                                                options={(panelAvailableStatusCodes[panel.panelId] || []).map(code => ({ label: code, value: code }))}
-                                                                                selected={currentPanelFilters.percentageStatusCodes || []}
-                                                                                onChange={(values) => {
-                                                                                    const availableStatus = panelAvailableStatusCodes[panel.panelId] || [];
-                                                                                    const defaultStatus = availableStatus.includes('200') ? ['200'] : availableStatus;
-                                                                                    const nextValues = values.length === 0 ? [...defaultStatus] : Array.from(new Set(values));
+                                                                            {/* Show 2xx and 3xx individually, group only 4xx and 5xx */}
+                                                                            {(() => {
+                                                                                const panelStatusCodes = panelAvailableStatusCodes[panel.panelId] || [];
+                                                                                const codes2xx = panelStatusCodes.filter(c => c.startsWith('2'));
+                                                                                const codes3xx = panelStatusCodes.filter(c => c.startsWith('3'));
+                                                                                const codes4xx = panelStatusCodes.filter(c => c.startsWith('4'));
+                                                                                const codes5xx = panelStatusCodes.filter(c => c.startsWith('5'));
+                                                                                const codesOther = panelStatusCodes.filter(c => !c.startsWith('2') && !c.startsWith('3') && !c.startsWith('4') && !c.startsWith('5'));
+                                                                                
+                                                                                // Build grouped options - 2xx and 3xx shown individually, 4xx and 5xx grouped
+                                                                                const groupedOptions: Array<{ label: string; value: string }> = [];
+                                                                                // Show 2xx codes individually
+                                                                                codes2xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                                                // Show 3xx codes individually
+                                                                                codes3xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                                                // Group 4xx codes with actual codes listed
+                                                                                if (codes4xx.length > 0) {
+                                                                                    groupedOptions.push({ label: `4xx Group (${codes4xx.join(', ')})`, value: '4xx_group' });
+                                                                                }
+                                                                                // Group 5xx codes with actual codes listed
+                                                                                if (codes5xx.length > 0) {
+                                                                                    groupedOptions.push({ label: `5xx Group (${codes5xx.join(', ')})`, value: '5xx_group' });
+                                                                                }
+                                                                                codesOther.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                                                
+                                                                                return (
+                                                                                    <>
+                                                                                        <MultiSelectDropdown
+                                                                                            options={groupedOptions}
+                                                                                            selected={currentPanelFilters.percentageStatusCodes || []}
+                                                                                            onChange={(values) => {
+                                                                                                let expandedValues = [...values];
+                                                                                                if (values.includes('4xx_group')) {
+                                                                                                    expandedValues = expandedValues.filter(v => v !== '4xx_group');
+                                                                                                    expandedValues.push(...codes4xx);
+                                                                                                }
+                                                                                                if (values.includes('5xx_group')) {
+                                                                                                    expandedValues = expandedValues.filter(v => v !== '5xx_group');
+                                                                                                    expandedValues.push(...codes5xx);
+                                                                                                }
+                                                                                                const uniqueValues = Array.from(new Set(expandedValues));
+                                                                                                const defaultStatus = panelStatusCodes.includes('200') ? ['200'] : panelStatusCodes;
+                                                                                                const nextValues = uniqueValues.length === 0 ? [...defaultStatus] : uniqueValues;
 
-                                                                                    setPanelFiltersState(prev => ({
-                                                                                        ...prev,
-                                                                                        [panel.panelId]: {
-                                                                                            ...prev[panel.panelId],
-                                                                                            percentageStatusCodes: nextValues
-                                                                                        }
-                                                                                    }));
-                                                                                    setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
-                                                                                }}
-                                                                                placeholder={(panelAvailableStatusCodes[panel.panelId] || []).length > 0 ? "Select status codes" : "Click 'Fetch API Filters' to load"}
-                                                                                disabled={(panelAvailableStatusCodes[panel.panelId] || []).length === 0}
-                                                                            />
-                                                                            {(panelAvailableStatusCodes[panel.panelId] || []).length === 0 && (
-                                                                                <p className="text-xs text-muted-foreground">Click "Fetch API Filters" button above</p>
-                                                                            )}
+                                                                                                setPanelFiltersState(prev => ({
+                                                                                                    ...prev,
+                                                                                                    [panel.panelId]: {
+                                                                                                        ...prev[panel.panelId],
+                                                                                                        percentageStatusCodes: nextValues
+                                                                                                    }
+                                                                                                }));
+                                                                                                setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                                            }}
+                                                                                            placeholder={panelStatusCodes.length > 0 ? "Select status codes" : "Loading..."}
+                                                                                            disabled={panelStatusCodes.length === 0}
+                                                                                        />
+                                                                                        {panelStatusCodes.length === 0 && (
+                                                                                            <p className="text-xs text-muted-foreground">Loading status codes...</p>
+                                                                                        )}
+                                                                                    </>
+                                                                                );
+                                                                            })()}
                                                                         </div>
                                                                         <div className="space-y-1.5">
                                                                             <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</label>
@@ -6288,11 +6452,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                                     }));
                                                                                     setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
                                                                                 }}
-                                                                                placeholder={(panelAvailableCacheStatuses[panel.panelId] || []).length > 0 ? "Select cache statuses" : "Click 'Fetch API Filters' to load"}
+                                                                                placeholder={(panelAvailableCacheStatuses[panel.panelId] || []).length > 0 ? "Select cache statuses" : "Loading..."}
                                                                                 disabled={(panelAvailableCacheStatuses[panel.panelId] || []).length === 0}
                                                                             />
                                                                             {(panelAvailableCacheStatuses[panel.panelId] || []).length === 0 && (
-                                                                                <p className="text-xs text-muted-foreground">Click "Fetch API Filters" button above</p>
+                                                                                <p className="text-xs text-muted-foreground">Loading cache statuses...</p>
                                                                             )}
                                                                         </div>
                                                                     </div>
@@ -6345,99 +6509,148 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                 ) : panelGraphType === 'funnel' && panelConfig?.funnelConfig ? (
                                                     <div className="space-y-4">
                                                         <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-lg border-2 border-blue-300 dark:border-blue-500/30">
-                                                            <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-3 flex items-center gap-2">
-                                                                <Filter className="h-4 w-4" />
-                                                                Funnel Graph Configuration
-                                                            </h4>
+                                                            <div className="flex items-center gap-2 mb-3">
+                                                                <Filter className="h-4 w-4 text-blue-500" />
+                                                                <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Funnel Graph Configuration</span>
+                                                            </div>
+                                                            
+                                                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                                                                Define conversion stages: e1 (parent) → e2 → e3 → ... → last (multiple children)
+                                                            </p>
+
+                                                            {/* Funnel Stages - Individual Dropdowns like main panel */}
                                                             <div className="space-y-3">
-                                                                <div>
-                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
-                                                                        Funnel Stages
-                                                                    </label>
-                                                                    {panelConfig.funnelConfig.stages?.map((stage: any, index: number) => {
-                                                                        const event = events.find(e => e.eventId === stage.eventId);
-                                                                        const isChecked = !currentPanelFilters.activeStages || currentPanelFilters.activeStages.includes(stage.eventId);
-
-                                                                        return event ? (
-                                                                            <div key={index} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 mb-2">
-                                                                                <Checkbox
-                                                                                    id={`stage-${panel.panelId}-${stage.eventId}`}
-                                                                                    checked={isChecked}
-                                                                                    onCheckedChange={(checked) => {
-                                                                                        const currentActive = currentPanelFilters.activeStages || panelConfig.funnelConfig.stages.map((s: any) => s.eventId);
-                                                                                        let newActive;
-                                                                                        if (checked) {
-                                                                                            // We need to maintain order if possible, or just append?
-                                                                                            // Ideally, we filter original stages by existence in newActive
-                                                                                            newActive = [...new Set([...currentActive, stage.eventId])]; // Use Set to avoid duplicates
-                                                                                        } else {
-                                                                                            newActive = currentActive.filter((id: string) => id !== stage.eventId);
-                                                                                        }
-
+                                                                <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                                    Funnel Stages
+                                                                </label>
+                                                                {(() => {
+                                                                    const defaultStageIds = panelConfig.funnelConfig.stages.map((s: any) => s.eventId);
+                                                                    const activeStageIds = (currentPanelFilters.activeStages && currentPanelFilters.activeStages.length > 0)
+                                                                        ? currentPanelFilters.activeStages
+                                                                        : defaultStageIds;
+                                                                    
+                                                                    return (activeStageIds.length > 0 ? activeStageIds : defaultStageIds).map((currentId: string, idx: number) => {
+                                                                        const selectedId = currentId || defaultStageIds[idx] || '';
+                                                                        return (
+                                                                            <div key={idx} className="flex items-center gap-2">
+                                                                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex-shrink-0">
+                                                                                    e{idx + 1}
+                                                                                </span>
+                                                                                <select
+                                                                                    className="flex-1 h-10 px-3 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                                    value={selectedId}
+                                                                                    onChange={(e) => {
+                                                                                        const newId = e.target.value;
+                                                                                        const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                                        base[idx] = newId;
                                                                                         setPanelFiltersState(prev => ({
                                                                                             ...prev,
                                                                                             [panel.panelId]: {
                                                                                                 ...prev[panel.panelId],
-                                                                                                activeStages: newActive
+                                                                                                activeStages: base
                                                                                             }
                                                                                         }));
                                                                                         setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
                                                                                     }}
-                                                                                />
-                                                                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-bold">
-                                                                                    {index + 1}
-                                                                                </span>
-                                                                                <label
-                                                                                    htmlFor={`stage-${panel.panelId}-${stage.eventId}`}
-                                                                                    className="text-sm font-medium cursor-pointer select-none"
                                                                                 >
-                                                                                    {event.eventName}
-                                                                                </label>
+                                                                                    <option value="">Select event</option>
+                                                                                    {events
+                                                                                        .filter(ev => panelConfig?.isApiEvent ? ev.isApiEvent === true : ev.isApiEvent !== true)
+                                                                                        .map(ev => (
+                                                                                        <option key={ev.eventId} value={ev.eventId}>
+                                                                                            {ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName}
+                                                                                        </option>
+                                                                                    ))}
+                                                                                </select>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="text-[11px] text-red-500 hover:text-red-700 px-1 disabled:opacity-40"
+                                                                                    disabled={(activeStageIds.length || defaultStageIds.length) <= 1}
+                                                                                    onClick={() => {
+                                                                                        const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                                        const next = base.filter((_, i) => i !== idx);
+                                                                                        setPanelFiltersState(prev => ({
+                                                                                            ...prev,
+                                                                                            [panel.panelId]: {
+                                                                                                ...prev[panel.panelId],
+                                                                                                activeStages: next
+                                                                                            }
+                                                                                        }));
+                                                                                        setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                                    }}
+                                                                                >
+                                                                                    Remove
+                                                                                </button>
                                                                             </div>
-                                                                        ) : null;
-                                                                    })}
+                                                                        );
+                                                                    });
+                                                                })()}
+                                                                <div>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="mt-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+                                                                        onClick={() => {
+                                                                            const defaultStageIds = panelConfig.funnelConfig.stages.map((s: any) => s.eventId);
+                                                                            const activeStageIds = (currentPanelFilters.activeStages && currentPanelFilters.activeStages.length > 0)
+                                                                                ? currentPanelFilters.activeStages
+                                                                                : defaultStageIds;
+                                                                            const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                            const next = [...base, ''];
+                                                                            setPanelFiltersState(prev => ({
+                                                                                ...prev,
+                                                                                [panel.panelId]: {
+                                                                                    ...prev[panel.panelId],
+                                                                                    activeStages: next
+                                                                                }
+                                                                            }));
+                                                                            setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                        }}
+                                                                    >
+                                                                        + Add Stage
+                                                                    </button>
                                                                 </div>
-                                                                {panelConfig.funnelConfig.multipleChildEvents && panelConfig.funnelConfig.multipleChildEvents.length > 0 && (
-                                                                    <div>
-                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-2 block">
-                                                                            Final Stage (Multiple Events)
-                                                                        </label>
-                                                                        <div className="flex flex-wrap gap-2">
-                                                                            {panelConfig.funnelConfig.multipleChildEvents.map((eventId: string) => {
-                                                                                const event = events.find(e => e.eventId === eventId);
-                                                                                return event ? (
-                                                                                    <span key={eventId} className="px-3 py-1 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 text-xs font-medium rounded-full border border-green-300 dark:border-green-600">
-                                                                                        {event.eventName}
-                                                                                    </span>
-                                                                                ) : null;
-                                                                            })}
-                                                                        </div>
-                                                                    </div>
-                                                                )}
                                                             </div>
-                                                            <div className="mt-3 text-xs text-muted-foreground text-center">
-                                                                Conversion funnel showing drop-off at each stage
-                                                            </div>
+
+                                                            {/* Final Stage (Multiple Events) - Multi-Select like main panel */}
+                                                            {panelConfig.funnelConfig.multipleChildEvents && panelConfig.funnelConfig.multipleChildEvents.length > 0 && (
+                                                                <div className="mt-4 space-y-2">
+                                                                    <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                                        Final Stage (Multiple Events)
+                                                                    </label>
+                                                                    <MultiSelectDropdown
+                                                                        options={events
+                                                                            .filter(ev => panelConfig?.isApiEvent ? ev.isApiEvent === true : ev.isApiEvent !== true)
+                                                                            .map(ev => ({ 
+                                                                                value: String(ev.eventId), 
+                                                                                label: ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName 
+                                                                            }))}
+                                                                        selected={currentPanelFilters.activeFunnelChildEvents || panelConfig.funnelConfig.multipleChildEvents}
+                                                                        onChange={(values) => {
+                                                                            setPanelFiltersState(prev => ({
+                                                                                ...prev,
+                                                                                [panel.panelId]: {
+                                                                                    ...prev[panel.panelId],
+                                                                                    activeFunnelChildEvents: values
+                                                                                }
+                                                                            }));
+                                                                            setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                        }}
+                                                                        placeholder="Select final stage events"
+                                                                    />
+                                                                    <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                                                        These events will be shown with different colors in the final bar
+                                                                    </p>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         
                                                         {/* API Filters for Funnel (Status & Cache) */}
                                                         {panelConfig?.isApiEvent && (
                                                             <div className="mt-4 space-y-3">
                                                                 <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
-                                                                    <div className="flex items-start justify-between gap-3">
-                                                                        <p className="text-xs text-muted-foreground flex-1">
-                                                                            <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by status codes and cache status
-                                                                        </p>
-                                                                        <Button
-                                                                            onClick={() => fetchPanelApiFilters(panel.panelId)}
-                                                                            disabled={panelLoadingApiFilters[panel.panelId] || !events || events.length === 0}
-                                                                            size="sm"
-                                                                            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 whitespace-nowrap"
-                                                                        >
-                                                                            <RefreshCw className={cn("h-3 w-3", panelLoadingApiFilters[panel.panelId] && "animate-spin")} />
-                                                                            {panelLoadingApiFilters[panel.panelId] ? "Fetching..." : "Fetch API Filters"}
-                                                                        </Button>
-                                                                    </div>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by status codes and cache status
+                                                                    </p>
                                                                 </div>
                                                                 
                                                                 <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 rounded-lg border-2 border-indigo-300 dark:border-indigo-500/30">
@@ -6448,29 +6661,68 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                                         <div className="space-y-1.5">
                                                                             <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</label>
-                                                                            <MultiSelectDropdown
-                                                                                options={(panelAvailableStatusCodes[panel.panelId] || []).map(code => ({ label: code, value: code }))}
-                                                                                selected={currentPanelFilters.percentageStatusCodes || []}
-                                                                                onChange={(values) => {
-                                                                                    const availableStatus = panelAvailableStatusCodes[panel.panelId] || [];
-                                                                                    const defaultStatus = availableStatus.includes('200') ? ['200'] : availableStatus;
-                                                                                    const nextValues = values.length === 0 ? [...defaultStatus] : Array.from(new Set(values));
+                                                                            {/* Show 2xx and 3xx individually, group only 4xx and 5xx */}
+                                                                            {(() => {
+                                                                                const panelStatusCodes = panelAvailableStatusCodes[panel.panelId] || [];
+                                                                                const codes2xx = panelStatusCodes.filter(c => c.startsWith('2'));
+                                                                                const codes3xx = panelStatusCodes.filter(c => c.startsWith('3'));
+                                                                                const codes4xx = panelStatusCodes.filter(c => c.startsWith('4'));
+                                                                                const codes5xx = panelStatusCodes.filter(c => c.startsWith('5'));
+                                                                                const codesOther = panelStatusCodes.filter(c => !c.startsWith('2') && !c.startsWith('3') && !c.startsWith('4') && !c.startsWith('5'));
+                                                                                
+                                                                                // Build grouped options - 2xx and 3xx shown individually, 4xx and 5xx grouped
+                                                                                const groupedOptions: Array<{ label: string; value: string }> = [];
+                                                                                // Show 2xx codes individually
+                                                                                codes2xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                                                // Show 3xx codes individually
+                                                                                codes3xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                                                // Group 4xx codes with actual codes listed
+                                                                                if (codes4xx.length > 0) {
+                                                                                    groupedOptions.push({ label: `4xx Group (${codes4xx.join(', ')})`, value: '4xx_group' });
+                                                                                }
+                                                                                // Group 5xx codes with actual codes listed
+                                                                                if (codes5xx.length > 0) {
+                                                                                    groupedOptions.push({ label: `5xx Group (${codes5xx.join(', ')})`, value: '5xx_group' });
+                                                                                }
+                                                                                codesOther.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                                                
+                                                                                return (
+                                                                                    <>
+                                                                                        <MultiSelectDropdown
+                                                                                            options={groupedOptions}
+                                                                                            selected={currentPanelFilters.percentageStatusCodes || []}
+                                                                                            onChange={(values) => {
+                                                                                                let expandedValues = [...values];
+                                                                                                if (values.includes('4xx_group')) {
+                                                                                                    expandedValues = expandedValues.filter(v => v !== '4xx_group');
+                                                                                                    expandedValues.push(...codes4xx);
+                                                                                                }
+                                                                                                if (values.includes('5xx_group')) {
+                                                                                                    expandedValues = expandedValues.filter(v => v !== '5xx_group');
+                                                                                                    expandedValues.push(...codes5xx);
+                                                                                                }
+                                                                                                const uniqueValues = Array.from(new Set(expandedValues));
+                                                                                                const defaultStatus = panelStatusCodes.includes('200') ? ['200'] : panelStatusCodes;
+                                                                                                const nextValues = uniqueValues.length === 0 ? [...defaultStatus] : uniqueValues;
 
-                                                                                    setPanelFiltersState(prev => ({
-                                                                                        ...prev,
-                                                                                        [panel.panelId]: {
-                                                                                            ...prev[panel.panelId],
-                                                                                            percentageStatusCodes: nextValues
-                                                                                        }
-                                                                                    }));
-                                                                                    setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
-                                                                                }}
-                                                                                placeholder={(panelAvailableStatusCodes[panel.panelId] || []).length > 0 ? "Select status codes" : "Click 'Fetch API Filters' to load"}
-                                                                                disabled={(panelAvailableStatusCodes[panel.panelId] || []).length === 0}
-                                                                            />
-                                                                            {(panelAvailableStatusCodes[panel.panelId] || []).length === 0 && (
-                                                                                <p className="text-xs text-muted-foreground">Click "Fetch API Filters" button above</p>
-                                                                            )}
+                                                                                                setPanelFiltersState(prev => ({
+                                                                                                    ...prev,
+                                                                                                    [panel.panelId]: {
+                                                                                                        ...prev[panel.panelId],
+                                                                                                        percentageStatusCodes: nextValues
+                                                                                                    }
+                                                                                                }));
+                                                                                                setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
+                                                                                            }}
+                                                                                            placeholder={panelStatusCodes.length > 0 ? "Select status codes" : "Loading..."}
+                                                                                            disabled={panelStatusCodes.length === 0}
+                                                                                        />
+                                                                                        {panelStatusCodes.length === 0 && (
+                                                                                            <p className="text-xs text-muted-foreground">Loading status codes...</p>
+                                                                                        )}
+                                                                                    </>
+                                                                                );
+                                                                            })()}
                                                                         </div>
                                                                         <div className="space-y-1.5">
                                                                             <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</label>
@@ -6491,11 +6743,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                                                     }));
                                                                                     setPanelFilterChanges(prev => ({ ...prev, [panel.panelId]: true }));
                                                                                 }}
-                                                                                placeholder={(panelAvailableCacheStatuses[panel.panelId] || []).length > 0 ? "Select cache statuses" : "Click 'Fetch API Filters' to load"}
+                                                                                placeholder={(panelAvailableCacheStatuses[panel.panelId] || []).length > 0 ? "Select cache statuses" : "Loading..."}
                                                                                 disabled={(panelAvailableCacheStatuses[panel.panelId] || []).length === 0}
                                                                             />
                                                                             {(panelAvailableCacheStatuses[panel.panelId] || []).length === 0 && (
-                                                                                <p className="text-xs text-muted-foreground">Click "Fetch API Filters" button above</p>
+                                                                                <p className="text-xs text-muted-foreground">Loading cache statuses...</p>
                                                                             )}
                                                                         </div>
                                                                     </div>
@@ -6627,6 +6879,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                                                     const cacheSet = new Set<string>();
 
                                                     rawData.forEach((record: any) => {
+                                                        // Direct field extraction (API response format)
+                                                        if (record.status !== undefined && record.status !== null) {
+                                                            statusSet.add(String(record.status));
+                                                        }
+                                                        if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                                                            cacheSet.add(record.cacheStatus);
+                                                        }
+                                                        
+                                                        // Also check key patterns for processed data format
                                                         Object.keys(record).forEach(key => {
                                                             const statusMatch = key.match(/_status_(\d+)_/);
                                                             const cacheMatch = key.match(/_cache_([^_]+)_/);
