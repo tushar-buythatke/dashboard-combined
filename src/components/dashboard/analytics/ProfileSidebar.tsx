@@ -275,10 +275,10 @@ export function ProfileSidebar({
                                 <button
                                     onClick={() => handleSelectProfile(profile.profileId)}
                                     className={cn(
-                                        "w-full text-left p-2.5 rounded-lg relative",
+                                        "w-full text-left p-2.5 rounded-lg relative transition-colors duration-100",
                                         isSelected
-                                            ? "bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-500/20 dark:to-indigo-500/15 border-[3px] border-purple-500 dark:border-purple-400 shadow-lg shadow-purple-500/20"
-                                            : "bg-white/80 dark:bg-slate-800/70 border-[2px] border-purple-300/60 dark:border-purple-500/30 hover:border-purple-400 dark:hover:border-purple-500/50 hover:shadow-md"
+                                            ? "bg-purple-100 dark:bg-purple-500/20 border-2 border-purple-500 dark:border-purple-400"
+                                            : "bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50 hover:bg-purple-50/50 dark:hover:bg-purple-900/10"
                                     )}
                                 >
                                     <div className="flex items-center justify-between">
