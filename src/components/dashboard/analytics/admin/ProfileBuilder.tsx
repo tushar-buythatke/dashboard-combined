@@ -55,6 +55,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const [profileName, setProfileName] = useState('New Profile');
     const [panels, setPanels] = useState<ExtendedPanelConfig[]>([]);
     const [alertEventFilters, setAlertEventFilters] = useState<number[]>([]); // Event IDs for critical alerts
+    const [alertsIsApi, setAlertsIsApi] = useState(false);
     const [loading, setLoading] = useState(true);
     const [workflowMode, setWorkflowMode] = useState<'quick' | 'template'>('template');
     const [combineModalOpen, setCombineModalOpen] = useState(false);
@@ -228,6 +229,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     const hasAlertsPanel = extendedPanels.some(p => p.type === 'alerts');
                     // Load alert event filters from profile
                     setAlertEventFilters(profile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || []);
+                    setAlertsIsApi(Boolean(profile.criticalAlerts?.isApi));
                     
                     if (!hasAlertsPanel) {
                         const alertsPanel: ExtendedPanelConfig = {
@@ -286,6 +288,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     }
                 };
                 setPanels([alertsPanel]);
+                setAlertsIsApi(false);
             }
             
             setLoading(false);
@@ -623,7 +626,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 position: 'top', 
                 maxAlerts: 5, 
                 filterByPOS: [],
-                filterByEvents: alertEventFilters.map(id => id.toString())
+                filterByEvents: alertEventFilters.map(id => id.toString()),
+                isApi: alertsIsApi,
             }
         };
 
@@ -850,6 +854,13 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 
                                                 {/* Event Selection for Alert Panel */}
                                                 <div className="p-4 bg-muted/20 rounded-lg">
+                                                    <div className="flex items-center justify-between gap-4 mb-3">
+                                                        <Label className="font-semibold">API Events</Label>
+                                                        <Switch
+                                                            checked={alertsIsApi}
+                                                            onCheckedChange={(checked) => setAlertsIsApi(checked)}
+                                                        />
+                                                    </div>
                                                     <Label className="mb-3 font-semibold">Monitor Specific Events</Label>
                                                     <MultiSelectDropdown
                                                         options={eventOptions}

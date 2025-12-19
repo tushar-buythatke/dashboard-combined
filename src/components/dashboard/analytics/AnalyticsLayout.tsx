@@ -183,7 +183,7 @@ export function AnalyticsLayout() {
                 timeRange: { preset: 'last_7_days', granularity: 'hourly' },
                 autoRefresh: 60
             },
-            criticalAlerts: { enabled: false, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [], filterByEvents: [] }
+            criticalAlerts: { enabled: false, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [], filterByEvents: [], isApi: false }
         };
         
         await mockService.saveProfile(newProfile);

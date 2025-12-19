@@ -124,6 +124,7 @@ export interface CriticalAlertsConfig {
     maxAlerts: number;
     filterByPOS: string[];
     filterByEvents: string[]; // Event IDs to monitor for alerts
+    isApi?: boolean;
 }
 
 export interface DashboardProfile {
