@@ -135,6 +135,110 @@ class MockService {
     private useFirebase: boolean = true; // Enable Firebase by default
     private firebaseInitialized: boolean = false;
 
+    private async ensureApisProfile(featureId: string, orgId: string, profiles: DashboardProfile[]): Promise<DashboardProfile[]> {
+        try {
+            const featureEvents = await apiService.getEventsList(featureId, orgId === 'default' ? 0 : Number(orgId) || 0);
+            const apiEvents = featureEvents.filter(e => e.isApiEvent === true);
+            if (apiEvents.length === 0) return profiles;
+
+            const existing = profiles.find(p => p.isActive !== false && p.profileName === 'APIs');
+            const desiredPanelIds = new Set(apiEvents.map(e => `api_${e.eventId}`));
+
+            const buildPanel = (apiEvent: any, index: number) => {
+                const panelId = `api_${apiEvent.eventId}`;
+                const panelName = apiEvent.host && apiEvent.url
+                    ? `${apiEvent.host} - ${apiEvent.url}`
+                    : `API ${apiEvent.eventId}`;
+
+                return {
+                    panelId,
+                    panelName,
+                    type: 'special',
+                    position: { row: index * 4, col: 1, width: 12, height: 6 },
+                    events: [apiEvent],
+                    visualizations: {
+                        lineGraph: { enabled: false, aggregationMethod: 'sum', showLegend: false, yAxisLabel: '' },
+                        pieCharts: []
+                    },
+                    filterConfig: {
+                        events: [parseInt(apiEvent.eventId)],
+                        platforms: [],
+                        pos: [],
+                        sources: [],
+                        graphType: 'percentage',
+                        isApiEvent: true,
+                        percentageConfig: {
+                            parentEvents: [String(apiEvent.eventId)],
+                            childEvents: [String(apiEvent.eventId)],
+                            filters: {
+                                statusCodes: ['200'],
+                                cacheStatus: []
+                            },
+                            showCombinedPercentage: true
+                        }
+                    }
+                } as any;
+            };
+
+            const defaultProfile: DashboardProfile = {
+                profileId: `apis_${featureId}`,
+                profileName: 'APIs',
+                featureId,
+                createdBy: 'system',
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                version: 1,
+                isActive: true,
+                defaultSettings: {
+                    timeRange: { preset: 'last_7_days', granularity: 'hourly' },
+                    autoRefresh: 60
+                },
+                filters: {
+                    platform: { type: 'multi-select', options: [], defaultValue: [] },
+                    pos: { type: 'multi-select', options: [], defaultValue: [] },
+                    source: { type: 'multi-select', options: [], defaultValue: [] },
+                    event: { type: 'multi-select', options: [], defaultValue: [] },
+                },
+                panels: apiEvents.map((e, idx) => buildPanel(e, idx)),
+                criticalAlerts: {
+                    enabled: false,
+                    position: 'top',
+                    refreshInterval: 30,
+                    maxAlerts: 5,
+                    filterByPOS: [],
+                    filterByEvents: [],
+                    isApi: false,
+                }
+            };
+
+            if (!existing) {
+                const saved = await this.saveProfile(defaultProfile, orgId, 'system');
+                return [...profiles, saved];
+            }
+
+            const existingPanelIds = new Set((existing.panels || []).map(p => p.panelId));
+            const missingApiEvents = apiEvents.filter(e => !existingPanelIds.has(`api_${e.eventId}`));
+            if (missingApiEvents.length === 0) return profiles;
+
+            const appendedPanels = [...(existing.panels || [])];
+            missingApiEvents.forEach((e) => {
+                appendedPanels.push(buildPanel(e, appendedPanels.length));
+            });
+
+            const updatedProfile: DashboardProfile = {
+                ...existing,
+                panels: appendedPanels,
+                lastModified: new Date().toISOString(),
+                version: (existing.version || 0) + 1,
+            };
+
+            const saved = await this.saveProfile(updatedProfile, orgId, 'system');
+            return profiles.map(p => (p.profileId === existing.profileId ? saved : p));
+        } catch (_err) {
+            return profiles;
+        }
+    }
+
     constructor() {
         // Load from localStorage as initial fallback
         const stored = localStorage.getItem('dashboard_profiles');
@@ -296,7 +400,8 @@ class MockService {
                     console.log(`✅ Loaded ${matchingProfiles.length} profiles from Firebase for featureId: ${featureId}`);
                     this.firebaseInitialized = true;
                     this.useFirebase = true;
-                    return matchingProfiles.map(p => this.convertFirebaseToLocal(p));
+                    const localProfiles = matchingProfiles.map(p => this.convertFirebaseToLocal(p));
+                    return await this.ensureApisProfile(featureId, orgId, localProfiles);
                 } else {
                     console.log(`⚠️ No profiles match featureId "${featureId}". Available featureIds:`, 
                         [...new Set(result.items.map(p => p.featureId))]);
@@ -307,7 +412,8 @@ class MockService {
         }
         
         // Fallback to localStorage
-        return this.profiles.filter(p => p.featureId === featureId && p.isActive);
+        const localProfiles = this.profiles.filter(p => p.featureId === featureId && p.isActive);
+        return await this.ensureApisProfile(featureId, orgId, localProfiles);
     }
 
     async getProfile(profileId: string): Promise<DashboardProfile | undefined> {

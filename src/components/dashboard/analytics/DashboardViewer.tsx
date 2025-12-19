@@ -947,6 +947,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         return mainPanelConfig?.isApiEvent === true;
     }, [profile?.panels]);
 
+    const eventConfigById = useMemo(() => {
+        const map = new Map<string, EventConfig>();
+        events.forEach((e) => {
+            map.set(String(e.eventId), e);
+        });
+        return map;
+    }, [events]);
+
     // API Performance Metrics filtered data
     const filteredApiData = useMemo(() => {
         if (!isMainPanelApi || !profile?.panels[0]) return graphData;
@@ -1083,7 +1091,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 if (!matchesStatus || !matchesCache) return;
 
                 const eventId = String(r.eventId);
-                const eventConfig = events.find(e => String(e.eventId) === eventId);
+                const eventConfig = eventConfigById.get(eventId);
                 const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
                     ? `${eventConfig.host} - ${eventConfig.url}`
                     : (eventConfig?.eventName || `Event ${eventId}`);
@@ -1164,7 +1172,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         });
 
         return map;
-    }, [profile?.panels, panelsDataMap, panelFiltersState, panelDateRanges, dateRange, events]);
+    }, [profile?.panels, panelsDataMap, panelFiltersState, panelDateRanges, dateRange, eventConfigById]);
 
     const apiEndpointEventKeyInfos = useMemo(() => {
         if (!isMainPanelApi || !profile?.panels?.[0]) return [] as EventKeyInfo[];
@@ -1178,7 +1186,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
         const ids = (selectedEventIds || []).map((v: any) => String(v)).filter(Boolean);
         return ids.map((id: string) => {
-            const ev = events.find(e => String(e.eventId) === String(id));
+            const ev = eventConfigById.get(String(id));
             const name = ev?.isApiEvent && ev?.host && ev?.url
                 ? `${ev.host} - ${ev.url}`
                 : (ev?.eventName || `Event ${id}`);
@@ -1190,7 +1198,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 isAvgEvent: 0,
             };
         });
-    }, [isMainPanelApi, profile?.panels, panelFiltersState, events]);
+    }, [isMainPanelApi, profile?.panels, panelFiltersState, eventConfigById]);
 
     // Build API Performance Metrics series directly from RAW API response so it works even in percentage/funnel views
     const apiPerformanceSeries = useMemo(() => {
@@ -1239,7 +1247,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             if (!matchesStatus || !matchesCache) return;
 
             const eventId = String(r.eventId);
-            const eventConfig = events.find(e => String(e.eventId) === eventId);
+            const eventConfig = eventConfigById.get(eventId);
             const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
                 ? `${eventConfig.host} - ${eventConfig.url}`
                 : (eventConfig?.eventName || `Event ${eventId}`);
@@ -1297,17 +1305,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
         return result;
-    }, [isMainPanelApi, profile?.panels, panelFiltersState, panelsDataMap, rawGraphResponse, events, isHourly, graphData]);
+    }, [isMainPanelApi, profile?.panels, panelFiltersState, graphData, rawGraphResponse, panelsDataMap, eventConfigById, isHourly]);
 
-    // Initialize panel filters as collapsed when profile loads
     useEffect(() => {
-        if (profile?.panels) {
-            const initialCollapseState: Record<string, boolean> = {};
-            profile.panels.forEach(panel => {
-                initialCollapseState[panel.panelId] = true; // Collapsed by default
-            });
-            setPanelFiltersCollapsed(initialCollapseState);
-        }
+        if (!profile?.panels || profile.panels.length === 0) return;
+        const next: Record<string, boolean> = {};
+        profile.panels.forEach(panel => {
+            next[panel.panelId] = true;
+        });
+        setPanelFiltersCollapsed(next);
     }, [profile?.panels]);
 
     // Note: Auto-selection disabled for 8-Day Overlay
@@ -2716,67 +2722,68 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         setPendingRefresh(true);
     };
 
+    const totals = useMemo(() => {
+        const totalCount = graphData.reduce((sum, d) => sum + (d.count || 0), 0);
+        const totalSuccess = graphData.reduce((sum, d) => sum + (d.successCount || 0), 0);
+        const totalFail = graphData.reduce((sum, d) => sum + (d.failCount || 0), 0);
+        return { totalCount, totalSuccess, totalFail };
+    }, [graphData]);
+
+    const eventOptions = useMemo(() => {
+        return events
+            .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
+            .sort((a, b) => {
+                if (isMainPanelApi) {
+                    const aLabel = a.host && a.url ? `${a.host} - ${a.url}` : a.eventName;
+                    const bLabel = b.host && b.url ? `${b.host} - ${b.url}` : b.eventName;
+
+                    const aIs200 = aLabel.includes('200') || a.eventName.includes('200');
+                    const bIs200 = bLabel.includes('200') || b.eventName.includes('200');
+
+                    if (aIs200 && !bIs200) return -1;
+                    if (!aIs200 && bIs200) return 1;
+
+                    const aStatus = parseInt(a.eventName) || 999;
+                    const bStatus = parseInt(b.eventName) || 999;
+                    return aStatus - bStatus;
+                }
+                return 0;
+            })
+            .map(e => {
+                let label = e.isApiEvent && e.host && e.url
+                    ? `${e.host} - ${e.url}`
+                    : e.eventName;
+                const tags: string[] = [];
+                if (e.isErrorEvent === 1) tags.push('[isError]');
+                if (e.isAvgEvent === 1) tags.push('[isAvg]');
+                if (tags.length > 0) {
+                    label = `${e.eventName} ${tags.join(' ')}`;
+                }
+                return {
+                    value: e.eventId,
+                    label,
+                    isErrorEvent: e.isErrorEvent === 1,
+                    isAvgEvent: e.isAvgEvent === 1
+                };
+            });
+    }, [events, isMainPanelApi]);
+
+    const platformOptions = useMemo(() => PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name })), []);
+    const posOptions = useMemo(() => siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` })), [siteDetails]);
+    const sourceOptions = useMemo(() => SOURCES.map(s => ({ value: s.id.toString(), label: s.name })), []);
+
+    const selectedEventsList = useMemo(() => {
+        if (filters.events.length === 0) return ['All Events'];
+        return filters.events.map((id) => {
+            const ev = eventConfigById.get(String(id));
+            return ev?.eventName || `Event ${id}`;
+        });
+    }, [filters.events, eventConfigById]);
+
     if (loading) return null;
     if (!profile) return <div className="p-8 text-center text-destructive">Profile not found</div>;
 
-    // Calculate totals
-    const totalCount = graphData.reduce((sum, d) => sum + (d.count || 0), 0);
-    const totalSuccess = graphData.reduce((sum, d) => sum + (d.successCount || 0), 0);
-    const totalFail = graphData.reduce((sum, d) => sum + (d.failCount || 0), 0);
-
-    // Dropdown options with indicators for error/avg events
-    // For API events, show only API events (isApiEvent === true)
-    // For regular events, show only non-API events (isApiEvent !== true)
-    const eventOptions = events
-        .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
-        .sort((a, b) => {
-            // For API events, prioritize status 200
-            if (isMainPanelApi) {
-                const aLabel = a.host && a.url ? `${a.host} - ${a.url}` : a.eventName;
-                const bLabel = b.host && b.url ? `${b.host} - ${b.url}` : b.eventName;
-
-                // Check if event name contains "200"
-                const aIs200 = aLabel.includes('200') || a.eventName.includes('200');
-                const bIs200 = bLabel.includes('200') || b.eventName.includes('200');
-
-                if (aIs200 && !bIs200) return -1;
-                if (!aIs200 && bIs200) return 1;
-
-                // Then sort by status code if both are status events
-                const aStatus = parseInt(a.eventName) || 999;
-                const bStatus = parseInt(b.eventName) || 999;
-                return aStatus - bStatus;
-            }
-            return 0; // Keep original order for non-API events
-        })
-        .map(e => {
-            let label = e.isApiEvent && e.host && e.url
-                ? `${e.host} - ${e.url}`  // API events show host/url
-                : e.eventName;             // Regular events show eventName
-            const tags: string[] = [];
-            if (e.isErrorEvent === 1) tags.push('[isError]');
-            if (e.isAvgEvent === 1) tags.push('[isAvg]');
-            if (tags.length > 0) {
-                label = `${e.eventName} ${tags.join(' ')}`;
-            }
-            return {
-                value: e.eventId,
-                label,
-                isErrorEvent: e.isErrorEvent === 1,
-                isAvgEvent: e.isAvgEvent === 1
-            };
-        });
-    const platformOptions = PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }));
-    const posOptions = siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }));
-    const sourceOptions = SOURCES.map(s => ({ value: s.id.toString(), label: s.name }));
-
-    // Get selected events for display (as array for badges)
-    // Empty array means "All" events
-    const selectedEventsList = filters.events.length === 0
-        ? ['All Events']
-        : filters.events.map(id =>
-            events.find(e => parseInt(e.eventId) === id)?.eventName || `Event ${id}`
-        );
+    const { totalCount, totalSuccess, totalFail } = totals;
 
     // Calculate panel stats for sidebar
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

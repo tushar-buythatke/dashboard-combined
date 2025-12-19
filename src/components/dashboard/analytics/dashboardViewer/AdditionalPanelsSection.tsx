@@ -1661,7 +1661,7 @@ export function AdditionalPanelsSection({
                                                         data={filteredGraphData}
                                                         dateRange={currentPanelDateRange}
                                                         eventKeys={filteredEventKeys}
-                                                        eventColors={(events || []).reduce((acc: any, e: any) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                        eventColors={eventColors}
                                                         eventStats={pEventStatsForBadges}
                                                         selectedEventKey={selectedEventKey}
                                                         onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
