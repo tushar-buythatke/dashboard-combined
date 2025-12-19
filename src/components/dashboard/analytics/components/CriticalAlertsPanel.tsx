@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
+import { Switch } from '@/components/ui/switch';
 import { Bell, CheckCircle2, ChevronDown, Filter, CalendarIcon, RefreshCw, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -86,12 +86,7 @@ export function CriticalAlertsPanel({
     }, [criticalAlerts]);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="relative"
-        >
+        <div className="relative">
             <Card className={cn(
                 "rounded-2xl overflow-hidden transition-all duration-500 group relative",
                 isAutosnipe
@@ -110,7 +105,7 @@ export function CriticalAlertsPanel({
                     isAutosnipe
                         ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-500"
                         : criticalAlerts.length > 0
-                            ? "bg-gradient-to-r from-red-500 via-orange-500 to-red-500 animate-pulse"
+                            ? "bg-gradient-to-r from-red-500 via-orange-500 to-red-500"
                             : "bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500"
                 )} />
                 
@@ -131,7 +126,7 @@ export function CriticalAlertsPanel({
                     onClick={onToggleCollapse}
                 >
                     <div className="flex items-center gap-3">
-                        <motion.div
+                        <div
                             className={cn(
                                 "h-10 w-10 rounded-xl flex items-center justify-center shadow-lg",
                                 criticalAlerts.length > 0
@@ -142,15 +137,13 @@ export function CriticalAlertsPanel({
                                         ? "bg-gradient-to-br from-green-500 to-emerald-600 shadow-green-500/30"
                                         : "bg-gradient-to-br from-purple-500 to-pink-600 shadow-purple-500/30"
                             )}
-                            animate={criticalAlerts.length > 0 ? { scale: [1, 1.1, 1] } : {}}
-                            transition={{ duration: 2, repeat: Infinity }}
                         >
                             {criticalAlerts.length > 0 ? (
                                 <Bell className="h-5 w-5 text-white" />
                             ) : (
                                 <CheckCircle2 className="h-5 w-5 text-white" />
                             )}
-                        </motion.div>
+                        </div>
                         <div>
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <span className={cn(
@@ -173,13 +166,11 @@ export function CriticalAlertsPanel({
                             <p className="text-xs text-muted-foreground">
                                 {criticalAlerts.length > 0 ? (
                                     <span className="flex items-center gap-1">
-                                        <motion.span
+                                        <span
                                             className={cn(
                                                 "inline-block w-2 h-2 rounded-full",
                                                 isAutosnipe ? "bg-red-500" : "bg-purple-500"
                                             )}
-                                            animate={{ opacity: [1, 0.3, 1] }}
-                                            transition={{ duration: 1, repeat: Infinity }}
                                         />
                                         {criticalAlerts.length} active alert{criticalAlerts.length !== 1 ? 's' : ''} require attention
                                     </span>
@@ -193,41 +184,29 @@ export function CriticalAlertsPanel({
                     </div>
                     <div className="flex items-center gap-2">
                         {criticalAlerts.length > 0 && (
-                            <motion.div
+                            <div
                                 className={cn(
                                     "px-3 py-1.5 rounded-full text-white text-sm font-bold shadow-lg",
                                     isAutosnipe
                                         ? "bg-gradient-to-r from-red-500 to-orange-500 shadow-red-500/30"
                                         : "bg-gradient-to-r from-purple-500 to-violet-500 shadow-purple-500/30"
                                 )}
-                                animate={{ scale: [1, 1.05, 1] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
                             >
                                 {criticalAlerts.length}
-                            </motion.div>
+                            </div>
                         )}
-                        <motion.div
-                            animate={{ rotate: alertsPanelCollapsed ? 0 : 180 }}
-                            transition={{ duration: 0.3 }}
-                        >
+                        <div className={cn(alertsPanelCollapsed ? "" : "rotate-180", "transition-transform duration-300")}>
                             <ChevronDown className={cn(
                                 "h-5 w-5",
                                 isAutosnipe ? "text-green-400" : "text-purple-600 dark:text-purple-400"
                             )} />
-                        </motion.div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Expandable Content */}
-                <AnimatePresence>
-                    {!alertsPanelCollapsed && (
-                        <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className="overflow-hidden"
-                        >
+                {!alertsPanelCollapsed && (
+                    <div className="overflow-hidden">
                             {/* Alert Filters Section */}
                             <div className={cn(
                                 "px-4 py-3 border-b",
@@ -322,18 +301,14 @@ export function CriticalAlertsPanel({
                                     {/* Event Type Toggle - isApi */}
                                     <div className="space-y-1">
                                         <Label className="text-xs text-muted-foreground">Event Type</Label>
-                                        <select
-                                            value={alertIsApi}
-                                            onChange={(e) => onIsApiChange(parseInt(e.target.value))}
-                                            className={cn(
-                                                "w-full h-9 px-3 rounded-md border text-sm",
-                                                "bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600",
-                                                "focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                            )}
-                                        >
-                                            <option value={0}>Regular Events</option>
-                                            <option value={1}>API Events</option>
-                                        </select>
+                                        <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-purple-300 dark:border-purple-600 bg-white dark:bg-slate-800">
+                                            <span className="text-xs text-muted-foreground flex-1">Regular Events</span>
+                                            <Switch
+                                                checked={alertIsApi === 1}
+                                                onCheckedChange={(checked) => onIsApiChange(checked ? 1 : 0)}
+                                            />
+                                            <span className="text-xs text-muted-foreground flex-1 text-right">API Events</span>
+                                        </div>
                                     </div>
 
                                     {/* Refresh Button */}
@@ -536,11 +511,7 @@ export function CriticalAlertsPanel({
                                         
                                         {/* Show More / Show Less Button */}
                                         {dedupedAlerts.length > 4 && (
-                                            <motion.div
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                className="pt-2"
-                                            >
+                                            <div className="pt-2">
                                                 <Button
                                                     onClick={onToggleExpanded}
                                                     variant="outline"
@@ -558,7 +529,7 @@ export function CriticalAlertsPanel({
                                                         <>Show All {dedupedAlerts.length} Alerts ({dedupedAlerts.length - 4} more)</>
                                                     )}
                                                 </Button>
-                                            </motion.div>
+                                            </div>
                                         )}
                                         
                                         {/* Simple Summary */}
@@ -568,7 +539,7 @@ export function CriticalAlertsPanel({
                                                     {alertsExpanded ? 'Showing all' : `Showing ${Math.min(4, criticalAlerts.length)} of`} {criticalAlerts.length} critical alerts
                                                 </span>
                                                 <span className="flex items-center gap-1">
-                                                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
                                                     Live monitoring
                                                 </span>
                                             </div>
@@ -576,10 +547,9 @@ export function CriticalAlertsPanel({
                                     </div>
                                 )}
                             </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                    </div>
+                )}
             </Card>
-        </motion.div>
+        </div>
     );
 }

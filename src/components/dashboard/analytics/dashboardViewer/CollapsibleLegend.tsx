@@ -138,7 +138,7 @@ export const CollapsibleLegend = ({
 
                 return (
                     <div
-                        key={eventKeyInfo.eventKey}
+                        key={`${index}_${eventKeyInfo.eventKey}`}
                         id={`legend-${eventKeyInfo.eventKey}`}
                         className={cn(
                             "flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all whitespace-nowrap",

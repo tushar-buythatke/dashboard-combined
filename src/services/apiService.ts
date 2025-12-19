@@ -776,6 +776,34 @@ export class APIService {
     }
 
     /**
+     * Upload child config for percentage/funnel graphs
+     * Sends config array with child/parent relationships
+     */
+    async uploadChildConfig(config: Array<{ child: string; parent: string[] }>): Promise<void> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/uploadChildConfig`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ config })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Upload child config failed: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (result.status !== 1 && result.status !== 200) {
+                throw new Error(result.message || 'Failed to upload child config');
+            }
+        } catch (error) {
+            console.error('Failed to upload child config:', error);
+            // Don't throw - this is a non-critical operation
+        }
+    }
+
+    /**
      * Format date to YYYY-MM-DD HH:MM:SS
      * Start dates get 00:00:01, end dates get 23:59:59
      */

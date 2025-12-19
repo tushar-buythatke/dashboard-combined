@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import {
     Activity,
     AlertTriangle,
@@ -1405,11 +1404,7 @@ export function MainPanelSection({
 
                     // Otherwise show the regular chart
                     return (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.4 }}
-                        >
+                        <div>
                             <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                                 <CardHeader className="pb-2 px-3 md:px-6">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
@@ -1631,7 +1626,7 @@ export function MainPanelSection({
                                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                             return (
-                                                                                <linearGradient key={`barGrad_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <linearGradient key={`barGrad_${index}_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                     <stop offset="0%" stopColor={color} stopOpacity={1} />
                                                                                     <stop offset="100%" stopColor={color} stopOpacity={0.7} />
                                                                                 </linearGradient>
@@ -1666,7 +1661,7 @@ export function MainPanelSection({
                                                                         cursor={{ fill: 'rgba(168, 85, 247, 0.1)' }}
                                                                     />
                                                                     {/* Dynamic bars for normal (count) events only */}
-                                                                    {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo) => {
+                                                                    {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo, index) => {
                                                                         const eventKey = eventKeyInfo.eventKey;
                                                                         const countKey = `${eventKey}_count`;
                                                                         const resolvedCountKey = (graphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
@@ -1674,7 +1669,7 @@ export function MainPanelSection({
                                                                             : eventKey;
                                                                         return (
                                                                             <Bar
-                                                                                key={`bar_${eventKey}`}
+                                                                                key={`bar_${index}_${eventKey}`}
                                                                                 dataKey={resolvedCountKey}
                                                                                 name={eventKeyInfo.eventName}
                                                                                 yAxisId="left"
@@ -1724,7 +1719,7 @@ export function MainPanelSection({
                                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                             return (
-                                                                                <linearGradient key={`areaGrad_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <linearGradient key={`areaGrad_${index}_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                     <stop offset="5%" stopColor={color} stopOpacity={0.3} />
                                                                                     <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                                                                                 </linearGradient>
@@ -1779,7 +1774,7 @@ export function MainPanelSection({
                                                                                 : eventKey;
                                                                             return (
                                                                                 <Area
-                                                                                    key={`area_${eventKey}`}
+                                                                                    key={`area_${index}_${eventKey}`}
                                                                                     type="monotone"
                                                                                     dataKey={resolvedCountKey}
                                                                                     name={eventKeyInfo.eventName}
@@ -1826,12 +1821,9 @@ export function MainPanelSection({
                                             </>
                                         ) : (
                                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                                <motion.div
-                                                    animate={{ rotate: dataLoading ? 360 : 0 }}
-                                                    transition={{ duration: 2, repeat: dataLoading ? Infinity : 0, ease: "linear" }}
-                                                >
-                                                    <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
-                                                </motion.div>
+                                                <div>
+                                                    <BarChart3 className={`h-12 w-12 mb-3 opacity-30 ${dataLoading ? 'animate-spin' : ''}`} />
+                                                </div>
                                                 <p className="text-sm">
                                                     {dataLoading ? 'Loading chart data...' : 'No data available for selected filters'}
                                                 </p>
@@ -1905,27 +1897,20 @@ export function MainPanelSection({
                                 )}
 
                             </Card>
-                        </motion.div>
+                        </div>
                     );
                 })()}
 
                 {/* Time Delay Chart - For isAvg Events Only (skip for special graphs) */}
                 {avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.55 }}
-                    >
+                    <div>
                         <Card className="border border-amber-200/60 dark:border-amber-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <motion.div
-                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20"
-                                            whileHover={{ scale: 1.05, rotate: 5 }}
-                                        >
+                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
                                             <Clock className="h-5 w-5 text-white" />
-                                        </motion.div>
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <CardTitle className="text-base md:text-lg">Time Delay Trends</CardTitle>
                                             <p className="text-xs text-muted-foreground mt-0.5">
@@ -1967,7 +1952,7 @@ export function MainPanelSection({
                                                         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                         return (
-                                                            <linearGradient key={`timeGrad_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                            <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                 <stop offset="5%" stopColor={color} stopOpacity={0.4} />
                                                                 <stop offset="95%" stopColor={color} stopOpacity={0.05} />
                                                             </linearGradient>
@@ -1989,24 +1974,49 @@ export function MainPanelSection({
                                                     axisLine={false}
                                                     tickLine={false}
                                                     tickFormatter={(value) => {
-                                                        // Check if any avg event is a Price Alert (feature 1) - show in minutes
-                                                        const hasPriceAlert = avgEventKeys.some(ek => {
-                                                            const ev = events.find(e => String(e.eventId) === ek.eventId);
-                                                            return ev?.feature === 1;
-                                                        });
                                                         if (!value || value <= 0) return '0';
-                                                        if (hasPriceAlert) {
-                                                            // Price alerts - value is already in MINUTES
-                                                            if (value >= 60) return `${(value / 60).toFixed(1)}h`;
-                                                            return `${value.toFixed(1)}m`;
-                                                        } else {
-                                                            // Others - value is already in SECONDS
-                                                            if (value >= 60) return `${(value / 60).toFixed(1)}m`;
-                                                            return `${value.toFixed(1)}s`;
+                                                        // Get the first avg event to determine type
+                                                        const firstAvgEvent = avgEventKeys[0];
+                                                        const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                        
+                                                        if (avgEventType === 2) {
+                                                            // isAvgEvent 2 = Rupees
+                                                            return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+                                                        } else if (avgEventType === 3) {
+                                                            // isAvgEvent 3 = Count
+                                                            return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString();
+                                                        } else if (avgEventType === 1) {
+                                                            // isAvgEvent 1 = Time (minutes/seconds)
+                                                            const hasPriceAlert = avgEventKeys.some(ek => {
+                                                                const ev = events.find(e => String(e.eventId) === ek.eventId);
+                                                                return ev?.feature === 1;
+                                                            });
+                                                            if (hasPriceAlert) {
+                                                                // Price alerts - value is already in MINUTES
+                                                                if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                                return `${value.toFixed(1)}m`;
+                                                            } else {
+                                                                // Others - value is already in SECONDS
+                                                                if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                                return `${value.toFixed(1)}s`;
+                                                            }
                                                         }
+                                                        return value.toLocaleString();
                                                     }}
                                                     dx={-10}
-                                                    label={{ value: 'Delay', angle: -90, position: 'insideLeft', style: { fill: '#f59e0b', fontSize: 10 } }}
+                                                    label={{ 
+                                                        value: (() => {
+                                                            const firstAvgEvent = avgEventKeys[0];
+                                                            const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                            if (avgEventType === 2) return 'Amount (₹)';
+                                                            if (avgEventType === 3) return 'Count';
+                                                            if (avgEventType === 1) return 'Delay';
+                                                            return 'Value';
+                                                        })(), 
+                                                        angle: -90, 
+                                                        position: 'insideLeft', 
+                                                        style: { fill: '#f59e0b', fontSize: 10 } 
+                                                    }}
                                                 />
                                                 <Tooltip
                                                     content={<CustomTooltip events={events} eventKeys={avgEventKeys} />}
@@ -2021,7 +2031,7 @@ export function MainPanelSection({
                                                         const eventKey = eventKeyInfo.eventKey;
                                                         return (
                                                             <Area
-                                                                key={`time_${eventKey}`}
+                                                                key={`time_${index}_${eventKey}`}
                                                                 type="monotone"
                                                                 dataKey={`${eventKey}_avgDelay`}
                                                                 name={eventKeyInfo.eventName}
@@ -2055,7 +2065,7 @@ export function MainPanelSection({
                                 </div>
                             </CardContent>
                         </Card>
-                    </motion.div>
+                    </div>
                 )}
 
                 {/* API Events Chart - For isApiEvent panels showing status codes and timing metrics */}
@@ -2070,12 +2080,9 @@ export function MainPanelSection({
                                 <CardHeader className="pb-2 px-3 md:px-6">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
-                                            <motion.div
-                                                className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20"
-                                                whileHover={{ scale: 1.05, rotate: 5 }}
-                                            >
+                                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
                                                 <Activity className="h-5 w-5 text-white" />
-                                            </motion.div>
+                                            </div>
                                             <div className="flex-1 min-w-0">
                                                 <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
                                                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -2155,7 +2162,7 @@ export function MainPanelSection({
                                                         {apiEndpointEventKeyInfos.map((eventKeyInfo: EventKeyInfo, index: number) => {
                                                             const color = EVENT_COLORS[index % EVENT_COLORS.length];
                                                             return (
-                                                                <linearGradient key={`apiGrad_${eventKeyInfo.eventKey}`} id={`apiColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                <linearGradient key={`apiGrad_${index}_${eventKeyInfo.eventKey}`} id={`apiColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                     <stop offset="5%" stopColor={color} stopOpacity={0.4} />
                                                                     <stop offset="95%" stopColor={color} stopOpacity={0.05} />
                                                                 </linearGradient>
@@ -2231,7 +2238,7 @@ export function MainPanelSection({
                                                             // For timing breakdown, show 3 separate areas
                                                             if (apiMetricView === 'timing-breakdown') {
                                                                 return (
-                                                                    <React.Fragment key={`api_breakdown_${eventKey}`}>
+                                                                    <React.Fragment key={`api_breakdown_${index}_${eventKey}`}>
                                                                         <Area
                                                                             type="monotone"
                                                                             dataKey={`${eventKey}_avgServerToCloud`}
@@ -2274,7 +2281,7 @@ export function MainPanelSection({
 
                                                             return (
                                                                 <Area
-                                                                    key={`api_${eventKey}_${apiMetricView}`}
+                                                                    key={`api_${index}_${eventKey}_${apiMetricView}`}
                                                                     type="monotone"
                                                                     dataKey={dataKey}
                                                                     name={eventKeyInfo.eventName}
@@ -2334,21 +2341,14 @@ export function MainPanelSection({
 
                 {/* Error Events Chart - For isError Events Only (skip for special graphs) */}
                 {errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6 }}
-                    >
+                    <div>
                         <Card className="border border-red-200/60 dark:border-red-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <motion.div
-                                            className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/20"
-                                            whileHover={{ scale: 1.05, rotate: 5 }}
-                                        >
+                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/20">
                                             <AlertTriangle className="h-5 w-5 text-white" />
-                                        </motion.div>
+                                        </div>
                                         <div className="flex-1 min-w-0">
                                             <CardTitle className="text-base md:text-lg">Error Event Tracking</CardTitle>
                                             <p className="text-xs text-muted-foreground mt-0.5">
@@ -2458,7 +2458,7 @@ export function MainPanelSection({
                                 </div>
                             </CardContent>
                         </Card>
-                    </motion.div>
+                    </div>
                 )}
 
                 {/* Pie Charts - Shown above Hourly Insights, hidden if only 1 item (100% share) */}
@@ -2922,13 +2922,9 @@ export function MainPanelSection({
 
                 {/* Hourly Stats Card - shown below Pie Charts for ≤8 day ranges when enabled */}
                 {isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && !isFirstPanelSpecialGraph && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6 }}
-                    >
+                    <div>
                         <HourlyStatsCard graphData={graphData} isHourly={isHourly} eventKeys={eventKeys} events={events} />
-                    </motion.div>
+                    </div>
                 )}
         </>
     );

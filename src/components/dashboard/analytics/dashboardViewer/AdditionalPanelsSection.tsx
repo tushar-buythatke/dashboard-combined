@@ -1,5 +1,4 @@
 import { Fragment, useMemo } from 'react';
-import { motion } from 'framer-motion';
 import {
     Activity,
     AlertTriangle,
@@ -222,26 +221,20 @@ export function AdditionalPanelsSection({
                 const pIsHourly = Math.ceil((currentPanelDateRange.to.getTime() - currentPanelDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 7;
 
                 return (
-                    <motion.div
+                    <div
                         key={panel.panelId}
                         ref={(el) => {
                             if (panelRefs?.current) panelRefs.current[panel.panelId] = el;
                         }}
                         id={`panel-${panel.panelId}`}
                         className="space-y-6 scroll-mt-20"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 * (panelIndex + 1) }}
                     >
                         <div className="relative py-8">
                             <div className="absolute inset-0 flex items-center">
                                 <div className="w-full border-t-4 border-dashed border-gradient-to-r from-purple-300 via-fuchsia-400 to-pink-300 dark:from-purple-600 dark:via-fuchsia-500 dark:to-pink-500" />
                             </div>
                             <div className="relative flex justify-center">
-                                <motion.div
-                                    className="px-6 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-600 rounded-full shadow-lg"
-                                    whileHover={{ scale: 1.05 }}
-                                >
+                                <div className="px-6 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-600 rounded-full shadow-lg">
                                     <span className="text-white font-bold text-sm flex items-center gap-2">
                                         <Layers className="w-4 h-4" />
                                         {panelConfig?.isApiEvent && (
@@ -251,7 +244,7 @@ export function AdditionalPanelsSection({
                                         )}
                                         Panel {panelIndex + 2}: {panel.panelName}
                                     </span>
-                                </motion.div>
+                                </div>
                             </div>
                         </div>
 
@@ -259,16 +252,13 @@ export function AdditionalPanelsSection({
                             <CardHeader className="pb-4">
                                 <div className="flex items-center justify-between flex-wrap gap-4">
                                     <div className="flex items-center gap-3">
-                                        <motion.div
-                                            className="h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg"
-                                            whileHover={{ rotate: 10 }}
-                                        >
+                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg">
                                             {panelGraphType === 'bar' ? (
                                                 <BarChart3 className="h-6 w-6 text-white" />
                                             ) : (
                                                 <TrendingUp className="h-6 w-6 text-white" />
                                             )}
-                                        </motion.div>
+                                        </div>
                                         <div>
                                             <h2 className="text-2xl font-bold text-foreground">{panel.panelName}</h2>
                                             <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -305,22 +295,16 @@ export function AdditionalPanelsSection({
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        <motion.div
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20"
-                                            whileHover={{ scale: 1.05 }}
-                                        >
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
                                             <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
                                                 {pTotalCount.toLocaleString()} total
                                             </span>
-                                        </motion.div>
-                                        <motion.div
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20"
-                                            whileHover={{ scale: 1.05 }}
-                                        >
+                                        </div>
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
                                             <span className="text-xs font-medium text-green-700 dark:text-green-300">
                                                 {pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0}% success
                                             </span>
-                                        </motion.div>
+                                        </div>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -361,13 +345,9 @@ export function AdditionalPanelsSection({
                                                 <RefreshCw className="w-4 h-4 mr-1.5" />
                                                 {panelFilterChanges?.[panel.panelId] ? "⚡ APPLY FILTERS" : "Refresh Panel"}
                                                 {panelFilterChanges?.[panel.panelId] && (
-                                                    <motion.div
-                                                        className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
-                                                        animate={{ scale: [1, 1.3, 1] }}
-                                                        transition={{ duration: 0.8, repeat: 2 }}
-                                                    >
+                                                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
                                                         !
-                                                    </motion.div>
+                                                    </div>
                                                 )}
                                             </InteractiveButton>
                                         </div>
@@ -1228,6 +1208,7 @@ export function AdditionalPanelsSection({
                                                                                 fillOpacity={0.12}
                                                                                 fill={color}
                                                                                 dot={false}
+                                                                                activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
                                                                                 isAnimationActive={false}
                                                                                 animationDuration={0}
                                                                             />
@@ -1380,9 +1361,9 @@ export function AdditionalPanelsSection({
                         })()}
 
                         {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (() => {
-                            const pAvgEventKeys = pEventKeys.filter((ek: any) => ek.isAvgEvent === 1);
-                            const pErrorEventKeys = pEventKeys.filter((ek: any) => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
-                            const pNormalEventKeys = pEventKeys.filter((ek: any) => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+                            const pAvgEventKeys = pEventKeys.filter((ek: any) => ek.isAvgEvent >= 1);
+                            const pErrorEventKeys = pEventKeys.filter((ek: any) => ek.isErrorEvent === 1 && !ek.isAvgEvent || ek.isAvgEvent === 0);
+                            const pNormalEventKeys = pEventKeys.filter((ek: any) => (!ek.isAvgEvent || ek.isAvgEvent === 0) && (!ek.isErrorEvent || ek.isErrorEvent === 0));
 
                             return (
                                 <>
@@ -1459,7 +1440,7 @@ export function AdditionalPanelsSection({
                                                                         const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                         return (
-                                                                            <linearGradient key={`normalGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                        <linearGradient key={`normalGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                 <stop offset="5%" stopColor={color} stopOpacity={0.3} />
                                                                                 <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                                                                             </linearGradient>
@@ -1481,7 +1462,7 @@ export function AdditionalPanelsSection({
                                                                             : eventKeyInfo.eventKey;
                                                                         return (
                                                                             <Area
-                                                                                key={`normal_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                                key={`normal_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`}
                                                                                 type="monotone"
                                                                                 dataKey={resolvedCountKey}
                                                                                 name={eventKeyInfo.eventName}
@@ -1737,7 +1718,7 @@ export function AdditionalPanelsSection({
                                                                         const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                         return (
-                                                                            <linearGradient key={`avgGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <linearGradient key={`avgGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                 <stop offset="5%" stopColor={color} stopOpacity={0.4} />
                                                                                 <stop offset="95%" stopColor={color} stopOpacity={0.05} />
                                                                             </linearGradient>
@@ -1772,7 +1753,7 @@ export function AdditionalPanelsSection({
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                         return (
                                                                             <Area
-                                                                                key={`avg_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                                key={`avg_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`}
                                                                                 type="monotone"
                                                                                 dataKey={`${eventKeyInfo.eventKey}_avgDelay`}
                                                                                 name={eventKeyInfo.eventName}
@@ -1899,7 +1880,7 @@ export function AdditionalPanelsSection({
                                                                     {pErrorEventKeys.map((eventKeyInfo: any, index: number) => {
                                                                         const errorColor = ERROR_COLORS[index % ERROR_COLORS.length];
                                                                         return (
-                                                                            <linearGradient key={`errorGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <linearGradient key={`errorGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                 <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
                                                                                 <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
                                                                             </linearGradient>
@@ -1922,7 +1903,7 @@ export function AdditionalPanelsSection({
                                                                         return (
                                                                             <>
                                                                                 <Area
-                                                                                    key={`error_${panel.panelId}_${eventKey}_errors`}
+                                                                                    key={`error_${idx}_${panel.panelId}_${eventKey}_errors`}
                                                                                     type="monotone"
                                                                                     dataKey={`${eventKey}_success`}
                                                                                     name={`${eventKeyInfo.eventName} (Errors)`}
@@ -1933,7 +1914,7 @@ export function AdditionalPanelsSection({
                                                                                     activeDot={{ r: 8, fill: errorColor, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
                                                                                 />
                                                                                 <Area
-                                                                                    key={`error_${panel.panelId}_${eventKey}_ok`}
+                                                                                    key={`error_${idx}_${panel.panelId}_${eventKey}_ok`}
                                                                                     type="monotone"
                                                                                     dataKey={`${eventKey}_fail`}
                                                                                     name={`${eventKeyInfo.eventName} (OK)`}
@@ -2048,12 +2029,35 @@ export function AdditionalPanelsSection({
                                                                         tickLine={false}
                                                                         tickFormatter={(value) => {
                                                                             if (!value || value <= 0) return '0';
-                                                                            if (featureId === 1) {
-                                                                                if (value >= 60) return `${(value / 60).toFixed(1)}h`;
-                                                                                return `${value.toFixed(1)}m`;
+                                                                            const avgEventType = avgEventKeyInfo?.isAvgEvent || 0;
+                                                                            if (avgEventType === 2) {
+                                                                                // isAvgEvent 2 = Rupees
+                                                                                return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+                                                                            } else if (avgEventType === 3) {
+                                                                                // isAvgEvent 3 = Count
+                                                                                return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString();
+                                                                            } else if (avgEventType === 1) {
+                                                                                // isAvgEvent 1 = Time (minutes/seconds)
+                                                                                if (featureId === 1) {
+                                                                                    if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                                                    return `${value.toFixed(1)}m`;
+                                                                                }
+                                                                                if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                                                return `${value.toFixed(1)}s`;
                                                                             }
-                                                                            if (value >= 60) return `${(value / 60).toFixed(1)}m`;
-                                                                            return `${value.toFixed(1)}s`;
+                                                                            return value.toLocaleString();
+                                                                        }}
+                                                                        label={{ 
+                                                                            value: (() => {
+                                                                                const avgEventType = avgEventKeyInfo?.isAvgEvent || 0;
+                                                                                if (avgEventType === 2) return 'Amount (₹)';
+                                                                                if (avgEventType === 3) return 'Count';
+                                                                                if (avgEventType === 1) return 'Delay';
+                                                                                return 'Value';
+                                                                            })(), 
+                                                                            angle: -90, 
+                                                                            position: 'insideLeft', 
+                                                                            style: { fill: '#f59e0b', fontSize: 10 } 
                                                                         }}
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={[avgEventKeyInfo]} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
@@ -2254,14 +2258,14 @@ export function AdditionalPanelsSection({
                                         };
 
                                         return (
-                                            <motion.div key={pieType} whileHover={{ scale: 1.02, y: -4 }} transition={{ type: "spring", stiffness: 300 }}>
+                                            <div key={pieType}>
                                                 <Card className={cn("border-2 overflow-hidden group", borderColorMap[pieType])}>
                                                     <CardHeader className="pb-2">
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
-                                                                <motion.div className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", gradientMap[pieType])} whileHover={{ rotate: 15 }}>
+                                                                <div className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", gradientMap[pieType])}>
                                                                     {iconMap[pieType]}
-                                                                </motion.div>
+                                                                </div>
                                                                 <CardTitle className="text-sm font-semibold text-foreground capitalize">{pieType}</CardTitle>
                                                             </div>
                                                             <div className="flex items-center gap-2">
@@ -2306,7 +2310,7 @@ export function AdditionalPanelsSection({
                                                         </div>
                                                     </CardContent>
                                                 </Card>
-                                            </motion.div>
+                                            </div>
                                         );
                                     })}
                                 </div>
@@ -2314,11 +2318,11 @@ export function AdditionalPanelsSection({
                         })()}
 
                         {isHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
-                            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 * (panelIndex + 1) }}>
+                            <div>
                                 <HourlyStatsCard graphData={filteredGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
-                            </motion.div>
+                            </div>
                         )}
-                    </motion.div>
+                    </div>
                 );
             })}
         </>

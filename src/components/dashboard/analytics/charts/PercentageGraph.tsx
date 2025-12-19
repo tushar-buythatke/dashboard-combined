@@ -155,6 +155,10 @@ export function PercentageGraph({
                     // Raw API data - sum all records for this eventId (unfiltered total)
                     if (String(record.eventId) === String(eventId)) {
                         totalCount = Number(record.count || 0);
+                        // Track by status code for breakdown
+                        const statusKey = `status_${record.status}`;
+                        groupedData[timeKey].parentBreakdown[statusKey] = 
+                            (groupedData[timeKey].parentBreakdown[statusKey] || 0) + totalCount;
                     }
                 } else {
                     // Processed data - use existing key-based logic
@@ -168,7 +172,15 @@ export function PercentageGraph({
                         // Sum all status codes and cache combinations for total unfiltered count
                         Object.keys(record).forEach(key => {
                             if (key.startsWith(`${eventKey}_status_`) && key.endsWith('_count')) {
-                                totalCount += Number(record[key] || 0);
+                                const count = Number(record[key] || 0);
+                                totalCount += count;
+                                // Extract status code from key (format: eventKey_status_XXX_count)
+                                const statusMatch = key.match(/_status_(\d+)_/);
+                                if (statusMatch && statusMatch[1]) {
+                                    const statusKey = `status_${statusMatch[1]}`;
+                                    groupedData[timeKey].parentBreakdown[statusKey] = 
+                                        (groupedData[timeKey].parentBreakdown[statusKey] || 0) + count;
+                                }
                             }
                         });
                     } else {
@@ -180,8 +192,13 @@ export function PercentageGraph({
                 }
 
                 groupedData[timeKey].parentTotal += totalCount;
-                groupedData[timeKey].parentBreakdown[eventId] =
-                    (groupedData[timeKey].parentBreakdown[eventId] || 0) + totalCount;
+                // For API events, track by status code; for regular events, track by eventId
+                if (isRawApiData && String(record.eventId) === String(eventId)) {
+                    // Already tracked above
+                } else {
+                    groupedData[timeKey].parentBreakdown[eventId] =
+                        (groupedData[timeKey].parentBreakdown[eventId] || 0) + totalCount;
+                }
             });
 
             childEvents.forEach((eventId) => {
@@ -201,6 +218,10 @@ export function PercentageGraph({
                         
                         if (statusMatch && cacheMatch) {
                             count = Number(record.count || 0);
+                            // Track by status code for breakdown
+                            const statusKey = `status_${recordStatus}`;
+                            groupedData[timeKey].childBreakdown[statusKey] = 
+                                (groupedData[timeKey].childBreakdown[statusKey] || 0) + count;
                         }
                     }
                 } else {
@@ -235,7 +256,12 @@ export function PercentageGraph({
                             statusCodes.forEach((status) => {
                                 const statusKey = `${eventKey}_status_${status}`;
                                 const countKey = `${statusKey}_count`;
-                                count += Number(record[countKey] || 0);
+                                const statusCount = Number(record[countKey] || 0);
+                                count += statusCount;
+                                // Track by status code for breakdown
+                                const breakdownKey = `status_${status}`;
+                                groupedData[timeKey].childBreakdown[breakdownKey] = 
+                                    (groupedData[timeKey].childBreakdown[breakdownKey] || 0) + statusCount;
                             });
                         } else if (hasCacheFilter) {
                             cacheStatuses.forEach((cache) => {
@@ -252,7 +278,12 @@ export function PercentageGraph({
                 }
 
                 groupedData[timeKey].childTotal += count;
-                groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
+                // For API events, track by status code; for regular events, track by eventId
+                if (isRawApiData && String(record.eventId) === String(eventId) && count > 0) {
+                    // Already tracked above
+                } else if (count > 0) {
+                    groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
+                }
             });
         });
 
@@ -335,8 +366,30 @@ export function PercentageGraph({
         );
     }
 
-    const getParentEventNames = () => parentEvents.map((id: string) => eventNames[id] || id).join(', ');
-    const getChildEventNames = () => childEvents.map((id: string) => eventNames[id] || id).join(', ');
+    // For API events, show status/cache codes instead of endpoint names
+    const isApiEventMode = filters && (filters.statusCodes?.length > 0 || filters.cacheStatus?.length > 0);
+    
+    const getParentEventNames = () => {
+        if (isApiEventMode) {
+            // Parent = all status codes (not just 2xx)
+            return 'All Status Codes';
+        }
+        return parentEvents.map((id: string) => eventNames[id] || id).join(', ');
+    };
+    
+    const getChildEventNames = () => {
+        if (isApiEventMode) {
+            const parts: string[] = [];
+            if (filters?.statusCodes && filters.statusCodes.length > 0) {
+                parts.push(`Status: ${filters.statusCodes.join(', ')}`);
+            }
+            if (filters?.cacheStatus && filters.cacheStatus.length > 0) {
+                parts.push(`Cache: ${filters.cacheStatus.join(', ')}`);
+            }
+            return parts.length > 0 ? parts.join(' | ') : 'All';
+        }
+        return childEvents.map((id: string) => eventNames[id] || id).join(', ');
+    };
 
     // Handler for reliable click events
     const handleDataPointClick = (data: any) => {
@@ -476,24 +529,43 @@ export function PercentageGraph({
                                                     </p>
                                                     {childEntries.length > 0 && (
                                                         <div className="mt-2">
-                                                            <p className="font-semibold mb-1 text-xs text-green-700">Child breakdown</p>
-                                                            {childEntries.map(([eventId, count]) => (
-                                                                <div key={eventId} className="flex items-center justify-between">
-                                                                    <span>{eventNames[eventId] || eventId}</span>
-                                                                    <span className="font-mono">{count.toLocaleString()}</span>
-                                                                </div>
-                                                            ))}
+                                                            <p className="font-semibold mb-1 text-xs text-green-700">
+                                                                {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
+                                                            </p>
+                                                            {childEntries.map(([key, count]) => {
+                                                                // For API events, show actual status code or cache status
+                                                                const displayLabel = isApiEventMode 
+                                                                    ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : 
+                                                                       key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
+                                                                       (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                                    : (eventNames[key] || key);
+                                                                return (
+                                                                    <div key={key} className="flex items-center justify-between">
+                                                                        <span>{displayLabel}</span>
+                                                                        <span className="font-mono">{count.toLocaleString()}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                     {parentEntries.length > 0 && (
                                                         <div className="mt-2">
-                                                            <p className="font-semibold mb-1 text-xs text-blue-700">Parent breakdown</p>
-                                                            {parentEntries.map(([eventId, count]) => (
-                                                                <div key={eventId} className="flex items-center justify-between">
-                                                                    <span>{eventNames[eventId] || eventId}</span>
-                                                                    <span className="font-mono">{count.toLocaleString()}</span>
-                                                                </div>
-                                                            ))}
+                                                            <p className="font-semibold mb-1 text-xs text-blue-700">
+                                                                {isApiEventMode ? 'All Status Codes' : 'Parent breakdown'}
+                                                            </p>
+                                                            {parentEntries.map(([key, count]) => {
+                                                                // For API events, key might be status code or eventId
+                                                                // Extract status code if it's in format "status_XXX" or just use the key
+                                                                const displayLabel = isApiEventMode 
+                                                                    ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : `Status ${key}`))
+                                                                    : (eventNames[key] || key);
+                                                                return (
+                                                                    <div key={key} className="flex items-center justify-between">
+                                                                        <span>{displayLabel}</span>
+                                                                        <span className="font-mono">{count.toLocaleString()}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
@@ -544,11 +616,11 @@ export function PercentageGraph({
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                            <span>Child Events</span>
+                            <span>{isApiEventMode ? 'Selected Status/Cache' : 'Child Events'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                            <span>Parent Events</span>
+                            <span>{isApiEventMode ? 'All Status Codes' : 'Parent Events'}</span>
                         </div>
                     </div>
                     <p className="text-center text-xs text-muted-foreground mt-2">
@@ -639,27 +711,63 @@ export function PercentageGraph({
                                             Parent Event Breakdown
                                         </h3>
                                         <div className="space-y-3">
-                                            {Object.entries(selectedPoint.parentBreakdown as Record<string, number>).map(([eventId, count]) => (
-                                                <div
-                                                    key={eventId}
-                                                    className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200"
-                                                    style={{ backgroundColor: '#eff6ff' }}
-                                                >
-                                                    <span className="text-sm font-medium truncate flex-1 mr-2 text-gray-900">
-                                                        {eventNames[eventId] || eventId}
-                                                    </span>
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-bold text-blue-700">
-                                                            {count.toLocaleString()}
-                                                        </div>
-                                                        <div className="text-xs text-gray-600">
-                                                            {selectedPoint.parentCount > 0 
-                                                                ? ((count / selectedPoint.parentCount) * 100).toFixed(1)
-                                                                : '0'}%
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                            {(() => {
+                                                const entries = Object.entries(selectedPoint.parentBreakdown as Record<string, number>)
+                                                    .map(([key, count]) => ({ key, count }))
+                                                    .sort((a, b) => b.count - a.count);
+                                                const top2 = entries.slice(0, 2);
+                                                const others = entries.slice(2);
+                                                const othersTotal = others.reduce((sum, e) => sum + e.count, 0);
+                                                
+                                                return (
+                                                    <>
+                                                        {top2.map(({ key, count }) => {
+                                                            const displayLabel = isApiEventMode 
+                                                                ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : 
+                                                                   (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                                : (eventNames[key] || key);
+                                                            return (
+                                                                <div
+                                                                    key={key}
+                                                                    className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200"
+                                                                    style={{ backgroundColor: '#eff6ff' }}
+                                                                >
+                                                                    <span className="text-sm font-medium truncate flex-1 mr-2 text-gray-900">
+                                                                        {displayLabel}
+                                                                    </span>
+                                                                    <div className="text-right">
+                                                                        <div className="text-sm font-bold text-blue-700">
+                                                                            {count.toLocaleString()}
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-600">
+                                                                            {selectedPoint.parentCount > 0 
+                                                                                ? ((count / selectedPoint.parentCount) * 100).toFixed(1)
+                                                                                : '0'}%
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {othersTotal > 0 && (
+                                                            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200" style={{ backgroundColor: '#eff6ff' }}>
+                                                                <span className="text-sm font-medium truncate flex-1 mr-2 text-gray-900">
+                                                                    Others ({others.length})
+                                                                </span>
+                                                                <div className="text-right">
+                                                                    <div className="text-sm font-bold text-blue-700">
+                                                                        {othersTotal.toLocaleString()}
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-600">
+                                                                        {selectedPoint.parentCount > 0 
+                                                                            ? ((othersTotal / selectedPoint.parentCount) * 100).toFixed(1)
+                                                                            : '0'}%
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 )}
@@ -672,14 +780,20 @@ export function PercentageGraph({
                                             Child Event Breakdown
                                         </h3>
                                         <div className="space-y-3">
-                                            {Object.entries(selectedPoint.childBreakdown as Record<string, number>).map(([eventId, count]) => (
+                                            {Object.entries(selectedPoint.childBreakdown as Record<string, number>).map(([key, count]) => {
+                                                const displayLabel = isApiEventMode 
+                                                    ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : 
+                                                       key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
+                                                       (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                    : (eventNames[key] || key);
+                                                return (
                                                 <div
-                                                    key={eventId}
+                                                    key={key}
                                                     className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"
                                                     style={{ backgroundColor: '#f0fdf4' }}
                                                 >
                                                     <span className="text-sm font-medium truncate flex-1 mr-2">
-                                                        {eventNames[eventId] || eventId}
+                                                        {displayLabel}
                                                     </span>
                                                     <div className="text-right">
                                                         <div className="text-sm font-bold text-blue-700 dark:text-blue-300">
@@ -692,7 +806,8 @@ export function PercentageGraph({
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
                                 )}

@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { Button } from '@/components/ui/button';
@@ -415,42 +414,29 @@ export function ProfileSidebar({
     return (
         <>
             {/* Mobile toggle button - only show if NOT in mobile drawer */}
-            <motion.button
+            <button
                 className="fixed bottom-4 left-4 z-50 lg:hidden h-12 w-12 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center"
                 onClick={() => setIsMobileOpen(true)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
             >
                 <Menu className="h-5 w-5" />
-            </motion.button>
+            </button>
 
             {/* Mobile Overlay */}
-            <AnimatePresence>
-                {isMobileOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
-                        onClick={() => setIsMobileOpen(false)}
-                    />
-                )}
-            </AnimatePresence>
+            {isMobileOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+                    onClick={() => setIsMobileOpen(false)}
+                />
+            )}
 
             {/* Mobile Sidebar */}
-            <AnimatePresence>
-                {isMobileOpen && (
-                    <motion.div
-                        initial={{ x: '-100%' }}
-                        animate={{ x: 0 }}
-                        exit={{ x: '-100%' }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="fixed inset-y-0 left-0 w-72 bg-background border-r border-border/50 flex flex-col z-50 lg:hidden shadow-xl"
-                    >
-                        <ExpandedContent />
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {isMobileOpen && (
+                <div
+                    className="fixed inset-y-0 left-0 w-72 bg-background border-r border-border/50 flex flex-col z-50 lg:hidden shadow-xl"
+                >
+                    <ExpandedContent />
+                </div>
+            )}
 
             {/* Desktop Sidebar (width handled by parent) */}
             <div className="hidden lg:flex flex-col bg-background">

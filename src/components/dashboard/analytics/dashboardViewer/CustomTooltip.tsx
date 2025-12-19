@@ -96,8 +96,19 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         const errorRate = eventCount > 0 ? ((errorCount / eventCount) * 100) : 0;
         const successRate = eventCount > 0 ? ((successCount / eventCount) * 100) : 0;
 
+        // For API Performance Metrics, if eventKey starts with "status_" or "cache_", use that as the name
+        // Otherwise use the item.name
+        let displayName = item.name;
+        if (ekInfo?.eventKey) {
+            if (ekInfo.eventKey.startsWith('status_')) {
+                displayName = `Status ${ekInfo.eventKey.replace('status_', '')}`;
+            } else if (ekInfo.eventKey.startsWith('cache_')) {
+                displayName = `Cache: ${ekInfo.eventKey.replace('cache_', '')}`;
+            }
+        }
+        
         return {
-            name: item.name,
+            name: displayName,
             count: eventCount,
             successCount,
             errorCount,

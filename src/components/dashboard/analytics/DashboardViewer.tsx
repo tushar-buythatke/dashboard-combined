@@ -57,7 +57,7 @@ import { MainPanelSection } from './dashboardViewer/MainPanelSection';
 import type { DashboardViewerProps, DateRangeState, EventKeyInfo, FilterState, PanelData } from './dashboardViewer/types';
 import { combinePieChartDuplicates, ERROR_COLORS, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './dashboardViewer/constants';
 
- 
+
 
 // Left Sidebar Navigation Component (prepared for future use)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -662,12 +662,12 @@ function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: {
                                     ))}
                                 </Bar>
                                 {/* Yellow dashed average line */}
-                                <ReferenceLine 
-                                    y={isAvgEvent ? overallAvgDelay : avgPerHour} 
-                                    stroke="#fbbf24" 
-                                    strokeDasharray="5 5" 
+                                <ReferenceLine
+                                    y={isAvgEvent ? overallAvgDelay : avgPerHour}
+                                    stroke="#fbbf24"
+                                    strokeDasharray="5 5"
                                     strokeWidth={2}
-                                    label={{ 
+                                    label={{
                                         value: `Avg: ${isAvgEvent ? formatDelay(overallAvgDelay) : avgPerHour.toFixed(0)}`,
                                         position: 'right',
                                         fill: '#f59e0b',
@@ -847,12 +847,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const [alertsExpanded, setAlertsExpanded] = useState(false);
     const [alertsPage, setAlertsPage] = useState(0);
     const [alertsPanelCollapsed, setAlertsPanelCollapsed] = useState(true);
-    const [alertIsApi, setAlertIsApi] = useState(profile?.criticalAlerts?.isApi ? 1 : 0); // 0 = Regular events, 1 = API events
+    const [alertIsApi, setAlertIsApi] = useState(0); // 0 = Regular events, 1 = API events - independent toggle
 
-    useEffect(() => {
-        if (!profile) return;
-        setAlertIsApi(profile.criticalAlerts?.isApi ? 1 : 0);
-    }, [profile]);
 
     // Alert-specific filters (independent from main dashboard)
     const [alertFilters, setAlertFilters] = useState<{
@@ -934,6 +930,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const initialLoadComplete = useRef<boolean>(false);
     const lastAutoLoadedProfileId = useRef<string | null>(null);
 
+    // Track last time we sent uploadChildConfig (to send once per hour)
+    const lastConfigUploadTime = useRef<number>(0);
+
     // Filter panel collapse state - collapsed by default (main dashboard only)
     const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(false); // Default to expanded so API filters are visible
 
@@ -958,22 +957,22 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // API Performance Metrics filtered data
     const filteredApiData = useMemo(() => {
         if (!isMainPanelApi || !profile?.panels[0]) return graphData;
-        
+
         const mainPanelId = profile.panels[0].panelId;
         const mainPanelFilters = panelFiltersState[mainPanelId] || {};
         const statusCodes = (mainPanelFilters.percentageStatusCodes || []).filter(Boolean);
         const cacheStatuses = (mainPanelFilters.percentageCacheStatus || []).filter(Boolean);
         const hasStatusFilter = statusCodes.length > 0;
         const hasCacheFilter = cacheStatuses.length > 0;
-        
+
         if (!hasStatusFilter && !hasCacheFilter) return graphData;
-        
+
         return graphData.map(record => {
             const filteredRecord = { ...record };
-            
+
             eventKeys.forEach(eventKeyInfo => {
                 const eventKey = eventKeyInfo.eventKey;
-                
+
                 let filteredCount = 0;
                 let filteredAvgServerToUser = 0;
                 let filteredAvgServerToCloud = 0;
@@ -981,7 +980,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 let filteredAvgBytesOut = 0;
                 let filteredAvgBytesIn = 0;
                 let filterCount = 0;
-                
+
                 if (hasStatusFilter && hasCacheFilter) {
                     // Both filters: combine status AND cache
                     statusCodes.forEach((status) => {
@@ -993,7 +992,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             const avgCloudToUserKey = `${combinedKey}_avgCloudToUser`;
                             const avgBytesOutKey = `${combinedKey}_avgBytesOut`;
                             const avgBytesInKey = `${combinedKey}_avgBytesIn`;
-                            
+
                             const count = Number(record[countKey] || 0);
                             if (count > 0) {
                                 filteredCount += count;
@@ -1015,7 +1014,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         const avgCloudToUserKey = `${statusKey}_avgCloudToUser`;
                         const avgBytesOutKey = `${statusKey}_avgBytesOut`;
                         const avgBytesInKey = `${statusKey}_avgBytesIn`;
-                        
+
                         const count = Number(record[countKey] || 0);
                         if (count > 0) {
                             filteredCount += count;
@@ -1036,7 +1035,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         const avgCloudToUserKey = `${cacheKey}_avgCloudToUser`;
                         const avgBytesOutKey = `${cacheKey}_avgBytesOut`;
                         const avgBytesInKey = `${cacheKey}_avgBytesIn`;
-                        
+
                         const count = Number(record[countKey] || 0);
                         if (count > 0) {
                             filteredCount += count;
@@ -1049,7 +1048,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         }
                     });
                 }
-                
+
                 // Calculate weighted averages - only update if we have filtered data
                 if (filterCount > 0) {
                     filteredRecord[`${eventKeyInfo.eventKey}_count`] = filteredCount;
@@ -1061,7 +1060,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 }
                 // If no filtered data, keep original values (don't zero them out)
             });
-            
+
             return filteredRecord;
         });
     }, [graphData, eventKeys, events, isMainPanelApi, profile, panelFiltersState]);
@@ -1180,6 +1179,73 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         const mainPanelId = profile.panels[0].panelId;
         const mainPanelConfig = (profile.panels[0] as any)?.filterConfig;
         const mainPanelFilters = panelFiltersState[mainPanelId] || {};
+        const isPercentageOrFunnel = mainPanelConfig?.graphType === 'percentage' || mainPanelConfig?.graphType === 'funnel';
+
+        // For percentage/funnel graphs, show status codes instead of endpoint names
+        if (isPercentageOrFunnel) {
+            // Parent = all success status codes (2xx)
+            // Child = selected status codes | cache status
+            const allStatusCodes = new Set<string>();
+            const rawData: any[] = (panelsDataMap.get(mainPanelId)?.rawGraphResponse?.data || rawGraphResponse?.data || []) as any[];
+
+            // Extract all status codes from raw data (success codes = 2xx)
+            rawData.forEach((r: any) => {
+                if (r.status) {
+                    allStatusCodes.add(String(r.status));
+                }
+            });
+
+            const successCodes = Array.from(allStatusCodes).filter(code => {
+                const codeNum = parseInt(code, 10);
+                return codeNum >= 200 && codeNum < 300;
+            }).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+            const selectedStatusCodes = (mainPanelFilters.percentageStatusCodes || []).filter(Boolean).map((v: any) => String(v));
+            const selectedCacheStatus = (mainPanelFilters.percentageCacheStatus || []).filter(Boolean).map((v: any) => String(v));
+
+            // Build parent event keys (all success codes)
+            const parentKeys: EventKeyInfo[] = successCodes.map((code) => ({
+                eventId: `status_${code}`,
+                eventName: `Status ${code}`,
+                eventKey: `status_${code}`,
+                isErrorEvent: 0,
+                isAvgEvent: 0,
+            }));
+
+            // Build child event keys (selected status codes | cache)
+            const childKeys: EventKeyInfo[] = [];
+            if (selectedStatusCodes.length > 0) {
+                selectedStatusCodes.forEach((code: string) => {
+                    childKeys.push({
+                        eventId: `status_${code}`,
+                        eventName: `Status ${code}`,
+                        eventKey: `status_${code}`,
+                        isErrorEvent: 0,
+                        isAvgEvent: 0,
+                    });
+                });
+            }
+            if (selectedCacheStatus.length > 0) {
+                selectedCacheStatus.forEach((cache: string) => {
+                    childKeys.push({
+                        eventId: `cache_${cache}`,
+                        eventName: `Cache: ${cache}`,
+                        eventKey: `cache_${cache}`,
+                        isErrorEvent: 0,
+                        isAvgEvent: 0,
+                    });
+                });
+            }
+
+            // Return combined - deduplicate by eventKey to prevent duplicates (e.g., Status 200 in both parent and child)
+            const combined = [...parentKeys, ...childKeys];
+            const deduped = Array.from(
+                new Map(combined.map(item => [item.eventKey, item])).values()
+            );
+            return deduped;
+        }
+
+        // Regular mode: show endpoint names
         const selectedEventIds = (mainPanelFilters.events && mainPanelFilters.events.length > 0)
             ? mainPanelFilters.events
             : (mainPanelConfig?.events || []);
@@ -1198,7 +1264,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 isAvgEvent: 0,
             };
         });
-    }, [isMainPanelApi, profile?.panels, panelFiltersState, eventConfigById]);
+    }, [isMainPanelApi, profile?.panels, panelFiltersState, eventConfigById, panelsDataMap, rawGraphResponse]);
 
     // Build API Performance Metrics series directly from RAW API response so it works even in percentage/funnel views
     const apiPerformanceSeries = useMemo(() => {
@@ -1246,18 +1312,32 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             const matchesCache = !hasCacheFilter || cacheStatuses.includes(String(r.cacheStatus || 'none'));
             if (!matchesStatus || !matchesCache) return;
 
-            const eventId = String(r.eventId);
-            const eventConfig = eventConfigById.get(eventId);
-            const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
-                ? `${eventConfig.host} - ${eventConfig.url}`
-                : (eventConfig?.eventName || `Event ${eventId}`);
-            const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+            // In percentage/funnel mode, aggregate by status/cache instead of by event endpoint
+            let eventKey: string;
+            if (isFirstPanelSpecialGraphLocal) {
+                // Use status code or cache status as the key
+                if (r.status) {
+                    eventKey = `status_${r.status}`;
+                } else if (r.cacheStatus) {
+                    eventKey = `cache_${r.cacheStatus}`;
+                } else {
+                    return; // Skip if no status or cache info
+                }
+            } else {
+                // Regular mode: use event endpoint name
+                const eventId = String(r.eventId);
+                const eventConfig = eventConfigById.get(eventId);
+                const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
+                    ? `${eventConfig.host} - ${eventConfig.url}`
+                    : (eventConfig?.eventName || `Event ${eventId}`);
+                eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+            }
             usedKeys.add(eventKey);
 
             const count = Number(r.count || 0);
             if (!entry[`${eventKey}_count`]) {
                 entry[`${eventKey}_count`] = 0;
-                entry[`${eventKey}_sumCount`]= 0;
+                entry[`${eventKey}_sumCount`] = 0;
                 entry[`${eventKey}_avgServerToUser_sum`] = 0;
                 entry[`${eventKey}_avgServerToCloud_sum`] = 0;
                 entry[`${eventKey}_avgCloudToUser_sum`] = 0;
@@ -1316,19 +1396,60 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         setPanelFiltersCollapsed(next);
     }, [profile?.panels]);
 
+    // Build and upload child config for percentage/funnel graphs
+    const uploadChildConfigIfNeeded = useCallback(async (force: boolean = false) => {
+        if (!profile?.panels) return;
+
+        const now = Date.now();
+        const oneHour = 60 * 60 * 1000;
+
+        // Send if forced (panel edited) or if an hour has passed since last upload
+        if (!force && (now - lastConfigUploadTime.current) < oneHour) {
+            return;
+        }
+
+        // Build config array from all panels with percentage/funnel graphs
+        const config: Array<{ child: string; parent: string[] }> = [];
+
+        profile.panels.forEach((panel) => {
+            const panelConfig = (panel as any).filterConfig;
+
+            if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
+                const { parentEvents = [], childEvents = [] } = panelConfig.percentageConfig;
+                childEvents.forEach((childEventId: string) => {
+                    config.push({
+                        child: String(childEventId),
+                        parent: parentEvents.map((id: string) => String(id))
+                    });
+                });
+            } else if (panelConfig?.graphType === 'funnel' && panelConfig?.funnelConfig) {
+                const { stages = [], multipleChildEvents = [] } = panelConfig.funnelConfig;
+                const stageEventIds = stages.map((s: any) => String(s.eventId));
+                multipleChildEvents.forEach((childEventId: string) => {
+                    config.push({
+                        child: String(childEventId),
+                        parent: stageEventIds
+                    });
+                });
+            }
+        });
+
+        // Only upload if we have configs
+        if (config.length > 0) {
+            try {
+                await apiService.uploadChildConfig(config);
+                lastConfigUploadTime.current = now;
+                console.log('✅ Uploaded child config:', config);
+            } catch (error) {
+                console.error('Failed to upload child config:', error);
+            }
+        }
+    }, [profile?.panels]);
+
     // Note: Auto-selection disabled for 8-Day Overlay
     // Show all events by default to prevent empty graphs
     // User can click legend to filter specific events
 
-    // Function to jump to a panel (prepared for future use)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _handleJumpToPanel = useCallback((panelId: string) => {
-        setActivePanelId(panelId);
-        const panelElement = panelRefs.current[panelId];
-        if (panelElement) {
-            panelElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, []);
 
     // Close pinned tooltip on Esc
     useEffect(() => {
@@ -1577,23 +1698,23 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Initialize API filter defaults when raw data becomes available
     useEffect(() => {
         if (!profile || !isMainPanelApi) return;
-        
+
         const mainPanelId = profile.panels[0]?.panelId;
         if (!mainPanelId) return;
-        
+
         const mainPanelData = panelsDataMap.get(mainPanelId);
         const rawData = mainPanelData?.rawGraphResponse?.data || rawGraphResponse?.data || [];
-        
+
         if (rawData.length === 0) return;
-        
+
         const currentFilters = panelFiltersState[mainPanelId] || {};
-        
+
         // Skip if already initialized
         if (currentFilters.percentageStatusCodes || currentFilters.percentageCacheStatus) return;
-        
+
         const statusSet = new Set<string>();
         const cacheSet = new Set<string>();
-        
+
         rawData.forEach((record: any) => {
             // Direct field extraction (API response format)
             if (record.status !== undefined && record.status !== null) {
@@ -1602,7 +1723,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             if (record.cacheStatus && typeof record.cacheStatus === 'string') {
                 cacheSet.add(record.cacheStatus);
             }
-            
+
             // Also check key patterns for processed data format
             Object.keys(record).forEach(key => {
                 const statusMatch = key.match(/_status_(\d+)_/);
@@ -1611,15 +1732,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 if (cacheMatch) cacheSet.add(cacheMatch[1]);
             });
         });
-        
+
         if (statusSet.size > 0 || cacheSet.size > 0) {
             const statusCodes = Array.from(statusSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
             const cacheStatuses = Array.from(cacheSet).sort();
-            
+
             // Initialize with defaults
             const defaultStatus = statusCodes.includes('200') ? ['200'] : statusCodes;
             const defaultCache = cacheStatuses;
-            
+
             setPanelFiltersState(prev => ({
                 ...prev,
                 [mainPanelId]: {
@@ -1628,7 +1749,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     percentageCacheStatus: defaultCache
                 }
             }));
-            
+
             console.log('🔧 Initialized API filters:', { statusCodes: defaultStatus, cacheStatuses: defaultCache });
         }
     }, [profile, isMainPanelApi, panelsDataMap, rawGraphResponse, panelFiltersState]);
@@ -2198,7 +2319,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
         // DISABLE AUTO-LOADING - only load on manual refresh
         // console.log('🚀 Auto-loading all panels...');
-        
+
         // Check if we already have data for all panels
 
         // Load data for all panels
@@ -2213,7 +2334,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     const loadAlerts = useCallback(async (expanded: boolean = false) => {
         if (!profile || events.length === 0) return;
 
-// ...
+        // ...
         setAlertsLoading(true);
         try {
             // Check if profile has Critical Alerts config with specific event selection
@@ -2363,16 +2484,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
                 // Update available sourceStrs per panel
                 const isMainPanel = profile.panels[0]?.panelId === panelId;
-                
+
                 // Auto-extract status codes and cache statuses from raw data for API panels
                 const panel = profile.panels.find(p => p.panelId === panelId);
                 const panelConfig = (panel as any)?.filterConfig;
                 const isApiPanel = panelConfig?.isApiEvent || false;
-                
+
                 if (isApiPanel && data.rawGraphResponse?.data) {
                     const statusCodes = new Set<string>();
                     const cacheStatuses = new Set<string>();
-                    
+
                     data.rawGraphResponse.data.forEach((record: any) => {
                         // Direct field extraction (API response format)
                         if (record.status !== undefined && record.status !== null) {
@@ -2381,7 +2502,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         if (record.cacheStatus && typeof record.cacheStatus === 'string') {
                             cacheStatuses.add(record.cacheStatus);
                         }
-                        
+
                         // Also check key patterns for processed data format
                         Object.keys(record).forEach(key => {
                             const statusMatch = key.match(/_status_(\d+)_/);
@@ -2390,10 +2511,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                             if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
                         });
                     });
-                    
+
                     const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
                     const sortedCacheStatuses = Array.from(cacheStatuses).sort();
-                    
+
                     if (isMainPanel) {
                         setAvailableStatusCodes(sortedStatusCodes);
                         setAvailableCacheStatuses(sortedCacheStatuses);
@@ -2430,7 +2551,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                         }
                     }
                 }
-                
+
                 if (isMainPanel) {
                     setAvailableSourceStrs(sourceStrsInData);
                     if (data.rawGraphResponse) {
@@ -2479,7 +2600,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             if (lastAutoLoadedProfileId.current === profileId) return;
             // Force load if we have a profile but no data/alerts yet, or just generally on profile change
             loadData();
-            loadAlerts(); 
+            loadAlerts();
             setPendingRefresh(false);
             setPanelFilterChanges({});
             initialLoadComplete.current = true;
@@ -2490,8 +2611,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 description: `Loaded ${profile.panels.length} panel${profile.panels.length !== 1 ? 's' : ''} with latest data`,
                 duration: 2000,
             });
+
+            // Upload child config when profile is loaded (once per hour max)
+            uploadChildConfigIfNeeded(false);
         }
-    }, [loading, profileId, profile, events.length, graphData.length, toast]);
+    }, [loading, profileId, profile, events.length, graphData.length, toast, uploadChildConfigIfNeeded]);
 
     // Set pending refresh when filters or date range change (only after initial load)
     useEffect(() => {
@@ -2545,18 +2669,44 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         }));
     }, [refreshPanelData]);
 
+    // Function to jump to a panel - scrolls and auto-fetches data if needed
+    const handleJumpToPanel = useCallback((panelId: string) => {
+        // Scroll to panel
+        const panelElement = panelRefs.current[panelId];
+        if (panelElement) {
+            panelElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Auto-fetch panel data if not already loaded
+        const panelData = panelsDataMap.get(panelId);
+        if (!panelData || panelData.graphData.length === 0 || panelData.loading) {
+            // Only fetch if we have profile and events loaded
+            if (profile && events.length > 0) {
+                refreshPanelData(panelId);
+            }
+        }
+    }, [panelsDataMap, profile, events, refreshPanelData]);
+
+    // Expose handleJumpToPanel via window for external access (used by AnalyticsLayout)
+    useEffect(() => {
+        (window as any).__dashboardViewerJumpToPanel = handleJumpToPanel;
+        return () => {
+            delete (window as any).__dashboardViewerJumpToPanel;
+        };
+    }, [handleJumpToPanel]);
+
     // Fetch API filters for individual panels
     const fetchPanelApiFilters = useCallback(async (panelId: string) => {
         if (!profile || !events || events.length === 0) return;
-        
+
         const panel = profile.panels.find(p => p.panelId === panelId);
         if (!panel) return;
-        
+
         const panelConfig = (panel as any).filterConfig;
         if (!panelConfig?.isApiEvent) return;
-        
+
         const currentFilters = panelFiltersState[panelId] || filters;
-        
+
         // Need at least one event selected
         if (currentFilters.events.length === 0) {
             toast({
@@ -2567,7 +2717,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             });
             return;
         }
-        
+
         setPanelLoadingApiFilters(prev => ({ ...prev, [panelId]: true }));
         try {
             // IMPORTANT: No API call here. Derive options from already fetched panel rawGraphResponse.
@@ -2674,12 +2824,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
 
     const handleFilterChange = (type: keyof FilterState, values: string[]) => {
         // console.log('handleFilterChange called:', { type, values });
-        
+
         // Determine value type based on filter key
         // activeStages, activePercentageEvents, activeFunnelChildEvents use string IDs
         // platform, pos, source, events use numeric IDs
         const isStringFilter = ['activeStages', 'activePercentageEvents', 'activePercentageChildEvents', 'activeFunnelChildEvents', 'percentageStatusCodes', 'percentageCacheStatus'].includes(type as string);
-        
+
         const finalValues = isStringFilter
             ? values
             : values.map(v => parseInt(v)).filter(id => !isNaN(id));
@@ -2710,7 +2860,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 ...prev,
                 [mainPanelId]: true
             }));
-            
+
             // Do NOT trigger global refresh - only main panel refresh will be triggered by useEffect
         }
 
@@ -2799,18 +2949,18 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     }, {} as Record<string, { total: number; success: number; }>);
 
     // Detect event types for dual Y-axis rendering
-    const hasAvgEvents = eventKeys.some(ek => ek.isAvgEvent === 1);
+    const hasAvgEvents = eventKeys.some(ek => (ek.isAvgEvent || 0) >= 1);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _hasErrorEvents = eventKeys.some(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
-    const hasNormalEvents = eventKeys.some(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+    const _hasErrorEvents = eventKeys.some(ek => ek.isErrorEvent === 1 && (!ek.isAvgEvent || ek.isAvgEvent === 0));
+    const hasNormalEvents = eventKeys.some(ek => (!ek.isAvgEvent || ek.isAvgEvent === 0) && (!ek.isErrorEvent || ek.isErrorEvent === 0));
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _hasMixedEventTypes = hasAvgEvents && hasNormalEvents;
 
     // Separate event keys by type
-    // Events with BOTH isAvg and isError go to isAvg (time delay charts)
-    const avgEventKeys = eventKeys.filter(ek => ek.isAvgEvent === 1);
-    const errorEventKeys = eventKeys.filter(ek => ek.isErrorEvent === 1 && ek.isAvgEvent !== 1);
-    const normalEventKeys = eventKeys.filter(ek => ek.isAvgEvent !== 1 && ek.isErrorEvent !== 1);
+    // Events with isAvgEvent >= 1 (1=time, 2=rupees, 3=count) go to avg charts
+    const avgEventKeys = eventKeys.filter(ek => (ek.isAvgEvent || 0) >= 1);
+    const errorEventKeys = eventKeys.filter(ek => ek.isErrorEvent === 1 && (!ek.isAvgEvent || ek.isAvgEvent === 0));
+    const normalEventKeys = eventKeys.filter(ek => (!ek.isAvgEvent || ek.isAvgEvent === 0) && (!ek.isErrorEvent || ek.isErrorEvent === 0));
 
     // Check if first panel is a special graph (percentage or funnel)
     const firstPanel = profile?.panels?.[0];

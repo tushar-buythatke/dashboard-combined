@@ -90,32 +90,36 @@ export function AnalyticsLayout() {
     
     const isAdmin = user?.role === 0;
     
-    // Panel navigation - scroll to specific panel by ID
+    // Panel navigation - scroll to specific panel by ID and auto-fetch data
     const handleJumpToPanel = (panelId: string, panelName?: string) => {
-        const element = document.getElementById(`panel-${panelId}`);
-        if (element) {
-            // Get the element's position relative to viewport
-            const rect = element.getBoundingClientRect();
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            const targetPosition = rect.top + scrollTop - 100; // 100px offset from top
-            
-            // Scroll to position
-            window.scrollTo({
-                top: targetPosition,
-                behavior: 'smooth'
-            });
-            
-            // Close mobile sidebar after jumping
-            setMobileSidebarOpen(false);
-            
-            // Show toast notification
-            if (panelName) {
-                toast({
-                    title: `📍 ${panelName}`,
-                    description: 'Navigated to panel',
-                    duration: 1500,
+        // Use DashboardViewer's handleJumpToPanel if available (it handles both scroll and fetch)
+        const dashboardJumpToPanel = (window as any).__dashboardViewerJumpToPanel;
+        if (dashboardJumpToPanel && typeof dashboardJumpToPanel === 'function') {
+            dashboardJumpToPanel(panelId);
+        } else {
+            // Fallback: just scroll if DashboardViewer not ready
+            const element = document.getElementById(`panel-${panelId}`);
+            if (element) {
+                const rect = element.getBoundingClientRect();
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                const targetPosition = rect.top + scrollTop - 100;
+                window.scrollTo({
+                    top: targetPosition,
+                    behavior: 'smooth'
                 });
             }
+        }
+        
+        // Close mobile sidebar after jumping
+        setMobileSidebarOpen(false);
+        
+        // Show toast notification
+        if (panelName) {
+            toast({
+                title: `📍 ${panelName}`,
+                description: 'Navigated to panel',
+                duration: 1500,
+            });
         }
     };
     

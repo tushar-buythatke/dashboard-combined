@@ -201,13 +201,13 @@ class MockService {
                 },
                 panels: apiEvents.map((e, idx) => buildPanel(e, idx)),
                 criticalAlerts: {
-                    enabled: false,
+                    enabled: true,
                     position: 'top',
                     refreshInterval: 30,
                     maxAlerts: 5,
                     filterByPOS: [],
                     filterByEvents: [],
-                    isApi: false,
+                    isApi: true, // Set to true for API profiles
                 }
             };
 

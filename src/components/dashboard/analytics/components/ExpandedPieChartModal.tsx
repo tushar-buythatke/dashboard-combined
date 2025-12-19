@@ -104,7 +104,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent
                 showCloseButton={false}
-                className="w-full sm:max-w-full md:w-[96vw] lg:w-[94vw] max-w-7xl max-h-[92vh] overflow-hidden p-0 bg-gradient-to-br from-white via-purple-50/30 to-pink-50/20 dark:from-slate-900 dark:via-slate-800/80 dark:to-slate-900"
+                className="w-full sm:max-w-full md:w-[96vw] lg:w-[94vw] max-w-7xl max-h-[92vh] overflow-hidden p-0 bg-white dark:bg-slate-900"
             >
                 {/* Premium Header with Close Button */}
                 <div className="relative px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
@@ -166,8 +166,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                             animationDuration={0}
                                         >
                                             {displayData.map((_: any, index: number) => (
-                                                <Cell 
-                                                    key={`cell-${index}`} 
+                                                <Cell
+                                                    key={`cell-${index}`}
                                                     fill={PIE_COLORS[index % PIE_COLORS.length]}
                                                     className="drop-shadow-lg"
                                                 />
@@ -177,7 +177,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
-                            
+
                             {/* Chart Summary Stats */}
                             <div className="mt-4 grid grid-cols-2 gap-4">
                                 <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 rounded-xl">
@@ -197,12 +197,12 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                 <h3 className="font-semibold text-foreground">Detailed Breakdown</h3>
                                 <p className="text-xs text-muted-foreground">Sorted by highest value</p>
                             </div>
-                            
+
                             <div className="max-h-[420px] overflow-y-auto">
                                 <div className="space-y-0">
                                     {displayData.map((item: any, index: number) => {
                                         const percentage = total > 0 ? ((item.value / total) * 100) : 0;
-                                        
+
                                         return (
                                             <div
                                                 key={item.name}
