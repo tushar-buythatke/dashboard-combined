@@ -24,13 +24,18 @@ export const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'
 export const combinePieChartDuplicates = (data: any[]): any[] => {
     if (!data || !Array.isArray(data) || data.length === 0) return [];
 
-    const combinedMap = new Map<string, number>();
+    const combinedMap = new Map<string, { value: number; metricType?: string }>();
     data.forEach(item => {
         const name = item.name || 'Unknown';
-        combinedMap.set(name, (combinedMap.get(name) || 0) + (item.value || 0));
+        const prev = combinedMap.get(name);
+        const nextValue = (prev?.value || 0) + (item.value || 0);
+        combinedMap.set(name, {
+            value: nextValue,
+            metricType: prev?.metricType || item.metricType,
+        });
     });
 
-    return Array.from(combinedMap.entries()).map(([name, value]) => ({ name, value }));
+    return Array.from(combinedMap.entries()).map(([name, meta]) => ({ name, value: meta.value, metricType: meta.metricType }));
 };
 
 // Utility function to check if pie chart should be displayed

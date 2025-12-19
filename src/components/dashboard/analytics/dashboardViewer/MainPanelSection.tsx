@@ -2470,15 +2470,35 @@ export function MainPanelSection({
                         // API Event Pie Charts - Status and CacheStatus distribution
                         // Access the nested data property from the API response
                         const apiData = pieChartData?.data || pieChartData;
-                        const statusData = apiData?.status ? Object.entries(apiData.status).map(([key, val]: [string, any]) => ({
-                            name: `${val.status}`,
-                            value: val.count
-                        })) : [];
+                        const pickMetric = (val: any) => {
+                            const count = Number(val?.count || 0);
+                            if (count > 0) return { value: count, metricType: 'count' };
+                            const avgDelay = Number(val?.avgDelay);
+                            if (!Number.isNaN(avgDelay) && avgDelay > 0) return { value: avgDelay, metricType: 'avgDelay' };
+                            const medianDelay = Number(val?.medianDelay);
+                            if (!Number.isNaN(medianDelay) && medianDelay > 0) return { value: medianDelay, metricType: 'medianDelay' };
+                            const modeDelay = Number(val?.modeDelay);
+                            if (!Number.isNaN(modeDelay) && modeDelay > 0) return { value: modeDelay, metricType: 'modeDelay' };
+                            return { value: 0, metricType: 'count' };
+                        };
 
-                        const cacheStatusData = apiData?.cacheStatus ? Object.entries(apiData.cacheStatus).map(([key, val]: [string, any]) => ({
-                            name: val.cacheStatus || 'Unknown',
-                            value: val.count
-                        })) : [];
+                        const statusData = apiData?.status ? Object.entries(apiData.status).map(([key, val]: [string, any]) => {
+                            const metric = pickMetric(val);
+                            return {
+                                name: `${val.status}`,
+                                value: metric.value,
+                                metricType: metric.metricType,
+                            };
+                        }) : [];
+
+                        const cacheStatusData = apiData?.cacheStatus ? Object.entries(apiData.cacheStatus).map(([key, val]: [string, any]) => {
+                            const metric = pickMetric(val);
+                            return {
+                                name: val.cacheStatus || 'Unknown',
+                                value: metric.value,
+                                metricType: metric.metricType,
+                            };
+                        }) : [];
 
                         // Sort status data with 200 first
                         statusData.sort((a, b) => {

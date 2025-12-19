@@ -7,6 +7,24 @@ export const PieTooltip = ({ active, payload, totalValue }: any) => {
     const data = payload[0]?.payload;
     if (!data) return null;
 
+    const metricType = data.metricType || 'count';
+    const isCount = metricType === 'count';
+    const metricLabel = isCount
+        ? 'Count'
+        : metricType === 'avgDelay'
+            ? 'Avg Delay (ms)'
+            : metricType === 'medianDelay'
+                ? 'Median Delay (ms)'
+                : metricType === 'modeDelay'
+                    ? 'Mode Delay (ms)'
+                    : 'Value';
+
+    const formatValue = (v: any) => {
+        const n = Number(v);
+        if (!Number.isFinite(n)) return '0';
+        return isCount ? n.toLocaleString() : `${n.toFixed(2)}ms`;
+    };
+
     const percentage = totalValue > 0 ? ((data.value / totalValue) * 100).toFixed(1) : '0';
 
     return (
@@ -24,9 +42,9 @@ export const PieTooltip = ({ active, payload, totalValue }: any) => {
             </div>
             <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">Value</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-400">{metricLabel}</span>
                     <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {data.value?.toLocaleString()}
+                        {formatValue(data.value)}
                     </span>
                 </div>
                 <div className="flex justify-between items-center">

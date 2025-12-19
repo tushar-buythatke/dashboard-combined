@@ -68,6 +68,24 @@ interface ExpandedPieChartModalProps {
 export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieChartModalProps) {
     if (!pieData || !pieData.data?.length) return null;
 
+    const metricType = pieData.data.find((d: any) => d?.metricType)?.metricType || 'count';
+    const isCount = metricType === 'count';
+    const metricLabel = isCount
+        ? 'Count'
+        : metricType === 'avgDelay'
+            ? 'Avg Delay (ms)'
+            : metricType === 'medianDelay'
+                ? 'Median Delay (ms)'
+                : metricType === 'modeDelay'
+                    ? 'Mode Delay (ms)'
+                    : 'Value';
+
+    const formatValue = (v: any) => {
+        const n = Number(v);
+        if (!Number.isFinite(n)) return '0';
+        return isCount ? n.toLocaleString() : n.toFixed(2);
+    };
+
     const total = pieData.data.reduce((acc: number, item: any) => acc + item.value, 0);
     const sortedData = [...pieData.data].sort((a, b) => b.value - a.value);
 
@@ -101,8 +119,13 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                         <div className="flex-1">
                             <h2 className="text-xl font-bold">{pieData.title} Distribution</h2>
                             <p className="text-purple-100 text-sm">
-                                {sortedData.length} categories • {total.toLocaleString()} total entries
+                                {sortedData.length} categories • {isCount ? `${Math.round(total).toLocaleString()} total entries` : `${formatValue(total)} total`} {isCount ? '' : 'ms'}
                             </p>
+                            <div className="mt-2">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white/15 text-white">
+                                    {metricLabel}
+                                </span>
+                            </div>
                         </div>
                         <Button
                             variant="ghost"
@@ -162,8 +185,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                     <div className="text-xs text-muted-foreground">Categories</div>
                                 </div>
                                 <div className="text-center p-3 bg-gradient-to-br from-pink-50 to-fuchsia-50 dark:from-pink-500/10 dark:to-fuchsia-500/10 rounded-xl">
-                                    <div className="text-2xl font-bold text-pink-600 dark:text-pink-400">{total.toLocaleString()}</div>
-                                    <div className="text-xs text-muted-foreground">Total Entries</div>
+                                    <div className="text-2xl font-bold text-pink-600 dark:text-pink-400">{isCount ? Math.round(total).toLocaleString() : formatValue(total)}</div>
+                                    <div className="text-xs text-muted-foreground">{isCount ? 'Total Entries' : 'Total (ms)'}</div>
                                 </div>
                             </div>
                         </div>
@@ -178,7 +201,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                             <div className="max-h-[420px] overflow-y-auto">
                                 <div className="space-y-0">
                                     {displayData.map((item: any, index: number) => {
-                                        const percentage = ((item.value / total) * 100);
+                                        const percentage = total > 0 ? ((item.value / total) * 100) : 0;
                                         
                                         return (
                                             <div
@@ -207,7 +230,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                                         <div
                                                             className="h-2 rounded-full"
                                                             style={{
-                                                                width: `${Math.max(percentage, 2)}%`,
+                                                                width: `${Math.max(percentage, total > 0 ? 2 : 0)}%`,
                                                                 background: PIE_COLORS[index % PIE_COLORS.length]
                                                             }}
                                                         />
@@ -216,7 +239,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
 
                                                 {/* Values */}
                                                 <div className="text-right flex-shrink-0 min-w-[88px] sm:min-w-[104px]">
-                                                    <div className="font-semibold text-sm text-foreground">{item.value.toLocaleString()}</div>
+                                                    <div className="font-semibold text-sm text-foreground">{isCount ? Math.round(Number(item.value || 0)).toLocaleString() : `${formatValue(item.value)}ms`}</div>
                                                     <div className="text-xs font-medium text-purple-600 dark:text-purple-400">
                                                         {percentage.toFixed(1)}%
                                                     </div>

@@ -650,13 +650,28 @@ export class APIService {
         // Handle special "others" key which aggregates remaining data
         const transformPieData = (data: any, type: 'platform' | 'pos' | 'source') => {
             if (!data) return [];
+
+            const pickMetric = (item: any) => {
+                const count = Number(item?.count || 0);
+                if (count > 0) return { value: count, metricType: 'count' };
+                const avgDelay = Number(item?.avgDelay);
+                if (!Number.isNaN(avgDelay) && avgDelay > 0) return { value: avgDelay, metricType: 'avgDelay' };
+                const medianDelay = Number(item?.medianDelay);
+                if (!Number.isNaN(medianDelay) && medianDelay > 0) return { value: medianDelay, metricType: 'medianDelay' };
+                const modeDelay = Number(item?.modeDelay);
+                if (!Number.isNaN(modeDelay) && modeDelay > 0) return { value: modeDelay, metricType: 'modeDelay' };
+                return { value: 0, metricType: 'count' };
+            };
+
             return Object.entries(data).map(([key, item]: [string, any]) => {
+                const metric = pickMetric(item);
                 // Handle "others" key specially
                 if (key === 'others') {
                     return {
                         id: 'others',
                         name: 'Others',
-                        value: item.count,
+                        value: metric.value,
+                        metricType: metric.metricType,
                         successCount: item.successCount,
                         failCount: item.failCount
                     };
@@ -666,7 +681,8 @@ export class APIService {
                     return {
                         id: item.platform,
                         name: PLATFORM_NAMES[item.platform] || 'Unknown',
-                        value: item.count,
+                        value: metric.value,
+                        metricType: metric.metricType,
                         successCount: item.successCount,
                         failCount: item.failCount
                     };
@@ -674,7 +690,8 @@ export class APIService {
                     return {
                         id: item.pos,
                         name: this.siteDetailsMap[item.pos] || (item.pos === 0 ? 'Unknown' : `POS ${item.pos}`),
-                        value: item.count,
+                        value: metric.value,
+                        metricType: metric.metricType,
                         successCount: item.successCount,
                         failCount: item.failCount
                     };
@@ -682,7 +699,8 @@ export class APIService {
                     return {
                         id: item.source,
                         name: SOURCE_NAMES[item.source] || (item.source === -1 ? 'Unknown' : 'Unknown'),
-                        value: item.count,
+                        value: metric.value,
+                        metricType: metric.metricType,
                         successCount: item.successCount,
                         failCount: item.failCount
                     };
