@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface BentoGridProps {
@@ -33,7 +32,6 @@ export function BentoCard({
   span = 'md',
   variant = 'default',
   hover = true,
-  delay = 0
 }: BentoCardProps) {
   const spanClasses = {
     'sm': 'md:col-span-1',
@@ -51,42 +49,20 @@ export function BentoCard({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ 
-        duration: 0.4, 
-        delay: delay,
-        ease: [0.25, 0.46, 0.45, 0.94]
-      }}
-      whileHover={hover ? { 
-        y: -4,
-        transition: { duration: 0.2 }
-      } : undefined}
+    <div
       className={cn(
-        "rounded-xl p-4 md:p-6 overflow-hidden relative group transition-all duration-300",
+        "rounded-xl p-4 md:p-6 overflow-hidden relative group transition-all duration-150",
         spanClasses[span],
         variantClasses[variant],
-        hover && "hover:ring-2 hover:ring-primary/20",
+        hover && "hover:-translate-y-1 hover:ring-2 hover:ring-primary/20",
         className
       )}
     >
-      {/* Subtle gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-      
       {/* Content */}
       <div className="relative z-10">
         {children}
       </div>
-      
-      {/* Animated corner accent */}
-      {hover && (
-        <motion.div
-          className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-primary/10 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-          initial={false}
-        />
-      )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -112,28 +88,17 @@ export function BentoStatsCard({
   trend, 
   className,
   iconColor = "from-purple-500 to-violet-600",
-  delay = 0
 }: BentoStatsCardProps) {
   return (
-    <BentoCard span="sm" hover delay={delay} className={className}>
+    <BentoCard span="sm" hover className={className}>
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-          <motion.h3 
-            className="text-2xl md:text-3xl font-bold text-foreground mb-2 truncate"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: delay + 0.1, duration: 0.3 }}
-          >
+          <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-2 truncate">
             {value}
-          </motion.h3>
+          </h3>
           {trend && (
-            <motion.div 
-              className="flex items-center gap-1 text-xs"
-              initial={{ x: -10, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: delay + 0.2 }}
-            >
+            <div className="flex items-center gap-1 text-xs">
               <span className={cn(
                 "font-semibold",
                 trend.positive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
@@ -141,22 +106,17 @@ export function BentoStatsCard({
                 {trend.positive ? '↑' : '↓'} {Math.abs(trend.value)}%
               </span>
               <span className="text-muted-foreground">{trend.label}</span>
-            </motion.div>
+            </div>
           )}
         </div>
-        <motion.div 
+        <div 
           className={cn(
             "h-12 w-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg",
             iconColor
           )}
-          whileHover={{ scale: 1.1, rotate: 5 }}
-          whileTap={{ scale: 0.95 }}
-          initial={{ rotate: -10, opacity: 0 }}
-          animate={{ rotate: 0, opacity: 1 }}
-          transition={{ delay: delay + 0.15, type: "spring", stiffness: 200 }}
         >
           {icon}
-        </motion.div>
+        </div>
       </div>
     </BentoCard>
   );
@@ -182,19 +142,14 @@ export function BentoChartCard({
   span = 'md',
   actions,
   variant = 'default',
-  delay = 0
 }: BentoChartCardProps) {
   return (
-    <BentoCard span={span} variant={variant} hover delay={delay}>
+    <BentoCard span={span} variant={variant} hover>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <motion.div 
-            className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg flex-shrink-0"
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            whileTap={{ scale: 0.95 }}
-          >
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg flex-shrink-0">
             {icon}
-          </motion.div>
+          </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-base md:text-lg font-semibold text-foreground truncate">{title}</h3>
             {subtitle && (

@@ -1,8 +1,6 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { DashboardHeader } from '@/components/ui/dashboard-header';
 import { Activity, Zap, Shield, TrendingUp, Users, DollarSign, Wallet } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnhancedCard } from '@/components/ui/enhanced-card';
 import { format } from 'date-fns';
 
@@ -44,13 +42,9 @@ export function AutosnipeDashboard({
                         { label: 'SNIPES_EXECUTED', value: '85.4K', icon: Zap, trend: '+28%' },
                         { label: 'RUG_PULLS_AVOIDED', value: '128', icon: Shield, trend: '100%' },
                     ].map((stat, i) => (
-                        <motion.div
+                        <div
                             key={i}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1 }}
-                            whileHover={{ scale: 1.02 }}
-                            className="bg-black/50 border border-green-500/30 p-4 rounded-lg shadow-[0_0_15px_rgba(0,255,0,0.1)] hover:shadow-[0_0_20px_rgba(0,255,0,0.2)] hover:border-green-400 transition-all group"
+                            className="bg-black/50 border border-green-500/30 p-4 rounded-lg shadow-[0_0_15px_rgba(0,255,0,0.1)] hover:shadow-[0_0_20px_rgba(0,255,0,0.2)] hover:border-green-400 hover:scale-[1.02] transition-all duration-150 group"
                         >
                             <div className="flex justify-between items-start mb-2">
                                 <span className="text-green-700 text-xs tracking-widest">{stat.label}</span>
@@ -60,7 +54,7 @@ export function AutosnipeDashboard({
                             <div className="text-green-800 text-xs mt-1 flex items-center">
                                 <TrendingUp className="w-3 h-3 mr-1" /> {stat.trend} INCREASE
                             </div>
-                        </motion.div>
+                        </div>
                     ))}
                 </div>
 

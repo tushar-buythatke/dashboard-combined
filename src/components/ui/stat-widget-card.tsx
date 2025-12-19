@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -41,7 +40,7 @@ const SPARKLINE_COLORS = {
     purple: '#A855F7',
 };
 
-// Simple inline sparkline SVG
+// Simple inline sparkline SVG - static, no animations
 function MiniSparkline({
     data,
     color,
@@ -69,31 +68,19 @@ function MiniSparkline({
 
     return (
         <svg width={width} height={height} className="overflow-visible">
-            <defs>
-                <linearGradient id={`sparkGradient-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={color} stopOpacity={0.05} />
-                </linearGradient>
-            </defs>
-            <motion.polyline
+            <polyline
                 points={points}
                 fill="none"
                 stroke={color}
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 1 }}
-                transition={{ duration: 1, ease: 'easeOut' }}
             />
-            <motion.circle
+            <circle
                 cx={width - padding}
                 cy={height - padding - ((data[data.length - 1] - min) / range) * (height - 2 * padding)}
                 r="3"
                 fill={color}
-                initial={{ scale: 0 }}
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
             />
         </svg>
     );
@@ -125,16 +112,12 @@ export function StatWidgetCard({
     };
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -4, boxShadow: '0 20px 40px rgb(0 0 0 / 0.08)' }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+        <div
             className={cn(
                 'bg-white dark:bg-slate-900/90',
                 'border border-slate-200/80 dark:border-slate-700/50',
                 'rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.04)]',
-                'transition-all duration-300 ease-out',
+                'transition-all duration-150 ease-out hover:-translate-y-1 hover:shadow-lg',
                 BORDER_COLORS[variant],
                 sizeClasses[size],
                 className
@@ -148,8 +131,7 @@ export function StatWidgetCard({
                     </p>
                 </div>
                 {icon && (
-                    <motion.div
-                        whileHover={{ scale: 1.1, rotate: 5 }}
+                    <div
                         className={cn(
                             'w-10 h-10 rounded-xl flex items-center justify-center',
                             'bg-gradient-to-br shadow-lg',
@@ -157,29 +139,24 @@ export function StatWidgetCard({
                         )}
                     >
                         {icon}
-                    </motion.div>
+                    </div>
                 )}
             </div>
 
             {/* Value and trend */}
             <div className="flex items-end justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                    <motion.p
-                        initial={{ scale: 0.9 }}
-                        animate={{ scale: 1 }}
+                    <p
                         className={cn(
                             'font-bold text-slate-900 dark:text-white truncate',
                             valueSizes[size]
                         )}
                     >
                         {value}
-                    </motion.p>
+                    </p>
 
                     {trend && (
-                        <motion.div
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.2 }}
+                        <div
                             className={cn(
                                 'inline-flex items-center gap-1 text-xs font-semibold mt-1 px-2 py-0.5 rounded-full',
                                 isPositiveTrend && 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
@@ -194,7 +171,7 @@ export function StatWidgetCard({
                                 {trend.value}%
                                 {trend.label && <span className="ml-1 opacity-80">{trend.label}</span>}
                             </span>
-                        </motion.div>
+                        </div>
                     )}
                 </div>
 
@@ -208,7 +185,7 @@ export function StatWidgetCard({
                     </div>
                 )}
             </div>
-        </motion.div>
+        </div>
     );
 }
 

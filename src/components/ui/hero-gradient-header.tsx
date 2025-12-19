@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Calendar, Sparkles, Zap } from 'lucide-react';
+import { Sparkles, Zap } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface HeroGradientHeaderProps {
@@ -40,10 +39,7 @@ export function HeroGradientHeader({
     const effectiveVariant = isAutosnipe ? 'autosnipe' : variant;
     
     return (
-        <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
+        <div
             className={cn(
                 'relative overflow-hidden rounded-3xl p-6 md:p-8',
                 'bg-gradient-to-r',
@@ -58,11 +54,9 @@ export function HeroGradientHeader({
             <div className="absolute inset-0 overflow-hidden">
                 {isAutosnipe ? (
                     <>
-                        {/* Autosnipe Matrix-style decorations */}
                         <div className="absolute -top-24 -right-24 w-48 h-48 bg-green-500/20 rounded-full blur-3xl" />
                         <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-emerald-500/15 rounded-full blur-2xl" />
                         <div className="absolute top-1/2 right-1/4 w-24 h-24 bg-green-400/10 rounded-full blur-xl" />
-                        {/* Neon border glow */}
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-60" />
                         <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-40" />
                     </>
@@ -81,8 +75,7 @@ export function HeroGradientHeader({
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                     <div className="flex items-center gap-4">
                         {icon && (
-                            <motion.div
-                                whileHover={{ scale: 1.1, rotate: 5 }}
+                            <div
                                 className={cn(
                                     "w-14 h-14 rounded-2xl backdrop-blur-sm flex items-center justify-center shadow-lg",
                                     isAutosnipe 
@@ -91,13 +84,10 @@ export function HeroGradientHeader({
                                 )}
                             >
                                 {icon}
-                            </motion.div>
+                            </div>
                         )}
                         <div>
-                            <motion.h1
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.1 }}
+                            <h1
                                 className={cn(
                                     "text-2xl md:text-3xl font-bold flex items-center gap-2",
                                     isAutosnipe ? "text-green-400" : "text-white"
@@ -109,53 +99,36 @@ export function HeroGradientHeader({
                                 ) : (
                                     <Sparkles className="w-5 h-5 text-white/70" />
                                 )}
-                            </motion.h1>
+                            </h1>
                             {subtitle && (
-                                <motion.p
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    transition={{ delay: 0.2 }}
+                                <p
                                     className={cn(
                                         "text-sm md:text-base mt-1",
                                         isAutosnipe ? "text-green-300/80" : "text-white/80"
                                     )}
                                 >
                                     {subtitle}
-                                </motion.p>
+                                </p>
                             )}
                         </div>
                     </div>
 
                     {/* Actions */}
                     {actions && (
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="flex flex-wrap items-center gap-2"
-                        >
+                        <div className="flex flex-wrap items-center gap-2">
                             {actions}
-                        </motion.div>
+                        </div>
                     )}
                 </div>
 
                 {/* Stats Row */}
                 {stats && stats.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
-                    >
-                        {stats.map((stat, index) => (
-                            <motion.div
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                        {stats.map((stat) => (
+                            <div
                                 key={stat.label}
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: 0.3 + index * 0.05 }}
-                                whileHover={{ scale: 1.02 }}
                                 className={cn(
-                                    "backdrop-blur-sm rounded-xl p-3 md:p-4 border transition-all duration-200",
+                                    "backdrop-blur-sm rounded-xl p-3 md:p-4 border transition-all duration-150 hover:scale-[1.02]",
                                     isAutosnipe
                                         ? "bg-green-500/10 border-green-500/30 hover:border-green-400/50"
                                         : "bg-white/15 border-white/10"
@@ -173,15 +146,15 @@ export function HeroGradientHeader({
                                 )}>
                                     {stat.value}
                                 </p>
-                            </motion.div>
+                            </div>
                         ))}
-                    </motion.div>
+                    </div>
                 )}
 
                 {/* Children content */}
                 {children}
             </div>
-        </motion.div>
+        </div>
     );
 }
 
@@ -194,9 +167,7 @@ export function HeroGradientBanner({
     className,
 }: Omit<HeroGradientHeaderProps, 'stats' | 'actions' | 'children'>) {
     return (
-        <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
+        <div
             className={cn(
                 'relative overflow-hidden rounded-2xl px-5 py-4 shadow-lg',
                 'bg-gradient-to-r',
@@ -221,6 +192,6 @@ export function HeroGradientBanner({
                     )}
                 </div>
             </div>
-        </motion.div>
+        </div>
     );
 }

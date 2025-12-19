@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
@@ -45,50 +44,34 @@ export function InteractiveButton({
   };
 
   return (
-    <motion.button
+    <button
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
       className={cn(
-        'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group',
+        'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150',
+        'disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group',
+        'hover:scale-[1.02] active:scale-[0.98]',
         variants[variant],
         sizes[size],
         glow && 'animate-glow-pulse',
         className
       )}
     >
-      {/* Shimmer effect */}
-      <span className="absolute inset-0 shimmer opacity-0 group-hover:opacity-100" />
-      
       {/* Content */}
       <span className="relative flex items-center gap-[inherit]">
         {loading && (
           <Loader2 className="h-4 w-4 animate-spin" />
         )}
         {!loading && icon && iconPosition === 'left' && (
-          <motion.span
-            initial={{ rotate: 0 }}
-            whileHover={{ rotate: 5 }}
-            transition={{ duration: 0.2 }}
-          >
-            {icon}
-          </motion.span>
+          <span>{icon}</span>
         )}
         <span>{children}</span>
         {!loading && icon && iconPosition === 'right' && (
-          <motion.span
-            initial={{ rotate: 0 }}
-            whileHover={{ rotate: 5 }}
-            transition={{ duration: 0.2 }}
-          >
-            {icon}
-          </motion.span>
+          <span>{icon}</span>
         )}
       </span>
-    </motion.button>
+    </button>
   );
 }
 
@@ -126,22 +109,21 @@ export function IconButton({
   };
 
   return (
-    <motion.button
+    <button
       onClick={onClick}
       disabled={disabled}
-      whileHover={{ scale: 1.1, rotate: 5 }}
-      whileTap={{ scale: 0.9 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
       title={tooltip}
       className={cn(
-        'inline-flex items-center justify-center rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center rounded-lg transition-all duration-150',
+        'disabled:opacity-50 disabled:cursor-not-allowed',
+        'hover:scale-110 active:scale-90',
         variants[variant],
         sizes[size],
         className
       )}
     >
       {icon}
-    </motion.button>
+    </button>
   );
 }
 
@@ -158,7 +140,6 @@ export function FAB({
   icon,
   onClick,
   position = 'bottom-right',
-  label,
   className,
 }: FABProps) {
   const positions = {
@@ -169,34 +150,16 @@ export function FAB({
   };
 
   return (
-    <motion.button
+    <button
       onClick={onClick}
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.95 }}
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
       className={cn(
         'fixed z-50 h-14 w-14 rounded-full bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-2xl shadow-purple-500/40 flex items-center justify-center group',
+        'hover:scale-110 active:scale-95 transition-transform duration-150',
         positions[position],
         className
       )}
     >
-      <motion.div
-        animate={{ rotate: [0, 360] }}
-        transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-        className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-400 to-violet-400 opacity-0 group-hover:opacity-20 blur-sm"
-      />
       <span className="relative z-10">{icon}</span>
-      {label && (
-        <motion.span
-          initial={{ opacity: 0, x: -10 }}
-          whileHover={{ opacity: 1, x: -60 }}
-          className="absolute right-16 whitespace-nowrap px-3 py-2 rounded-lg bg-foreground text-background text-sm font-medium shadow-lg"
-        >
-          {label}
-        </motion.span>
-      )}
-    </motion.button>
+    </button>
   );
 }

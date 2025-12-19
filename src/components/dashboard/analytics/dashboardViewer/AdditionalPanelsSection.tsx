@@ -1440,7 +1440,7 @@ export function AdditionalPanelsSection({
                                                                         const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                         return (
-                                                                        <linearGradient key={`normalGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <linearGradient key={`normalGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                 <stop offset="5%" stopColor={color} stopOpacity={0.3} />
                                                                                 <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                                                                             </linearGradient>
@@ -1912,6 +1912,8 @@ export function AdditionalPanelsSection({
                                                                                     fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
                                                                                     dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
                                                                                     activeDot={{ r: 8, fill: errorColor, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
+                                                                                    isAnimationActive={false}
+                                                                                    animationDuration={0}
                                                                                 />
                                                                                 <Area
                                                                                     key={`error_${idx}_${panel.panelId}_${eventKey}_ok`}
@@ -1923,6 +1925,8 @@ export function AdditionalPanelsSection({
                                                                                     fill={`url(#errorSuccessGrad_${panel.panelId})`}
                                                                                     dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
                                                                                     activeDot={{ r: 6, fill: '#22c55e', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
+                                                                                    isAnimationActive={false}
+                                                                                    animationDuration={0}
                                                                                 />
                                                                             </>
                                                                         );
@@ -2047,17 +2051,17 @@ export function AdditionalPanelsSection({
                                                                             }
                                                                             return value.toLocaleString();
                                                                         }}
-                                                                        label={{ 
+                                                                        label={{
                                                                             value: (() => {
                                                                                 const avgEventType = avgEventKeyInfo?.isAvgEvent || 0;
                                                                                 if (avgEventType === 2) return 'Amount (₹)';
                                                                                 if (avgEventType === 3) return 'Count';
                                                                                 if (avgEventType === 1) return 'Delay';
                                                                                 return 'Value';
-                                                                            })(), 
-                                                                            angle: -90, 
-                                                                            position: 'insideLeft', 
-                                                                            style: { fill: '#f59e0b', fontSize: 10 } 
+                                                                            })(),
+                                                                            angle: -90,
+                                                                            position: 'insideLeft',
+                                                                            style: { fill: '#f59e0b', fontSize: 10 }
                                                                         }}
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={[avgEventKeyInfo]} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
@@ -2070,6 +2074,8 @@ export function AdditionalPanelsSection({
                                                                         fill={`url(#avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey})`}
                                                                         dot={{ fill: avgColor, strokeWidth: 0, r: 3 }}
                                                                         activeDot={{ r: 8, fill: avgColor, stroke: '#fff', strokeWidth: 3 }}
+                                                                        isAnimationActive={false}
+                                                                        animationDuration={0}
                                                                     />
                                                                 </AreaChart>
                                                             </ResponsiveContainer>
@@ -2125,6 +2131,8 @@ export function AdditionalPanelsSection({
                                                                         fill={`url(#errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
                                                                         dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
                                                                         activeDot={{ r: 8, fill: errorColor, stroke: '#fff', strokeWidth: 3 }}
+                                                                        isAnimationActive={false}
+                                                                        animationDuration={0}
                                                                     />
                                                                     <Area
                                                                         type="monotone"
@@ -2135,6 +2143,8 @@ export function AdditionalPanelsSection({
                                                                         fill={`url(#errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
                                                                         dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
                                                                         activeDot={{ r: 6, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
+                                                                        isAnimationActive={false}
+                                                                        animationDuration={0}
                                                                     />
                                                                 </AreaChart>
                                                             </ResponsiveContainer>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+// Removed framer-motion for performance
 import {
     Activity,
     Calendar as CalendarIcon,
@@ -106,7 +106,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                 displayName = `Cache: ${ekInfo.eventKey.replace('cache_', '')}`;
             }
         }
-        
+
         return {
             name: displayName,
             count: eventCount,
@@ -165,22 +165,20 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                 {/* Header */}
                 <div className="flex items-center justify-between gap-3 mb-3 pb-3 border-b border-slate-200/60 dark:border-slate-700/60">
                     <div className="flex items-center gap-2 md:gap-3">
-                        <motion.div
+                        <div
                             className={cn(
                                 "h-9 w-9 md:h-11 md:w-11 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg",
                                 allAvgEvents
                                     ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-amber-500/30"
                                     : "bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600 shadow-purple-500/30"
                             )}
-                            whileHover={{ rotate: 5, scale: 1.05 }}
-                            transition={{ type: "spring", stiffness: 400 }}
                         >
                             {allAvgEvents ? (
                                 <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
                             ) : (
                                 <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
                             )}
-                        </motion.div>
+                        </div>
                         <div className="min-w-0 flex-1">
                             <div className="font-bold text-sm md:text-base text-foreground leading-tight truncate">{label}</div>
                             <div className="text-[10px] md:text-[11px] text-muted-foreground font-medium mt-0.5">{eventDataItems.length} event{eventDataItems.length !== 1 ? 's' : ''}</div>

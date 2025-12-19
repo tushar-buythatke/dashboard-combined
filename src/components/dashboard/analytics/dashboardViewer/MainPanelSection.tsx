@@ -2248,6 +2248,8 @@ export function MainPanelSection({
                                                                             fillOpacity={0.3}
                                                                             fill="#ef4444"
                                                                             stackId={eventKey}
+                                                                            isAnimationActive={false}
+                                                                            animationDuration={0}
                                                                         />
                                                                         <Area
                                                                             type="monotone"
@@ -2258,6 +2260,8 @@ export function MainPanelSection({
                                                                             fillOpacity={0.3}
                                                                             fill="#f59e0b"
                                                                             stackId={eventKey}
+                                                                            isAnimationActive={false}
+                                                                            animationDuration={0}
                                                                         />
                                                                     </React.Fragment>
                                                                 );
@@ -2431,6 +2435,8 @@ export function MainPanelSection({
                                                                     fill="url(#errorGradient)"
                                                                     dot={false}
                                                                     activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
+                                                                    isAnimationActive={false}
+                                                                    animationDuration={0}
                                                                 />
                                                                 <Area
                                                                     type="monotone"
@@ -2441,6 +2447,8 @@ export function MainPanelSection({
                                                                     fill="url(#okGradient)"
                                                                     dot={false}
                                                                     activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
+                                                                    isAnimationActive={false}
+                                                                    animationDuration={0}
                                                                 />
                                                             </React.Fragment>
                                                         );

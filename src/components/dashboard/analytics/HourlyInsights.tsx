@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Clock, Activity, CheckCircle2, Flame, Hash, Calendar as CalendarIcon, TrendingUp, Zap } from 'lucide-react';
+import { Clock, Activity, CheckCircle2, Flame, Hash, TrendingUp, Zap } from 'lucide-react';
 import { CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { EnhancedCard } from '@/components/ui/enhanced-card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -56,7 +55,7 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
 };
 
 export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [] }: { graphData: any[]; isHourly: boolean; eventKeys?: EventKeyInfo[]; events?: EventConfig[] }) {
-    const { currentTheme, isAutosnipe, themePalette } = useTheme();
+    const { isAutosnipe } = useTheme();
     const [selectedHour, setSelectedHour] = useState(new Date().getHours());
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
 
@@ -174,7 +173,7 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
             variant="glass"
             glow={true}
             className={cn(
-                "rounded-2xl transition-all duration-300",
+                "rounded-2xl transition-all duration-150",
                 isAutosnipe
                     ? "border border-green-500/40 bg-gradient-to-br from-gray-950 via-green-950/20 to-gray-950 shadow-[0_8px_30px_rgba(34,197,94,0.15)] hover:shadow-[0_20px_40px_rgba(34,197,94,0.25)]"
                     : "border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/60 dark:from-purple-900/20 dark:via-slate-900/80 dark:to-indigo-900/20 shadow-[0_8px_30px_rgba(147,51,234,0.1)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.15)]"
@@ -187,21 +186,20 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                     ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-500"
                     : "bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500"
             )} />
-            
+
             <CardHeader className="pb-3 px-3 md:px-6 pt-5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                     <div className="flex items-center gap-3">
-                        <motion.div
+                        <div
                             className={cn(
                                 "h-10 w-10 rounded-xl flex items-center justify-center shadow-lg",
                                 isAutosnipe
                                     ? "bg-gradient-to-br from-green-500 to-emerald-600 shadow-green-500/30"
                                     : "bg-gradient-to-br from-cyan-500 to-blue-600 shadow-cyan-500/30"
                             )}
-                            whileHover={{ rotate: 15, scale: 1.05 }}
                         >
                             <Clock className="h-5 w-5 text-white" />
-                        </motion.div>
+                        </div>
                         <div>
                             <CardTitle className="text-sm md:text-base font-semibold text-foreground flex items-center gap-2 flex-wrap">
                                 <span className={cn(
@@ -241,11 +239,11 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                                             setTimeout(() => setSelectedEventKey(eventKeyInfo.eventKey), 0);
                                         }
                                         return (
-                                            <motion.button
+                                            <button
                                                 key={eventKeyInfo.eventKey}
                                                 onClick={() => setSelectedEventKey(eventKeyInfo.eventKey)}
                                                 className={cn(
-                                                    "flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-medium rounded-full transition-all duration-200 text-center",
+                                                    "flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-medium rounded-full transition-all duration-150 text-center",
                                                     isSelected
                                                         ? isAutosnipe
                                                             ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-md shadow-green-500/30"
@@ -254,11 +252,9 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                                                             ? "text-green-400 hover:text-green-300 hover:bg-green-500/10"
                                                             : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50"
                                                 )}
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
                                             >
                                                 {eventKeyInfo.eventName}
-                                            </motion.button>
+                                            </button>
                                         );
                                     })}
                                 </div>
@@ -291,14 +287,13 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
 
             <CardContent className="pt-0 space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <motion.div 
+                    <div
                         className={cn(
-                            "p-2.5 rounded-xl border transition-all duration-200",
+                            "p-2.5 rounded-xl border transition-all duration-150 hover:scale-[1.02]",
                             isAutosnipe
                                 ? "bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-green-500/30 hover:border-green-400/50"
                                 : "bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border-blue-200/50 dark:border-blue-500/20"
                         )}
-                        whileHover={{ scale: 1.02 }}
                     >
                         <div className="flex items-center gap-1 mb-1">
                             <Activity className={cn("h-3 w-3", isAutosnipe ? "text-green-500" : "text-blue-500")} />
@@ -315,15 +310,14 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                         )}>
                             {isAvgEvent ? formatDelay(overallAvgDelay) : overallTotal.toLocaleString()}
                         </div>
-                    </motion.div>
-                    <motion.div 
+                    </div>
+                    <div
                         className={cn(
-                            "p-2.5 rounded-xl border transition-all duration-200",
+                            "p-2.5 rounded-xl border transition-all duration-150 hover:scale-[1.02]",
                             isAutosnipe
                                 ? "bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border-emerald-500/30 hover:border-emerald-400/50"
                                 : "bg-gradient-to-br from-emerald-500/10 to-green-500/5 border-emerald-200/50 dark:border-emerald-500/20"
                         )}
-                        whileHover={{ scale: 1.02 }}
                     >
                         <div className="flex items-center gap-1 mb-1">
                             <CheckCircle2 className="h-3 w-3 text-emerald-500" />
@@ -335,15 +329,14 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                         <div className={cn("text-lg font-bold", isAutosnipe ? "text-emerald-400" : "text-emerald-600")}>
                             {overallSuccessRate.toFixed(1)}%
                         </div>
-                    </motion.div>
-                    <motion.div 
+                    </div>
+                    <div
                         className={cn(
-                            "p-2.5 rounded-xl border transition-all duration-200",
+                            "p-2.5 rounded-xl border transition-all duration-150 hover:scale-[1.02]",
                             isAutosnipe
                                 ? "bg-gradient-to-br from-yellow-500/10 to-amber-500/5 border-yellow-500/30 hover:border-yellow-400/50"
                                 : "bg-gradient-to-br from-amber-500/10 to-orange-500/5 border-amber-200/50 dark:border-amber-500/20"
                         )}
-                        whileHover={{ scale: 1.02 }}
                     >
                         <div className="flex items-center gap-1 mb-1">
                             <Flame className={cn("h-3 w-3", isAutosnipe ? "text-yellow-500" : "text-amber-500")} />
@@ -357,15 +350,14 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                         <div className={cn("text-lg font-bold", isAutosnipe ? "text-yellow-400" : "text-amber-600")}>
                             {formatHourShort(peakHour)}
                         </div>
-                    </motion.div>
-                    <motion.div 
+                    </div>
+                    <div
                         className={cn(
-                            "p-2.5 rounded-xl border transition-all duration-200",
+                            "p-2.5 rounded-xl border transition-all duration-150 hover:scale-[1.02]",
                             isAutosnipe
                                 ? "bg-gradient-to-br from-cyan-500/10 to-teal-500/5 border-cyan-500/30 hover:border-cyan-400/50"
                                 : "bg-gradient-to-br from-purple-500/10 to-violet-500/5 border-purple-200/50 dark:border-purple-500/20"
                         )}
-                        whileHover={{ scale: 1.02 }}
                     >
                         <div className="flex items-center gap-1 mb-1">
                             <Hash className={cn("h-3 w-3", isAutosnipe ? "text-cyan-500" : "text-purple-500")} />
@@ -379,17 +371,16 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                         <div className={cn("text-lg font-bold", isAutosnipe ? "text-cyan-400" : "text-purple-600")}>
                             {isAvgEvent ? formatDelay(avgPerHour) : Math.round(avgPerHour).toLocaleString()}
                         </div>
-                    </motion.div>
+                    </div>
                 </div>
 
-                <motion.div
+                <div
                     className={cn(
-                        "p-3 rounded-xl border transition-all duration-200",
+                        "p-3 rounded-xl border transition-all duration-150 hover:scale-[1.01]",
                         isAutosnipe
                             ? "bg-gray-900/60 border-green-500/20 hover:border-green-400/40"
                             : "bg-background/60 border-border/40 hover:border-cyan-300 dark:hover:border-cyan-500/50"
                     )}
-                    whileHover={{ scale: 1.01 }}
                 >
                     <div className="h-[200px] w-full mt-4">
                         <ResponsiveContainer width="100%" height="100%">
@@ -408,26 +399,26 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                                 <XAxis dataKey="hourLabel" tick={<CustomXAxisTick />} axisLine={false} tickLine={false} interval={0} />
                                 <YAxis tick={{ fontSize: 10, fill: isAutosnipe ? '#4ade80' : '#6b7280' }} axisLine={false} tickLine={false} />
                                 <Tooltip
-                                    contentStyle={{ 
-                                        borderRadius: '12px', 
-                                        border: isAutosnipe ? '1px solid rgba(34, 197, 94, 0.3)' : 'none', 
+                                    contentStyle={{
+                                        borderRadius: '12px',
+                                        border: isAutosnipe ? '1px solid rgba(34, 197, 94, 0.3)' : 'none',
                                         boxShadow: isAutosnipe ? '0 4px 12px rgba(34, 197, 94, 0.2)' : '0 4px 12px rgba(0,0,0,0.1)',
                                         backgroundColor: isAutosnipe ? 'rgba(10, 10, 10, 0.95)' : undefined
                                     }}
                                     cursor={{ fill: isAutosnipe ? 'rgba(34, 197, 94, 0.1)' : 'rgba(0,0,0,0.05)' }}
                                 />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={1500}>
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]} animationDuration={300}>
                                     {chartData.map((entry, index) => (
-                                        <Cell 
-                                            key={`cell-${index}`} 
-                                            fill={entry.hour === selectedHour ? 'url(#barGradient)' : 'url(#barGradientInactive)'} 
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={entry.hour === selectedHour ? 'url(#barGradient)' : 'url(#barGradientInactive)'}
                                         />
                                     ))}
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
-                </motion.div>
+                </div>
             </CardContent>
         </EnhancedCard>
     );

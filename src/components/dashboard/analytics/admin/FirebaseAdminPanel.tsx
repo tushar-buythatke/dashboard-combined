@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+// Removed framer-motion for performance
 import { useFirebaseConfig } from '@/contexts/FirebaseConfigContext';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -90,15 +90,15 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
   const [syncResult, setSyncResult] = useState<{ synced: number; failed: number; error?: string } | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [writeAccessStatus, setWriteAccessStatus] = useState<{ tested: boolean; canWrite: boolean; error?: string }>({ tested: false, canWrite: false });
-  
+
   // Feature editing
   const [editingFeature, setEditingFeature] = useState<Partial<FeatureConfig> | null>(null);
   const [showFeatureModal, setShowFeatureModal] = useState(false);
-  
+
   // Profile actions
   const [cloneProfileName, setCloneProfileName] = useState('');
   const [cloningProfileId, setCloningProfileId] = useState<string | null>(null);
-  
+
   // Event editing
   const [editingEvent, setEditingEvent] = useState<Partial<EventDefinitionConfig> | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
@@ -117,15 +117,15 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
 
   const handleSyncToFirebase = async () => {
     if (!user) return;
-    
+
     setSyncing(true);
     setSyncResult(null);
-    
+
     try {
       // Just try to sync directly - the actual sync will reveal any permission issues
       const result = await mockService.syncToFirebase(orgId, user.username);
       setSyncResult(result);
-      
+
       // If sync succeeded, mark write access as working
       if (result.synced > 0) {
         setWriteAccessStatus({ tested: true, canWrite: true });
@@ -140,7 +140,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
 
   const handleSaveFeature = async () => {
     if (!editingFeature?.featureName) return;
-    
+
     const feature: FeatureConfig = {
       featureId: editingFeature.featureId || `feature_${Date.now()}`,
       featureName: editingFeature.featureName,
@@ -152,7 +152,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
       updatedAt: new Date().toISOString(),
       createdBy: user?.username || 'admin',
     };
-    
+
     const success = await saveFeature(feature);
     if (success) {
       setShowFeatureModal(false);
@@ -162,7 +162,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
 
   const handleCloneProfile = async (profileId: string) => {
     if (!cloneProfileName.trim()) return;
-    
+
     const result = await cloneProfile(profileId, cloneProfileName);
     if (result) {
       setCloningProfileId(null);
@@ -172,7 +172,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
 
   const handleSaveEvent = async () => {
     if (!editingEvent?.eventName) return;
-    
+
     const event: EventDefinitionConfig = {
       eventId: editingEvent.eventId || `event_${Date.now()}`,
       eventName: editingEvent.eventName,
@@ -188,7 +188,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
       createdAt: editingEvent.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    
+
     const success = await saveEvent(event);
     if (success) {
       setShowEventModal(false);
@@ -252,14 +252,14 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
                       {import.meta.env.VITE_FIREBASE_PROJECT_ID || '❌ Not configured'}
                     </span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Firebase Connection</span>
                     <Badge variant={isConnected ? 'default' : 'destructive'}>
                       {isConnected ? 'Connected' : 'Disconnected'}
                     </Badge>
                   </div>
-                  
+
                   {/* Write Access Test */}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Write Access</span>
@@ -275,7 +275,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
                       )}
                     </div>
                   </div>
-                  
+
                   {writeAccessStatus.error && (
                     <div className="p-2 rounded bg-red-50 dark:bg-red-900/20 text-xs text-red-600 dark:text-red-400">
                       <AlertTriangle className="h-3 w-3 inline mr-1" />
@@ -285,7 +285,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
                       </div>
                     </div>
                   )}
-                  
+
                   {error && (
                     <div className="flex items-center gap-2 text-sm text-red-500">
                       <AlertTriangle className="h-4 w-4" />
@@ -327,11 +327,9 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
                     )}
                     {syncing ? 'Syncing...' : 'Sync Local Profiles to Firebase'}
                   </Button>
-                  
+
                   {syncResult && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
+                    <div
                       className="p-3 rounded-lg bg-muted"
                     >
                       {syncResult.error ? (
@@ -353,7 +351,7 @@ export function FirebaseAdminPanel({ isOpen, onClose }: FirebaseAdminPanelProps)
                           )}
                         </div>
                       )}
-                    </motion.div>
+                    </div>
                   )}
                 </CardContent>
               </Card>

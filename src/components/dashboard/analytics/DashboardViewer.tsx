@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence, useSpring, useMotionValue, useInView } from 'framer-motion';
+// Removed framer-motion for snappy performance
 import type { DashboardProfile, EventConfig } from '@/types/analytics';
 import { apiService, PLATFORMS, SOURCES } from '@/services/apiService';
 import { mockService } from '@/services/mockData';
@@ -2989,11 +2989,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     return (
         <>
 
-            <motion.div
+            <div
                 className="space-y-6"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
                 style={{ zoom: 0.8 }}
             >
                 {/* ========== PREMIUM HERO HEADER ========== */}
@@ -3301,7 +3298,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                     }}
                     pieData={expandedPie}
                 />
-            </motion.div>
+            </div>
         </>
     );
 }

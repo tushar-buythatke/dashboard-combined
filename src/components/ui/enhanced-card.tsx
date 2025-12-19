@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface EnhancedCardProps {
@@ -11,9 +10,9 @@ interface EnhancedCardProps {
   onClick?: () => void;
 }
 
-export function EnhancedCard({ 
-  children, 
-  className, 
+export function EnhancedCard({
+  children,
+  className,
   variant = 'default',
   hover = true,
   glow = false,
@@ -28,33 +27,22 @@ export function EnhancedCard({
   };
 
   return (
-    <motion.div
-      whileHover={hover ? { 
-        y: -4,
-        boxShadow: glow ? '0 20px 40px rgba(147, 51, 234, 0.15)' : '0 12px 24px rgba(0, 0, 0, 0.08)'
-      } : undefined}
-      whileTap={onClick ? { scale: 0.98 } : undefined}
-      transition={{ duration: 0.2, ease: 'easeOut' }}
+    <div
       onClick={onClick}
       className={cn(
-        "rounded-xl p-4 md:p-6 relative group overflow-hidden transition-all duration-300",
+        "rounded-xl p-4 md:p-6 relative group overflow-hidden transition-all duration-150",
         variants[variant],
-        hover && "hover:ring-2 hover:ring-primary/20",
+        hover && "hover:-translate-y-1 hover:shadow-lg hover:ring-2 hover:ring-primary/20",
         glow && "glow-primary",
-        onClick && "cursor-pointer",
+        onClick && "cursor-pointer active:scale-[0.98]",
         className
       )}
     >
-      {/* Shimmer effect on hover */}
-      {hover && (
-        <div className="absolute inset-0 shimmer opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      )}
-      
       {/* Content */}
       <div className="relative z-10">
         {children}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -67,11 +55,11 @@ interface CardHeaderProps {
   iconColor?: string;
 }
 
-export function CardHeader({ 
-  icon, 
-  title, 
-  subtitle, 
-  actions, 
+export function CardHeader({
+  icon,
+  title,
+  subtitle,
+  actions,
   badge,
   iconColor = "from-purple-500 to-violet-600"
 }: CardHeaderProps) {
@@ -79,17 +67,14 @@ export function CardHeader({
     <div className="flex items-start justify-between mb-4 md:mb-6">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {icon && (
-          <motion.div 
+          <div
             className={cn(
-              "h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg flex-shrink-0",
+              "h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg flex-shrink-0 transition-transform duration-150 hover:scale-105",
               iconColor
             )}
-            whileHover={{ scale: 1.1, rotate: 5 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
           >
             {icon}
-          </motion.div>
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -129,12 +114,9 @@ export function StatsRow({ stats, className }: StatsRowProps) {
       "grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4",
       className
     )}>
-      {stats.map((stat, index) => (
-        <motion.div
+      {stats.map((stat) => (
+        <div
           key={stat.label}
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: index * 0.05 }}
           className="flex flex-col p-3 rounded-lg bg-muted/50 border border-border/50 hover:border-primary/50 transition-colors"
         >
           <div className="flex items-center justify-between mb-1">
@@ -152,7 +134,7 @@ export function StatsRow({ stats, className }: StatsRowProps) {
               </span>
             )}
           </div>
-        </motion.div>
+        </div>
       ))}
     </div>
   );

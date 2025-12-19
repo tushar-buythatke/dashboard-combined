@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -25,7 +24,6 @@ export function StatBadge({
   variant = 'default',
   size = 'md',
   className,
-  animated = true,
 }: StatBadgeProps) {
   const variants = {
     default: 'bg-card border-border',
@@ -52,13 +50,9 @@ export function StatBadge({
   const isNegativeTrend = trend && trend.value < 0;
 
   return (
-    <motion.div
-      initial={animated ? { opacity: 0, scale: 0.95 } : false}
-      animate={animated ? { opacity: 1, scale: 1 } : false}
-      whileHover={animated ? { y: -2, scale: 1.02 } : undefined}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+    <div
       className={cn(
-        'rounded-xl border backdrop-blur-sm shadow-sm hover:shadow-md transition-all duration-200 group',
+        'rounded-xl border backdrop-blur-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-150 group',
         variants[variant],
         sizes[size],
         className
@@ -70,30 +64,19 @@ export function StatBadge({
             {label}
           </span>
           {icon && (
-            <motion.div
-              whileHover={{ scale: 1.1, rotate: 5 }}
-              className="flex-shrink-0"
-            >
+            <div className="flex-shrink-0">
               {icon}
-            </motion.div>
+            </div>
           )}
         </div>
-        
+
         <div className="flex items-baseline justify-between gap-2">
-          <motion.span
-            className={cn('font-bold text-foreground truncate', textSizes[size].value)}
-            initial={animated ? { scale: 0.8 } : false}
-            animate={animated ? { scale: 1 } : false}
-            transition={{ delay: 0.1, type: 'spring' }}
-          >
+          <span className={cn('font-bold text-foreground truncate', textSizes[size].value)}>
             {value}
-          </motion.span>
-          
+          </span>
+
           {trend && (
-            <motion.div
-              initial={animated ? { opacity: 0, x: -10 } : false}
-              animate={animated ? { opacity: 1, x: 0 } : false}
-              transition={{ delay: 0.2 }}
+            <div
               className={cn(
                 'flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0',
                 isPositiveTrend && 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400',
@@ -108,11 +91,11 @@ export function StatBadge({
                 {trend.value}%
                 {trend.label && <span className="ml-1 hidden sm:inline">{trend.label}</span>}
               </span>
-            </motion.div>
+            </div>
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -137,18 +120,16 @@ export function CompactStatBadge({
   };
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <div
       className={cn(
-        'inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-medium',
+        'inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-medium hover:scale-105 active:scale-95 transition-transform duration-150',
         colors[color]
       )}
     >
       {icon && <span className="flex-shrink-0">{icon}</span>}
       <span className="font-bold">{value}</span>
       <span className="opacity-80 truncate">{label}</span>
-    </motion.div>
+    </div>
   );
 }
 
@@ -174,11 +155,10 @@ export function StatsGrid({ stats, columns = 4, className }: StatsGridProps) {
 
   return (
     <div className={cn('grid gap-3 md:gap-4', gridCols[columns], className)}>
-      {stats.map((stat, index) => (
+      {stats.map((stat) => (
         <StatBadge
           key={stat.label}
           {...stat}
-          animated
         />
       ))}
     </div>
