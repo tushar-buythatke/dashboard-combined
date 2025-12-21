@@ -1,4 +1,6 @@
 import React from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { InfoTooltip } from '../components/InfoTooltip';
 import {
     Activity,
     AlertTriangle,
@@ -119,905 +121,918 @@ type MainPanelSectionProps = {
     toast: (args: any) => void;
 };
 
-export function MainPanelSection({
-        profile,
-        setProfile,
-        panelsDataMap,
-        rawGraphResponse,
-        graphData,
-        filteredApiData,
-        dateRange,
-        isHourly,
-        filtersCollapsed,
-        setFiltersCollapsed,
-        pendingRefresh,
-        panelFiltersState,
-        handleFilterChange,
-        handleApplyFilters,
-        dataLoading,
-        autoRefreshMinutes,
-        setAutoRefreshMinutes,
-        availableStatusCodes,
-        availableCacheStatuses,
-        availableSourceStrs,
-        selectedSourceStrs,
-        setSelectedSourceStrs,
-        platformOptions,
-        posOptions,
-        sourceOptions,
-        eventOptions,
-        totalCount,
-        totalSuccess,
-        totalFail,
-        selectedEventsList,
-        isMainPanelApi,
-        normalEventKeys,
-        eventKeys,
-        avgEventKeys,
-        errorEventKeys,
-        apiEndpointEventKeyInfos,
-        mainLegendExpanded,
-        setMainLegendExpanded,
-        selectedEventKey,
-        handleEventClick,
-        overlaySelectedEventKey,
-        handleOverlayEventClick,
-        errorSelectedEventKey,
-        handleErrorEventClick,
-        apiSelectedEventKey,
-        handleApiEventClick,
-        panelChartType,
-        setPanelChartType,
-        pinnedTooltip,
-        setPinnedTooltip,
-        isFirstPanelSpecialGraph,
-        apiPerformanceSeries,
-        apiMetricView,
-        setApiMetricView,
-        pieChartData,
-        openExpandedPie,
-        CustomXAxisTick,
-        HourlyStatsCard,
-        events,
-        toast,
-    }: MainPanelSectionProps) {
+export const MainPanelSection = React.memo(function MainPanelSection({
+    profile,
+    setProfile,
+    panelsDataMap,
+    rawGraphResponse,
+    graphData,
+    filteredApiData,
+    dateRange,
+    isHourly,
+    filtersCollapsed,
+    setFiltersCollapsed,
+    pendingRefresh,
+    panelFiltersState,
+    handleFilterChange,
+    handleApplyFilters,
+    dataLoading,
+    autoRefreshMinutes,
+    setAutoRefreshMinutes,
+    availableStatusCodes,
+    availableCacheStatuses,
+    availableSourceStrs,
+    selectedSourceStrs,
+    setSelectedSourceStrs,
+    platformOptions,
+    posOptions,
+    sourceOptions,
+    eventOptions,
+    totalCount,
+    totalSuccess,
+    totalFail,
+    selectedEventsList,
+    isMainPanelApi,
+    normalEventKeys,
+    eventKeys,
+    avgEventKeys,
+    errorEventKeys,
+    apiEndpointEventKeyInfos,
+    mainLegendExpanded,
+    setMainLegendExpanded,
+    selectedEventKey,
+    handleEventClick,
+    overlaySelectedEventKey,
+    handleOverlayEventClick,
+    errorSelectedEventKey,
+    handleErrorEventClick,
+    apiSelectedEventKey,
+    handleApiEventClick,
+    panelChartType,
+    setPanelChartType,
+    pinnedTooltip,
+    setPinnedTooltip,
+    isFirstPanelSpecialGraph,
+    apiPerformanceSeries,
+    apiMetricView,
+    setApiMetricView,
+    pieChartData,
+    openExpandedPie,
+    CustomXAxisTick,
+    HourlyStatsCard,
+    events,
+    toast,
+}: MainPanelSectionProps) {
 
     return (
         <>
-{/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
-                <Card
-                    className="rounded-2xl overflow-hidden group transition-all duration-300 relative"
-                >
-                    {/* Purple/Pink Gradient Accent Bar */}
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+            {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
+            <Card
+                className="rounded-2xl overflow-hidden group transition-all duration-300 relative"
+            >
+                {/* Purple/Pink Gradient Accent Bar */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
 
-                    <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
-                        <div className="flex items-center justify-between">
-                            <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <span
+                                className="w-2 h-2 rounded-full bg-primary"
+                            />
+                            <span className="font-bold text-lg">Filters</span>
+                            {/* API Event Badge */}
+                            {isMainPanelApi && (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md animate-none">
+                                    API
+                                </span>
+                            )}
+                            {pendingRefresh && (
                                 <span
-                                    className="w-2 h-2 rounded-full bg-primary"
-                                />
-                                <span className="font-bold text-lg">Filters</span>
-                                {/* API Event Badge */}
-                                {isMainPanelApi && (
-                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md animate-none">
-                                        API
-                                    </span>
-                                )}
-                                {pendingRefresh && (
-                                    <span
-                                        className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
-                                    >
-                                        Changed
-                                    </span>
-                                )}
-                            </CardTitle>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setFiltersCollapsed(!filtersCollapsed);
-                                }}
-                                className="h-8 w-8 p-0"
-                            >
-                                {filtersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    {!filtersCollapsed && (
-                        <CardContent>
-                            <div className={cn(
-                                "grid gap-3 sm:gap-4",
-                                isMainPanelApi
-                                    ? "grid-cols-1"
-                                    : "grid-cols-1" // Will be overridden by inner content
-                            )}>
-                                {(() => {
-                                    const mainPanel = profile?.panels?.[0];
-                                    const mainPanelId = mainPanel?.panelId;
-                                    const mainPanelConfig = (mainPanel as any)?.filterConfig;
-                                    const mainGraphType = mainPanelConfig?.graphType;
-                                    const currentFilters = mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>;
+                                    className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
+                                >
+                                    Changed
+                                </span>
+                            )}
+                        </CardTitle>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setFiltersCollapsed(!filtersCollapsed);
+                            }}
+                            className="h-8 w-8 p-0"
+                        >
+                            {filtersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                </CardHeader>
+                {!filtersCollapsed && (
+                    <CardContent>
+                        <div className={cn(
+                            "grid gap-3 sm:gap-4",
+                            isMainPanelApi
+                                ? "grid-cols-1"
+                                : "grid-cols-1" // Will be overridden by inner content
+                        )}>
+                            {(() => {
+                                const mainPanel = profile?.panels?.[0];
+                                const mainPanelId = mainPanel?.panelId;
+                                const mainPanelConfig = (mainPanel as any)?.filterConfig;
+                                const mainGraphType = mainPanelConfig?.graphType;
+                                const currentFilters = mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>;
 
-                                    const isPercentageGraph = mainGraphType === 'percentage';
-                                    const percentageConfig = mainPanelConfig?.percentageConfig;
-                                    const isFunnelGraph = mainGraphType === 'funnel';
-                                    const funnelConfig = mainPanelConfig?.funnelConfig;
+                                const isPercentageGraph = mainGraphType === 'percentage';
+                                const percentageConfig = mainPanelConfig?.percentageConfig;
+                                const isFunnelGraph = mainGraphType === 'funnel';
+                                const funnelConfig = mainPanelConfig?.funnelConfig;
 
-                                    // Extract available status codes and cache statuses from raw data (for API events)
-                                    let configuredStatusCodes = percentageConfig?.filters?.statusCodes || [];
-                                    let configuredCacheStatus = percentageConfig?.filters?.cacheStatus || [];
-                                    
-                                    if (isMainPanelApi && mainPanelId) {
-                                        const mainPanelData = panelsDataMap.get(mainPanelId);
-                                        const rawData = mainPanelData?.rawGraphResponse?.data || rawGraphResponse?.data || [];
-                                        const statusSet = new Set<string>();
-                                        const cacheSet = new Set<string>();
+                                // Extract available status codes and cache statuses from raw data (for API events)
+                                let configuredStatusCodes = percentageConfig?.filters?.statusCodes || [];
+                                let configuredCacheStatus = percentageConfig?.filters?.cacheStatus || [];
 
-                                        rawData.forEach((record: any) => {
-                                            // Direct field extraction (API response format)
-                                            if (record.status !== undefined && record.status !== null) {
-                                                statusSet.add(String(record.status));
-                                            }
-                                            if (record.cacheStatus && typeof record.cacheStatus === 'string') {
-                                                cacheSet.add(record.cacheStatus);
-                                            }
-                                            
-                                            // Also check key patterns for processed data format
-                                            Object.keys(record).forEach(key => {
-                                                const statusMatch = key.match(/_status_(\d+)_/);
-                                                const cacheMatch = key.match(/_cache_([^_]+)_/);
-                                                if (statusMatch) statusSet.add(statusMatch[1]);
-                                                if (cacheMatch) cacheSet.add(cacheMatch[1]);
-                                            });
+                                if (isMainPanelApi && mainPanelId) {
+                                    const mainPanelData = panelsDataMap.get(mainPanelId);
+                                    const rawData = mainPanelData?.rawGraphResponse?.data || rawGraphResponse?.data || [];
+                                    const statusSet = new Set<string>();
+                                    const cacheSet = new Set<string>();
+
+                                    rawData.forEach((record: any) => {
+                                        // Direct field extraction (API response format)
+                                        if (record.status !== undefined && record.status !== null) {
+                                            statusSet.add(String(record.status));
+                                        }
+                                        if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                                            cacheSet.add(record.cacheStatus);
+                                        }
+
+                                        // Also check key patterns for processed data format
+                                        Object.keys(record).forEach(key => {
+                                            const statusMatch = key.match(/_status_(\d+)_/);
+                                            const cacheMatch = key.match(/_cache_([^_]+)_/);
+                                            if (statusMatch) statusSet.add(statusMatch[1]);
+                                            if (cacheMatch) cacheSet.add(cacheMatch[1]);
                                         });
+                                    });
 
-                                        if (statusSet.size > 0) {
-                                            configuredStatusCodes = Array.from(statusSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-                                        }
-                                        if (cacheSet.size > 0) {
-                                            configuredCacheStatus = Array.from(cacheSet).sort();
-                                        }
+                                    if (statusSet.size > 0) {
+                                        configuredStatusCodes = Array.from(statusSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
                                     }
-                                    
-                                    const activeStatusCodes = (currentFilters as Partial<FilterState>).percentageStatusCodes || configuredStatusCodes;
-                                    const activeCacheStatus = (currentFilters as Partial<FilterState>).percentageCacheStatus || configuredCacheStatus;
-
-                                    // Specialized Filters for Percentage Graph
-                                    if (isPercentageGraph && percentageConfig) {
-                                        return (
-                                            <div className="col-span-12 space-y-4">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <Percent className="h-4 w-4 text-purple-500" />
-                                                    <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Percentage Graph - Event Selection</span>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                    {/* Parent Events (Denominator) */}
-                                                    <div className="space-y-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                                Parent Events (Denominator)
-                                                            </label>
-                                                        </div>
-                                                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-purple-100 dark:border-purple-900/30 shadow-sm">
-                                                            <MultiSelectDropdown
-                                                                options={events
-                                                                    .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
-                                                                    .map(e => ({
-                                                                        value: String(e.eventId),
-                                                                        label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
-                                                                        color: e.color
-                                                                    }))}
-                                                                selected={currentFilters.activePercentageEvents || percentageConfig.parentEvents}
-                                                                onChange={(selected) => {
-                                                                    handleFilterChange('activePercentageEvents', selected);
-                                                                }}
-                                                                placeholder="Select Parent Events (Multiple Supported)"
-                                                                maxDisplayItems={3}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Child Events (Numerator) */}
-                                                    <div className="space-y-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                                                Child Events (Numerator)
-                                                            </label>
-                                                        </div>
-                                                        <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-green-100 dark:border-green-900/30 shadow-sm">
-                                                            <MultiSelectDropdown
-                                                                options={events
-                                                                    .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
-                                                                    .map(e => ({
-                                                                        value: String(e.eventId),
-                                                                        label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
-                                                                        color: e.color
-                                                                    }))}
-                                                                selected={currentFilters.activePercentageChildEvents || percentageConfig.childEvents}
-                                                                onChange={(selected) => {
-                                                                    handleFilterChange('activePercentageChildEvents', selected);
-                                                                }}
-                                                                placeholder="Select Child Events (Multiple Supported)"
-                                                                maxDisplayItems={3}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="mt-3 text-xs text-muted-foreground text-center bg-white/50 dark:bg-black/20 p-2 rounded">
-                                                    Formula: <span className="font-mono text-xs">(Child Count / Parent Count) × 100</span>
-                                                </div>
-                                                {/* Platform, POS, Source filters for percentage graph - hide for API events */}
-                                                {!isMainPanelApi && (
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
-                                                            <MultiSelectDropdown
-                                                                options={platformOptions}
-                                                                selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
-                                                                onChange={(values) => handleFilterChange('platforms', values)}
-                                                                placeholder="Select platforms"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
-                                                            <MultiSelectDropdown
-                                                                options={posOptions}
-                                                                selected={(currentFilters.pos || []).map((id: number) => id.toString())}
-                                                                onChange={(values) => handleFilterChange('pos', values)}
-                                                                placeholder="Select POS"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
-                                                            <MultiSelectDropdown
-                                                                options={sourceOptions}
-                                                                selected={(currentFilters.sources || []).map((id: number) => id.toString())}
-                                                                onChange={(values) => handleFilterChange('sources', values)}
-                                                                placeholder="Select sources"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
+                                    if (cacheSet.size > 0) {
+                                        configuredCacheStatus = Array.from(cacheSet).sort();
                                     }
+                                }
 
-                                    // Specialized Filters for Funnel Graph - dropdowns like Template Builder
-                                    if (isFunnelGraph && funnelConfig) {
-                                        const defaultStageIds = funnelConfig.stages.map((s: any) => s.eventId);
-                                        const activeStageIds = (currentFilters.activeStages && currentFilters.activeStages.length > 0)
-                                            ? currentFilters.activeStages
-                                            : defaultStageIds;
+                                const activeStatusCodes = (currentFilters as Partial<FilterState>).percentageStatusCodes || configuredStatusCodes;
+                                const activeCacheStatus = (currentFilters as Partial<FilterState>).percentageCacheStatus || configuredCacheStatus;
 
-                                        const activeChildEventsForMain = (currentFilters.activeFunnelChildEvents && currentFilters.activeFunnelChildEvents.length > 0)
-                                            ? currentFilters.activeFunnelChildEvents
-                                            : (funnelConfig.multipleChildEvents || []);
-
-                                        return (
-                                            <div className="col-span-12 space-y-4">
-                                                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
-                                                    <div className="flex items-center gap-2 mb-3">
-                                                        <Filter className="h-4 w-4 text-blue-500" />
-                                                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Funnel Graph Configuration</span>
-                                                    </div>
-                                                    
-                                                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                                                        Define conversion stages: e1 (parent) → e2 → e3 → ... → last (multiple children)
-                                                    </p>
-
-                                                    {/* Funnel Stages - Individual Dropdowns (e1, e2, e3...) with add/remove */}
-                                                    <div className="space-y-3">
-                                                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                                                            Funnel Stages
-                                                        </label>
-                                                        {(activeStageIds.length > 0 ? activeStageIds : defaultStageIds).map((currentId: string, idx: number) => {
-                                                            const selectedId = currentId || defaultStageIds[idx] || '';
-                                                            return (
-                                                                <div key={idx} className="flex items-center gap-2">
-                                                                    <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex-shrink-0">
-                                                                        e{idx + 1}
-                                                                    </span>
-                                                                    <select
-                                                                        className="flex-1 h-10 px-3 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                                        value={selectedId}
-                                                                        onChange={(e) => {
-                                                                            const newId = e.target.value;
-                                                                            const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
-                                                                            base[idx] = newId;
-                                                                            handleFilterChange('activeStages', base);
-                                                                        }}
-                                                                    >
-                                                                        <option value="">Select event</option>
-                                                                        {events
-                                                                            .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
-                                                                            .map(ev => (
-                                                                            <option key={ev.eventId} value={ev.eventId}>
-                                                                                {ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="text-[11px] text-red-500 hover:text-red-700 px-1 disabled:opacity-40"
-                                                                        disabled={(activeStageIds.length || defaultStageIds.length) <= 1}
-                                                                        onClick={() => {
-                                                                            const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
-                                                                            const next = base.filter((_, i) => i !== idx);
-                                                                            handleFilterChange('activeStages', next);
-                                                                        }}
-                                                                    >
-                                                                        Remove
-                                                                    </button>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                        <div>
-                                                            <button
-                                                                type="button"
-                                                                className="mt-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
-                                                                onClick={() => {
-                                                                    const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
-                                                                    const next = [...base, ''];
-                                                                    handleFilterChange('activeStages', next);
-                                                                }}
-                                                            >
-                                                                + Add Stage
-                                                            </button>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Final Stage (Multiple Events) - Multi-Select */}
-                                                    {funnelConfig.multipleChildEvents && funnelConfig.multipleChildEvents.length > 0 && (
-                                                        <div className="mt-4 space-y-2">
-                                                            <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                                                                Final Stage (Multiple Events)
-                                                            </label>
-                                                            <MultiSelectDropdown
-                                                                options={events
-                                                                    .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
-                                                                    .map(ev => ({ 
-                                                                        value: String(ev.eventId), 
-                                                                        label: ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName 
-                                                                    }))}
-                                                                selected={activeChildEventsForMain}
-                                                                onChange={(values) => handleFilterChange('activeFunnelChildEvents', values)}
-                                                                placeholder="Select final stage events"
-                                                            />
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                                                                These events will be shown with different colors in the final bar
-                                                            </p>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Platform, POS, Source filters - hide for API events */}
-                                                {!isMainPanelApi && (
-                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
-                                                            <MultiSelectDropdown
-                                                                options={platformOptions}
-                                                                selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
-                                                                onChange={(values) => handleFilterChange('platforms', values)}
-                                                                placeholder="Select platforms"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
-                                                            <MultiSelectDropdown
-                                                                options={posOptions}
-                                                                selected={(currentFilters.pos || []).map((id: number) => id.toString())}
-                                                                onChange={(values) => handleFilterChange('pos', values)}
-                                                                placeholder="Select POS"
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-1.5">
-                                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
-                                                            <MultiSelectDropdown
-                                                                options={sourceOptions}
-                                                                selected={(currentFilters.sources || []).map((id: number) => id.toString())}
-                                                                onChange={(values) => handleFilterChange('sources', values)}
-                                                                placeholder="Select sources"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    }
-
-                                    // Default Filters (Regular Graphs)
+                                // Specialized Filters for Percentage Graph
+                                if (isPercentageGraph && percentageConfig) {
                                     return (
-                                        <div className={cn(
-                                            "grid gap-3 sm:gap-4",
-                                             isMainPanelApi
-                                                ? "grid-cols-1"
-                                                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-                                        )}>
+                                        <div className="col-span-12 space-y-4">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Percent className="h-4 w-4 text-purple-500" />
+                                                <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Percentage Graph - Event Selection</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                {/* Parent Events (Denominator) */}
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                            Parent Events (Denominator)
+                                                        </label>
+                                                    </div>
+                                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-purple-100 dark:border-purple-900/30 shadow-sm">
+                                                        <MultiSelectDropdown
+                                                            options={events
+                                                                .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                .map(e => ({
+                                                                    value: String(e.eventId),
+                                                                    label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                    color: e.color
+                                                                }))}
+                                                            selected={currentFilters.activePercentageEvents || percentageConfig.parentEvents}
+                                                            onChange={(selected) => {
+                                                                handleFilterChange('activePercentageEvents', selected);
+                                                            }}
+                                                            placeholder="Select Parent Events (Multiple Supported)"
+                                                            maxDisplayItems={3}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Child Events (Numerator) */}
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                            Child Events (Numerator)
+                                                        </label>
+                                                    </div>
+                                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-green-100 dark:border-green-900/30 shadow-sm">
+                                                        <MultiSelectDropdown
+                                                            options={events
+                                                                .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                .map(e => ({
+                                                                    value: String(e.eventId),
+                                                                    label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                    color: e.color
+                                                                }))}
+                                                            selected={currentFilters.activePercentageChildEvents || percentageConfig.childEvents}
+                                                            onChange={(selected) => {
+                                                                handleFilterChange('activePercentageChildEvents', selected);
+                                                            }}
+                                                            placeholder="Select Child Events (Multiple Supported)"
+                                                            maxDisplayItems={3}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="mt-3 text-xs text-muted-foreground text-center bg-white/50 dark:bg-black/20 p-2 rounded">
+                                                Formula: <span className="font-mono text-xs">(Child Count / Parent Count) × 100</span>
+                                            </div>
+                                            {/* Platform, POS, Source filters for percentage graph - hide for API events */}
                                             {!isMainPanelApi && (
-                                                <>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
                                                         <MultiSelectDropdown
                                                             options={platformOptions}
-                                                            selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
+                                                            selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
                                                             onChange={(values) => handleFilterChange('platforms', values)}
                                                             placeholder="Select platforms"
                                                         />
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
                                                         <MultiSelectDropdown
                                                             options={posOptions}
-                                                            selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
+                                                            selected={(currentFilters.pos || []).map((id: number) => id.toString())}
                                                             onChange={(values) => handleFilterChange('pos', values)}
                                                             placeholder="Select POS"
                                                         />
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
                                                         <MultiSelectDropdown
                                                             options={sourceOptions}
-                                                            selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
+                                                            selected={(currentFilters.sources || []).map((id: number) => id.toString())}
                                                             onChange={(values) => handleFilterChange('sources', values)}
                                                             placeholder="Select sources"
                                                         />
                                                     </div>
-                                                </>
+                                                </div>
                                             )}
-                                            <div className="space-y-2">
-                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                                                    {isMainPanelApi ? 'API Events (Host / URL)' : 'Event'}
-                                                </Label>
-                                                <MultiSelectDropdown
-                                                    options={eventOptions}
-                                                    selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.events || []) : []).map(id => id.toString())}
-                                                    onChange={(values) => handleFilterChange('events', values)}
-                                                    placeholder={isMainPanelApi ? "Select API events" : "Select events"}
-                                                />
-                                                {isMainPanelApi && (() => {
-                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                    const selectedEventId = mainPanelId ? panelFiltersState[mainPanelId]?.events?.[0] : undefined;
-                                                    if (!selectedEventId) return null;
-
-                                                    const selectedEvent = events.find(e => e.eventId === String(selectedEventId));
-                                                    return selectedEvent?.callUrl ? (
-                                                        <p className="text-xs text-muted-foreground mt-1">
-                                                            Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
-                                                        </p>
-                                                    ) : null;
-                                                })()}
-                                            </div>
                                         </div>
                                     );
-                                })()}
+                                }
 
-                            </div>
+                                // Specialized Filters for Funnel Graph - dropdowns like Template Builder
+                                if (isFunnelGraph && funnelConfig) {
+                                    const defaultStageIds = funnelConfig.stages.map((s: any) => s.eventId);
+                                    const activeStageIds = (currentFilters.activeStages && currentFilters.activeStages.length > 0)
+                                        ? currentFilters.activeStages
+                                        : defaultStageIds;
 
-                            {/* API Events Info Banner with Filters */}
-                            {isMainPanelApi && (
-                                <div className="mt-4 space-y-3">
-                                    <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
-                                        <p className="text-xs text-muted-foreground">
-                                            <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
-                                        </p>
-                                    </div>
-                                    
-                                    {/* Status & Cache Filters */}
-                                    <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 rounded-lg border-2 border-indigo-300 dark:border-indigo-500/30">
-                                        <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-3 flex items-center gap-2">
-                                            <Activity className="h-4 w-4" />
-                                            API Filters (Status & Cache)
-                                        </h4>
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</Label>
-                                                {/* Show 2xx and 3xx individually, group only 4xx and 5xx */}
-                                                {(() => {
-                                                    const codes2xx = availableStatusCodes.filter(c => c.startsWith('2'));
-                                                    const codes3xx = availableStatusCodes.filter(c => c.startsWith('3'));
-                                                    const codes4xx = availableStatusCodes.filter(c => c.startsWith('4'));
-                                                    const codes5xx = availableStatusCodes.filter(c => c.startsWith('5'));
-                                                    const codesOther = availableStatusCodes.filter(c => !c.startsWith('2') && !c.startsWith('3') && !c.startsWith('4') && !c.startsWith('5'));
-                                                    
-                                                    // Build grouped options - 2xx and 3xx shown individually, 4xx and 5xx grouped
-                                                    const groupedOptions: Array<{ label: string; value: string }> = [];
-                                                    // Show 2xx codes individually
-                                                    codes2xx.forEach(c => groupedOptions.push({ label: c, value: c }));
-                                                    // Show 3xx codes individually
-                                                    codes3xx.forEach(c => groupedOptions.push({ label: c, value: c }));
-                                                    // Group 4xx codes with count breakdown
-                                                    if (codes4xx.length > 0) {
-                                                        groupedOptions.push({ label: `4xx Group (${codes4xx.join(', ')})`, value: '4xx_group' });
-                                                    }
-                                                    // Group 5xx codes with count breakdown
-                                                    if (codes5xx.length > 0) {
-                                                        groupedOptions.push({ label: `5xx Group (${codes5xx.join(', ')})`, value: '5xx_group' });
-                                                    }
-                                                    codesOther.forEach(c => groupedOptions.push({ label: c, value: c }));
-                                                    
-                                                    const currentSelected = profile?.panels?.[0]
-                                                        ? (panelFiltersState[profile.panels[0].panelId]?.percentageStatusCodes || [])
-                                                        : [];
+                                    const activeChildEventsForMain = (currentFilters.activeFunnelChildEvents && currentFilters.activeFunnelChildEvents.length > 0)
+                                        ? currentFilters.activeFunnelChildEvents
+                                        : (funnelConfig.multipleChildEvents || []);
 
-                                                    const displaySelected = (() => {
-                                                        const s = new Set<string>(currentSelected);
-                                                        if (codes4xx.length > 0 && codes4xx.every(c => s.has(c))) s.add('4xx_group');
-                                                        if (codes5xx.length > 0 && codes5xx.every(c => s.has(c))) s.add('5xx_group');
-                                                        return Array.from(s);
-                                                    })();
-                                                    
-                                                    return (
-                                                        <>
-                                                            <MultiSelectDropdown
-                                                                options={groupedOptions}
-                                                                selected={displaySelected}
-                                                                onChange={(values) => {
-                                                                    // console.log('Status code selection changed:', values);
-                                                                    // Expand group selections to individual codes
-                                                                    let expandedValues = [...values];
-                                                                    if (values.includes('4xx_group')) {
-                                                                        expandedValues = expandedValues.filter(v => v !== '4xx_group');
-                                                                        expandedValues.push(...codes4xx);
-                                                                    }
-                                                                    if (values.includes('5xx_group')) {
-                                                                        expandedValues = expandedValues.filter(v => v !== '5xx_group');
-                                                                        expandedValues.push(...codes5xx);
-                                                                    }
-                                                                    const uniqueValues = Array.from(new Set(expandedValues));
-                                                                    const defaultStatus = availableStatusCodes.includes('200') ? ['200'] : availableStatusCodes;
-                                                                    const nextValues = uniqueValues.length === 0 ? [...defaultStatus] : uniqueValues;
-                                                                    // console.log('Final status codes to apply:', nextValues);
-                                                                    handleFilterChange('percentageStatusCodes', nextValues);
-                                                                }}
-                                                                placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Loading..."}
-                                                                disabled={availableStatusCodes.length === 0}
-                                                            />
-                                                            {availableStatusCodes.length === 0 && (
-                                                                <p className="text-xs text-muted-foreground">Loading status codes...</p>
-                                                            )}
-                                                        </>
-                                                    );
-                                                })()}
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</Label>
-                                                <MultiSelectDropdown
-                                                    options={availableCacheStatuses.map(status => ({ label: status, value: status }))}
-                                                    selected={
-                                                        profile?.panels?.[0] 
-                                                            ? (panelFiltersState[profile.panels[0].panelId]?.percentageCacheStatus || [])
-                                                            : []
-                                                    }
-                                                    onChange={(values) => {
-                                                        const defaultCache = availableCacheStatuses.length > 0 ? [...availableCacheStatuses] : [];
-                                                        const nextValues = values.length === 0 ? [...defaultCache] : Array.from(new Set(values));
-                                                        handleFilterChange('percentageCacheStatus', nextValues);
-                                                    }}
-                                                    placeholder={availableCacheStatuses.length > 0 ? "Select cache statuses" : "Loading..."}
-                                                    disabled={availableCacheStatuses.length === 0}
-                                                />
-                                                {availableCacheStatuses.length === 0 && (
-                                                    <p className="text-xs text-muted-foreground">Loading cache statuses...</p>
+                                    return (
+                                        <div className="col-span-12 space-y-4">
+                                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-500/30">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Filter className="h-4 w-4 text-blue-500" />
+                                                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">Funnel Graph Configuration</span>
+                                                </div>
+
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                                                    Define conversion stages: e1 (parent) → e2 → e3 → ... → last (multiple children)
+                                                </p>
+
+                                                {/* Funnel Stages - Individual Dropdowns (e1, e2, e3...) with add/remove */}
+                                                <div className="space-y-3">
+                                                    <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                        Funnel Stages
+                                                    </label>
+                                                    {(activeStageIds.length > 0 ? activeStageIds : defaultStageIds).map((currentId: string, idx: number) => {
+                                                        const selectedId = currentId || defaultStageIds[idx] || '';
+                                                        return (
+                                                            <div key={idx} className="flex items-center gap-2">
+                                                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex-shrink-0">
+                                                                    e{idx + 1}
+                                                                </span>
+                                                                <select
+                                                                    className="flex-1 h-10 px-3 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    value={selectedId}
+                                                                    onChange={(e) => {
+                                                                        const newId = e.target.value;
+                                                                        const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                        base[idx] = newId;
+                                                                        handleFilterChange('activeStages', base);
+                                                                    }}
+                                                                >
+                                                                    <option value="">Select event</option>
+                                                                    {events
+                                                                        .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
+                                                                        .map(ev => (
+                                                                            <option key={ev.eventId} value={ev.eventId}>
+                                                                                {ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName}
+                                                                            </option>
+                                                                        ))}
+                                                                </select>
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-[11px] text-red-500 hover:text-red-700 px-1 disabled:opacity-40"
+                                                                    disabled={(activeStageIds.length || defaultStageIds.length) <= 1}
+                                                                    onClick={() => {
+                                                                        const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                        const next = base.filter((_, i) => i !== idx);
+                                                                        handleFilterChange('activeStages', next);
+                                                                    }}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    <div>
+                                                        <button
+                                                            type="button"
+                                                            className="mt-1 text-[11px] text-blue-600 hover:text-blue-800 font-medium"
+                                                            onClick={() => {
+                                                                const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
+                                                                const next = [...base, ''];
+                                                                handleFilterChange('activeStages', next);
+                                                            }}
+                                                        >
+                                                            + Add Stage
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Final Stage (Multiple Events) - Multi-Select */}
+                                                {funnelConfig.multipleChildEvents && funnelConfig.multipleChildEvents.length > 0 && (
+                                                    <div className="mt-4 space-y-2">
+                                                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                            Final Stage (Multiple Events)
+                                                        </label>
+                                                        <MultiSelectDropdown
+                                                            options={events
+                                                                .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
+                                                                .map(ev => ({
+                                                                    value: String(ev.eventId),
+                                                                    label: ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName
+                                                                }))}
+                                                            selected={activeChildEventsForMain}
+                                                            onChange={(values) => handleFilterChange('activeFunnelChildEvents', values)}
+                                                            placeholder="Select final stage events"
+                                                        />
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+                                                            These events will be shown with different colors in the final bar
+                                                        </p>
+                                                    </div>
                                                 )}
                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* Job ID (sourceStr) Filter - Only shown when data contains sourceStr values */}
-                            {availableSourceStrs.length > 0 && (
-                                <div
-                                    className="mt-4 p-3 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-500/30"
-                                >
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <div className="flex items-center gap-2">
-                                            <Hash className="w-4 h-4 text-cyan-600" />
-                                            <Label className="text-xs uppercase tracking-wide text-cyan-700 dark:text-cyan-300 font-medium">
-                                                Job ID Filter
+                                            {/* Platform, POS, Source filters - hide for API events */}
+                                            {!isMainPanelApi && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
+                                                        <MultiSelectDropdown
+                                                            options={platformOptions}
+                                                            selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('platforms', values)}
+                                                            placeholder="Select platforms"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
+                                                        <MultiSelectDropdown
+                                                            options={posOptions}
+                                                            selected={(currentFilters.pos || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('pos', values)}
+                                                            placeholder="Select POS"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
+                                                        <MultiSelectDropdown
+                                                            options={sourceOptions}
+                                                            selected={(currentFilters.sources || []).map((id: number) => id.toString())}
+                                                            onChange={(values) => handleFilterChange('sources', values)}
+                                                            placeholder="Select sources"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                // Default Filters (Regular Graphs)
+                                return (
+                                    <div className={cn(
+                                        "grid gap-3 sm:gap-4",
+                                        isMainPanelApi
+                                            ? "grid-cols-1"
+                                            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                                    )}>
+                                        {!isMainPanelApi && (
+                                            <>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
+                                                    <MultiSelectDropdown
+                                                        options={platformOptions}
+                                                        selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
+                                                        onChange={(values) => handleFilterChange('platforms', values)}
+                                                        placeholder="Select platforms"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
+                                                    <MultiSelectDropdown
+                                                        options={posOptions}
+                                                        selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
+                                                        onChange={(values) => handleFilterChange('pos', values)}
+                                                        placeholder="Select POS"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
+                                                    <MultiSelectDropdown
+                                                        options={sourceOptions}
+                                                        selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
+                                                        onChange={(values) => handleFilterChange('sources', values)}
+                                                        placeholder="Select sources"
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                        <div className="space-y-2">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                                {isMainPanelApi ? 'API Events (Host / URL)' : 'Event'}
                                             </Label>
-                                            <span className="text-xs text-cyan-600 dark:text-cyan-400">
-                                                ({availableSourceStrs.length} jobs found)
-                                            </span>
-                                        </div>
-                                        <div className="flex-1 min-w-[200px]">
                                             <MultiSelectDropdown
-                                                options={availableSourceStrs.map(s => ({ value: s, label: s }))}
-                                                selected={selectedSourceStrs}
-                                                onChange={(values) => setSelectedSourceStrs(values)}
-                                                placeholder="All Job IDs"
-                                                className="bg-white dark:bg-gray-800"
+                                                options={eventOptions}
+                                                selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.events || []) : []).map(id => id.toString())}
+                                                onChange={(values) => handleFilterChange('events', values)}
+                                                placeholder={isMainPanelApi ? "Select API events" : "Select events"}
                                             />
+                                            {isMainPanelApi && (() => {
+                                                const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                const selectedEventId = mainPanelId ? panelFiltersState[mainPanelId]?.events?.[0] : undefined;
+                                                if (!selectedEventId) return null;
+
+                                                const selectedEvent = events.find(e => e.eventId === String(selectedEventId));
+                                                return selectedEvent?.callUrl ? (
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                    </p>
+                                                ) : null;
+                                            })()}
                                         </div>
-                                        {selectedSourceStrs.length > 0 && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setSelectedSourceStrs([])}
-                                                className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100 dark:hover:bg-cyan-900/30"
-                                            >
-                                                Clear
-                                            </Button>
-                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                        </div>
+
+                        {/* API Events Info Banner with Filters */}
+                        {isMainPanelApi && (
+                            <div className="mt-4 space-y-3">
+                                <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
+                                    <p className="text-xs text-muted-foreground">
+                                        <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
+                                    </p>
+                                </div>
+
+                                {/* Status & Cache Filters */}
+                                <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 rounded-lg border-2 border-indigo-300 dark:border-indigo-500/30">
+                                    <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-3 flex items-center gap-2">
+                                        <Activity className="h-4 w-4" />
+                                        API Filters (Status & Cache)
+                                    </h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</Label>
+                                            {/* Show 2xx and 3xx individually, group only 4xx and 5xx */}
+                                            {(() => {
+                                                const codes2xx = availableStatusCodes.filter(c => c.startsWith('2'));
+                                                const codes3xx = availableStatusCodes.filter(c => c.startsWith('3'));
+                                                const codes4xx = availableStatusCodes.filter(c => c.startsWith('4'));
+                                                const codes5xx = availableStatusCodes.filter(c => c.startsWith('5'));
+                                                const codesOther = availableStatusCodes.filter(c => !c.startsWith('2') && !c.startsWith('3') && !c.startsWith('4') && !c.startsWith('5'));
+
+                                                // Build grouped options - 2xx and 3xx shown individually, 4xx and 5xx grouped
+                                                const groupedOptions: Array<{ label: string; value: string }> = [];
+                                                // Show 2xx codes individually
+                                                codes2xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                // Show 3xx codes individually
+                                                codes3xx.forEach(c => groupedOptions.push({ label: c, value: c }));
+                                                // Group 4xx codes with count breakdown
+                                                if (codes4xx.length > 0) {
+                                                    groupedOptions.push({ label: `4xx Group (${codes4xx.join(', ')})`, value: '4xx_group' });
+                                                }
+                                                // Group 5xx codes with count breakdown
+                                                if (codes5xx.length > 0) {
+                                                    groupedOptions.push({ label: `5xx Group (${codes5xx.join(', ')})`, value: '5xx_group' });
+                                                }
+                                                codesOther.forEach(c => groupedOptions.push({ label: c, value: c }));
+
+                                                const currentSelected = profile?.panels?.[0]
+                                                    ? (panelFiltersState[profile.panels[0].panelId]?.percentageStatusCodes || [])
+                                                    : [];
+
+                                                const displaySelected = (() => {
+                                                    const s = new Set<string>(currentSelected);
+                                                    if (codes4xx.length > 0 && codes4xx.every(c => s.has(c))) s.add('4xx_group');
+                                                    if (codes5xx.length > 0 && codes5xx.every(c => s.has(c))) s.add('5xx_group');
+                                                    return Array.from(s);
+                                                })();
+
+                                                return (
+                                                    <>
+                                                        <MultiSelectDropdown
+                                                            options={groupedOptions}
+                                                            selected={displaySelected}
+                                                            onChange={(values) => {
+                                                                // console.log('Status code selection changed:', values);
+                                                                // Expand group selections to individual codes
+                                                                let expandedValues = [...values];
+                                                                if (values.includes('4xx_group')) {
+                                                                    expandedValues = expandedValues.filter(v => v !== '4xx_group');
+                                                                    expandedValues.push(...codes4xx);
+                                                                }
+                                                                if (values.includes('5xx_group')) {
+                                                                    expandedValues = expandedValues.filter(v => v !== '5xx_group');
+                                                                    expandedValues.push(...codes5xx);
+                                                                }
+                                                                const uniqueValues = Array.from(new Set(expandedValues));
+                                                                const defaultStatus = availableStatusCodes.includes('200') ? ['200'] : availableStatusCodes;
+                                                                const nextValues = uniqueValues.length === 0 ? [...defaultStatus] : uniqueValues;
+                                                                // console.log('Final status codes to apply:', nextValues);
+                                                                handleFilterChange('percentageStatusCodes', nextValues);
+                                                            }}
+                                                            placeholder={availableStatusCodes.length > 0 ? "Select status codes" : "Loading..."}
+                                                            disabled={availableStatusCodes.length === 0}
+                                                        />
+                                                        {availableStatusCodes.length === 0 && (
+                                                            <p className="text-xs text-muted-foreground">Loading status codes...</p>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</Label>
+                                            <MultiSelectDropdown
+                                                options={availableCacheStatuses.map(status => ({ label: status, value: status }))}
+                                                selected={
+                                                    profile?.panels?.[0]
+                                                        ? (panelFiltersState[profile.panels[0].panelId]?.percentageCacheStatus || [])
+                                                        : []
+                                                }
+                                                onChange={(values) => {
+                                                    const defaultCache = availableCacheStatuses.length > 0 ? [...availableCacheStatuses] : [];
+                                                    const nextValues = values.length === 0 ? [...defaultCache] : Array.from(new Set(values));
+                                                    handleFilterChange('percentageCacheStatus', nextValues);
+                                                }}
+                                                placeholder={availableCacheStatuses.length > 0 ? "Select cache statuses" : "Loading..."}
+                                                disabled={availableCacheStatuses.length === 0}
+                                            />
+                                            {availableCacheStatuses.length === 0 && (
+                                                <p className="text-xs text-muted-foreground">Loading cache statuses...</p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            )}
+                            </div>
+                        )}
 
-                            {/* Apply Filters Button and Auto-refresh Config */}
-                            <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border/50">
-                                <div className="flex items-center gap-4">
-                                    {/* Prominent Apply Filters button with clear visual cue */}
-                                    <Button
-                                        onClick={handleApplyFilters}
-                                        disabled={dataLoading}
-                                        size="lg"
-                                        className={cn(
-                                            "relative transition-all duration-300 font-semibold",
-                                            pendingRefresh
-                                                ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300"
-                                                : "bg-primary hover:bg-primary/90"
-                                        )}
-                                    >
-                                        {dataLoading ? (
-                                            <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-                                        ) : (
-                                            <RefreshCw className="mr-2 h-5 w-5" />
-                                        )}
-                                        {pendingRefresh ? "⚡ APPLY CHANGES" : "Refresh This Panel"}
-                                        {pendingRefresh && (
-                                            <div
-                                                className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
-                                            >
-                                                !
-                                            </div>
-                                        )}
-                                    </Button>
-                                    {pendingRefresh && (
-                                        <span
-                                            className="text-sm text-red-600 dark:text-red-400 font-medium"
-                                        >
-                                            Filters changed! Click to update data.
+                        {/* Job ID (sourceStr) Filter - Only shown when data contains sourceStr values */}
+                        {availableSourceStrs.length > 0 && (
+                            <div
+                                className="mt-4 p-3 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-500/30"
+                            >
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                        <Hash className="w-4 h-4 text-cyan-600" />
+                                        <Label className="text-xs uppercase tracking-wide text-cyan-700 dark:text-cyan-300 font-medium">
+                                            Job ID Filter
+                                        </Label>
+                                        <InfoTooltip
+                                            content="Filter data by specific background jobs or process IDs if available."
+                                        />
+                                        <span className="text-xs text-cyan-600 dark:text-cyan-400">
+                                            ({availableSourceStrs.length} jobs found)
                                         </span>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                    <Label className="text-xs text-muted-foreground whitespace-nowrap">Auto-refresh:</Label>
-                                    <select
-                                        value={autoRefreshMinutes}
-                                        onChange={(e) => setAutoRefreshMinutes(Number(e.target.value))}
-                                        className="h-8 px-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                                    >
-                                        <option value={0}>Disabled</option>
-                                        <option value={1}>1 min</option>
-                                        <option value={2}>2 min</option>
-                                        <option value={5}>5 min</option>
-                                        <option value={10}>10 min</option>
-                                        <option value={15}>15 min</option>
-                                        <option value={30}>30 min</option>
-                                    </select>
-                                    {autoRefreshMinutes > 0 && (
-                                        <span
-                                            className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+                                    </div>
+                                    <div className="flex-1 min-w-[200px]">
+                                        <MultiSelectDropdown
+                                            options={availableSourceStrs.map(s => ({ value: s, label: s }))}
+                                            selected={selectedSourceStrs}
+                                            onChange={(values) => setSelectedSourceStrs(values)}
+                                            placeholder="All Job IDs"
+                                            className="bg-white dark:bg-gray-800"
+                                        />
+                                    </div>
+                                    {selectedSourceStrs.length > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setSelectedSourceStrs([])}
+                                            className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100 dark:hover:bg-cyan-900/30"
                                         >
-                                            <div className="w-2 h-2 rounded-full bg-green-500" />
-                                            Active
-                                        </span>
+                                            Clear
+                                        </Button>
                                     )}
                                 </div>
                             </div>
-                        </CardContent>
-                    )}
-                </Card>
+                        )}
 
-                {/* Stats Cards - ONLY for non-special graphs */}
-                {(() => {
+                        {/* Apply Filters Button and Auto-refresh Config */}
+                        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border/50">
+                            <div className="flex items-center gap-4">
+                                {/* Prominent Apply Filters button with clear visual cue */}
+                                <Button
+                                    onClick={handleApplyFilters}
+                                    disabled={dataLoading}
+                                    size="lg"
+                                    className={cn(
+                                        "relative transition-all duration-300 font-semibold",
+                                        pendingRefresh
+                                            ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300"
+                                            : "bg-primary hover:bg-primary/90"
+                                    )}
+                                >
+                                    {dataLoading ? (
+                                        <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                                    ) : (
+                                        <RefreshCw className="mr-2 h-5 w-5" />
+                                    )}
+                                    {pendingRefresh ? "⚡ APPLY CHANGES" : "Refresh This Panel"}
+                                    {pendingRefresh && (
+                                        <div
+                                            className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                                        >
+                                            !
+                                        </div>
+                                    )}
+                                </Button>
+                                {pendingRefresh && (
+                                    <span
+                                        className="text-sm text-red-600 dark:text-red-400 font-medium"
+                                    >
+                                        Filters changed! Click to update data.
+                                    </span>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Label className="text-xs text-muted-foreground whitespace-nowrap">Auto-refresh:</Label>
+                                <select
+                                    value={autoRefreshMinutes}
+                                    onChange={(e) => setAutoRefreshMinutes(Number(e.target.value))}
+                                    className="h-8 px-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <option value={0}>Disabled</option>
+                                    <option value={1}>1 min</option>
+                                    <option value={2}>2 min</option>
+                                    <option value={5}>5 min</option>
+                                    <option value={10}>10 min</option>
+                                    <option value={15}>15 min</option>
+                                    <option value={30}>30 min</option>
+                                </select>
+                                {autoRefreshMinutes > 0 && (
+                                    <span
+                                        className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+                                    >
+                                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                                        Active
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                )}
+            </Card >
+
+            {/* Stats Cards - ONLY for non-special graphs */}
+            {
+                (() => {
                     const mainPanel = profile?.panels?.[0];
                     const filterConfig = (mainPanel as any)?.filterConfig;
                     const graphType = filterConfig?.graphType;
-                    
+
                     // Skip stats cards for special graph types
                     if (graphType === 'percentage' || graphType === 'funnel') {
                         return null;
                     }
-                    
+
                     return (
                         <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-                    {/* Total Count Card */}
-                    <div
-                        className="group"
-                    >
-                        <Card className="relative rounded-2xl bg-gradient-to-br from-purple-500/10 via-violet-500/8 to-fuchsia-500/10 dark:from-purple-500/15 dark:via-violet-500/12 dark:to-fuchsia-500/15 border border-purple-200/60 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-[0_8px_25px_rgba(147,51,234,0.08)] hover:shadow-[0_15px_35px_rgba(147,51,234,0.20)]">
-                            {/* Purple/Pink Gradient Accent Bar */}
-                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
-
-                            {/* Animated background shimmer */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/8 to-purple-500/0" />
-                            {/* Glow effect on hover */}
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/15 via-violet-400/10 to-fuchsia-400/15" />
-
-                            <CardContent className="pt-3 pb-3 relative">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <div
-                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 flex items-center justify-center shadow-md shadow-purple-500/20 mb-2"
-                                        >
-                                            <Hash className="h-4 w-4 text-white" />
-                                        </div>
-                                        <div
-                                            className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent"
-                                        >
-                                            <AnimatedNumber value={totalCount} />
-                                        </div>
-                                        <div className="text-xs text-muted-foreground mt-0.5 font-medium">Total Events</div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <MiniSparkline data={graphData.slice(-7).map(d => d.count || 0)} color="#a855f7" />
-                                        <span
-                                            className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400"
-                                        >
-                                            <Activity className="h-3 w-3" />
-                                            <span>{Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))} days</span>
-                                        </span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Success Count Card */}
-                    <div
-                        className="group"
-                    >
-                        <Card className="relative bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-teal-500/10 border-green-500/20 hover:border-green-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
+                            {/* Total Count Card */}
                             <div
-                                className="absolute inset-0 bg-gradient-to-r from-green-500/0 via-green-400/10 to-green-500/0"
-                            />
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-green-400/20 to-transparent" />
+                                className="group"
+                            >
+                                <Card className="relative rounded-2xl bg-gradient-to-br from-purple-500/10 via-violet-500/8 to-fuchsia-500/10 dark:from-purple-500/15 dark:via-violet-500/12 dark:to-fuchsia-500/15 border border-purple-200/60 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-[0_8px_25px_rgba(147,51,234,0.08)] hover:shadow-[0_15px_35px_rgba(147,51,234,0.20)]">
+                                    {/* Purple/Pink Gradient Accent Bar */}
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
 
-                            <CardContent className="pt-3 pb-3 relative">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <div
-                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-md shadow-green-500/25 mb-2"
-                                        >
-                                            <CheckCircle2 className="h-4 w-4 text-white" />
+                                    {/* Animated background shimmer */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/8 to-purple-500/0" />
+                                    {/* Glow effect on hover */}
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/15 via-violet-400/10 to-fuchsia-400/15" />
+
+                                    <CardContent className="pt-3 pb-3 relative">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <div
+                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 flex items-center justify-center shadow-md shadow-purple-500/20 mb-2"
+                                                >
+                                                    <Hash className="h-4 w-4 text-white" />
+                                                </div>
+                                                <div
+                                                    className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent min-h-[32px]"
+                                                >
+                                                    {dataLoading ? <Skeleton className="h-8 w-24" /> : <AnimatedNumber value={totalCount} />}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
+                                                    Total Events
+                                                    <InfoTooltip content="Grand total of all events recorded within the selected timeframe and filters." />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <MiniSparkline data={graphData.slice(-7).map(d => d.count || 0)} color="#a855f7" />
+                                                <span
+                                                    className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400"
+                                                >
+                                                    <Activity className="h-3 w-3" />
+                                                    <span>{Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))} days</span>
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div
-                                            className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent"
-                                        >
-                                            <AnimatedNumber value={totalSuccess} />
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Success Count Card */}
+                            <div
+                                className="group"
+                            >
+                                <Card className="relative bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-teal-500/10 border-green-500/20 hover:border-green-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
+                                    <div
+                                        className="absolute inset-0 bg-gradient-to-r from-green-500/0 via-green-400/10 to-green-500/0"
+                                    />
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-green-400/20 to-transparent" />
+
+                                    <CardContent className="pt-3 pb-3 relative">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <div
+                                                    className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent min-h-[32px]"
+                                                >
+                                                    {dataLoading ? <Skeleton className="h-8 w-20" /> : <AnimatedNumber value={totalSuccess} />}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
+                                                    Success Count
+                                                    <InfoTooltip content="Total number of events that were processed successfully." />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-2">
+                                                {/* Success Rate Badge */}
+                                                <span
+                                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${(totalSuccess / totalCount * 100) >= 90
+                                                        ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'
+                                                        : (totalSuccess / totalCount * 100) >= 70
+                                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                                                            : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
+                                                        }`}
+                                                >
+                                                    {(totalSuccess / totalCount * 100) >= 90 ? (
+                                                        <ArrowUpRight className="h-3 w-3" />
+                                                    ) : (
+                                                        <ArrowDownRight className="h-3 w-3" />
+                                                    )}
+                                                    {totalCount > 0 ? ((totalSuccess / totalCount) * 100).toFixed(1) : 0}%
+                                                </span>
+                                                <MiniSparkline data={graphData.slice(-7).map(d => d.successCount || 0)} color="#22c55e" />
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-muted-foreground mt-0.5 font-medium">Success Count</div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-2">
-                                        {/* Success Rate Badge */}
-                                        <span
-                                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${(totalSuccess / totalCount * 100) >= 90
-                                                ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'
-                                                : (totalSuccess / totalCount * 100) >= 70
-                                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
-                                                    : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
-                                                }`}
-                                        >
-                                            {(totalSuccess / totalCount * 100) >= 90 ? (
-                                                <ArrowUpRight className="h-3 w-3" />
-                                            ) : (
-                                                <ArrowDownRight className="h-3 w-3" />
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Fail Count Card */}
+                            <div
+                                className="group"
+                            >
+                                <Card className="relative bg-gradient-to-br from-red-500/10 via-orange-500/5 to-amber-500/10 border-red-500/20 hover:border-red-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
+                                    <div
+                                        className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-400/10 to-red-500/0"
+                                    />
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-red-400/20 to-transparent" />
+
+                                    <CardContent className="pt-3 pb-3 relative">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <div
+                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-md shadow-red-500/25 mb-2"
+                                                >
+                                                    <XCircle className="h-4 w-4 text-white" />
+                                                </div>
+                                                <div
+                                                    className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent min-h-[32px]"
+                                                >
+                                                    {dataLoading ? <Skeleton className="h-8 w-16" /> : <AnimatedNumber value={totalFail} />}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
+                                                    Fail Count
+                                                    <InfoTooltip content="Total number of events that encountered errors or failed processing." />
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-2">
+                                                {/* Alert indicator for high fail rate */}
+                                                {totalFail > 0 && (totalFail / totalCount * 100) > 10 && (
+                                                    <span
+                                                        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300"
+                                                    >
+                                                        <Flame className="h-3 w-3" />
+                                                        Alert
+                                                    </span>
+                                                )}
+                                                <MiniSparkline data={graphData.slice(-7).map(d => d.failCount || 0)} color="#ef4444" />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Selected Events Card */}
+                            <div
+                                className="group"
+                            >
+                                <Card className="relative bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-fuchsia-500/10 border-purple-500/20 hover:border-purple-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
+                                    <div
+                                        className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/10 to-purple-500/0"
+                                    />
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/20 to-transparent" />
+
+                                    <CardContent className="pt-3 pb-3 relative">
+                                        <div className="flex items-start justify-between mb-1.5">
+                                            <div>
+                                                <div
+                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md shadow-purple-500/25"
+                                                >
+                                                    <Target className="h-4 w-4 text-white" />
+                                                </div>
+                                                <span
+                                                    className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
+                                                >
+                                                    <AnimatedNumber value={selectedEventsList.length} suffix={` event${selectedEventsList.length !== 1 ? 's' : ''}`} />
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 dark:scrollbar-thumb-purple-600">
+                                            {selectedEventsList.length > 0 ? selectedEventsList.slice(0, 6).map((eventName, idx) => (
+                                                <span
+                                                    key={eventName}
+                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 dark:from-purple-500/20 dark:to-violet-500/20 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                                                >
+                                                    {eventName}
+                                                </span>
+                                            )) : (
+                                                <span
+                                                    className="text-muted-foreground text-sm italic"
+                                                >
+                                                    All events selected
+                                                </span>
                                             )}
-                                            {totalCount > 0 ? ((totalSuccess / totalCount) * 100).toFixed(1) : 0}%
-                                        </span>
-                                        <MiniSparkline data={graphData.slice(-7).map(d => d.successCount || 0)} color="#22c55e" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Fail Count Card */}
-                    <div
-                        className="group"
-                    >
-                        <Card className="relative bg-gradient-to-br from-red-500/10 via-orange-500/5 to-amber-500/10 border-red-500/20 hover:border-red-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                            <div
-                                className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-400/10 to-red-500/0"
-                            />
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-red-400/20 to-transparent" />
-
-                            <CardContent className="pt-3 pb-3 relative">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <div
-                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-md shadow-red-500/25 mb-2"
-                                        >
-                                            <XCircle className="h-4 w-4 text-white" />
+                                            {selectedEventsList.length > 6 && (
+                                                <span
+                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg"
+                                                >
+                                                    +{selectedEventsList.length - 6} more
+                                                </span>
+                                            )}
                                         </div>
-                                        <div
-                                            className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent"
-                                        >
-                                            <AnimatedNumber value={totalFail} />
+                                        <div className="text-xs text-muted-foreground mt-1.5 font-medium flex items-center gap-1">
+                                            Selected Events
+                                            <InfoTooltip content="The specific event types currently being visualized in the trends below." />
                                         </div>
-                                        <div className="text-xs text-muted-foreground mt-0.5 font-medium">Fail Count</div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-2">
-                                        {/* Alert indicator for high fail rate */}
-                                        {totalFail > 0 && (totalFail / totalCount * 100) > 10 && (
-                                            <span
-                                                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300"
-                                            >
-                                                <Flame className="h-3 w-3" />
-                                                Alert
-                                            </span>
-                                        )}
-                                        <MiniSparkline data={graphData.slice(-7).map(d => d.failCount || 0)} color="#ef4444" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Selected Events Card */}
-                    <div
-                        className="group"
-                    >
-                        <Card className="relative bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-fuchsia-500/10 border-purple-500/20 hover:border-purple-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                            <div
-                                className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/10 to-purple-500/0"
-                            />
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/20 to-transparent" />
-
-                            <CardContent className="pt-3 pb-3 relative">
-                                <div className="flex items-start justify-between mb-1.5">
-                                    <div>
-                                        <div
-                                            className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md shadow-purple-500/25"
-                                        >
-                                            <Target className="h-4 w-4 text-white" />
-                                        </div>
-                                        <span
-                                            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
-                                        >
-                                            <AnimatedNumber value={selectedEventsList.length} suffix={` event${selectedEventsList.length !== 1 ? 's' : ''}`} />
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 dark:scrollbar-thumb-purple-600">
-                                    {selectedEventsList.length > 0 ? selectedEventsList.slice(0, 6).map((eventName, idx) => (
-                                        <span
-                                            key={eventName}
-                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 dark:from-purple-500/20 dark:to-violet-500/20 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
-                                        >
-                                            {eventName}
-                                        </span>
-                                    )) : (
-                                        <span
-                                            className="text-muted-foreground text-sm italic"
-                                        >
-                                            All events selected
-                                        </span>
-                                    )}
-                                    {selectedEventsList.length > 6 && (
-                                        <span
-                                            className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg"
-                                        >
-                                            +{selectedEventsList.length - 6} more
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="text-xs text-muted-foreground mt-1.5 font-medium">Selected Events</div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
                     );
-                })()}
+                })()
+            }
 
-                {/* Main Chart - Count Events Only */}
-                {normalEventKeys.length > 0 && (() => {
+            {/* Main Chart - Count Events Only */}
+            {
+                normalEventKeys.length > 0 && (() => {
                     const mainPanelId = profile?.panels?.[0]?.panelId;
                     const mainPanel = profile?.panels?.[0];
                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
@@ -1078,20 +1093,20 @@ export function MainPanelSection({
                                                     ...profile.panels[0].filterConfig,
                                                     graphType: 'funnel' as const,
                                                 };
-                                                
+
                                                 const updatedProfile = {
                                                     ...profile,
-                                                    panels: profile.panels.map((panel, index) => 
-                                                        index === 0 ? { 
-                                                            ...panel, 
+                                                    panels: profile.panels.map((panel, index) =>
+                                                        index === 0 ? {
+                                                            ...panel,
                                                             filterConfig: updatedConfig,
                                                             previousGraphType: undefined
                                                         } : panel
                                                     )
                                                 };
-                                                
+
                                                 setProfile(updatedProfile as any);
-                                                
+
                                                 toast({
                                                     title: "🔄 Switched to Funnel Analysis",
                                                     description: "Back to funnel view",
@@ -1626,7 +1641,7 @@ export function MainPanelSection({
                                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                             return (
-                                                                            <linearGradient key={`barGrad_${index}_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <linearGradient key={`barGrad_${index}_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                     <stop offset="0%" stopColor={color} stopOpacity={1} />
                                                                                     <stop offset="100%" stopColor={color} stopOpacity={0.7} />
                                                                                 </linearGradient>
@@ -1719,7 +1734,7 @@ export function MainPanelSection({
                                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                             return (
-                                                                            <linearGradient key={`areaGrad_${index}_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                <linearGradient key={`areaGrad_${index}_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
                                                                                     <stop offset="5%" stopColor={color} stopOpacity={0.3} />
                                                                                     <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                                                                                 </linearGradient>
@@ -1899,10 +1914,12 @@ export function MainPanelSection({
                             </Card>
                         </div>
                     );
-                })()}
+                })()
+            }
 
-                {/* Time Delay Chart - For isAvg Events Only (skip for special graphs) */}
-                {avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
+            {/* Time Delay Chart - For isAvg Events Only (skip for special graphs) */}
+            {
+                avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
                         <Card className="border border-amber-200/60 dark:border-amber-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                             <CardHeader className="pb-2 px-3 md:px-6">
@@ -1978,7 +1995,7 @@ export function MainPanelSection({
                                                         // Get the first avg event to determine type
                                                         const firstAvgEvent = avgEventKeys[0];
                                                         const avgEventType = firstAvgEvent?.isAvgEvent || 0;
-                                                        
+
                                                         if (avgEventType === 2) {
                                                             // isAvgEvent 2 = Rupees
                                                             return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -2004,7 +2021,7 @@ export function MainPanelSection({
                                                         return value.toLocaleString();
                                                     }}
                                                     dx={-10}
-                                                    label={{ 
+                                                    label={{
                                                         value: (() => {
                                                             const firstAvgEvent = avgEventKeys[0];
                                                             const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -2012,10 +2029,10 @@ export function MainPanelSection({
                                                             if (avgEventType === 3) return 'Count';
                                                             if (avgEventType === 1) return 'Delay';
                                                             return 'Value';
-                                                        })(), 
-                                                        angle: -90, 
-                                                        position: 'insideLeft', 
-                                                        style: { fill: '#f59e0b', fontSize: 10 } 
+                                                        })(),
+                                                        angle: -90,
+                                                        position: 'insideLeft',
+                                                        style: { fill: '#f59e0b', fontSize: 10 }
                                                     }}
                                                 />
                                                 <Tooltip
@@ -2066,10 +2083,12 @@ export function MainPanelSection({
                             </CardContent>
                         </Card>
                     </div>
-                )}
+                )
+            }
 
-                {/* API Events Chart - For isApiEvent panels showing status codes and timing metrics */}
-                {(() => {
+            {/* API Events Chart - For isApiEvent panels showing status codes and timing metrics */}
+            {
+                (() => {
                     const isApiEvent = isMainPanelApi;
 
                     if (!isApiEvent || eventKeys.length === 0) return null;
@@ -2341,10 +2360,12 @@ export function MainPanelSection({
                             </Card>
                         </div>
                     );
-                })()}
+                })()
+            }
 
-                {/* Error Events Chart - For isError Events Only (skip for special graphs) */}
-                {errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
+            {/* Error Events Chart - For isError Events Only (skip for special graphs) */}
+            {
+                errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
                         <Card className="border border-red-200/60 dark:border-red-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                             <CardHeader className="pb-2 px-3 md:px-6">
@@ -2467,10 +2488,12 @@ export function MainPanelSection({
                             </CardContent>
                         </Card>
                     </div>
-                )}
+                )
+            }
 
-                {/* Pie Charts - Shown above Hourly Insights, hidden if only 1 item (100% share) */}
-                {(() => {
+            {/* Pie Charts - Shown above Hourly Insights, hidden if only 1 item (100% share) */}
+            {
+                (() => {
                     // Check if this is an API event panel
                     const isApiEvent = isMainPanelApi;
 
@@ -2926,14 +2949,17 @@ export function MainPanelSection({
                             )}
                         </div>
                     );
-                })()}
+                })()
+            }
 
-                {/* Hourly Stats Card - shown below Pie Charts for ≤8 day ranges when enabled */}
-                {isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && !isFirstPanelSpecialGraph && (
+            {/* Hourly Stats Card - shown below Pie Charts for ≤8 day ranges when enabled */}
+            {
+                isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && !isFirstPanelSpecialGraph && (
                     <div>
                         <HourlyStatsCard graphData={graphData} isHourly={isHourly} eventKeys={eventKeys} events={events} />
                     </div>
-                )}
+                )
+            }
         </>
     );
-}
+});

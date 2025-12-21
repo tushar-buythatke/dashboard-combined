@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { InfoTooltip } from './components/InfoTooltip';
 import { useSearchParams } from 'react-router-dom';
 // Removed framer-motion for snappy performance
 import type { DashboardProfile, EventConfig } from '@/types/analytics';
@@ -47,6 +48,7 @@ import {
     ReferenceLine
 } from 'recharts';
 
+import { Skeleton } from '@/components/ui/skeleton';
 import { AnimatedNumber } from './dashboardViewer/AnimatedNumber';
 import { MiniSparkline } from './dashboardViewer/MiniSparkline';
 import { CollapsibleLegend } from './dashboardViewer/CollapsibleLegend';
@@ -54,6 +56,7 @@ import { PieTooltip } from './dashboardViewer/PieTooltip';
 import { CustomTooltip } from './dashboardViewer/CustomTooltip';
 import { AdditionalPanelsSection } from './dashboardViewer/AdditionalPanelsSection';
 import { MainPanelSection } from './dashboardViewer/MainPanelSection';
+import { HourlyStatsCard } from './dashboardViewer/HourlyStatsCard';
 import type { DashboardViewerProps, DateRangeState, EventKeyInfo, FilterState, PanelData } from './dashboardViewer/types';
 import { combinePieChartDuplicates, ERROR_COLORS, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './dashboardViewer/constants';
 
@@ -271,529 +274,6 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
         </g>
     );
 };
-
-// Hourly stats card component - uses existing graph data (only shown for ≤8 day ranges)
-// Now supports event-type-wise filtering and handles isAvg events (showing delay instead of count)
-function HourlyStatsCard({ graphData, isHourly, eventKeys = [], events = [] }: { graphData: any[]; isHourly: boolean; eventKeys?: EventKeyInfo[]; events?: EventConfig[] }) {
-    const [selectedHour, setSelectedHour] = useState(new Date().getHours());
-    const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null); // null = show all events, else specific event key
-
-    // Don't show if not hourly data or no data
-    if (!isHourly || !graphData || graphData.length === 0) return null;
-
-    // Get the active event key for filtering
-    const activeEventKey = selectedEventKey;
-
-    // Check if selected event is an isAvg event
-    const selectedEventInfo = eventKeys.find(ek => ek.eventKey === activeEventKey);
-    const isAvgEvent = selectedEventInfo?.isAvgEvent === 1;
-    const selectedEventConfig = events.find(e => String(e.eventId) === selectedEventInfo?.eventId);
-    const isPriceAlert = selectedEventConfig?.feature === 1; // Price alerts show in minutes
-
-    // Group data by hour and calculate hourly totals (filtered by event if selected)
-    const hourlyStats = new Map<number, { total: number; success: number; fail: number; count: number; dates: string[]; avgDelay: number; delayCount: number }>();
-
-    graphData.forEach((item: any) => {
-        let hour = 0;
-
-        // Try to extract hour from timestamp first (ISO format)
-        if (item.timestamp) {
-            const recordDate = new Date(item.timestamp);
-            hour = recordDate.getHours();
-        } else {
-            // Fallback to parsing from date string
-            const dateStr = item.date || '';
-            const amPmMatch = dateStr.match(/(\d{1,2})\s*(AM|PM)/i);
-            if (amPmMatch) {
-                hour = parseInt(amPmMatch[1]);
-                if (amPmMatch[2].toUpperCase() === 'PM' && hour !== 12) hour += 12;
-                if (amPmMatch[2].toUpperCase() === 'AM' && hour === 12) hour = 0;
-            } else {
-                const timeMatch = dateStr.match(/(\d{1,2}):\d{2}/);
-                if (timeMatch) hour = parseInt(timeMatch[1]);
-            }
-        }
-
-        const existing = hourlyStats.get(hour) || { total: 0, success: 0, fail: 0, count: 0, dates: [], avgDelay: 0, delayCount: 0 };
-
-        // If a specific event is selected, use that event's data; otherwise use overall totals
-        let itemTotal = 0, itemSuccess = 0, itemFail = 0, itemDelay = 0;
-        if (activeEventKey) {
-            itemTotal = item[`${activeEventKey}_count`] || 0;
-            itemSuccess = item[`${activeEventKey}_success`] || 0;
-            itemFail = item[`${activeEventKey}_fail`] || 0;
-            itemDelay = item[`${activeEventKey}_avgDelay`] || 0;
-        } else {
-            itemTotal = item.count || 0;
-            itemSuccess = item.successCount || 0;
-            itemFail = item.failCount || 0;
-        }
-
-        hourlyStats.set(hour, {
-            total: existing.total + itemTotal,
-            success: existing.success + itemSuccess,
-            fail: existing.fail + itemFail,
-            count: existing.count + 1,
-            dates: [...existing.dates, item.date || ''],
-            avgDelay: existing.avgDelay + itemDelay,
-            delayCount: existing.delayCount + (itemDelay > 0 ? 1 : 0)
-        });
-    });
-
-    // Get sorted hours that have data
-    const availableHours = Array.from(hourlyStats.keys()).sort((a, b) => a - b);
-
-    // Calculate overall stats (filtered by event if selected)
-    let overallTotal = 0, overallSuccess = 0, overallDelay = 0, delayCount = 0;
-    if (activeEventKey) {
-        graphData.forEach((d: any) => {
-            overallTotal += d[`${activeEventKey}_count`] || 0;
-            overallSuccess += d[`${activeEventKey}_success`] || 0;
-            const delay = d[`${activeEventKey}_avgDelay`] || 0;
-            if (delay > 0) {
-                overallDelay += delay;
-                delayCount++;
-            }
-        });
-    } else {
-        overallTotal = graphData.reduce((sum: number, d: any) => sum + (d.count || 0), 0);
-        overallSuccess = graphData.reduce((sum: number, d: any) => sum + (d.successCount || 0), 0);
-    }
-    const overallSuccessRate = overallTotal > 0 ? (overallSuccess / overallTotal) * 100 : 0;
-    const overallAvgDelay = delayCount > 0 ? overallDelay / delayCount : 0;
-
-    // Format delay based on event type
-    // Price alerts (feature 1) = value is already in MINUTES
-    // Others (Spend, Auto-coupon) = value is already in SECONDS
-    const formatDelay = (delayValue: number) => {
-        if (!delayValue || delayValue <= 0) return '0';
-        if (isPriceAlert) {
-            // Value is in minutes
-            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}h`;
-            return `${delayValue.toFixed(1)}m`;
-        } else {
-            // Value is in seconds
-            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}m`;
-            return `${delayValue.toFixed(1)}s`;
-        }
-    };
-
-    // Find peak and lowest hours (by delay for isAvg events, by total for count events)
-    let peakHour = 0, peakTotal = 0, lowestHour = 0, lowestTotal = Infinity;
-    hourlyStats.forEach((stats, hour) => {
-        const metric = isAvgEvent ? (stats.delayCount > 0 ? stats.avgDelay / stats.delayCount : 0) : stats.total;
-        if (metric > peakTotal) { peakTotal = metric; peakHour = hour; }
-        if (metric < lowestTotal && metric > 0) { lowestTotal = metric; lowestHour = hour; }
-    });
-
-    const selectedStats = hourlyStats.get(selectedHour) || { total: 0, success: 0, fail: 0, count: 0, dates: [], avgDelay: 0, delayCount: 0 };
-    const selectedAvgDelay = selectedStats.delayCount > 0 ? selectedStats.avgDelay / selectedStats.delayCount : 0;
-    const avgPerHour = isAvgEvent ? overallAvgDelay : (overallTotal / Math.max(availableHours.length, 1));
-    const selectedMetric = isAvgEvent ? selectedAvgDelay : selectedStats.total;
-    const selectedVsAvg = avgPerHour > 0 ? ((selectedMetric - avgPerHour) / avgPerHour) * 100 : 0;
-    const selectedSuccessRate = selectedStats.total > 0 ? (selectedStats.success / selectedStats.total) * 100 : 0;
-    const avgPerDataPoint = selectedStats.count > 0 ? selectedStats.total / selectedStats.count : 0;
-
-    // Calculate trend (compare first half vs second half of available hours)
-    const midpoint = Math.floor(availableHours.length / 2);
-    const firstHalfTotal = availableHours.slice(0, midpoint).reduce((sum, h) => sum + (hourlyStats.get(h)?.total || 0), 0);
-    const secondHalfTotal = availableHours.slice(midpoint).reduce((sum, h) => sum + (hourlyStats.get(h)?.total || 0), 0);
-    const trendDirection = secondHalfTotal > firstHalfTotal ? 'up' : secondHalfTotal < firstHalfTotal ? 'down' : 'stable';
-
-    const navigateHour = (direction: number) => {
-        const currentIndex = availableHours.indexOf(selectedHour);
-        let newIndex = currentIndex + direction;
-        if (newIndex < 0) newIndex = availableHours.length - 1;
-        if (newIndex >= availableHours.length) newIndex = 0;
-        setSelectedHour(availableHours[newIndex]);
-    };
-
-    const formatHour = (h: number) => {
-        const period = h >= 12 ? 'PM' : 'AM';
-        const hour12 = h % 12 || 12;
-        return `${hour12}:00 ${period}`;
-    };
-
-    const formatHourShort = (h: number) => {
-        const period = h >= 12 ? 'PM' : 'AM';
-        const hour12 = h % 12 || 12;
-        return `${hour12}${period}`;
-    };
-
-    return (
-        <EnhancedCard
-            variant="glass"
-            glow={true}
-            className="border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/60 dark:from-purple-900/20 dark:via-slate-900/80 dark:to-indigo-900/20 rounded-2xl shadow-[0_8px_30px_rgba(147,51,234,0.1)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.15)] transition-all duration-300"
-        >
-            <CardHeader className="pb-3 px-3 md:px-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
-                            <Clock className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-sm md:text-base font-semibold text-foreground flex items-center gap-2 flex-wrap">
-                                Hourly Insights
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300 font-normal">
-                                    {availableHours.length} hours tracked
-                                </span>
-                            </CardTitle>
-                            <div className="text-[11px] md:text-xs text-muted-foreground mt-0.5">
-                                {selectedEventKey
-                                    ? `Showing data for: ${eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName || selectedEventKey}`
-                                    : 'Analyze event distribution across different hours of the day'}
-                            </div>
-                        </div>
-                    </div>
-                    {/* Event Type Filter - Pills for <=3 events, Dropdown for more */}
-                    {eventKeys.length > 0 && (
-                        <div className="flex items-center w-full sm:w-auto">
-                            {eventKeys.length <= 3 ? (
-                                // Pill-style for 3 or fewer events
-                                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-1 gap-0.5 w-full sm:w-auto">
-                                    {eventKeys.map((eventKeyInfo, index) => {
-                                        const isSelected = selectedEventKey === eventKeyInfo.eventKey || (selectedEventKey === null && index === 0);
-                                        // Auto-select first event if none selected
-                                        if (selectedEventKey === null && index === 0) {
-                                            setTimeout(() => setSelectedEventKey(eventKeyInfo.eventKey), 0);
-                                        }
-                                        return (
-                                            <button
-                                                key={eventKeyInfo.eventKey}
-                                                onClick={() => setSelectedEventKey(eventKeyInfo.eventKey)}
-                                                className={cn(
-                                                    "flex-1 sm:flex-initial px-2 sm:px-3 py-1.5 text-[10px] sm:text-[11px] font-medium rounded-full transition-all duration-200 text-center",
-                                                    isSelected
-                                                        ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md"
-                                                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-700/50"
-                                                )}
-                                            >
-                                                {eventKeyInfo.eventName}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                // Dropdown for more than 3 events
-                                <Select
-                                    value={selectedEventKey || eventKeys[0]?.eventKey || ''}
-                                    onValueChange={(value) => setSelectedEventKey(value)}
-                                >
-                                    <SelectTrigger className="w-[180px] h-8 text-xs bg-white dark:bg-gray-800 border-cyan-200 dark:border-cyan-500/30">
-                                        <SelectValue placeholder="Select event" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {eventKeys.map((eventKeyInfo) => (
-                                            <SelectItem key={eventKeyInfo.eventKey} value={eventKeyInfo.eventKey} className="text-xs">
-                                                {eventKeyInfo.eventName}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </CardHeader>
-
-            <CardContent className="pt-0 space-y-4">
-                {/* Overall Summary Row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border border-blue-200/50 dark:border-blue-500/20">
-                        <div className="flex items-center gap-1 mb-1">
-                            <Activity className="h-3 w-3 text-blue-500" />
-                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium uppercase">
-                                {isAvgEvent ? 'Avg Delay' : 'Total Events'}
-                            </span>
-                        </div>
-                        <div className="text-base md:text-lg font-bold text-blue-600">
-                            {isAvgEvent ? formatDelay(overallAvgDelay) : overallTotal.toLocaleString()}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">{selectedEventKey ? eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName : 'All events'}</div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/10 to-green-500/5 border border-emerald-200/50 dark:border-emerald-500/20">
-                        <div className="flex items-center gap-1 mb-1">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium uppercase">Success Rate</span>
-                        </div>
-                        <div className="text-lg font-bold text-emerald-600">{overallSuccessRate.toFixed(1)}%</div>
-                        <div className="text-[10px] text-muted-foreground">{overallSuccess.toLocaleString()} succeeded</div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-200/50 dark:border-amber-500/20">
-                        <div className="flex items-center gap-1 mb-1">
-                            <Flame className="h-3 w-3 text-amber-500" />
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium uppercase">
-                                {isAvgEvent ? 'Peak Delay Hour' : 'Peak Hour'}
-                            </span>
-                        </div>
-                        <div className="text-lg font-bold text-amber-600">{formatHourShort(peakHour)}</div>
-                        <div className="text-[10px] text-muted-foreground">
-                            {isAvgEvent ? formatDelay(peakTotal) : `${Math.round(peakTotal).toLocaleString()} events`}
-                        </div>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/10 to-violet-500/5 border border-purple-200/50 dark:border-purple-500/20">
-                        <div className="flex items-center gap-1 mb-1">
-                            <Hash className="h-3 w-3 text-purple-500" />
-                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium uppercase">
-                                {isAvgEvent ? 'Avg Delay/Hour' : 'Avg/Hour'}
-                            </span>
-                        </div>
-                        <div className="text-lg font-bold text-purple-600">
-                            {isAvgEvent ? formatDelay(avgPerHour) : Math.round(avgPerHour).toLocaleString()}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                            {isAvgEvent ? 'Delay per hour' : 'Events per hour'}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Hour Distribution Chart */}
-                <div
-                    className="p-3 rounded-xl bg-background/60 border border-border/40 hover:border-cyan-300 dark:hover:border-cyan-500/50 transition-all duration-200"
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-cyan-500" />
-                            <span className="text-xs font-semibold text-foreground">Hour Distribution</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-medium">Click bars</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                                <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500"></div>
-                                <span className="text-[10px] text-muted-foreground">Selected</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                                <div className="w-2.5 h-2.5 rounded-sm bg-amber-400"></div>
-                                <span className="text-[10px] text-muted-foreground">Peak</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="h-24 md:h-32">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart
-                                data={availableHours.map(hour => {
-                                    const stats = hourlyStats.get(hour);
-                                    const hourAvgDelay = stats && stats.delayCount > 0 ? stats.avgDelay / stats.delayCount : 0;
-                                    return {
-                                        hour,
-                                        label: formatHourShort(hour),
-                                        total: stats?.total || 0,
-                                        success: stats?.success || 0,
-                                        fail: stats?.fail || 0,
-                                        avgDelay: hourAvgDelay,
-                                        avgLine: isAvgEvent ? overallAvgDelay : avgPerHour, // Add average line
-                                        isSelected: hour === selectedHour,
-                                        isPeak: hour === peakHour
-                                    };
-                                })}
-                                margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
-                                onClick={(data: any) => {
-                                    if (data?.activePayload?.[0]?.payload?.hour !== undefined) {
-                                        setSelectedHour(data.activePayload[0].payload.hour);
-                                    }
-                                }}
-                            >
-                                <XAxis
-                                    dataKey="label"
-                                    tick={{ fontSize: 9, fill: 'currentColor' }}
-                                    tickLine={false}
-                                    axisLine={{ stroke: 'currentColor', strokeOpacity: 0.2 }}
-                                    interval={availableHours.length > 18 ? 2 : availableHours.length > 12 ? 1 : 0}
-                                />
-                                <YAxis
-                                    tick={{ fontSize: 9, fill: 'currentColor' }}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(v) => {
-                                        if (isAvgEvent) {
-                                            // Format as time delay - values are already in minutes (Price Alert) or seconds (others)
-                                            if (isPriceAlert) {
-                                                // Value is already in minutes
-                                                return v >= 60 ? `${(v / 60).toFixed(0)}h` : `${v.toFixed(0)}m`;
-                                            } else {
-                                                // Value is already in seconds
-                                                return v >= 60 ? `${(v / 60).toFixed(0)}m` : `${v.toFixed(0)}s`;
-                                            }
-                                        }
-                                        return v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v;
-                                    }}
-                                />
-                                <Tooltip
-                                    active={typeof window !== 'undefined' && window.innerWidth >= 768 ? undefined : false}
-                                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                                    contentStyle={{
-                                        backgroundColor: 'rgba(255,255,255,0.95)',
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '8px',
-                                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                        fontSize: '11px',
-                                        padding: '8px 12px'
-                                    }}
-                                    formatter={(value: number, name: string) => {
-                                        if (isAvgEvent && name === 'avgDelay') {
-                                            return [formatDelay(value), 'Avg Delay'];
-                                        }
-                                        return [
-                                            value.toLocaleString(),
-                                            name === 'total' ? 'Events' : name === 'success' ? 'Success' : 'Failed'
-                                        ];
-                                    }}
-                                    labelFormatter={(label) => `Hour: ${label}`}
-                                />
-                                <Bar
-                                    dataKey={isAvgEvent ? "avgDelay" : "total"}
-                                    radius={[6, 6, 0, 0]}
-                                    cursor="pointer"
-                                    onClick={(data: any) => {
-                                        if (data && data.hour !== undefined) {
-                                            setSelectedHour(data.hour);
-                                        }
-                                    }}
-                                >
-                                    {availableHours.map((hour, index) => (
-                                        <Cell
-                                            key={`cell-${index}`}
-                                            fill={hour === selectedHour ? '#06b6d4' : hour === peakHour ? '#fbbf24' : '#93c5fd'}
-                                            stroke={hour === selectedHour ? '#0891b2' : hour === peakHour ? '#f59e0b' : 'transparent'}
-                                            strokeWidth={hour === selectedHour ? 3 : hour === peakHour ? 2 : 0}
-                                            style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-                                        />
-                                    ))}
-                                </Bar>
-                                {/* Yellow dashed average line */}
-                                <ReferenceLine
-                                    y={isAvgEvent ? overallAvgDelay : avgPerHour}
-                                    stroke="#fbbf24"
-                                    strokeDasharray="5 5"
-                                    strokeWidth={2}
-                                    label={{
-                                        value: `Avg: ${isAvgEvent ? formatDelay(overallAvgDelay) : avgPerHour.toFixed(0)}`,
-                                        position: 'right',
-                                        fill: '#f59e0b',
-                                        fontSize: 10,
-                                        fontWeight: 'bold'
-                                    }}
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Selected Hour Detail */}
-                <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/5 to-blue-500/10 border-2 border-cyan-200/60 dark:border-cyan-500/30">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 rounded-full border-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-500/20"
-                                onClick={() => navigateHour(-1)}
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <div className="text-center">
-                                <div className="text-xl font-bold text-foreground">{formatHour(selectedHour)}</div>
-                                <div className="text-[10px] text-muted-foreground">Selected Hour</div>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 rounded-full border-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-500/20"
-                                onClick={() => navigateHour(1)}
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {selectedHour === peakHour && (
-                                <span className="text-[10px] px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 font-semibold flex items-center gap-1">
-                                    <Flame className="h-3 w-3" /> Peak Hour
-                                </span>
-                            )}
-                            <span className={cn(
-                                "text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1",
-                                selectedVsAvg >= 0
-                                    ? "bg-red-100 text-red-600 dark:bg-red-500/20"
-                                    : "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20"
-                            )}>
-                                {selectedVsAvg >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                                {selectedVsAvg >= 0 ? '+' : ''}{selectedVsAvg.toFixed(1)}% vs avg
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-blue-600">
-                                {isAvgEvent ? formatDelay(selectedAvgDelay) : selectedStats.total.toLocaleString()}
-                            </div>
-                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">
-                                {isAvgEvent ? 'Avg Delay' : 'Total Events'}
-                            </div>
-                            <div className="text-[8px] sm:text-[9px] text-blue-500 mt-1">
-                                {isAvgEvent ? `Average delay at ${formatHourShort(selectedHour)}` : `Sum of all events at ${formatHourShort(selectedHour)}`}
-                            </div>
-                        </div>
-                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-emerald-600">{selectedStats.success.toLocaleString()}</div>
-                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Successful</div>
-                            <div className="text-[8px] sm:text-[9px] text-emerald-500 mt-1">Events completed OK</div>
-                        </div>
-                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-red-600">{selectedStats.fail.toLocaleString()}</div>
-                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Failed</div>
-                            <div className="text-[8px] sm:text-[9px] text-red-500 mt-1">Events with errors</div>
-                        </div>
-                        <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-purple-600">{selectedSuccessRate.toFixed(1)}%</div>
-                            <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Success Rate</div>
-                            <div className="text-[8px] sm:text-[9px] text-purple-500 mt-1">Success / Total</div>
-                        </div>
-                    </div>
-
-                    <div className="mt-3 pt-3 border-t border-cyan-200/50 dark:border-cyan-500/20">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 text-center">
-                            <div>
-                                <div className="text-xs text-muted-foreground">Data Points</div>
-                                <div className="text-sm font-semibold text-foreground">{selectedStats.count} occurrences</div>
-                                <div className="text-[9px] text-muted-foreground">Times this hour appeared in data</div>
-                            </div>
-                            <div>
-                                <div className="text-xs text-muted-foreground">Avg per Occurrence</div>
-                                <div className="text-sm font-semibold text-foreground">{Math.round(avgPerDataPoint).toLocaleString()}</div>
-                                <div className="text-[9px] text-muted-foreground">Events each time at {formatHourShort(selectedHour)}</div>
-                            </div>
-                            <div>
-                                <div className="text-xs text-muted-foreground">% of Total</div>
-                                <div className="text-sm font-semibold text-foreground">{overallTotal > 0 ? ((selectedStats.total / overallTotal) * 100).toFixed(1) : 0}%</div>
-                                <div className="text-[9px] text-muted-foreground">Share of all events</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Insights Footer */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-[10px] text-muted-foreground">
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                        <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full bg-amber-400"></div>
-                            Peak: {formatHourShort(peakHour)} ({peakTotal.toLocaleString()})
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                            Lowest: {formatHourShort(lowestHour)} ({lowestTotal === Infinity ? 0 : lowestTotal.toLocaleString()})
-                        </span>
-                    </div>
-                    <span className="flex items-center gap-1">
-                        Trend: {trendDirection === 'up' ? <TrendingUp className="h-3 w-3 text-emerald-500" /> : trendDirection === 'down' ? <TrendingDown className="h-3 w-3 text-red-500" /> : <Activity className="h-3 w-3 text-blue-500" />}
-                        {trendDirection === 'up' ? 'Increasing' : trendDirection === 'down' ? 'Decreasing' : 'Stable'}
-                    </span>
-                </div>
-            </CardContent>
-        </EnhancedCard>
-    );
-}
 
 // Pie chart modal is now in its own component file
 
@@ -1069,7 +549,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         const map: Record<string, any[]> = {};
         if (!profile?.panels || profile.panels.length <= 1) return map;
 
-        const buildFromRaw = (rawData: any[], statusCodes: string[], cacheStatuses: string[], isHourlyBucket: boolean) => {
+        const buildFromRaw = (rawData: any[], statusCodes: string[], cacheStatuses: string[], isHourlyBucket: boolean, isSpecialGraph: boolean) => {
             const hasStatus = statusCodes.length > 0;
             const hasCache = cacheStatuses.length > 0;
             const timeMap = new Map<string, any>();
@@ -1089,12 +569,23 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 const matchesCache = !hasCache || cacheStatuses.includes(String(r.cacheStatus || 'none'));
                 if (!matchesStatus || !matchesCache) return;
 
-                const eventId = String(r.eventId);
-                const eventConfig = eventConfigById.get(eventId);
-                const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
-                    ? `${eventConfig.host} - ${eventConfig.url}`
-                    : (eventConfig?.eventName || `Event ${eventId}`);
-                const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+                let eventKey: string;
+                if (isSpecialGraph) {
+                    if (r.status) {
+                        eventKey = `status_${r.status}`;
+                    } else if (r.cacheStatus) {
+                        eventKey = `cache_${r.cacheStatus}`;
+                    } else {
+                        return;
+                    }
+                } else {
+                    const eventId = String(r.eventId);
+                    const eventConfig = eventConfigById.get(eventId);
+                    const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
+                        ? `${eventConfig.host} - ${eventConfig.url}`
+                        : (eventConfig?.eventName || `Event ${eventId}`);
+                    eventKey = `${baseName.replace(/[^a-zA-Z0-9]/g, '_')}_${eventId}`;
+                }
                 usedKeys.add(eventKey);
 
                 const count = Number(r.count || 0);
@@ -1114,8 +605,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 const sumParts = rawServerToCloud + rawCloudToUser;
                 const effectiveServerToUser = rawServerToUser > 0 ? rawServerToUser : (sumParts > 0 ? sumParts : 0);
 
+                const isSuccess = r.status ? (parseInt(r.status) >= 200 && parseInt(r.status) < 300) : true;
+                if (!entry[`${eventKey}_success`]) {
+                    entry[`${eventKey}_success`] = 0;
+                    entry[`${eventKey}_fail`] = 0;
+                }
+
                 entry[`${eventKey}_count`] += count;
                 entry[`${eventKey}_sumCount`] += count;
+                if (isSuccess) entry[`${eventKey}_success`] += count;
+                else entry[`${eventKey}_fail`] += count;
+
                 entry[`${eventKey}_avgServerToUser_sum`] += effectiveServerToUser * count;
                 entry[`${eventKey}_avgServerToCloud_sum`] += rawServerToCloud * count;
                 entry[`${eventKey}_avgCloudToUser_sum`] += rawCloudToUser * count;
@@ -1166,8 +666,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
             const cacheStatuses = (pf.percentageCacheStatus || []).filter(Boolean).map((v: any) => String(v));
             const panelRange = panelDateRanges[panelId] || dateRange;
             const isHourlyBucket = Math.ceil((panelRange.to.getTime() - panelRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 7;
+            const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel';
 
-            map[panelId] = buildFromRaw(rawData, statusCodes, cacheStatuses, isHourlyBucket);
+            map[panelId] = buildFromRaw(rawData, statusCodes, cacheStatuses, isHourlyBucket, isSpecialGraph);
         });
 
         return map;
@@ -1330,7 +831,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
                     ? `${eventConfig.host} - ${eventConfig.url}`
                     : (eventConfig?.eventName || `Event ${eventId}`);
-                eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+                eventKey = `${baseName.replace(/[^a-zA-Z0-9]/g, '_')}_${eventId}`;
             }
             usedKeys.add(eventKey);
 
@@ -1345,8 +846,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 entry[`${eventKey}_avgBytesIn_sum`] = 0;
             }
 
+            const isSuccess = r.status ? (parseInt(r.status) >= 200 && parseInt(r.status) < 300) : true;
+            if (!entry[`${eventKey}_success`]) {
+                entry[`${eventKey}_success`] = 0;
+                entry[`${eventKey}_fail`] = 0;
+            }
+
             entry[`${eventKey}_count`] += count;
             entry[`${eventKey}_sumCount`] += count;
+            if (isSuccess) entry[`${eventKey}_success`] += count;
+            else entry[`${eventKey}_fail`] += count;
+
             // avgServerToUser is authoritative (ms). Only fall back to sum of parts when avgServerToUser is 0.
             const rawServerToUser = Number(r.avgServerToUser || 0);
             const rawServerToCloud = Number(r.avgServerToCloud || 0);
@@ -1615,6 +1125,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // Load initial data
     useEffect(() => {
         const loadInitialData = async () => {
+            // Memory cleanup: Clear existing panel data and states when switching profiles
+            setPanelsDataMap(new Map());
+            setPanelFiltersState({});
+            setPanelDateRanges({});
+            setPanelChartType({});
+            setPanelFilterChanges({});
+            setPanelAvailableSourceStrs({});
+            setPanelPinnedTooltips({});
+            setPanelLegendExpanded({});
+            setPanelSelectedEventKey({});
+
             setLoading(true);
             setError(null);
 
@@ -2930,7 +2451,20 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         });
     }, [filters.events, eventConfigById]);
 
-    if (loading) return null;
+    const DashboardLoadingSkeleton = () => (
+        <div className="space-y-6" style={{ zoom: 0.8 }}>
+            <div className="h-40 w-full rounded-2xl bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-800 dark:to-gray-700 animate-pulse" />
+            <div className="h-32 w-full rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                <div className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+                <div className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+            </div>
+            <div className="h-[400px] w-full rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+        </div>
+    );
+
+    if (loading) return <DashboardLoadingSkeleton />;
     if (!profile) return <div className="p-8 text-center text-destructive">Profile not found</div>;
 
     const { totalCount, totalSuccess, totalFail } = totals;
@@ -3182,68 +2716,70 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 )}
 
                 {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
-                <MainPanelSection
-                    profile={profile}
-                    setProfile={setProfile}
-                    panelsDataMap={panelsDataMap}
-                    rawGraphResponse={rawGraphResponse}
-                    graphData={graphData}
-                    filteredApiData={filteredApiData}
-                    dateRange={dateRange}
-                    isHourly={isHourly}
-                    filtersCollapsed={filtersCollapsed}
-                    setFiltersCollapsed={setFiltersCollapsed}
-                    pendingRefresh={pendingRefresh}
-                    panelFiltersState={panelFiltersState}
-                    handleFilterChange={handleFilterChange}
-                    handleApplyFilters={handleApplyFilters}
-                    dataLoading={dataLoading}
-                    autoRefreshMinutes={autoRefreshMinutes}
-                    setAutoRefreshMinutes={setAutoRefreshMinutes}
-                    availableStatusCodes={availableStatusCodes}
-                    availableCacheStatuses={availableCacheStatuses}
-                    availableSourceStrs={availableSourceStrs}
-                    selectedSourceStrs={selectedSourceStrs}
-                    setSelectedSourceStrs={setSelectedSourceStrs}
-                    platformOptions={platformOptions}
-                    posOptions={posOptions}
-                    sourceOptions={sourceOptions}
-                    eventOptions={eventOptions}
-                    totalCount={totalCount}
-                    totalSuccess={totalSuccess}
-                    totalFail={totalFail}
-                    selectedEventsList={selectedEventsList}
-                    isMainPanelApi={isMainPanelApi}
-                    normalEventKeys={normalEventKeys}
-                    eventKeys={eventKeys}
-                    avgEventKeys={avgEventKeys}
-                    errorEventKeys={errorEventKeys}
-                    apiEndpointEventKeyInfos={apiEndpointEventKeyInfos}
-                    mainLegendExpanded={mainLegendExpanded}
-                    setMainLegendExpanded={setMainLegendExpanded}
-                    selectedEventKey={selectedEventKey}
-                    handleEventClick={handleEventClick}
-                    overlaySelectedEventKey={overlaySelectedEventKey}
-                    handleOverlayEventClick={handleOverlayEventClick}
-                    errorSelectedEventKey={errorSelectedEventKey}
-                    handleErrorEventClick={handleErrorEventClick}
-                    apiSelectedEventKey={apiSelectedEventKey}
-                    handleApiEventClick={handleApiEventClick}
-                    panelChartType={panelChartType}
-                    setPanelChartType={setPanelChartType}
-                    pinnedTooltip={pinnedTooltip}
-                    setPinnedTooltip={setPinnedTooltip}
-                    isFirstPanelSpecialGraph={isFirstPanelSpecialGraph}
-                    apiPerformanceSeries={apiPerformanceSeries}
-                    apiMetricView={apiMetricView}
-                    setApiMetricView={setApiMetricView}
-                    pieChartData={pieChartData}
-                    openExpandedPie={openExpandedPie}
-                    CustomXAxisTick={CustomXAxisTick}
-                    HourlyStatsCard={HourlyStatsCard}
-                    events={events}
-                    toast={toast}
-                />
+                <div ref={el => { if (profile.panels[0]) panelRefs.current[profile.panels[0].panelId] = el; }}>
+                    <MainPanelSection
+                        profile={profile}
+                        setProfile={setProfile}
+                        panelsDataMap={panelsDataMap}
+                        rawGraphResponse={rawGraphResponse}
+                        graphData={graphData}
+                        filteredApiData={filteredApiData}
+                        dateRange={dateRange}
+                        isHourly={isHourly}
+                        filtersCollapsed={filtersCollapsed}
+                        setFiltersCollapsed={setFiltersCollapsed}
+                        pendingRefresh={pendingRefresh}
+                        panelFiltersState={panelFiltersState}
+                        handleFilterChange={handleFilterChange}
+                        handleApplyFilters={handleApplyFilters}
+                        dataLoading={dataLoading}
+                        autoRefreshMinutes={autoRefreshMinutes}
+                        setAutoRefreshMinutes={setAutoRefreshMinutes}
+                        availableStatusCodes={availableStatusCodes}
+                        availableCacheStatuses={availableCacheStatuses}
+                        availableSourceStrs={availableSourceStrs}
+                        selectedSourceStrs={selectedSourceStrs}
+                        setSelectedSourceStrs={setSelectedSourceStrs}
+                        platformOptions={platformOptions}
+                        posOptions={posOptions}
+                        sourceOptions={sourceOptions}
+                        eventOptions={eventOptions}
+                        totalCount={totalCount}
+                        totalSuccess={totalSuccess}
+                        totalFail={totalFail}
+                        selectedEventsList={selectedEventsList}
+                        isMainPanelApi={isMainPanelApi}
+                        normalEventKeys={normalEventKeys}
+                        eventKeys={eventKeys}
+                        avgEventKeys={avgEventKeys}
+                        errorEventKeys={errorEventKeys}
+                        apiEndpointEventKeyInfos={apiEndpointEventKeyInfos}
+                        mainLegendExpanded={mainLegendExpanded}
+                        setMainLegendExpanded={setMainLegendExpanded}
+                        selectedEventKey={selectedEventKey}
+                        handleEventClick={handleEventClick}
+                        overlaySelectedEventKey={overlaySelectedEventKey}
+                        handleOverlayEventClick={handleOverlayEventClick}
+                        errorSelectedEventKey={errorSelectedEventKey}
+                        handleErrorEventClick={handleErrorEventClick}
+                        apiSelectedEventKey={apiSelectedEventKey}
+                        handleApiEventClick={handleApiEventClick}
+                        panelChartType={panelChartType}
+                        setPanelChartType={setPanelChartType}
+                        pinnedTooltip={pinnedTooltip}
+                        setPinnedTooltip={setPinnedTooltip}
+                        isFirstPanelSpecialGraph={isFirstPanelSpecialGraph}
+                        apiPerformanceSeries={apiPerformanceSeries}
+                        apiMetricView={apiMetricView}
+                        setApiMetricView={setApiMetricView}
+                        pieChartData={pieChartData}
+                        openExpandedPie={openExpandedPie}
+                        CustomXAxisTick={CustomXAxisTick}
+                        HourlyStatsCard={HourlyStatsCard}
+                        events={events}
+                        toast={toast}
+                    />
+                </div>
 
                 {/* Additional Panels (if profile has more than one panel) */}
                 {/* Render additional panels normally - each panel will check if it's a special graph */}

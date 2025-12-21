@@ -1,4 +1,6 @@
-import { Fragment, useMemo } from 'react';
+import React, { Fragment, useMemo } from 'react';
+import { InfoTooltip } from '../components/InfoTooltip';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
     Activity,
     AlertTriangle,
@@ -50,7 +52,7 @@ import {
     YAxis,
 } from 'recharts';
 
-export function AdditionalPanelsSection({
+export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSection({
     profile,
     panelsDataMap,
     panelFiltersState,
@@ -297,13 +299,15 @@ export function AdditionalPanelsSection({
                                     <div className="flex items-center gap-2">
                                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
                                             <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                                                {pTotalCount.toLocaleString()} total
+                                                {isPanelLoading ? <Skeleton className="h-4 w-12" /> : pTotalCount.toLocaleString()} total
                                             </span>
+                                            <InfoTooltip content="Sum of all events recorded for this panel and its filters." />
                                         </div>
                                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
                                             <span className="text-xs font-medium text-green-700 dark:text-green-300">
-                                                {pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0}% success
+                                                {isPanelLoading ? <Skeleton className="h-4 w-10" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}% success
                                             </span>
+                                            <InfoTooltip content="Percentage of events that completed successfully in this panel." />
                                         </div>
                                     </div>
                                 </div>
@@ -314,6 +318,7 @@ export function AdditionalPanelsSection({
                                         <div className="flex items-center gap-2">
                                             <Filter className="w-4 h-4 text-purple-500 flex-shrink-0" />
                                             <span className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300">Panel Filters</span>
+                                            <InfoTooltip content="Independent filters for this specific panel. Does not affect other panels." />
                                             <span className="text-xs text-muted-foreground hidden sm:inline">(Independent from dashboard)</span>
                                             <Button
                                                 variant="ghost"
@@ -1096,14 +1101,70 @@ export function AdditionalPanelsSection({
 
                                 const panelApiSeries = panelApiPerformanceSeriesMap?.[panel.panelId] || [];
                                 const panelMetricView = panelApiMetricView?.[panel.panelId] || 'timing';
-                                const apiEventIds = Array.from(new Set([...(activeParentEvents || []), ...(activeChildEvents || [])].map(String)));
-                                const apiEventKeyInfos = apiEventIds.map((id) => {
-                                    const ev = (events || []).find((e: any) => String(e.eventId) === String(id));
-                                    const name = ev?.isApiEvent && ev?.host && ev?.url
-                                        ? `${ev.host} - ${ev.url}`
-                                        : (ev?.eventName || `Event ${id}`);
-                                    return { eventId: String(id), eventName: name, eventKey: name.replace(/[^a-zA-Z0-9]/g, '_') };
-                                });
+
+                                // Build event key info - if special graph (percentage/funnel), use status/cache keys
+                                const isSpecialGraph = true; // Inside percentage block
+                                const apiEventKeyInfos = (() => {
+                                    if (panelConfig?.isApiEvent && isSpecialGraph) {
+                                        const allStatusCodes = new Set<string>();
+                                        const rawData: any[] = (panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []) as any[];
+                                        rawData.forEach((r: any) => { if (r.status) allStatusCodes.add(String(r.status)); });
+
+                                        const successCodes = Array.from(allStatusCodes).filter((code: string) => {
+                                            const c = parseInt(code);
+                                            return c >= 200 && c < 300;
+                                        }).sort((a: string, b: string) => parseInt(a) - parseInt(b));
+
+                                        const selectedStatusCodes = (currentPanelFilters.percentageStatusCodes || []).filter(Boolean).map(String);
+                                        const selectedCacheStatus = (currentPanelFilters.percentageCacheStatus || []).filter(Boolean).map(String);
+
+                                        const keys: any[] = successCodes.map((code: string) => ({
+                                            eventId: `status_${code}`,
+                                            eventName: `Status ${code}`,
+                                            eventKey: `status_${code}`,
+                                            isErrorEvent: 0,
+                                            isAvgEvent: 0
+                                        }));
+
+                                        selectedStatusCodes.forEach((code: string) => {
+                                            keys.push({
+                                                eventId: `status_${code}`,
+                                                eventName: `Status ${code}`,
+                                                eventKey: `status_${code}`,
+                                                isErrorEvent: 0,
+                                                isAvgEvent: 0
+                                            });
+                                        });
+
+                                        selectedCacheStatus.forEach((cache: string) => {
+                                            keys.push({
+                                                eventId: `cache_${cache}`,
+                                                eventName: `Cache: ${cache}`,
+                                                eventKey: `cache_${cache}`,
+                                                isErrorEvent: 0,
+                                                isAvgEvent: 0
+                                            });
+                                        });
+
+                                        // Deduplicate by eventKey
+                                        return Array.from(new Map(keys.map((item: any) => [item.eventKey, item])).values());
+                                    }
+
+                                    const activeParentEvents = panelConfig.percentageConfig.parentEvents || [];
+                                    const activeChildEvents = panelConfig.percentageConfig.childEvents || [];
+                                    const apiEventIds = Array.from(new Set([...(activeParentEvents || []), ...(activeChildEvents || [])].map(String)));
+                                    return apiEventIds.map((id) => {
+                                        const ev = (events || []).find((e: any) => String(e.eventId) === String(id));
+                                        const name = ev?.isApiEvent && ev?.host && ev?.url
+                                            ? `${ev.host} - ${ev.url}`
+                                            : (ev?.eventName || `Event ${id}`);
+                                        return {
+                                            eventId: String(id),
+                                            eventName: name,
+                                            eventKey: `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${id}`
+                                        };
+                                    });
+                                })();
 
                                 return (
                                     <div className="space-y-6">
@@ -1342,18 +1403,182 @@ export function AdditionalPanelsSection({
                                     !currentPanelFilters.activeStages || currentPanelFilters.activeStages.includes(s.eventId)
                                 ) || [];
 
+                                const panelApiSeries = panelApiPerformanceSeriesMap?.[panel.panelId] || [];
+                                const panelMetricView = panelApiMetricView?.[panel.panelId] || 'timing';
+
+                                // Build apiEventKeyInfos for funnel
+                                const apiEventKeyInfos = (() => {
+                                    if (panelConfig?.isApiEvent) {
+                                        const allStatusCodes = new Set<string>();
+                                        const rawData: any[] = (panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []) as any[];
+                                        rawData.forEach((r: any) => { if (r.status) allStatusCodes.add(String(r.status)); });
+
+                                        const successCodes = Array.from(allStatusCodes).filter((code: string) => {
+                                            const c = parseInt(code);
+                                            return c >= 200 && c < 300;
+                                        }).sort((a: string, b: string) => parseInt(a) - parseInt(b));
+
+                                        const selectedStatusCodes = (currentPanelFilters.percentageStatusCodes || []).filter(Boolean).map(String);
+                                        const selectedCacheStatus = (currentPanelFilters.percentageCacheStatus || []).filter(Boolean).map(String);
+
+                                        const keys: any[] = successCodes.map((code: string) => ({
+                                            eventId: `status_${code}`,
+                                            eventName: `Status ${code}`,
+                                            eventKey: `status_${code}`,
+                                            isErrorEvent: 0,
+                                            isAvgEvent: 0
+                                        }));
+
+                                        selectedStatusCodes.forEach((code: string) => {
+                                            keys.push({
+                                                eventId: `status_${code}`,
+                                                eventName: `Status ${code}`,
+                                                eventKey: `status_${code}`,
+                                                isErrorEvent: 0,
+                                                isAvgEvent: 0
+                                            });
+                                        });
+
+                                        selectedCacheStatus.forEach((cache: string) => {
+                                            keys.push({
+                                                eventId: `cache_${cache}`,
+                                                eventName: `Cache: ${cache}`,
+                                                eventKey: `cache_${cache}`,
+                                                isErrorEvent: 0,
+                                                isAvgEvent: 0
+                                            });
+                                        });
+
+                                        return Array.from(new Map(keys.map((item: any) => [item.eventKey, item])).values());
+                                    }
+
+                                    const apiEventIds = Array.from(new Set([...(activeStages.map((s: any) => s.eventId)), ...(panelConfig.funnelConfig.multipleChildEvents || [])].map(String)));
+                                    return apiEventIds.map((id) => {
+                                        const ev = (events || []).find((e: any) => String(e.eventId) === String(id));
+                                        const name = ev?.isApiEvent && ev?.host && ev?.url ? `${ev.host} - ${ev.url}` : (ev?.eventName || `Event ${id}`);
+                                        return { eventId: String(id), eventName: name, eventKey: `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${id}` };
+                                    });
+                                })();
+
                                 return (
-                                    <FunnelGraph
-                                        data={filteredGraphData}
-                                        stages={activeStages}
-                                        multipleChildEvents={panelConfig.funnelConfig.multipleChildEvents || []}
-                                        eventColors={eventColors}
-                                        eventNames={eventNames}
-                                        filters={panelConfig?.isApiEvent ? {
-                                            statusCodes: currentPanelFilters.percentageStatusCodes || [],
-                                            cacheStatus: currentPanelFilters.percentageCacheStatus || [],
-                                        } : undefined}
-                                    />
+                                    <div className="space-y-6">
+                                        <FunnelGraph
+                                            data={filteredGraphData}
+                                            stages={activeStages}
+                                            multipleChildEvents={panelConfig.funnelConfig.multipleChildEvents || []}
+                                            eventColors={eventColors}
+                                            eventNames={eventNames}
+                                            filters={panelConfig?.isApiEvent ? {
+                                                statusCodes: currentPanelFilters.percentageStatusCodes || [],
+                                                cacheStatus: currentPanelFilters.percentageCacheStatus || [],
+                                            } : undefined}
+                                        />
+
+                                        {panelConfig?.isApiEvent && apiEventKeyInfos.length > 0 && (
+                                            <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl">
+                                                <CardHeader className="pb-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
+                                                                <button
+                                                                    key={tab}
+                                                                    onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
+                                                                    className={cn(
+                                                                        "px-2.5 py-1 text-xs font-medium rounded-lg transition-all",
+                                                                        panelMetricView === tab
+                                                                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                                                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                                    )}
+                                                                >
+                                                                    {tab === 'timing' && '⏱️ Time (Avg)'}
+                                                                    {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
+                                                                    {tab === 'timing-anomaly' && '⚠️ Anomalies'}
+                                                                    {tab === 'bytes' && '📤 Bytes Out'}
+                                                                    {tab === 'bytes-in' && '📥 Bytes In'}
+                                                                    {tab === 'count' && '📈 Count'}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                                    <div className="h-[280px] md:h-[360px] w-full">
+                                                        {panelApiSeries.length > 0 ? (
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
+                                                                    <YAxis
+                                                                        tick={{ fill: '#3b82f6', fontSize: 11 }}
+                                                                        axisLine={false}
+                                                                        tickLine={false}
+                                                                        tickFormatter={(value) => {
+                                                                            if (!value || value <= 0) return '0';
+                                                                            const isTimingView = panelMetricView?.startsWith('timing');
+                                                                            const isBytesView = panelMetricView?.startsWith('bytes');
+                                                                            if (isTimingView) return `${Number(value).toFixed(0)}ms`;
+                                                                            if (isBytesView) {
+                                                                                if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}GB`;
+                                                                                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}MB`;
+                                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}KB`;
+                                                                                return `${Number(value).toFixed(0)}B`;
+                                                                            }
+                                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                                                                            return value;
+                                                                        }}
+                                                                        label={{
+                                                                            value: panelMetricView?.startsWith('timing') ? 'Time (ms)' : panelMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count',
+                                                                            angle: -90,
+                                                                            position: 'insideLeft',
+                                                                            style: { fill: '#3b82f6', fontSize: 10 }
+                                                                        }}
+                                                                    />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
+                                                                    {apiEventKeyInfos.map((ek, idx) => {
+                                                                        const color = EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                                        let dataKey = `${ek.eventKey}_count`;
+                                                                        if (panelMetricView === 'timing' || panelMetricView === 'timing-anomaly') dataKey = `${ek.eventKey}_avgServerToUser`;
+                                                                        if (panelMetricView === 'bytes') dataKey = `${ek.eventKey}_avgBytesOut`;
+                                                                        if (panelMetricView === 'bytes-in') dataKey = `${ek.eventKey}_avgBytesIn`;
+
+                                                                        if (panelMetricView === 'timing-breakdown') {
+                                                                            return (
+                                                                                <Fragment key={`pbreak_fun_${panel.panelId}_${ek.eventKey}`}>
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
+                                                                                </Fragment>
+                                                                            );
+                                                                        }
+
+                                                                        return (
+                                                                            <Area
+                                                                                key={`papi_fun_${panel.panelId}_${ek.eventKey}_${panelMetricView}`}
+                                                                                type="monotone"
+                                                                                dataKey={dataKey}
+                                                                                name={ek.eventName}
+                                                                                stroke={color}
+                                                                                strokeWidth={2.5}
+                                                                                fillOpacity={0.12}
+                                                                                fill={color}
+                                                                                dot={false}
+                                                                                activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
+                                                                                isAnimationActive={false}
+                                                                                animationDuration={0}
+                                                                            />
+                                                                        );
+                                                                    })}
+                                                                </AreaChart>
+                                                            </ResponsiveContainer>
+                                                        ) : (
+                                                            <div className="h-full flex items-center justify-center text-muted-foreground">No API performance data</div>
+                                                        )}
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        )}
+                                    </div>
                                 );
                             }
 
@@ -2337,4 +2562,4 @@ export function AdditionalPanelsSection({
             })}
         </>
     );
-}
+});

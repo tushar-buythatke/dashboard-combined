@@ -53,63 +53,109 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         eventKeyToInfo.set(ek.eventKey, ek);
     });
 
-    const formatDelay = (delayValue: number, featureId?: number) => {
-        if (!delayValue || delayValue <= 0) return null;
-        // Feature 1 = Price Alert (value is already in MINUTES)
-        // Others (Spend/Auto-coupon) = value is already in SECONDS
-        // Default to minutes if feature unknown but value seems like minutes (PA typically)
-        if (featureId === 1 || (!featureId && delayValue > 100)) {
-            // Likely in minutes
-            if (delayValue >= 60) return `${Math.round(delayValue / 60)}h`;
-            return `${Math.round(delayValue)}m`;
+    const formatMetric = (value: number, metricType: 'timing' | 'delay' | 'bytes' | 'count', featureId?: number) => {
+        if (!value || value <= 0) return metricType === 'count' ? '0' : null;
+
+        if (metricType === 'bytes') {
+            if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)}MB`;
+            if (value >= 1024) return `${(value / 1024).toFixed(1)}KB`;
+            return `${value}B`;
         }
-        // Seconds
-        if (delayValue >= 3600) return `${Math.round(delayValue / 3600)}h`;
-        if (delayValue >= 60) return `${Math.round(delayValue / 60)}m`;
-        return `${Math.round(delayValue)}s`;
+
+        if (metricType === 'timing') {
+            // API timing is in MS
+            if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
+            return `${Math.round(value)}ms`;
+        }
+
+        if (metricType === 'delay') {
+            // Feature delay: PA (1) is in minutes, others in seconds
+            if (featureId === 1) {
+                if (value >= 60) return `${Math.round(value / 60)}h`;
+                return `${Math.round(value)}m`;
+            }
+            // Seconds display
+            if (value >= 3600) return `${Math.round(value / 3600)}h`;
+            if (value >= 60) return `${Math.round(value / 60)}m`;
+            return `${Math.round(value)}s`;
+        }
+
+        return value.toLocaleString();
     };
 
     // Get per-event data from payload with success/fail/delay info
     const eventDataItems = payload.map((item: any) => {
         const rawKey: string = item.dataKey || '';
-        // Determine if this is a delay dataKey (ends with _avgDelay)
-        const isDelayDataKey = rawKey.endsWith('_avgDelay');
-        // Handle different dataKey suffixes: _count, _avgDelay, _success, _fail
-        const eventKey = rawKey.replace(/_count$/, '').replace(/_avgDelay$/, '').replace(/_success$/, '').replace(/_fail$/, '') || '';
+
+        // Distinguish metric types more precisely
+        const isTimingKey = rawKey.endsWith('_avgServerToUser') ||
+            rawKey.endsWith('_avgServerToCloud') ||
+            rawKey.endsWith('_avgCloudToUser');
+        const isDelayKey = rawKey.endsWith('_avgDelay');
+        const isBytesKey = rawKey.endsWith('_avgBytesOut') || rawKey.endsWith('_avgBytesIn');
+
+        // Handle different dataKey suffixes
+        const eventKey = rawKey
+            .replace(/_count$/, '')
+            .replace(/_avgDelay$/, '')
+            .replace(/_avgServerToUser$/, '')
+            .replace(/_avgServerToCloud$/, '')
+            .replace(/_avgCloudToUser$/, '')
+            .replace(/_avgBytesOut$/, '')
+            .replace(/_avgBytesIn$/, '')
+            .replace(/_success$/, '')
+            .replace(/_fail$/, '') || '';
+
         const cfg = eventKeyToConfig.get(eventKey);
         const ekInfo = eventKeyToInfo.get(eventKey);
 
-        const eventCount = item.value || 0;
-        const eventSuccessRaw = data[`${eventKey}_success`] || 0;
-        const eventFail = data[`${eventKey}_fail`] || 0;
-        // Use EventKeyInfo for isErrorEvent and isAvgEvent (these are on the event key info, not config)
-        // Also fallback to detecting from dataKey suffix or from graph context (if all eventKeys passed are isAvg)
-        const isErrorEvent = ekInfo?.isErrorEvent === 1;
-        const isAvgEvent = ekInfo?.isAvgEvent === 1 || isDelayDataKey;
-        // For isAvg events, the value in payload IS the delay value directly
-        const avgDelayValue = isAvgEvent ? eventCount : 0;
+        // Determine if this is an average metric view
+        const isAvgEvent = ekInfo?.isAvgEvent === 1 || isTimingKey || isDelayKey || isBytesKey;
+        const actualEventCount = data[`${eventKey}_count`] !== undefined ? Number(data[`${eventKey}_count`]) : (isAvgEvent ? 0 : Number(item.value || 0));
 
-        // For error events: successRaw is actually the ERROR count, fail is non-error count
-        // For normal events: successRaw is success count, fail is failure count
+        const eventSuccessRaw = data[`${eventKey}_success`] !== undefined ? Number(data[`${eventKey}_success`]) : 0;
+        const eventFail = data[`${eventKey}_fail`] !== undefined ? Number(data[`${eventKey}_fail`]) : 0;
+
+        const isErrorEvent = ekInfo?.isErrorEvent === 1;
+        const metricValue = Number(item.value || 0);
+
+        // For error events: successRaw is actually the ERROR count
         const errorCount = isErrorEvent ? eventSuccessRaw : eventFail;
         const successCount = isErrorEvent ? eventFail : eventSuccessRaw;
-        const errorRate = eventCount > 0 ? ((errorCount / eventCount) * 100) : 0;
-        const successRate = eventCount > 0 ? ((successCount / eventCount) * 100) : 0;
 
-        // For API Performance Metrics, if eventKey starts with "status_" or "cache_", use that as the name
-        // Otherwise use the item.name
+        // Calculate rates based on actual count
+        const errorRate = actualEventCount > 0 ? ((errorCount / actualEventCount) * 100) : 0;
+        const successRate = actualEventCount > 0 ? ((successCount / actualEventCount) * 100) : 0;
+
         let displayName = item.name;
-        if (ekInfo?.eventKey) {
+        let isStatus = false;
+        let isCache = false;
+
+        if (eventKey.startsWith('status_')) {
+            displayName = `Status ${eventKey.replace('status_', '')}`;
+            isStatus = true;
+        } else if (eventKey.startsWith('cache_')) {
+            displayName = `Cache: ${eventKey.replace('cache_', '')}`;
+            isCache = true;
+        } else if (ekInfo?.eventKey) {
             if (ekInfo.eventKey.startsWith('status_')) {
                 displayName = `Status ${ekInfo.eventKey.replace('status_', '')}`;
+                isStatus = true;
             } else if (ekInfo.eventKey.startsWith('cache_')) {
                 displayName = `Cache: ${ekInfo.eventKey.replace('cache_', '')}`;
+                isCache = true;
             }
         }
 
+        // Determine metric type for formatting
+        let metricType: 'timing' | 'delay' | 'bytes' | 'count' = 'count';
+        if (isTimingKey) metricType = 'timing';
+        else if (isDelayKey) metricType = 'delay';
+        else if (isBytesKey) metricType = 'bytes';
+
         return {
             name: displayName,
-            count: eventCount,
+            count: actualEventCount,
             successCount,
             errorCount,
             successRate,
@@ -118,11 +164,18 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
             dataKey: item.dataKey,
             isErrorEvent,
             isAvgEvent,
+            isTimingEvent: isTimingKey,
+            isDelayEvent: isDelayKey,
+            isBytesEvent: isBytesKey,
+            isStatus,
+            isCache,
             featureId: cfg?.feature,
-            delayLabel: isAvgEvent ? formatDelay(avgDelayValue, cfg?.feature) : null,
-            avgDelayRaw: avgDelayValue,
+            metricLabel: isAvgEvent ? formatMetric(metricValue, metricType, cfg?.feature) : null,
+            metricValue,
+            metricType,
+            rawKey
         };
-    }).filter((item: any) => item.count !== undefined && item.count > 0);
+    }).filter((item: any) => item.count !== undefined && item.count >= 0);
 
     // Calculate totals
     const totalCount = eventDataItems.reduce((sum: number, item: any) => sum + (item.count || 0), 0);
@@ -130,14 +183,24 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
     const totalErrors = eventDataItems.reduce((sum: number, item: any) => sum + (item.errorCount || 0), 0);
     const overallSuccessRate = totalCount > 0 ? ((totalSuccess / totalCount) * 100) : 0;
 
-    // Check if all events are isAvg (for time delay display)
+    // Check for metrics types across all items
+    const someAvgEvents = eventDataItems.some((item: any) => item.isAvgEvent);
+    const someBytesEvents = eventDataItems.some((item: any) => item.isBytesEvent);
+    const someTimingEvents = eventDataItems.some((item: any) => item.isTimingEvent);
     const allAvgEvents = eventDataItems.length > 0 && eventDataItems.every((item: any) => item.isAvgEvent);
-    const avgDelayTotal = allAvgEvents
-        ? eventDataItems.reduce((sum: number, item: any) => sum + (item.avgDelayRaw || 0), 0) / eventDataItems.length
+
+    // Calculate overall average for header if viewing timing
+    const avgMetricTotal = someAvgEvents
+        ? eventDataItems.reduce((sum: number, item: any) => sum + (item.metricValue || 0), 0) / eventDataItems.length
         : 0;
-    // Get feature from first avg event for formatting
-    const avgFeatureId = allAvgEvents ? eventDataItems[0]?.featureId : null;
-    const formattedAvgDelay = allAvgEvents ? formatDelay(avgDelayTotal, avgFeatureId) : null;
+
+    // Determine metric type for whole tooltip header
+    let headerMetricType: 'timing' | 'delay' | 'bytes' | 'count' = 'count';
+    if (someTimingEvents) headerMetricType = 'timing';
+    else if (someAvgEvents && !someBytesEvents) headerMetricType = 'delay';
+    else if (someBytesEvents) headerMetricType = 'bytes';
+
+    const formattedAvgMetric = someAvgEvents ? formatMetric(avgMetricTotal, headerMetricType, eventDataItems[0]?.featureId) : null;
 
     // Show only first 3 events in collapsed view, or all when expanded/pinned
     const visibleItems = isExpanded ? eventDataItems : eventDataItems.slice(0, 3);
@@ -147,13 +210,16 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         e.stopPropagation();
     };
 
+    const isApiPanel = eventDataItems.some((item: any) => item.isStatus || item.isCache || item.isTimingEvent || item.isBytesEvent);
+    const itemLabel = isApiPanel ? 'endpoint' : 'event';
+
     return (
         <div
             className={cn(
                 "relative overflow-hidden",
                 isPinned
                     ? "bg-transparent p-3 md:p-4"
-                    : "bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 p-3 backdrop-blur-md min-w-[260px] max-w-[380px]"
+                    : "bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 p-3 backdrop-blur-md min-w-[280px] max-w-[400px]"
             )}
             onMouseMoveCapture={stopEvent}
             onWheelCapture={stopEvent}
@@ -168,12 +234,14 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                         <div
                             className={cn(
                                 "h-9 w-9 md:h-11 md:w-11 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg",
-                                allAvgEvents
+                                someAvgEvents
                                     ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-amber-500/30"
                                     : "bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600 shadow-purple-500/30"
                             )}
                         >
-                            {allAvgEvents ? (
+                            {someBytesEvents ? (
+                                <Activity className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                            ) : someAvgEvents ? (
                                 <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
                             ) : (
                                 <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
@@ -181,28 +249,28 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="font-bold text-sm md:text-base text-foreground leading-tight truncate">{label}</div>
-                            <div className="text-[10px] md:text-[11px] text-muted-foreground font-medium mt-0.5">{eventDataItems.length} event{eventDataItems.length !== 1 ? 's' : ''}</div>
+                            <div className="text-[10px] md:text-[11px] text-muted-foreground font-medium mt-0.5">{eventDataItems.length} {itemLabel}{eventDataItems.length !== 1 ? 's' : ''}</div>
                         </div>
                     </div>
-                    {/* Overall stats - show formatted delay for isAvg events */}
+                    {/* Overall stats */}
                     <div className="text-right flex-shrink-0">
                         <div
                             className={cn(
                                 "text-xl md:text-2xl font-extrabold bg-clip-text text-transparent",
-                                allAvgEvents
+                                someAvgEvents
                                     ? "bg-gradient-to-r from-amber-600 to-orange-600"
                                     : "bg-gradient-to-r from-purple-600 to-violet-600"
                             )}
                         >
-                            {allAvgEvents && formattedAvgDelay ? formattedAvgDelay : totalCount.toLocaleString()}
+                            {someAvgEvents && formattedAvgMetric ? formattedAvgMetric : totalCount.toLocaleString()}
                         </div>
                         <div className={cn(
-                            "text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-sm mt-1",
+                            "text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-sm mt-1 inline-block",
                             overallSuccessRate >= 90 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
                                 overallSuccessRate >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
                                     "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
                         )}>
-                            {overallSuccessRate.toFixed(0)}%
+                            {overallSuccessRate.toFixed(0)}% Success
                         </div>
                     </div>
                 </div>
@@ -216,60 +284,70 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
 
                 {/* Per-Event Data with Success/Fail / Delay */}
                 <div className={cn(
-                    "space-y-2 md:space-y-2.5 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-purple-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-thumb]:bg-purple-700",
+                    "space-y-2.5 md:space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-purple-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-thumb]:bg-purple-700",
                     isPinned ? "max-h-[300px] md:max-h-[400px]" : "max-h-60 md:max-h-72"
                 )}>
                     {visibleItems.map((item: any, index: number) => (
                         <div
                             key={index}
-                            className="p-2 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-800/30 border border-gray-200/50 dark:border-gray-700/30 hover:border-purple-300 dark:hover:border-purple-500/40 transition-all"
+                            className="p-2.5 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-800/40 dark:to-gray-800/20 border border-gray-200/40 dark:border-gray-700/20 hover:border-purple-300 dark:hover:border-purple-500/40 transition-all group"
                         >
-                            <div className="flex items-center justify-between mb-1.5 md:mb-2">
+                            {/* Title Line */}
+                            <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2 md:gap-2.5 min-w-0 flex-1">
                                     <div
-                                        className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full flex-shrink-0 shadow-sm ring-2 ring-white dark:ring-gray-900"
+                                        className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0 shadow-sm ring-1 ring-white dark:ring-gray-900 group-hover:scale-125 transition-transform"
                                         style={{ backgroundColor: item.color }}
                                     />
                                     <span className="text-xs md:text-sm font-bold text-foreground truncate">{item.name}</span>
                                 </div>
-                                {/* For isAvg events, show formatted delay instead of raw count */}
-                                {item.isAvgEvent && item.delayLabel ? (
-                                    <span className="text-sm md:text-base font-extrabold text-amber-600 dark:text-amber-400 flex-shrink-0 flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {item.delayLabel}
-                                    </span>
-                                ) : (
-                                    <span className="text-sm md:text-base font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent flex-shrink-0">{item.count?.toLocaleString()}</span>
+
+                                {/* Metric Display (Timing or Count) */}
+                                {item.isAvgEvent && item.metricLabel ? (
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-sm md:text-base font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />
+                                            {item.metricLabel}
+                                        </span>
+                                    </div>
+                                ) : !item.isAvgEvent && (
+                                    <span className="text-sm md:text-base font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">{item.count?.toLocaleString()}</span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-[11px] flex-wrap">
-                                {item.isAvgEvent && item.delayLabel ? (
-                                    <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold">
-                                        Avg Delay: {item.delayLabel}
+
+                            {/* Details Line */}
+                            <div className="flex items-center gap-2 text-[10px] md:text-[11px]">
+                                {/* Total Count for Avg events (Timing View) */}
+                                {item.isAvgEvent && (
+                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 font-bold text-gray-600 dark:text-gray-400">
+                                        {item.count?.toLocaleString()} reqs
                                     </span>
-                                ) : (
-                                    <>
-                                        <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-50 dark:bg-green-500/10">
-                                            <CheckCircle2 className="w-3 h-3 text-green-500" />
-                                            <span className="font-semibold text-green-700 dark:text-green-400">
-                                                {item.successCount?.toLocaleString()}
-                                            </span>
-                                        </span>
-                                        <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-red-50 dark:bg-red-500/10">
-                                            <XCircle className="w-3 h-3 text-red-500" />
-                                            <span className="font-semibold text-red-700 dark:text-red-400">
-                                                {item.errorCount?.toLocaleString()}
-                                            </span>
-                                        </span>
-                                    </>
                                 )}
+
+                                {/* Success/Fail Details */}
+                                <div className="flex items-center gap-1.5 ml-0.5">
+                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-50 dark:bg-green-500/10 border border-green-100 dark:border-green-500/10">
+                                        <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />
+                                        <span className="font-bold text-green-700 dark:text-green-400">
+                                            {item.successCount?.toLocaleString()}
+                                        </span>
+                                    </span>
+                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/10">
+                                        <XCircle className="w-2.5 h-2.5 text-red-500" />
+                                        <span className="font-bold text-red-700 dark:text-red-400">
+                                            {item.errorCount?.toLocaleString()}
+                                        </span>
+                                    </span>
+                                </div>
+
+                                {/* Percentage Pill */}
                                 <span className={cn(
-                                    "ml-auto font-bold px-2 py-1 rounded-md text-[10px]",
-                                    item.errorRate <= 10
-                                        ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
-                                        : item.errorRate <= 30
-                                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400"
-                                            : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"
+                                    "ml-auto font-black px-2 py-0.5 rounded-full text-[9px] shadow-sm uppercase tracking-tighter",
+                                    item.successRate >= 90
+                                        ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900/50"
+                                        : item.successRate >= 70
+                                            ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-900/50"
+                                            : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50"
                                 )}>
                                     {item.successRate.toFixed(0)}%
                                 </span>
@@ -285,46 +363,40 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                             e.stopPropagation();
                             setIsExpanded(!isExpanded);
                         }}
-                        className="w-full mt-3 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 text-purple-700 dark:text-purple-300 text-xs font-semibold hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-500/20 dark:hover:to-violet-500/20 transition-all flex items-center justify-center gap-1.5 border border-purple-200/50 dark:border-purple-500/30 shadow-sm"
+                        className="w-full mt-3 py-2 px-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 text-purple-700 dark:text-purple-300 text-[10px] font-bold hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-500/20 dark:hover:to-violet-500/20 transition-all flex items-center justify-center gap-1.5 border border-purple-200/50 dark:border-purple-500/30 shadow-sm"
                     >
                         {isExpanded ? (
                             <>
                                 <ChevronUp className="w-3.5 h-3.5" />
-                                Show Less
+                                SHOW LESS
                             </>
                         ) : (
                             <>
                                 <ChevronDown className="w-3.5 h-3.5" />
-                                +{hiddenCount} More Event{hiddenCount !== 1 ? 's' : ''}
+                                SEE {hiddenCount} MORE
                             </>
                         )}
                     </button>
                 )}
 
                 {/* Footer with totals */}
-                <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t-2 border-gray-100/80 dark:border-gray-800/80">
-                    <div className="flex items-center justify-between text-xs md:text-sm">
-                        {allAvgEvents && formattedAvgDelay ? (
+                <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-dashed border-gray-200 dark:border-gray-800">
+                    <div className="flex items-center justify-between text-[11px] md:text-xs">
+                        {someAvgEvents && formattedAvgMetric ? (
                             <span className="text-muted-foreground font-medium flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                Avg Delay: <span className="font-extrabold text-amber-600 dark:text-amber-400">{formattedAvgDelay}</span>
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                Avg: <span className="font-extrabold text-amber-600 dark:text-amber-400">{formattedAvgMetric}</span>
                             </span>
                         ) : (
-                            <span className="text-muted-foreground font-medium">Total: <span className="font-extrabold text-foreground">{totalCount.toLocaleString()}</span></span>
+                            <span className="text-muted-foreground font-medium uppercase tracking-wider opacity-60">Total Population</span>
                         )}
+
                         <div className="flex items-center gap-3">
-                            <span
-                                className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md md:rounded-lg bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 font-semibold"
-                            >
-                                <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" />
-                                {totalSuccess.toLocaleString()}
-                            </span>
-                            <span
-                                className="flex items-center gap-1 md:gap-1.5 px-2 md:px-2.5 py-0.5 md:py-1 rounded-md md:rounded-lg bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 font-semibold"
-                            >
-                                <XCircle className="w-3 h-3 md:w-4 md:h-4" />
-                                {totalErrors.toLocaleString()}
-                            </span>
+                            <span className="font-extrabold text-foreground">{totalCount.toLocaleString()} <span className="text-[9px] font-medium text-muted-foreground">reqs</span></span>
+                            <div className="h-3 w-[1px] bg-gray-200 dark:bg-gray-800" />
+                            <span className="font-extrabold text-green-600 dark:text-green-400">{totalSuccess.toLocaleString()} <span className="text-[9px] font-medium text-muted-foreground">ok</span></span>
+                            <div className="h-3 w-[1px] bg-gray-200 dark:bg-gray-800" />
+                            <span className="font-extrabold text-red-600 dark:text-red-400">{totalErrors.toLocaleString()} <span className="text-[9px] font-medium text-muted-foreground">err</span></span>
                         </div>
                     </div>
                 </div>

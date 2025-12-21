@@ -1,16 +1,17 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { InfoTooltip } from './components/InfoTooltip';
 import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { Button } from '@/components/ui/button';
-import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Layers, BarChart3, TrendingUp } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Layers, BarChart3, TrendingUp, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
-import { 
-    DropdownMenu, 
-    DropdownMenuContent, 
-    DropdownMenuItem, 
-    DropdownMenuSeparator, 
-    DropdownMenuTrigger 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import {
     AlertDialog,
@@ -57,6 +58,19 @@ export function ProfileSidebar({
     const { user } = useAnalyticsAuth();
     const { deleteProfile } = useFirebaseConfig();
     const isAdmin = useMemo(() => user?.role === 0, [user?.role]);
+    const [showSmartGuide, setShowSmartGuide] = useState(false);
+
+    // Smart Guide Persistence: Only show once every 24 hours
+    useEffect(() => {
+        const lastShown = localStorage.getItem('lastSmartGuideShown');
+        const now = Date.now();
+        const twentyFourHours = 24 * 60 * 60 * 1000;
+
+        if (!lastShown || now - parseInt(lastShown) > twentyFourHours) {
+            setShowSmartGuide(true);
+            localStorage.setItem('lastSmartGuideShown', now.toString());
+        }
+    }, []);
 
     useEffect(() => {
         const loadProfiles = async () => {
@@ -82,7 +96,7 @@ export function ProfileSidebar({
 
     const handleDeleteConfirm = async () => {
         if (!profileToDelete || !isAdmin) return;
-        
+
         const success = await deleteProfile(profileToDelete.profileId);
         if (success) {
             // If we deleted the currently selected profile, select the first remaining one
@@ -92,12 +106,12 @@ export function ProfileSidebar({
                     onSelectProfile(remainingProfiles[0].profileId);
                 }
             }
-            
+
             // Refresh the profiles list
             const data = await mockService.getProfiles(featureId);
             setProfiles(data);
         }
-        
+
         setDeleteDialogOpen(false);
         setProfileToDelete(null);
     };
@@ -107,25 +121,25 @@ export function ProfileSidebar({
         if (!criticalAlerts || criticalAlerts.length === 0 || !selectedProfileId) {
             return 0;
         }
-        
+
         // Find the selected profile
         const currentProfile = profiles.find(p => p.profileId === selectedProfileId);
         if (!currentProfile) return criticalAlerts.length;
-        
+
         // Check if profile has Critical Alerts config with specific event filter
         const profileEventFilter = currentProfile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || [];
-        
+
         // If no specific events selected, show all alerts
         if (profileEventFilter.length === 0) {
             return criticalAlerts.length;
         }
-        
+
         // Filter alerts by profile's selected events
         const filteredAlerts = criticalAlerts.filter((alert: any) => {
             const alertEventId = Number(alert.eventId || alert.event_id || alert.eventID);
             return profileEventFilter.includes(alertEventId);
         });
-        
+
         return filteredAlerts.length;
     }, [criticalAlerts, selectedProfileId, profiles]);
 
@@ -141,14 +155,14 @@ export function ProfileSidebar({
         if (!panel.events || !criticalAlerts || criticalAlerts.length === 0) {
             return 0;
         }
-        
+
         // Convert both to numbers for comparison since alerts have numeric eventId
         const panelEventIds = panel.events.map((e: any) => Number(e.eventId));
         const alertCount = criticalAlerts.filter((alert: any) => {
             const alertEventId = Number(alert.eventId || alert.event_id || alert.eventID);
             return panelEventIds.includes(alertEventId);
         }).length;
-        
+
         return alertCount;
     }, [criticalAlerts]);
 
@@ -218,9 +232,22 @@ export function ProfileSidebar({
         <div className="flex flex-col h-full bg-gradient-to-b from-purple-50/50 via-white to-indigo-50/30 dark:from-purple-900/20 dark:via-slate-900 dark:to-indigo-900/10">
             {/* Header - Premium gradient */}
             <div className="p-3 flex items-center justify-between border-b border-purple-200/40 dark:border-purple-500/20 bg-gradient-to-r from-purple-100/80 to-indigo-100/60 dark:from-purple-900/40 dark:to-indigo-900/30">
-                <div>
-                    <h2 className="font-bold text-xs bg-gradient-to-r from-purple-700 to-indigo-600 bg-clip-text text-transparent">Profiles</h2>
-                    <p className="text-[10px] text-purple-500 dark:text-purple-400">{profiles.length} dashboards</p>
+                <div className="flex items-center gap-2">
+                    <div>
+                        <h2 className="font-bold text-xs bg-gradient-to-r from-purple-700 to-indigo-600 bg-clip-text text-transparent flex items-center gap-1">
+                            Profiles
+                        </h2>
+                        <p className="text-[10px] text-purple-500 dark:text-purple-400">{profiles.length} dashboards</p>
+                    </div>
+                    {showSmartGuide && (
+                        <div className="ml-auto flex items-center gap-1 mr-2 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 shadow-sm animate-pulse-subtle">
+                            <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                            <span className="text-[9px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-tighter">Smart Guide</span>
+                            <InfoTooltip
+                                content="✨ PRO TIP: Use the profile tree below to instantly jump to specific panels. Profiles with the 'API' badge are optimized for background services."
+                            />
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-1">
                     {isAdmin && (
@@ -271,7 +298,7 @@ export function ProfileSidebar({
                                         <Trash2 className="h-3 w-3 text-red-600 dark:text-red-400" />
                                     </button>
                                 )}
-                                
+
                                 <button
                                     onClick={() => handleSelectProfile(profile.profileId)}
                                     className={cn(
@@ -331,35 +358,39 @@ export function ProfileSidebar({
                                             const showAlerts = index === 0 && isSelected;
                                             const alertCount = showAlerts ? selectedProfileAlertCount : 0;
                                             return (
-                                            <button
-                                                key={panel.panelId}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onJumpToPanel(panel.panelId, panel.panelName || `${index + 1}`);
-                                                }}
-                                                className="w-full text-left px-1.5 py-1.5 rounded-md bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20 border border-purple-200/30 dark:border-purple-500/20 transition-colors group/panel"
-                                            >
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="flex items-center justify-center w-4 h-4 rounded bg-purple-200 dark:bg-purple-800/50 text-purple-700 dark:text-purple-300 text-[9px] font-bold flex-shrink-0">
-                                                        {index + 1}
-                                                    </span>
-                                                    <div className="flex-1 min-w-0">
-                                                        <span className="text-[10px] font-medium text-purple-900 dark:text-purple-100 truncate group-hover/panel:text-purple-700 dark:group-hover/panel:text-purple-200 block">
-                                                            {panel.panelName || `${index + 1}`}
+                                                <button
+                                                    key={panel.panelId}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onJumpToPanel(panel.panelId, panel.panelName || `${index + 1}`);
+                                                    }}
+                                                    className="w-full text-left px-1.5 py-1.5 rounded-md bg-purple-50/50 dark:bg-purple-900/10 hover:bg-purple-100 dark:hover:bg-purple-900/20 border border-purple-200/30 dark:border-purple-500/20 transition-colors group/panel"
+                                                >
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="flex items-center justify-center w-4 h-4 rounded bg-purple-200 dark:bg-purple-800/50 text-purple-700 dark:text-purple-300 text-[9px] font-bold flex-shrink-0">
+                                                            {index + 1}
                                                         </span>
-                                                        <span className="block text-[9px] text-muted-foreground">
-                                                            {panel.events?.length || 0} events
-                                                        </span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <span className="text-[10px] font-medium text-purple-900 dark:text-purple-100 truncate group-hover/panel:text-purple-700 dark:group-hover/panel:text-purple-200 block">
+                                                                {panel.panelName || `${index + 1}`}
+                                                            </span>
+                                                            <span className="block text-[9px] text-muted-foreground">
+                                                                {panel.events?.length || 0} events
+                                                            </span>
+                                                        </div>
+                                                        {alertCount > 0 && (
+                                                            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[9px] font-bold flex-shrink-0 shadow-md">
+                                                                <AlertTriangle className="w-2.5 h-2.5" />
+                                                                {alertCount}
+                                                                <InfoTooltip
+                                                                    content={`⚠️ CRITICAL: There are ${alertCount} active alerts for this panel's events. Click to jump and investigate.`}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {alertCount > 0 && (
-                                                        <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-red-500 text-white text-[9px] font-bold flex-shrink-0 shadow-md">
-                                                            <AlertTriangle className="w-2.5 h-2.5" />
-                                                            {alertCount}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        )})}
+                                                </button>
+                                            )
+                                        })}
                                     </div>
                                 )}
 
@@ -452,14 +483,14 @@ export function ProfileSidebar({
                             Delete Profile
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete "{profileToDelete?.profileName}"? 
+                            Are you sure you want to delete "{profileToDelete?.profileName}"?
                             <br />
                             <strong>This action cannot be undone.</strong> All dashboard panels and configurations will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
+                        <AlertDialogAction
                             onClick={handleDeleteConfirm}
                             className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
                         >
