@@ -45,6 +45,7 @@ export function AnalyticsLayout() {
     const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
     const [featureSelectorKey, setFeatureSelectorKey] = useState(0);
     const [criticalAlertsData, setCriticalAlertsData] = useState<any[]>([]);
+    const [activePanelId, setActivePanelId] = useState<string | null>(null);
 
     // Live clock with seconds
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -446,6 +447,7 @@ export function AnalyticsLayout() {
                                 isMobileDrawer={true}
                                 onJumpToPanel={handleJumpToPanel}
                                 criticalAlerts={criticalAlertsData}
+                                activePanelId={activePanelId}
                             />
                         </div>
                     </>
@@ -473,6 +475,7 @@ export function AnalyticsLayout() {
                             onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                             onJumpToPanel={handleJumpToPanel}
                             criticalAlerts={criticalAlertsData}
+                            activePanelId={activePanelId}
                         />
                     </div>
                 </div>
@@ -496,6 +499,7 @@ export function AnalyticsLayout() {
                                     setIsCreatingProfile(true);
                                 }}
                                 onAlertsUpdate={setCriticalAlertsData}
+                                onPanelActive={setActivePanelId}
                             />
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">

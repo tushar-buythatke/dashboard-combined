@@ -277,7 +277,7 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
 
 // Pie chart modal is now in its own component file
 
-export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: DashboardViewerProps) {
+export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPanelActive }: DashboardViewerProps) {
     // Theme and organization context
     const { currentTheme, isAutosnipe, themePalette } = useTheme();
     const { selectedOrganization } = useOrganization();
@@ -433,6 +433,48 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
         });
         return map;
     }, [events]);
+
+    // Scroll Spy: Notify parent of active panel
+    useEffect(() => {
+        if (!onPanelActive || !profile?.panels?.length) return;
+
+        const observerOptions = {
+            root: null,
+            rootMargin: '-20% 0px -60% 0px', // Active when top of panel is near top of viewport
+            threshold: 0
+        };
+
+        const handleIntersect = (entries: IntersectionObserverEntry[]) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const panelId = entry.target.getAttribute('data-panel-id');
+                    if (panelId) {
+                        onPanelActive(panelId);
+                        setActivePanelId(panelId); // Sync local state too if needed
+                    }
+                }
+            });
+        };
+
+        const observer = new IntersectionObserver(handleIntersect, observerOptions);
+
+        // Delay to ensure refs are attached
+        const timeout = setTimeout(() => {
+            Object.entries(panelRefs.current).forEach(([id, element]) => {
+                if (element) {
+                    if (!element.getAttribute('data-panel-id')) {
+                        element.setAttribute('data-panel-id', id);
+                    }
+                    observer.observe(element);
+                }
+            });
+        }, 800);
+
+        return () => {
+            observer.disconnect();
+            clearTimeout(timeout);
+        };
+    }, [profile?.panels, onPanelActive]);
 
     // API Performance Metrics filtered data
     const filteredApiData = useMemo(() => {
@@ -2490,6 +2532,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const _hasMixedEventTypes = hasAvgEvents && hasNormalEvents;
 
+    // Scroll Spy: Notify parent of active panel
+
     // Separate event keys by type
     // Events with isAvgEvent >= 1 (1=time, 2=rupees, 3=count) go to avg charts
     const avgEventKeys = eventKeys.filter(ek => (ek.isAvgEvent || 0) >= 1);
@@ -2786,6 +2830,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate }: Da
                 {profile.panels.length > 1 && (
                     <AdditionalPanelsSection
                         profile={profile}
+                        setProfile={setProfile}
                         panelsDataMap={panelsDataMap}
                         panelFiltersState={panelFiltersState}
                         panelDateRanges={panelDateRanges}

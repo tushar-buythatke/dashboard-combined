@@ -185,7 +185,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 }: MainPanelSectionProps) {
 
     return (
-        <>
+        <div className="space-y-8">
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
                 className="rounded-2xl overflow-hidden group transition-all duration-300 relative"
@@ -1322,17 +1322,17 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 : normalEventKeys.map(e => e.eventKey);
 
                             return (
-                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
                                     <CardHeader className="pb-2 px-3 md:px-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                <BarChart3 className="h-5 w-5 text-indigo-600" />
                                                 <CardTitle className="text-base md:text-lg">8-Day Hourly Comparison</CardTitle>
                                             </div>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                                                 onClick={() => {
                                                     setPanelChartType(prev => {
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -1375,17 +1375,17 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 : normalEventKeys.map(e => e.eventKey);
 
                             return (
-                                <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
                                     <CardHeader className="pb-2 px-3 md:px-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-5 w-5 text-purple-600" />
+                                                <BarChart3 className="h-5 w-5 text-indigo-600" />
                                                 <CardTitle className="text-base md:text-lg">Daily Overlay Comparison</CardTitle>
                                             </div>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                                                 onClick={() => {
                                                     setPanelChartType(prev => {
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -1420,12 +1420,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     // Otherwise show the regular chart
                     return (
                         <div>
-                            <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                            <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                                 <CardHeader className="pb-2 px-3 md:px-6">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
                                             <div
-                                                className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-500/20"
+                                                className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20"
                                             >
                                                 <BarChart3 className="h-5 w-5 text-white" />
                                             </div>
@@ -1474,7 +1474,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                                                 onClick={() => {
                                                     setPanelChartType(prev => {
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -1921,11 +1921,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {
                 avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
-                        <Card className="border border-amber-200/60 dark:border-amber-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                        <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                                             <Clock className="h-5 w-5 text-white" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -1937,7 +1937,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
+                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isAvg Events</span>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -2367,11 +2367,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {
                 errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
-                        <Card className="border border-red-200/60 dark:border-red-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                        <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/20">
+                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                                             <AlertTriangle className="h-5 w-5 text-white" />
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -2383,7 +2383,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
+                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isError Events</span>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -2546,10 +2546,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             return null;
                         }
 
-                        const gridClass = visibleCount === 1 ? "grid-cols-1 max-w-md mx-auto" : "grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto";
+                        const gridClass = visibleCount === 1 ? "grid-cols-1 max-w-md mx-auto" : "grid-cols-1 md:grid-cols-2 w-full mx-auto";
 
                         return (
-                            <div className={cn("grid gap-3 md:gap-4 mt-6", gridClass)}>
+                            <div className={cn("grid gap-6 md:gap-8 mt-8", gridClass)}>
                                 {/* Status Code Distribution */}
                                 {showStatus && (
                                     <div>
@@ -2578,15 +2578,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 </div>
                                             </CardHeader>
                                             <CardContent>
-                                                <div className="h-52">
+                                                <div className="h-72">
                                                     <ResponsiveContainer width="100%" height="100%">
                                                         <PieChart>
                                                             <Pie
                                                                 data={statusData}
                                                                 cx="50%"
                                                                 cy="45%"
-                                                                innerRadius={35}
-                                                                outerRadius={65}
+                                                                innerRadius={70}
+                                                                outerRadius={100}
                                                                 paddingAngle={2}
                                                                 dataKey="value"
                                                                 strokeWidth={2}
@@ -2601,6 +2601,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     />
                                                                 ))}
                                                             </Pie>
+                                                            <text
+                                                                x="50%"
+                                                                y="45%"
+                                                                textAnchor="middle"
+                                                                dominantBaseline="middle"
+                                                                className="fill-gray-900 dark:fill-gray-100 text-3xl font-bold"
+                                                            >
+                                                                {statusData.reduce((acc: number, item: any) => acc + item.value, 0).toLocaleString()}
+                                                            </text>
                                                             <Tooltip
                                                                 content={<PieTooltip
                                                                     totalValue={statusData.reduce((acc: number, item: any) => acc + item.value, 0)}
@@ -2612,7 +2621,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 iconSize={8}
                                                                 layout="horizontal"
                                                                 verticalAlign="bottom"
-                                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                                wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }}
                                                             />
                                                         </PieChart>
                                                     </ResponsiveContainer>
@@ -2650,15 +2659,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 </div>
                                             </CardHeader>
                                             <CardContent>
-                                                <div className="h-52">
+                                                <div className="h-72">
                                                     <ResponsiveContainer width="100%" height="100%">
                                                         <PieChart>
                                                             <Pie
                                                                 data={cacheStatusData}
                                                                 cx="50%"
                                                                 cy="45%"
-                                                                innerRadius={35}
-                                                                outerRadius={65}
+                                                                innerRadius={70}
+                                                                outerRadius={100}
                                                                 paddingAngle={2}
                                                                 dataKey="value"
                                                                 strokeWidth={2}
@@ -2673,6 +2682,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     />
                                                                 ))}
                                                             </Pie>
+                                                            <text
+                                                                x="50%"
+                                                                y="45%"
+                                                                textAnchor="middle"
+                                                                dominantBaseline="middle"
+                                                                className="fill-gray-900 dark:fill-gray-100 text-3xl font-bold"
+                                                            >
+                                                                {cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0).toLocaleString()}
+                                                            </text>
                                                             <Tooltip
                                                                 content={<PieTooltip
                                                                     totalValue={cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0)}
@@ -2684,7 +2702,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 iconSize={8}
                                                                 layout="horizontal"
                                                                 verticalAlign="bottom"
-                                                                wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
+                                                                wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }}
                                                             />
                                                         </PieChart>
                                                     </ResponsiveContainer>
@@ -2960,6 +2978,6 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     </div>
                 )
             }
-        </>
+        </div>
     );
 });

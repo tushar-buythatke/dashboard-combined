@@ -54,6 +54,7 @@ import {
 
 export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSection({
     profile,
+    setProfile,
     panelsDataMap,
     panelFiltersState,
     panelDateRanges,
@@ -1472,6 +1473,37 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 statusCodes: currentPanelFilters.percentageStatusCodes || [],
                                                 cacheStatus: currentPanelFilters.percentageCacheStatus || [],
                                             } : undefined}
+                                            onViewAsPercentage={(parentEventId, childEventIds) => {
+                                                if (profile && profile.panels) {
+                                                    const actualIndex = panelIndex + 1;
+                                                    const targetPanel = profile.panels[actualIndex];
+                                                    const filterConfig = targetPanel.filterConfig;
+
+                                                    const updatedConfig = {
+                                                        ...filterConfig,
+                                                        graphType: 'percentage',
+                                                        percentageConfig: {
+                                                            parentEvents: [parentEventId],
+                                                            childEvents: childEventIds,
+                                                            filters: {
+                                                                statusCodes: currentPanelFilters.percentageStatusCodes || [],
+                                                                cacheStatus: currentPanelFilters.percentageCacheStatus || []
+                                                            }
+                                                        }
+                                                    };
+
+                                                    const updatedProfile = {
+                                                        ...profile,
+                                                        panels: profile.panels.map((p: any, i: number) =>
+                                                            i === actualIndex ? {
+                                                                ...p,
+                                                                filterConfig: updatedConfig
+                                                            } : p
+                                                        )
+                                                    };
+                                                    setProfile?.(updatedProfile);
+                                                }
+                                            }}
                                         />
 
                                         {panelConfig?.isApiEvent && apiEventKeyInfos.length > 0 && (
@@ -2467,7 +2499,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                     'md:grid-cols-3';
 
                             return processedPieConfigs.length > 0 ? (
-                                <div className={cn("grid grid-cols-1 gap-4", gridCols)}>
+                                <div className={cn("grid grid-cols-1 gap-8", gridCols)}>
                                     {processedPieConfigs.map(({ pieType, pieData }: any) => {
                                         const pieTotal = pieData?.reduce((acc: number, item: any) => acc + item.value, 0) || 0;
 

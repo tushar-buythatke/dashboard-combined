@@ -4,6 +4,7 @@ export interface DashboardViewerProps {
     profileId: string;
     onEditProfile?: (profile: DashboardProfile) => void;
     onAlertsUpdate?: (alerts: any[]) => void;
+    onPanelActive?: (panelId: string) => void;
 }
 
 export interface FilterState {
