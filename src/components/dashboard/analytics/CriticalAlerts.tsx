@@ -3,6 +3,7 @@ import type { Alert, CriticalAlertsConfig } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { EnhancedCard } from '@/components/ui/enhanced-card';
+import { InfoTooltip } from './components/InfoTooltip';
 import { Bell, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,12 @@ export function CriticalAlerts({ config }: CriticalAlertsProps) {
                                 <span className="bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent font-bold">
                                     Critical Alerts Monitor
                                 </span>
+                                <div className="ml-1">
+                                    <InfoTooltip
+                                        content="Real-time monitor for system anomalies, high error rates, and performance deviations across all enabled features. Panel 0 is always reserved for critical system health."
+                                        side="right"
+                                    />
+                                </div>
                                 <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 text-[10px] font-medium border border-red-200 dark:border-red-500/30 uppercase tracking-wide">
                                     Panel 0
                                 </span>

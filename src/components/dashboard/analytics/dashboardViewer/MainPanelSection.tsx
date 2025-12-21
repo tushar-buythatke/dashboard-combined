@@ -832,7 +832,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     }
 
                     return (
-                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-6">
                             {/* Total Count Card */}
                             <div
                                 className="group"
@@ -2549,7 +2549,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         const gridClass = visibleCount === 1 ? "grid-cols-1 max-w-md mx-auto" : "grid-cols-1 md:grid-cols-2 max-w-2xl mx-auto";
 
                         return (
-                            <div className={cn("grid gap-3 md:gap-4", gridClass)}>
+                            <div className={cn("grid gap-3 md:gap-4 mt-6", gridClass)}>
                                 {/* Status Code Distribution */}
                                 {showStatus && (
                                     <div>
@@ -2955,7 +2955,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {/* Hourly Stats Card - shown below Pie Charts for ≤8 day ranges when enabled */}
             {
                 isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && !isFirstPanelSpecialGraph && (
-                    <div>
+                    <div className="mt-6">
                         <HourlyStatsCard graphData={graphData} isHourly={isHourly} eventKeys={eventKeys} events={events} />
                     </div>
                 )
