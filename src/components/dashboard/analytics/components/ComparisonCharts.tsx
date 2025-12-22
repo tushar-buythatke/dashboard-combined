@@ -95,6 +95,9 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
             const dayData = groupedByDay[dayKey];
             const hourData = dayData.filter(d => d.hour === hour);
             
+            // Always initialize to 0 to prevent gaps in the chart
+            point[dayLabel] = 0;
+            
             if (hourData.length > 0 && eventKeys.length > 0) {
                 // Sum only the filtered event counts for this hour
                 const totalCount = eventKeys.reduce((sum, eventKey) => {
@@ -345,13 +348,14 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                 return (
                                     <Line
                                         key={dayKey}
-                                        type="monotoneX"
+                                        type="monotone"
                                         dataKey={label}
                                         name={label}
                                         stroke={strokeColor}
                                         strokeOpacity={strokeOpacity}
                                         strokeWidth={strokeWidth}
                                         dot={false}
+                                        connectNulls={true}
                                         activeDot={{
                                             r: isSelected ? 5 : 3,
                                             strokeWidth: 2,

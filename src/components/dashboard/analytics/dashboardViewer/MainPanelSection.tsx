@@ -1066,15 +1066,39 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             ? panelFilters.percentageCacheStatus
                             : configuredCacheStatus;
 
+                        // For avgDelay events, use raw data instead of aggregated data (mirrors AdditionalPanelsSection logic)
+                        const hasAvgEvents = [...activeParentEvents, ...activeChildEvents].some((eventId: string) => {
+                            const ev = (events || []).find((e: any) => String(e.eventId) === String(eventId));
+                            return ev?.isAvgEvent === 1;
+                        });
+
+                        // Build percentage graph data with proper handling for avgEvents and sourceStr filtering
+                        const percentageGraphData = (() => {
+                            if (hasAvgEvents || isMainPanelApi) {
+                                let rawData = panelsDataMap.get(mainPanelId || '')?.rawGraphResponse?.data || rawGraphResponse?.data || [];
+
+                                // Apply sourceStr filtering ONLY if data has sourceStr and filter is selected
+                                const activeSourceStrs = selectedSourceStrs || [];
+                                const hasSourceStr = rawData.length > 0 && rawData.some((d: any) => d.sourceStr);
+
+                                if (hasSourceStr && activeSourceStrs.length > 0) {
+                                    rawData = rawData.filter((d: any) =>
+                                        d.sourceStr && activeSourceStrs.includes(d.sourceStr.toString())
+                                    );
+                                }
+
+                                return rawData;
+                            }
+                            return graphData;
+                        })();
+
                         // Create separate percentage graphs for each child event
                         return (
                             <div className="space-y-6">
                                 {activeChildEvents.map((childEvent: string, index: number) => (
                                     <PercentageGraph
                                         key={`${activeParentEvents.join('-')}-${childEvent}-${index}`}
-                                        data={isMainPanelApi && mainPanelId
-                                            ? ((panelsDataMap.get(mainPanelId)?.rawGraphResponse?.data || rawGraphResponse?.data || []) as any[])
-                                            : graphData}
+                                        data={percentageGraphData}
                                         dateRange={dateRange}
                                         parentEvents={activeParentEvents}
                                         childEvents={[childEvent]} // Single child event per graph
