@@ -33,7 +33,7 @@ import { CollapsibleLegend } from './CollapsibleLegend';
 import { CustomTooltip } from './CustomTooltip';
 import { PieTooltip } from './PieTooltip';
 import { combinePieChartDuplicates, ERROR_COLORS, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './constants';
-import { PercentageGraph } from '../charts/PercentageGraph';
+import { MultiPercentageGraph } from '../charts/MultiPercentageGraph';
 import { FunnelGraph } from '../charts/FunnelGraph';
 
 import { DayWiseComparisonChart } from '../components/ComparisonCharts';
@@ -1167,10 +1167,20 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                     });
                                 })();
 
+                                // For avgDelay events, use raw data instead of aggregated data
+                                const hasAvgEvents = [...activeParentEvents, ...activeChildEvents].some((eventId: string) => {
+                                    const ev = (events || []).find((e: any) => String(e.eventId) === String(eventId));
+                                    return ev?.isAvgEvent === 1;
+                                });
+
+                                const percentageGraphData = hasAvgEvents
+                                    ? (panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [])
+                                    : filteredGraphData;
+
                                 return (
                                     <div className="space-y-6">
-                                        <PercentageGraph
-                                            data={filteredGraphData}
+                                        <MultiPercentageGraph
+                                            data={percentageGraphData}
                                             dateRange={currentPanelDateRange}
                                             parentEvents={activeParentEvents}
                                             childEvents={activeChildEvents}

@@ -68,6 +68,11 @@ export function PercentageGraph({
                 timestamp: number;
                 parentBreakdown: Record<string, number>;
                 childBreakdown: Record<string, number>;
+                // For average metrics - track sum and count per event
+                parentAvgSum: number;
+                parentAvgCount: number;
+                childAvgData: Record<string, { sum: number; count: number }>; // Per-child tracking
+                isAvgMetric: boolean;
             }> = {};
 
             data.forEach((record) => {
@@ -83,40 +88,102 @@ export function PercentageGraph({
                         timestamp: date.getTime(),
                         parentBreakdown: {},
                         childBreakdown: {},
+                        parentAvgSum: 0,
+                        parentAvgCount: 0,
+                        childAvgData: {},
+                        isAvgMetric: false,
                     };
                 }
 
                 // Fast path for unfiltered data
                 // Option A: for raw API data we always use `count` (not successCount)
-                const isRawApiData = record.eventId !== undefined && record.status !== undefined;
+                // Relaxed check: just eventId is enough to consider it an event record
+                const isRawApiData = record.eventId !== undefined;
+                const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
 
                 parentEvents.forEach((eventId) => {
-                    const count = isRawApiData
-                        ? (String(record.eventId) === String(eventId) ? Number(record.count || 0) : 0)
-                        : Number(record[`${eventId}_success`] || record[`${eventId}_count`] || 0);
-                    groupedData[timeKey].parentTotal += count;
-                    groupedData[timeKey].parentBreakdown[eventId] = (groupedData[timeKey].parentBreakdown[eventId] || 0) + count;
+                    if (debug) console.log(`[PARENT LOOP] Checking eventId ${eventId} against record.eventId ${record.eventId}`);
+                    if (isRawApiData && String(record.eventId) === String(eventId)) {
+                        if (hasAvgData) {
+                            // For avg metrics, track sum and count
+                            const avgValue = Number(record.avgDelay || record.avg || 0);
+                            if (debug) console.log(`[PARENT] Matched eventId ${eventId}, adding avgDelay ${avgValue}`);
+                            groupedData[timeKey].parentAvgSum += avgValue;
+                            groupedData[timeKey].parentAvgCount += 1;
+                            groupedData[timeKey].isAvgMetric = true;
+                        } else {
+                            // For count metrics, just sum
+                            const count = Number(record.count || 0);
+                            groupedData[timeKey].parentTotal += count;
+                            groupedData[timeKey].parentBreakdown[eventId] = (groupedData[timeKey].parentBreakdown[eventId] || 0) + count;
+                        }
+                    } else if (!isRawApiData) {
+                        const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || record[`${eventId}_avg`] || 0);
+                        groupedData[timeKey].parentTotal += count;
+                        groupedData[timeKey].parentBreakdown[eventId] = (groupedData[timeKey].parentBreakdown[eventId] || 0) + count;
+                    }
                 });
 
                 childEvents.forEach((eventId) => {
-                    const count = isRawApiData
-                        ? (String(record.eventId) === String(eventId) ? Number(record.count || 0) : 0)
-                        : Number(record[`${eventId}_success`] || record[`${eventId}_count`] || 0);
-                    groupedData[timeKey].childTotal += count;
-                    groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
+                    if (isRawApiData && String(record.eventId) === String(eventId)) {
+                        if (hasAvgData) {
+                            // For avg metrics, track sum and count PER CHILD EVENT
+                            const avgValue = Number(record.avgDelay || record.avg || 0);
+                            if (debug) console.log(`[CHILD] Matched eventId ${eventId}, adding avgDelay ${avgValue}`);
+                            if (!groupedData[timeKey].childAvgData[eventId]) {
+                                groupedData[timeKey].childAvgData[eventId] = { sum: 0, count: 0 };
+                            }
+                            groupedData[timeKey].childAvgData[eventId].sum += avgValue;
+                            groupedData[timeKey].childAvgData[eventId].count += 1;
+                            groupedData[timeKey].isAvgMetric = true;
+                        } else {
+                            // For count metrics, just sum
+                            const count = Number(record.count || 0);
+                            groupedData[timeKey].childTotal += count;
+                            groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
+                        }
+                    } else if (!isRawApiData) {
+                        const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || record[`${eventId}_avg`] || 0);
+                        groupedData[timeKey].childTotal += count;
+                        groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
+                    }
                 });
             });
 
             return Object.entries(groupedData)
-                .map(([timeKey, values]) => ({
-                    time: timeKey,
-                    percentage: values.parentTotal > 0 ? (values.childTotal / values.parentTotal) * 100 : 0,
-                    parentCount: values.parentTotal,
-                    childCount: values.childTotal,
-                    timestamp: values.timestamp,
-                    parentBreakdown: values.parentBreakdown,
-                    childBreakdown: values.childBreakdown,
-                }))
+                .map(([timeKey, values]) => {
+                    // For avg metrics, compute the actual average
+                    const parentValue = values.isAvgMetric
+                        ? (values.parentAvgCount > 0 ? values.parentAvgSum / values.parentAvgCount : 0)
+                        : values.parentTotal;
+
+                    let childValue = 0;
+                    const finalChildBreakdown: Record<string, number> = {};
+
+                    if (values.isAvgMetric) {
+                        // For avgDelay: compute average for each child event and populate breakdown
+                        Object.entries(values.childAvgData).forEach(([eventId, data]) => {
+                            const avg = data.count > 0 ? data.sum / data.count : 0;
+                            finalChildBreakdown[eventId] = avg;
+                            childValue += avg; // Sum of averages for overall child value
+                        });
+                    } else {
+                        // For count metrics: use existing breakdown
+                        childValue = values.childTotal;
+                        Object.assign(finalChildBreakdown, values.childBreakdown);
+                    }
+
+                    return {
+                        time: timeKey,
+                        percentage: parentValue > 0 ? (childValue / parentValue) * 100 : 0,
+                        parentCount: parentValue,
+                        childCount: childValue,
+                        timestamp: values.timestamp,
+                        parentBreakdown: values.parentBreakdown,
+                        childBreakdown: finalChildBreakdown,
+                        isAvgMetric: values.isAvgMetric,
+                    };
+                })
                 .sort((a, b) => a.timestamp - b.timestamp);
         }
 
@@ -126,6 +193,11 @@ export function PercentageGraph({
             timestamp: number;
             parentBreakdown: Record<string, number>;
             childBreakdown: Record<string, number>;
+            // For average metrics - track sum and count per event
+            parentAvgSum: number;
+            parentAvgCount: number;
+            childAvgData: Record<string, { sum: number; count: number }>;
+            isAvgMetric: boolean;
         }> = {};
 
         data.forEach((record) => {
@@ -141,33 +213,47 @@ export function PercentageGraph({
                     timestamp: date.getTime(),
                     parentBreakdown: {},
                     childBreakdown: {},
+                    parentAvgSum: 0,
+                    parentAvgCount: 0,
+                    childAvgData: {},
+                    isAvgMetric: false,
                 };
             }
 
             parentEvents.forEach((eventId) => {
                 // Parent events are ALWAYS unfiltered - use total count regardless of filters
                 let totalCount = 0;
-                
+
                 // Check if this is raw API data (has eventId, status, cacheStatus fields)
-                const isRawApiData = record.eventId !== undefined && record.status !== undefined;
-                
+                const isRawApiData = record.eventId !== undefined;
+                const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
+
                 if (isRawApiData) {
                     // Raw API data - sum all records for this eventId (unfiltered total)
                     if (String(record.eventId) === String(eventId)) {
-                        totalCount = Number(record.count || 0);
-                        // Track by status code for breakdown
-                        const statusKey = `status_${record.status}`;
-                        groupedData[timeKey].parentBreakdown[statusKey] = 
-                            (groupedData[timeKey].parentBreakdown[statusKey] || 0) + totalCount;
+                        if (hasAvgData) {
+                            // For avg metrics, track sum and count
+                            const avgValue = Number(record.avgDelay || record.avg || 0);
+                            groupedData[timeKey].parentAvgSum += avgValue;
+                            groupedData[timeKey].parentAvgCount += 1;
+                            groupedData[timeKey].isAvgMetric = true;
+                        } else {
+                            totalCount = Number(record.count || 0);
+                            // Track by status code for breakdown
+                            const statusKey = record.status ? `status_${record.status}` : 'status_unknown';
+                            groupedData[timeKey].parentBreakdown[statusKey] =
+                                (groupedData[timeKey].parentBreakdown[statusKey] || 0) + totalCount;
+                            groupedData[timeKey].parentTotal += totalCount;
+                        }
                     }
                 } else {
                     // Processed data - use existing key-based logic
                     const baseName = eventNames[eventId] || `Event ${eventId}`;
                     const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
-                    
+
                     // Check if this is an API event by looking for status/cache breakdown in the data
                     const hasApiBreakdown = Object.keys(record).some(key => key.includes(`${eventKey}_status_`) || key.includes(`${eventKey}_cache_`));
-                    
+
                     if (hasApiBreakdown) {
                         // Sum all status codes and cache combinations for total unfiltered count
                         Object.keys(record).forEach(key => {
@@ -178,7 +264,7 @@ export function PercentageGraph({
                                 const statusMatch = key.match(/_status_(\d+)_/);
                                 if (statusMatch && statusMatch[1]) {
                                     const statusKey = `status_${statusMatch[1]}`;
-                                    groupedData[timeKey].parentBreakdown[statusKey] = 
+                                    groupedData[timeKey].parentBreakdown[statusKey] =
                                         (groupedData[timeKey].parentBreakdown[statusKey] || 0) + count;
                                 }
                             }
@@ -187,13 +273,17 @@ export function PercentageGraph({
                         // Regular event - use success or count key
                         const successKey = `${eventId}_success`;
                         const countKey = `${eventId}_count`;
-                        totalCount = Number(record[successKey] || record[countKey] || 0);
+                        const avgKey = `${eventId}_avg`;
+                        totalCount = Number(record[successKey] || record[countKey] || record[avgKey] || 0);
                     }
                 }
 
-                groupedData[timeKey].parentTotal += totalCount;
+
+                if (!hasAvgData) {
+                    groupedData[timeKey].parentTotal += totalCount;
+                }
                 // For API events, track by status code; for regular events, track by eventId
-                if (isRawApiData && String(record.eventId) === String(eventId)) {
+                if (isRawApiData && String(record.eventId) === String(eventId) && !hasAvgData) {
                     // Already tracked above
                 } else {
                     groupedData[timeKey].parentBreakdown[eventId] =
@@ -205,23 +295,36 @@ export function PercentageGraph({
                 let count = 0;
 
                 // Check if this is raw API data (has eventId, status, cacheStatus fields)
-                const isRawApiData = record.eventId !== undefined && record.status !== undefined;
+                // Relaxed check: just eventId presence
+                const isRawApiData = record.eventId !== undefined;
+                const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
 
                 if (isRawApiData) {
                     // Raw API data - match eventId and apply filters directly
                     if (String(record.eventId) === String(eventId)) {
-                        const recordStatus = String(record.status);
+                        const recordStatus = String(record.status || 'unknown');
                         const recordCache = String(record.cacheStatus || 'none');
-                        
+
                         const statusMatch = !hasStatusFilter || statusCodes.includes(recordStatus);
                         const cacheMatch = !hasCacheFilter || cacheStatuses.includes(recordCache);
-                        
+
                         if (statusMatch && cacheMatch) {
-                            count = Number(record.count || 0);
-                            // Track by status code for breakdown
-                            const statusKey = `status_${recordStatus}`;
-                            groupedData[timeKey].childBreakdown[statusKey] = 
-                                (groupedData[timeKey].childBreakdown[statusKey] || 0) + count;
+                            if (hasAvgData) {
+                                // For avg metrics, track sum and count PER CHILD EVENT
+                                const avgValue = Number(record.avgDelay || record.avg || 0);
+                                if (!groupedData[timeKey].childAvgData[eventId]) {
+                                    groupedData[timeKey].childAvgData[eventId] = { sum: 0, count: 0 };
+                                }
+                                groupedData[timeKey].childAvgData[eventId].sum += avgValue;
+                                groupedData[timeKey].childAvgData[eventId].count += 1;
+                                groupedData[timeKey].isAvgMetric = true;
+                            } else {
+                                count = Number(record.count || 0);
+                                // Track by status code for breakdown
+                                const statusKey = `status_${recordStatus}`;
+                                groupedData[timeKey].childBreakdown[statusKey] =
+                                    (groupedData[timeKey].childBreakdown[statusKey] || 0) + count;
+                            }
                         }
                     }
                 } else {
@@ -260,7 +363,7 @@ export function PercentageGraph({
                                 count += statusCount;
                                 // Track by status code for breakdown
                                 const breakdownKey = `status_${status}`;
-                                groupedData[timeKey].childBreakdown[breakdownKey] = 
+                                groupedData[timeKey].childBreakdown[breakdownKey] =
                                     (groupedData[timeKey].childBreakdown[breakdownKey] || 0) + statusCount;
                             });
                         } else if (hasCacheFilter) {
@@ -273,7 +376,8 @@ export function PercentageGraph({
                     } else {
                         const successKey = `${eventId}_success`;
                         const countKey = `${eventId}_count`;
-                        count = Number(record[successKey] || record[countKey] || 0);
+                        const avgKey = `${eventId}_avg`;
+                        count = Number(record[successKey] || record[countKey] || record[avgKey] || 0);
                     }
                 }
 
@@ -288,15 +392,39 @@ export function PercentageGraph({
         });
 
         const result = Object.entries(groupedData)
-            .map(([timeKey, values]) => ({
-                time: timeKey,
-                percentage: values.parentTotal > 0 ? (values.childTotal / values.parentTotal) * 100 : 0,
-                parentCount: values.parentTotal,
-                childCount: values.childTotal,
-                timestamp: values.timestamp,
-                parentBreakdown: values.parentBreakdown,
-                childBreakdown: values.childBreakdown,
-            }))
+            .map(([timeKey, values]) => {
+                // For avg metrics, compute the actual average
+                const parentValue = values.isAvgMetric
+                    ? (values.parentAvgCount > 0 ? values.parentAvgSum / values.parentAvgCount : 0)
+                    : values.parentTotal;
+                
+                let childValue = 0;
+                const finalChildBreakdown: Record<string, number> = {};
+                
+                if (values.isAvgMetric) {
+                    // For avgDelay: compute average for each child event and populate breakdown
+                    Object.entries(values.childAvgData).forEach(([eventId, data]) => {
+                        const avg = data.count > 0 ? data.sum / data.count : 0;
+                        finalChildBreakdown[eventId] = avg;
+                        childValue += avg; // Sum of averages for overall child value
+                    });
+                } else {
+                    // For count metrics: use existing breakdown
+                    childValue = values.childTotal;
+                    Object.assign(finalChildBreakdown, values.childBreakdown);
+                }
+
+                return {
+                    time: timeKey,
+                    percentage: parentValue > 0 ? (childValue / parentValue) * 100 : 0,
+                    parentCount: parentValue,
+                    childCount: childValue,
+                    timestamp: values.timestamp,
+                    parentBreakdown: values.parentBreakdown,
+                    childBreakdown: finalChildBreakdown,
+                    isAvgMetric: values.isAvgMetric,
+                };
+            })
             .sort((a, b) => a.timestamp - b.timestamp);
 
         if (debug) {
@@ -304,7 +432,7 @@ export function PercentageGraph({
             console.log('Total parent events across all time periods:', result.reduce((sum, r) => sum + r.parentCount, 0));
             console.log('Total child events across all time periods:', result.reduce((sum, r) => sum + r.childCount, 0));
         }
-        
+
         return result;
     }, [data, parentEvents, childEvents, filters, eventNames, isHourly]);
 
@@ -368,7 +496,7 @@ export function PercentageGraph({
 
     // For API events, show status/cache codes instead of endpoint names
     const isApiEventMode = filters && (filters.statusCodes?.length > 0 || filters.cacheStatus?.length > 0);
-    
+
     const getParentEventNames = () => {
         if (isApiEventMode) {
             // Parent = all status codes (not just 2xx)
@@ -376,7 +504,7 @@ export function PercentageGraph({
         }
         return parentEvents.map((id: string) => eventNames[id] || id).join(', ');
     };
-    
+
     const getChildEventNames = () => {
         if (isApiEventMode) {
             const parts: string[] = [];
@@ -401,430 +529,430 @@ export function PercentageGraph({
     return (
         <>
             <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-xl rounded-2xl">
-            <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-purple-50/80 to-violet-50/60 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-200/40 dark:border-purple-500/20">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg">
-                            <Percent className="h-5 w-5 text-white" />
+                <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-purple-50/80 to-violet-50/60 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-200/40 dark:border-purple-500/20">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg">
+                                <Percent className="h-5 w-5 text-white" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-base md:text-lg">Percentage Analysis</CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Child/Parent Event Ratio • {isHourly ? 'Hourly' : 'Daily'} Breakdown
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <CardTitle className="text-base md:text-lg">Percentage Analysis</CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                Child/Parent Event Ratio • {isHourly ? 'Hourly' : 'Daily'} Breakdown
-                            </p>
+                        <div className="flex items-center gap-3">
+                            {onToggleBackToFunnel && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={onToggleBackToFunnel}
+                                    className="text-xs font-medium bg-white/80 hover:bg-white border-purple-300 text-purple-700 hover:text-purple-800"
+                                >
+                                    <BarChart3 className="h-3 w-3 mr-1" />
+                                    Back to Funnel
+                                </Button>
+                            )}
+                            <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-3 py-1">
+                                <span className="text-lg font-bold">{overallStats.percentage.toFixed(2)}%</span>
+                            </Badge>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        {onToggleBackToFunnel && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={onToggleBackToFunnel}
-                                className="text-xs font-medium bg-white/80 hover:bg-white border-purple-300 text-purple-700 hover:text-purple-800"
-                            >
-                                <BarChart3 className="h-3 w-3 mr-1" />
-                                Back to Funnel
-                            </Button>
-                        )}
-                        <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-3 py-1">
-                            <span className="text-lg font-bold">{overallStats.percentage.toFixed(2)}%</span>
-                        </Badge>
-                    </div>
-                </div>
-            </CardHeader>
+                </CardHeader>
 
-            <CardContent className="p-4 md:p-6">
-                {/* Summary Stats - Parent on Left, Child on Right */}
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                    <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30">
-                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                            {overallStats.totalParent.toLocaleString()}
+                <CardContent className="p-4 md:p-6">
+                    {/* Summary Stats - Parent on Left, Child on Right */}
+                    <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30">
+                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                {overallStats.totalParent.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">Parent Events (Left)</div>
+                            <div className="text-xs text-muted-foreground truncate" title={getParentEventNames()}>
+                                {getParentEventNames()}
+                            </div>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">Parent Events (Left)</div>
-                        <div className="text-xs text-muted-foreground truncate" title={getParentEventNames()}>
-                            {getParentEventNames()}
+                        <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
+                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                {overallStats.percentage.toFixed(2)}%
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">Overall Ratio</div>
+                            <div className="text-xs text-muted-foreground">
+                                Range: {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
+                            </div>
+                        </div>
+                        <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-500/30">
+                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                {overallStats.totalChild.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">Child Events (Right)</div>
+                            <div className="text-xs text-muted-foreground truncate" title={getChildEventNames()}>
+                                {getChildEventNames()}
+                            </div>
                         </div>
                     </div>
-                    <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
-                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                            {overallStats.percentage.toFixed(2)}%
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">Overall Ratio</div>
-                        <div className="text-xs text-muted-foreground">
-                            Range: {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
-                        </div>
-                    </div>
-                    <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-500/30">
-                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                            {overallStats.totalChild.toLocaleString()}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">Child Events (Right)</div>
-                        <div className="text-xs text-muted-foreground truncate" title={getChildEventNames()}>
-                            {getChildEventNames()}
-                        </div>
-                    </div>
-                </div>
 
-                {/* Line Chart */}
-                <div className="h-[420px] mt-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart
-                            data={chartData}
-                            onClick={(e: any) => {
-                                // Handle chart background click
-                                if (e?.activePayload?.[0]?.payload) {
-                                    handleDataPointClick(e.activePayload[0].payload);
-                                }
-                            }}
-                        >
-                            <defs>
-                                <linearGradient id="percentageGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
-                            <XAxis
-                                dataKey="time"
-                                tick={{ fontSize: 11, fill: '#6b7280' }}
-                                angle={-45}
-                                textAnchor="end"
-                                height={80}
-                                tickMargin={8}
-                                interval="preserveStartEnd"
-                            />
-                            <YAxis
-                                tick={{ fontSize: 11, fill: '#6b7280' }}
-                                label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
-                                domain={yAxisConfig.domain}
-                                ticks={yAxisConfig.ticks as any}
-                            />
-                            <ReferenceLine
-                                y={overallStats.percentage}
-                                stroke="#facc15"
-                                strokeWidth={2}
-                                strokeDasharray="4 4"
-                                label={{ value: 'Avg', position: 'right', fill: '#facc15', fontSize: 11 }}
-                            />
-                            <Tooltip
-                                content={({ active, payload }) => {
-                                    if (active && payload && payload.length) {
-                                        const data = payload[0].payload;
-                                        const parentBreakdown = (data.parentBreakdown || {}) as Record<string, number>;
-                                        const childBreakdown = (data.childBreakdown || {}) as Record<string, number>;
-                                        const parentEntries = Object.entries(parentBreakdown);
-                                        const childEntries = Object.entries(childBreakdown);
-                                        return (
-                                            <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
-                                                <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
-                                                <div className="space-y-1 text-xs">
-                                                    <p className="text-purple-600 font-bold">
-                                                        Percentage: {data.percentage.toFixed(2)}%
-                                                    </p>
-                                                    <p className="text-green-600">
-                                                        Child: {data.childCount.toLocaleString()}
-                                                    </p>
-                                                    <p className="text-blue-600">
-                                                        Parent: {data.parentCount.toLocaleString()}
-                                                    </p>
-                                                    {childEntries.length > 0 && (
-                                                        <div className="mt-2">
-                                                            <p className="font-semibold mb-1 text-xs text-green-700">
-                                                                {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
-                                                            </p>
-                                                            {childEntries.map(([key, count]) => {
-                                                                // For API events, show actual status code or cache status
-                                                                const displayLabel = isApiEventMode 
-                                                                    ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : 
-                                                                       key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
-                                                                       (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
-                                                                    : (eventNames[key] || key);
-                                                                return (
-                                                                    <div key={key} className="flex items-center justify-between">
-                                                                        <span>{displayLabel}</span>
-                                                                        <span className="font-mono">{count.toLocaleString()}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                    {parentEntries.length > 0 && (
-                                                        <div className="mt-2">
-                                                            <p className="font-semibold mb-1 text-xs text-blue-700">
-                                                                {isApiEventMode ? 'All Status Codes' : 'Parent breakdown'}
-                                                            </p>
-                                                            {parentEntries.map(([key, count]) => {
-                                                                // For API events, key might be status code or eventId
-                                                                // Extract status code if it's in format "status_XXX" or just use the key
-                                                                const displayLabel = isApiEventMode 
-                                                                    ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : `Status ${key}`))
-                                                                    : (eventNames[key] || key);
-                                                                return (
-                                                                    <div key={key} className="flex items-center justify-between">
-                                                                        <span>{displayLabel}</span>
-                                                                        <span className="font-mono">{count.toLocaleString()}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    }
-                                    return null;
-                                }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="percentage"
-                                stroke="#8b5cf6"
-                                strokeWidth={3}
-                                fill="url(#percentageGradient)"
-                                name="Child/Parent %"
-                                isAnimationActive={false}
-                                activeDot={{ 
-                                    r: 8, 
-                                    fill: "#8b5cf6",
-                                    stroke: "#fff",
-                                    strokeWidth: 2,
-                                    cursor: "pointer",
-                                    onClick: (e: any, payload: any) => {
-                                        e?.stopPropagation?.();
-                                        if (payload?.payload) {
-                                            handleDataPointClick(payload.payload);
-                                        }
-                                    }
-                                }}
+                    {/* Line Chart */}
+                    <div className="h-[420px] mt-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart
+                                data={chartData}
                                 onClick={(e: any) => {
-                                    e?.stopPropagation?.();
+                                    // Handle chart background click
                                     if (e?.activePayload?.[0]?.payload) {
                                         handleDataPointClick(e.activePayload[0].payload);
                                     }
                                 }}
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-
-                {/* Legend */}
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-purple-500"></div>
-                            <span>Percentage</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                            <span>{isApiEventMode ? 'Selected Status/Cache' : 'Child Events'}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                            <span>{isApiEventMode ? 'All Status Codes' : 'Parent Events'}</span>
-                        </div>
+                            >
+                                <defs>
+                                    <linearGradient id="percentageGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                                <XAxis
+                                    dataKey="time"
+                                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                    tickMargin={8}
+                                    interval="preserveStartEnd"
+                                />
+                                <YAxis
+                                    tick={{ fontSize: 11, fill: '#6b7280' }}
+                                    label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                                    domain={yAxisConfig.domain}
+                                    ticks={yAxisConfig.ticks as any}
+                                />
+                                <ReferenceLine
+                                    y={overallStats.percentage}
+                                    stroke="#facc15"
+                                    strokeWidth={2}
+                                    strokeDasharray="4 4"
+                                    label={{ value: 'Avg', position: 'right', fill: '#facc15', fontSize: 11 }}
+                                />
+                                <Tooltip
+                                    content={({ active, payload }) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            const parentBreakdown = (data.parentBreakdown || {}) as Record<string, number>;
+                                            const childBreakdown = (data.childBreakdown || {}) as Record<string, number>;
+                                            const parentEntries = Object.entries(parentBreakdown);
+                                            const childEntries = Object.entries(childBreakdown);
+                                            return (
+                                                <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
+                                                    <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
+                                                    <div className="space-y-1 text-xs">
+                                                        <p className="text-purple-600 font-bold">
+                                                            Percentage: {data.percentage.toFixed(2)}%
+                                                        </p>
+                                                        <p className="text-green-600">
+                                                            Child: {data.childCount.toLocaleString()}
+                                                        </p>
+                                                        <p className="text-blue-600">
+                                                            Parent: {data.parentCount.toLocaleString()}
+                                                        </p>
+                                                        {childEntries.length > 0 && (
+                                                            <div className="mt-2">
+                                                                <p className="font-semibold mb-1 text-xs text-green-700">
+                                                                    {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
+                                                                </p>
+                                                                {childEntries.map(([key, count]) => {
+                                                                    // For API events, show actual status code or cache status
+                                                                    const displayLabel = isApiEventMode
+                                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                            key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
+                                                                                (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                                        : (eventNames[key] || key);
+                                                                    return (
+                                                                        <div key={key} className="flex items-center justify-between">
+                                                                            <span>{displayLabel}</span>
+                                                                            <span className="font-mono">{count.toLocaleString()}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                        {parentEntries.length > 0 && (
+                                                            <div className="mt-2">
+                                                                <p className="font-semibold mb-1 text-xs text-blue-700">
+                                                                    {isApiEventMode ? 'All Status Codes' : 'Parent breakdown'}
+                                                                </p>
+                                                                {parentEntries.map(([key, count]) => {
+                                                                    // For API events, key might be status code or eventId
+                                                                    // Extract status code if it's in format "status_XXX" or just use the key
+                                                                    const displayLabel = isApiEventMode
+                                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : `Status ${key}`))
+                                                                        : (eventNames[key] || key);
+                                                                    return (
+                                                                        <div key={key} className="flex items-center justify-between">
+                                                                            <span>{displayLabel}</span>
+                                                                            <span className="font-mono">{count.toLocaleString()}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="percentage"
+                                    stroke="#8b5cf6"
+                                    strokeWidth={3}
+                                    fill="url(#percentageGradient)"
+                                    name="Child/Parent %"
+                                    isAnimationActive={false}
+                                    activeDot={{
+                                        r: 8,
+                                        fill: "#8b5cf6",
+                                        stroke: "#fff",
+                                        strokeWidth: 2,
+                                        cursor: "pointer",
+                                        onClick: (e: any, payload: any) => {
+                                            e?.stopPropagation?.();
+                                            if (payload?.payload) {
+                                                handleDataPointClick(payload.payload);
+                                            }
+                                        }
+                                    }}
+                                    onClick={(e: any) => {
+                                        e?.stopPropagation?.();
+                                        if (e?.activePayload?.[0]?.payload) {
+                                            handleDataPointClick(e.activePayload[0].payload);
+                                        }
+                                    }}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
                     </div>
-                    <p className="text-center text-xs text-muted-foreground mt-2">
-                        Click any point on the chart to view detailed breakdown
-                    </p>
-                </div>
-            </CardContent>
-        </Card>
 
-        {/* Expanded Data Point Modal */}
-        <Dialog open={!!selectedPoint} onOpenChange={(open) => !open && setSelectedPoint(null)}>
-            <DialogContent
-                showCloseButton={false}
-                className="w-full sm:max-w-2xl max-h-[90vh] overflow-hidden p-0 bg-white"
-                style={{ backgroundColor: 'white' }}
-            >
-                {selectedPoint && (
-                    <>
-                        {/* Premium Header */}
-                        <div className="relative px-6 py-5 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                    <BarChart3 className="h-6 w-6 text-white" />
-                                </div>
-                                <div className="flex-1">
-                                    <h2 className="text-xl font-bold">{selectedPoint.time}</h2>
-                                    <p className="text-purple-100 text-sm">
-                                        Percentage Analysis Breakdown
-                                    </p>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setSelectedPoint(null)}
-                                    className="ml-auto h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white"
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
+                    {/* Legend */}
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded-full bg-purple-500"></div>
+                                <span>Percentage</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                                <span>{isApiEventMode ? 'Selected Status/Cache' : 'Child Events'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-3 w-3 rounded-full bg-blue-500"></div>
+                                <span>{isApiEventMode ? 'All Status Codes' : 'Parent Events'}</span>
                             </div>
                         </div>
+                        <p className="text-center text-xs text-muted-foreground mt-2">
+                            Click any point on the chart to view detailed breakdown
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
 
-                        {/* Main Content */}
-                        <div className="p-6 md:p-8" style={{ backgroundColor: 'white' }}>
-                            {/* Key Metric - Percentage */}
-                            <div className="mb-6 p-6 bg-purple-100 rounded-2xl border-2 border-purple-300 shadow-lg text-center" style={{ backgroundColor: '#f3e8ff' }}>
-                                <div className="text-5xl font-bold text-purple-600 mb-2">
-                                    {selectedPoint.percentage.toFixed(2)}%
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                    Child / Parent Ratio
+            {/* Expanded Data Point Modal */}
+            <Dialog open={!!selectedPoint} onOpenChange={(open) => !open && setSelectedPoint(null)}>
+                <DialogContent
+                    showCloseButton={false}
+                    className="w-full sm:max-w-2xl max-h-[90vh] overflow-hidden p-0 bg-white"
+                    style={{ backgroundColor: 'white' }}
+                >
+                    {selectedPoint && (
+                        <>
+                            {/* Premium Header */}
+                            <div className="relative px-6 py-5 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                        <BarChart3 className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h2 className="text-xl font-bold">{selectedPoint.time}</h2>
+                                        <p className="text-purple-100 text-sm">
+                                            Percentage Analysis Breakdown
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setSelectedPoint(null)}
+                                        className="ml-auto h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </div>
 
-                            {/* Counts Grid - Parent Left, Child Right */}
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="bg-white dark:bg-white rounded-xl border border-blue-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                                            <Activity className="h-4 w-4 text-blue-600" />
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-700">Parent Count</span>
+                            {/* Main Content */}
+                            <div className="p-6 md:p-8" style={{ backgroundColor: 'white' }}>
+                                {/* Key Metric - Percentage */}
+                                <div className="mb-6 p-6 bg-purple-100 rounded-2xl border-2 border-purple-300 shadow-lg text-center" style={{ backgroundColor: '#f3e8ff' }}>
+                                    <div className="text-5xl font-bold text-purple-600 mb-2">
+                                        {selectedPoint.percentage.toFixed(2)}%
                                     </div>
-                                    <div className="text-3xl font-bold text-blue-600">
-                                        {selectedPoint.parentCount.toLocaleString()}
+                                    <div className="text-sm text-gray-600">
+                                        Child / Parent Ratio
                                     </div>
                                 </div>
 
-                                <div className="bg-white dark:bg-white rounded-xl border border-green-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
-                                            <TrendingUp className="h-4 w-4 text-green-600" />
+                                {/* Counts Grid - Parent Left, Child Right */}
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="bg-white dark:bg-white rounded-xl border border-blue-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                                <Activity className="h-4 w-4 text-blue-600" />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-700">Parent Count</span>
                                         </div>
-                                        <span className="text-sm font-medium text-gray-700">Child Count</span>
+                                        <div className="text-3xl font-bold text-blue-600">
+                                            {selectedPoint.parentCount.toLocaleString()}
+                                        </div>
                                     </div>
-                                    <div className="text-3xl font-bold text-green-600">
-                                        {selectedPoint.childCount.toLocaleString()}
+
+                                    <div className="bg-white dark:bg-white rounded-xl border border-green-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+                                                <TrendingUp className="h-4 w-4 text-green-600" />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-700">Child Count</span>
+                                        </div>
+                                        <div className="text-3xl font-bold text-green-600">
+                                            {selectedPoint.childCount.toLocaleString()}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Event Breakdowns - Parent Left, Child Right */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Parent Events Breakdown - LEFT SIDE */}
-                                {selectedPoint.parentBreakdown && Object.keys(selectedPoint.parentBreakdown).length > 0 && (
-                                    <div className="bg-white rounded-xl border border-blue-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
-                                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-blue-700">
-                                            <Activity className="h-4 w-4" />
-                                            Parent Event Breakdown
-                                        </h3>
-                                        <div className="space-y-3">
-                                            {(() => {
-                                                const entries = Object.entries(selectedPoint.parentBreakdown as Record<string, number>)
-                                                    .map(([key, count]) => ({ key, count }))
-                                                    .sort((a, b) => b.count - a.count);
-                                                const top2 = entries.slice(0, 2);
-                                                const others = entries.slice(2);
-                                                const othersTotal = others.reduce((sum, e) => sum + e.count, 0);
-                                                
-                                                return (
-                                                    <>
-                                                        {top2.map(({ key, count }) => {
-                                                            const displayLabel = isApiEventMode 
-                                                                ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : 
-                                                                   (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
-                                                                : (eventNames[key] || key);
-                                                            return (
-                                                                <div
-                                                                    key={key}
-                                                                    className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200"
-                                                                    style={{ backgroundColor: '#eff6ff' }}
-                                                                >
+                                {/* Event Breakdowns - Parent Left, Child Right */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Parent Events Breakdown - LEFT SIDE */}
+                                    {selectedPoint.parentBreakdown && Object.keys(selectedPoint.parentBreakdown).length > 0 && (
+                                        <div className="bg-white rounded-xl border border-blue-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
+                                            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-blue-700">
+                                                <Activity className="h-4 w-4" />
+                                                Parent Event Breakdown
+                                            </h3>
+                                            <div className="space-y-3">
+                                                {(() => {
+                                                    const entries = Object.entries(selectedPoint.parentBreakdown as Record<string, number>)
+                                                        .map(([key, count]) => ({ key, count }))
+                                                        .sort((a, b) => b.count - a.count);
+                                                    const top2 = entries.slice(0, 2);
+                                                    const others = entries.slice(2);
+                                                    const othersTotal = others.reduce((sum, e) => sum + e.count, 0);
+
+                                                    return (
+                                                        <>
+                                                            {top2.map(({ key, count }) => {
+                                                                const displayLabel = isApiEventMode
+                                                                    ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                        (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                                    : (eventNames[key] || key);
+                                                                return (
+                                                                    <div
+                                                                        key={key}
+                                                                        className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200"
+                                                                        style={{ backgroundColor: '#eff6ff' }}
+                                                                    >
+                                                                        <span className="text-sm font-medium truncate flex-1 mr-2 text-gray-900">
+                                                                            {displayLabel}
+                                                                        </span>
+                                                                        <div className="text-right">
+                                                                            <div className="text-sm font-bold text-blue-700">
+                                                                                {count.toLocaleString()}
+                                                                            </div>
+                                                                            <div className="text-xs text-gray-600">
+                                                                                {selectedPoint.parentCount > 0
+                                                                                    ? ((count / selectedPoint.parentCount) * 100).toFixed(1)
+                                                                                    : '0'}%
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {othersTotal > 0 && (
+                                                                <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200" style={{ backgroundColor: '#eff6ff' }}>
                                                                     <span className="text-sm font-medium truncate flex-1 mr-2 text-gray-900">
-                                                                        {displayLabel}
+                                                                        Others ({others.length})
                                                                     </span>
                                                                     <div className="text-right">
                                                                         <div className="text-sm font-bold text-blue-700">
-                                                                            {count.toLocaleString()}
+                                                                            {othersTotal.toLocaleString()}
                                                                         </div>
                                                                         <div className="text-xs text-gray-600">
-                                                                            {selectedPoint.parentCount > 0 
-                                                                                ? ((count / selectedPoint.parentCount) * 100).toFixed(1)
+                                                                            {selectedPoint.parentCount > 0
+                                                                                ? ((othersTotal / selectedPoint.parentCount) * 100).toFixed(1)
                                                                                 : '0'}%
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                            );
-                                                        })}
-                                                        {othersTotal > 0 && (
-                                                            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200" style={{ backgroundColor: '#eff6ff' }}>
-                                                                <span className="text-sm font-medium truncate flex-1 mr-2 text-gray-900">
-                                                                    Others ({others.length})
-                                                                </span>
-                                                                <div className="text-right">
-                                                                    <div className="text-sm font-bold text-blue-700">
-                                                                        {othersTotal.toLocaleString()}
-                                                                    </div>
-                                                                    <div className="text-xs text-gray-600">
-                                                                        {selectedPoint.parentCount > 0 
-                                                                            ? ((othersTotal / selectedPoint.parentCount) * 100).toFixed(1)
-                                                                            : '0'}%
-                                                                    </div>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Child Events Breakdown - RIGHT SIDE */}
+                                    {selectedPoint.childBreakdown && Object.keys(selectedPoint.childBreakdown).length > 0 && (
+                                        <div className="bg-white rounded-xl border border-green-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
+                                            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-green-700">
+                                                <TrendingUp className="h-4 w-4" />
+                                                Child Event Breakdown
+                                            </h3>
+                                            <div className="space-y-3">
+                                                {Object.entries(selectedPoint.childBreakdown as Record<string, number>).map(([key, count]) => {
+                                                    const displayLabel = isApiEventMode
+                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                            key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
+                                                                (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                        : (eventNames[key] || key);
+                                                    return (
+                                                        <div
+                                                            key={key}
+                                                            className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"
+                                                            style={{ backgroundColor: '#f0fdf4' }}
+                                                        >
+                                                            <span className="text-sm font-medium truncate flex-1 mr-2">
+                                                                {displayLabel}
+                                                            </span>
+                                                            <div className="text-right">
+                                                                <div className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                                                                    {count.toLocaleString()}
+                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    {selectedPoint.parentCount > 0
+                                                                        ? ((count / selectedPoint.parentCount) * 100).toFixed(1)
+                                                                        : '0'}%
                                                                 </div>
                                                             </div>
-                                                        )}
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Child Events Breakdown - RIGHT SIDE */}
-                                {selectedPoint.childBreakdown && Object.keys(selectedPoint.childBreakdown).length > 0 && (
-                                    <div className="bg-white rounded-xl border border-green-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
-                                        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2 text-green-700">
-                                            <TrendingUp className="h-4 w-4" />
-                                            Child Event Breakdown
-                                        </h3>
-                                        <div className="space-y-3">
-                                            {Object.entries(selectedPoint.childBreakdown as Record<string, number>).map(([key, count]) => {
-                                                const displayLabel = isApiEventMode 
-                                                    ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : 
-                                                       key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
-                                                       (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
-                                                    : (eventNames[key] || key);
-                                                return (
-                                                <div
-                                                    key={key}
-                                                    className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"
-                                                    style={{ backgroundColor: '#f0fdf4' }}
-                                                >
-                                                    <span className="text-sm font-medium truncate flex-1 mr-2">
-                                                        {displayLabel}
-                                                    </span>
-                                                    <div className="text-right">
-                                                        <div className="text-sm font-bold text-blue-700 dark:text-blue-300">
-                                                            {count.toLocaleString()}
                                                         </div>
-                                                        <div className="text-xs text-muted-foreground">
-                                                            {selectedPoint.parentCount > 0 
-                                                                ? ((count / selectedPoint.parentCount) * 100).toFixed(1)
-                                                                : '0'}%
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
+                                    )}
+                                </div>
 
-                            {/* Footer Info */}
-                            <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>Time: {selectedPoint.time}</span>
-                                    <span>Click outside to close</span>
+                                {/* Footer Info */}
+                                <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>Time: {selectedPoint.time}</span>
+                                        <span>Click outside to close</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    </>
-                )}
-            </DialogContent>
-        </Dialog>
-    </>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
