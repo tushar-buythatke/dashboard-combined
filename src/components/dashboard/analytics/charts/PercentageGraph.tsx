@@ -68,10 +68,11 @@ export function PercentageGraph({
                 timestamp: number;
                 parentBreakdown: Record<string, number>;
                 childBreakdown: Record<string, number>;
-                // For average metrics - track sum and count per event
                 parentAvgSum: number;
                 parentAvgCount: number;
-                childAvgData: Record<string, { sum: number; count: number }>; // Per-child tracking
+                childAvgSum: number;
+                childAvgCount: number;
+                childAvgData: Record<string, { sum: number; count: number }>;
                 isAvgMetric: boolean;
             }> = {};
 
@@ -90,35 +91,34 @@ export function PercentageGraph({
                         childBreakdown: {},
                         parentAvgSum: 0,
                         parentAvgCount: 0,
+                        childAvgSum: 0,
+                        childAvgCount: 0,
                         childAvgData: {},
                         isAvgMetric: false,
                     };
                 }
 
                 // Fast path for unfiltered data
-                // Option A: for raw API data we always use `count` (not successCount)
-                // Relaxed check: just eventId is enough to consider it an event record
+                // For raw API data we always use count (not successCount)
                 const isRawApiData = record.eventId !== undefined;
                 const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
 
                 parentEvents.forEach((eventId) => {
-                    if (debug) console.log(`[PARENT LOOP] Checking eventId ${eventId} against record.eventId ${record.eventId}`);
                     if (isRawApiData && String(record.eventId) === String(eventId)) {
                         if (hasAvgData) {
                             // For avg metrics, track sum and count
                             const avgValue = Number(record.avgDelay || record.avg || 0);
-                            if (debug) console.log(`[PARENT] Matched eventId ${eventId}, adding avgDelay ${avgValue}`);
                             groupedData[timeKey].parentAvgSum += avgValue;
                             groupedData[timeKey].parentAvgCount += 1;
                             groupedData[timeKey].isAvgMetric = true;
                         } else {
-                            // For count metrics, just sum
+                            // For count metrics
                             const count = Number(record.count || 0);
                             groupedData[timeKey].parentTotal += count;
                             groupedData[timeKey].parentBreakdown[eventId] = (groupedData[timeKey].parentBreakdown[eventId] || 0) + count;
                         }
                     } else if (!isRawApiData) {
-                        const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || record[`${eventId}_avg`] || 0);
+                        const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || 0);
                         groupedData[timeKey].parentTotal += count;
                         groupedData[timeKey].parentBreakdown[eventId] = (groupedData[timeKey].parentBreakdown[eventId] || 0) + count;
                     }
@@ -127,23 +127,25 @@ export function PercentageGraph({
                 childEvents.forEach((eventId) => {
                     if (isRawApiData && String(record.eventId) === String(eventId)) {
                         if (hasAvgData) {
-                            // For avg metrics, track sum and count PER CHILD EVENT
+                            // For avg metrics, track sum and count PER CHILD EVENT and overall
                             const avgValue = Number(record.avgDelay || record.avg || 0);
-                            if (debug) console.log(`[CHILD] Matched eventId ${eventId}, adding avgDelay ${avgValue}`);
                             if (!groupedData[timeKey].childAvgData[eventId]) {
                                 groupedData[timeKey].childAvgData[eventId] = { sum: 0, count: 0 };
                             }
                             groupedData[timeKey].childAvgData[eventId].sum += avgValue;
                             groupedData[timeKey].childAvgData[eventId].count += 1;
+                            // Track overall child average
+                            groupedData[timeKey].childAvgSum += avgValue;
+                            groupedData[timeKey].childAvgCount += 1;
                             groupedData[timeKey].isAvgMetric = true;
                         } else {
-                            // For count metrics, just sum
+                            // For count metrics
                             const count = Number(record.count || 0);
                             groupedData[timeKey].childTotal += count;
                             groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
                         }
                     } else if (!isRawApiData) {
-                        const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || record[`${eventId}_avg`] || 0);
+                        const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || 0);
                         groupedData[timeKey].childTotal += count;
                         groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
                     }
@@ -161,11 +163,12 @@ export function PercentageGraph({
                     const finalChildBreakdown: Record<string, number> = {};
 
                     if (values.isAvgMetric) {
-                        // For avgDelay: compute average for each child event and populate breakdown
+                        // For avgDelay: compute overall child average
+                        childValue = values.childAvgCount > 0 ? values.childAvgSum / values.childAvgCount : 0;
+                        // Also compute per-child breakdown for tooltip and individual lines
                         Object.entries(values.childAvgData).forEach(([eventId, data]) => {
                             const avg = data.count > 0 ? data.sum / data.count : 0;
                             finalChildBreakdown[eventId] = avg;
-                            childValue += avg; // Sum of averages for overall child value
                         });
                     } else {
                         // For count metrics: use existing breakdown
@@ -187,8 +190,9 @@ export function PercentageGraph({
                         timestamp: values.timestamp,
                         parentBreakdown: values.parentBreakdown,
                         childBreakdown: finalChildBreakdown,
-                        ...childPercentages, // Add individual child percentage fields
                         isAvgMetric: values.isAvgMetric,
+                        ...childPercentages, // Add individual child percentage fields
+                        parent_percentage: parentValue > 0 ? 100 : 0, // Parent line at 100%
                     };
                 })
                 .sort((a, b) => a.timestamp - b.timestamp);
@@ -200,9 +204,10 @@ export function PercentageGraph({
             timestamp: number;
             parentBreakdown: Record<string, number>;
             childBreakdown: Record<string, number>;
-            // For average metrics - track sum and count per event
             parentAvgSum: number;
             parentAvgCount: number;
+            childAvgSum: number;
+            childAvgCount: number;
             childAvgData: Record<string, { sum: number; count: number }>;
             isAvgMetric: boolean;
         }> = {};
@@ -222,6 +227,8 @@ export function PercentageGraph({
                     childBreakdown: {},
                     parentAvgSum: 0,
                     parentAvgCount: 0,
+                    childAvgSum: 0,
+                    childAvgCount: 0,
                     childAvgData: {},
                     isAvgMetric: false,
                 };
@@ -230,14 +237,15 @@ export function PercentageGraph({
             parentEvents.forEach((eventId) => {
                 // Parent events are ALWAYS unfiltered - use total count regardless of filters
                 let totalCount = 0;
-
-                // Check if this is raw API data (has eventId, status, cacheStatus fields)
+                
+                // Check if this is raw API data (has eventId field)
                 const isRawApiData = record.eventId !== undefined;
-                const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
-
+                
                 if (isRawApiData) {
                     // Raw API data - sum all records for this eventId (unfiltered total)
                     if (String(record.eventId) === String(eventId)) {
+                        const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
+                        
                         if (hasAvgData) {
                             // For avg metrics, track sum and count
                             const avgValue = Number(record.avgDelay || record.avg || 0);
@@ -246,10 +254,12 @@ export function PercentageGraph({
                             groupedData[timeKey].isAvgMetric = true;
                         } else {
                             totalCount = Number(record.count || 0);
-                            // Track by status code for breakdown
-                            const statusKey = record.status ? `status_${record.status}` : 'status_unknown';
-                            groupedData[timeKey].parentBreakdown[statusKey] =
-                                (groupedData[timeKey].parentBreakdown[statusKey] || 0) + totalCount;
+                            // Track by status code for breakdown (only if status exists)
+                            if (record.status) {
+                                const statusKey = `status_${record.status}`;
+                                groupedData[timeKey].parentBreakdown[statusKey] = 
+                                    (groupedData[timeKey].parentBreakdown[statusKey] || 0) + totalCount;
+                            }
                             groupedData[timeKey].parentTotal += totalCount;
                         }
                     }
@@ -257,10 +267,10 @@ export function PercentageGraph({
                     // Processed data - use existing key-based logic
                     const baseName = eventNames[eventId] || `Event ${eventId}`;
                     const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
-
+                    
                     // Check if this is an API event by looking for status/cache breakdown in the data
                     const hasApiBreakdown = Object.keys(record).some(key => key.includes(`${eventKey}_status_`) || key.includes(`${eventKey}_cache_`));
-
+                    
                     if (hasApiBreakdown) {
                         // Sum all status codes and cache combinations for total unfiltered count
                         Object.keys(record).forEach(key => {
@@ -271,7 +281,7 @@ export function PercentageGraph({
                                 const statusMatch = key.match(/_status_(\d+)_/);
                                 if (statusMatch && statusMatch[1]) {
                                     const statusKey = `status_${statusMatch[1]}`;
-                                    groupedData[timeKey].parentBreakdown[statusKey] =
+                                    groupedData[timeKey].parentBreakdown[statusKey] = 
                                         (groupedData[timeKey].parentBreakdown[statusKey] || 0) + count;
                                 }
                             }
@@ -280,17 +290,13 @@ export function PercentageGraph({
                         // Regular event - use success or count key
                         const successKey = `${eventId}_success`;
                         const countKey = `${eventId}_count`;
-                        const avgKey = `${eventId}_avg`;
-                        totalCount = Number(record[successKey] || record[countKey] || record[avgKey] || 0);
+                        totalCount = Number(record[successKey] || record[countKey] || 0);
                     }
                 }
 
-
-                if (!hasAvgData) {
-                    groupedData[timeKey].parentTotal += totalCount;
-                }
+                groupedData[timeKey].parentTotal += totalCount;
                 // For API events, track by status code; for regular events, track by eventId
-                if (isRawApiData && String(record.eventId) === String(eventId) && !hasAvgData) {
+                if (isRawApiData && String(record.eventId) === String(eventId)) {
                     // Already tracked above
                 } else {
                     groupedData[timeKey].parentBreakdown[eventId] =
@@ -301,35 +307,39 @@ export function PercentageGraph({
             childEvents.forEach((eventId) => {
                 let count = 0;
 
-                // Check if this is raw API data (has eventId, status, cacheStatus fields)
-                // Relaxed check: just eventId presence
+                // Check if this is raw API data (has eventId field)
                 const isRawApiData = record.eventId !== undefined;
-                const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
 
                 if (isRawApiData) {
                     // Raw API data - match eventId and apply filters directly
                     if (String(record.eventId) === String(eventId)) {
-                        const recordStatus = String(record.status || 'unknown');
-                        const recordCache = String(record.cacheStatus || 'none');
-
-                        const statusMatch = !hasStatusFilter || statusCodes.includes(recordStatus);
-                        const cacheMatch = !hasCacheFilter || cacheStatuses.includes(recordCache);
-
-                        if (statusMatch && cacheMatch) {
-                            if (hasAvgData) {
-                                // For avg metrics, track sum and count PER CHILD EVENT
-                                const avgValue = Number(record.avgDelay || record.avg || 0);
-                                if (!groupedData[timeKey].childAvgData[eventId]) {
-                                    groupedData[timeKey].childAvgData[eventId] = { sum: 0, count: 0 };
-                                }
-                                groupedData[timeKey].childAvgData[eventId].sum += avgValue;
-                                groupedData[timeKey].childAvgData[eventId].count += 1;
-                                groupedData[timeKey].isAvgMetric = true;
-                            } else {
+                        const hasAvgData = record.avgDelay !== undefined || record.avg !== undefined;
+                        
+                        if (hasAvgData) {
+                            // For avg metrics, track sum and count PER CHILD EVENT and overall
+                            const avgValue = Number(record.avgDelay || record.avg || 0);
+                            if (!groupedData[timeKey].childAvgData[eventId]) {
+                                groupedData[timeKey].childAvgData[eventId] = { sum: 0, count: 0 };
+                            }
+                            groupedData[timeKey].childAvgData[eventId].sum += avgValue;
+                            groupedData[timeKey].childAvgData[eventId].count += 1;
+                            // Track overall child average
+                            groupedData[timeKey].childAvgSum += avgValue;
+                            groupedData[timeKey].childAvgCount += 1;
+                            groupedData[timeKey].isAvgMetric = true;
+                        } else {
+                            // For count metrics with status/cache filters
+                            const recordStatus = String(record.status || 'unknown');
+                            const recordCache = String(record.cacheStatus || 'none');
+                            
+                            const statusMatch = !hasStatusFilter || statusCodes.some(s => String(s) === recordStatus);
+                            const cacheMatch = !hasCacheFilter || cacheStatuses.some(c => String(c) === recordCache);
+                            
+                            if (statusMatch && cacheMatch) {
                                 count = Number(record.count || 0);
                                 // Track by status code for breakdown
                                 const statusKey = `status_${recordStatus}`;
-                                groupedData[timeKey].childBreakdown[statusKey] =
+                                groupedData[timeKey].childBreakdown[statusKey] = 
                                     (groupedData[timeKey].childBreakdown[statusKey] || 0) + count;
                             }
                         }
@@ -370,7 +380,7 @@ export function PercentageGraph({
                                 count += statusCount;
                                 // Track by status code for breakdown
                                 const breakdownKey = `status_${status}`;
-                                groupedData[timeKey].childBreakdown[breakdownKey] =
+                                groupedData[timeKey].childBreakdown[breakdownKey] = 
                                     (groupedData[timeKey].childBreakdown[breakdownKey] || 0) + statusCount;
                             });
                         } else if (hasCacheFilter) {
@@ -383,8 +393,7 @@ export function PercentageGraph({
                     } else {
                         const successKey = `${eventId}_success`;
                         const countKey = `${eventId}_count`;
-                        const avgKey = `${eventId}_avg`;
-                        count = Number(record[successKey] || record[countKey] || record[avgKey] || 0);
+                        count = Number(record[successKey] || record[countKey] || 0);
                     }
                 }
 
@@ -409,11 +418,12 @@ export function PercentageGraph({
                 const finalChildBreakdown: Record<string, number> = {};
 
                 if (values.isAvgMetric) {
-                    // For avgDelay: compute average for each child event and populate breakdown
+                    // For avgDelay: compute overall child average
+                    childValue = values.childAvgCount > 0 ? values.childAvgSum / values.childAvgCount : 0;
+                    // Also compute per-child breakdown for tooltip and individual lines
                     Object.entries(values.childAvgData).forEach(([eventId, data]) => {
                         const avg = data.count > 0 ? data.sum / data.count : 0;
                         finalChildBreakdown[eventId] = avg;
-                        childValue += avg; // Sum of averages for overall child value
                     });
                 } else {
                     // For count metrics: use existing breakdown
@@ -435,8 +445,9 @@ export function PercentageGraph({
                     timestamp: values.timestamp,
                     parentBreakdown: values.parentBreakdown,
                     childBreakdown: finalChildBreakdown,
-                    ...childPercentages, // Add individual child percentage fields
                     isAvgMetric: values.isAvgMetric,
+                    ...childPercentages, // Add individual child percentage fields
+                    parent_percentage: parentValue > 0 ? 100 : 0, // Parent line at 100%
                 };
             })
             .sort((a, b) => a.timestamp - b.timestamp);
@@ -577,7 +588,7 @@ export function PercentageGraph({
 
                 <CardContent className="p-4 md:p-6">
                     {/* Summary Stats - Parent on Left, Child on Right - Only show for count-based events */}
-                    {!(data.length > 0 && data[0].avgDelay !== undefined) && (
+                    {chartData.length > 0 && !chartData[0].isAvgMetric && (
                         <div className="grid grid-cols-3 gap-4 mb-6">
                             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30">
                                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
@@ -610,7 +621,7 @@ export function PercentageGraph({
                     )}
 
                     {/* Line Chart */}
-                    <div className="h-[420px] mt-4">
+                    <div className={chartData.length > 0 && chartData[0].isAvgMetric ? "h-[420px] mt-2" : "h-[420px] mt-4"}>
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart
                                 data={chartData}
@@ -654,16 +665,11 @@ export function PercentageGraph({
                                     content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
+                                            const isAvgDelay = data.isAvgMetric;
                                             const parentBreakdown = (data.parentBreakdown || {}) as Record<string, number>;
                                             const childBreakdown = (data.childBreakdown || {}) as Record<string, number>;
                                             const parentEntries = Object.entries(parentBreakdown);
-
-                                            // Sort child entries by percentage (descending)
-                                            const childEntries = Object.entries(childBreakdown).sort((a, b) => {
-                                                const aPercentage = data[`child_${a[0]}_percentage`] || 0;
-                                                const bPercentage = data[`child_${b[0]}_percentage`] || 0;
-                                                return bPercentage - aPercentage; // Descending order
-                                            });
+                                            const childEntries = Object.entries(childBreakdown);
                                             return (
                                                 <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
                                                     <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
@@ -672,10 +678,10 @@ export function PercentageGraph({
                                                             Percentage: {data.percentage.toFixed(2)}%
                                                         </p>
                                                         <p className="text-green-600">
-                                                            Child: {data.childCount.toLocaleString()}
+                                                            {isAvgDelay ? 'Child Avg' : 'Child'}: {isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}
                                                         </p>
                                                         <p className="text-blue-600">
-                                                            Parent: {data.parentCount.toLocaleString()}
+                                                            {isAvgDelay ? 'Parent Avg' : 'Parent'}: {isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}
                                                         </p>
                                                         {childEntries.length > 0 && (
                                                             <div className="mt-2">
@@ -683,41 +689,16 @@ export function PercentageGraph({
                                                                     {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
                                                                 </p>
                                                                 {childEntries.map(([key, count]) => {
-                                                                    const isAvgDelay = data.isAvgMetric;
-                                                                    const displayLabel = isApiEventMode
-                                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                            key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
-                                                                                (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                                    // For API events, show actual status code or cache status
+                                                                    const displayLabel = isApiEventMode 
+                                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : 
+                                                                           key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
+                                                                           (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
                                                                         : (eventNames[key] || key);
-
-                                                                    // Get individual child percentage
-                                                                    const childPercentageKey = `child_${key}_percentage`;
-                                                                    const childPercentage = data[childPercentageKey];
-
-                                                                    // Get color for this child
-                                                                    const childIndex = childEvents.indexOf(key);
-                                                                    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-                                                                    const childColor = eventColors[key] || colors[childIndex % colors.length];
-
                                                                     return (
-                                                                        <div key={key} className="flex items-center justify-between gap-2">
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <div
-                                                                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                                                                    style={{ backgroundColor: childColor }}
-                                                                                />
-                                                                                <span>{displayLabel}</span>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="font-mono">
-                                                                                    {isAvgDelay ? count.toFixed(2) : count.toLocaleString()}
-                                                                                </span>
-                                                                                {childPercentage !== undefined && (
-                                                                                    <span className="text-purple-600 font-semibold">
-                                                                                        ({childPercentage.toFixed(2)}%)
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
+                                                                        <div key={key} className="flex items-center justify-between">
+                                                                            <span>{displayLabel}</span>
+                                                                            <span className="font-mono">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -731,13 +712,13 @@ export function PercentageGraph({
                                                                 {parentEntries.map(([key, count]) => {
                                                                     // For API events, key might be status code or eventId
                                                                     // Extract status code if it's in format "status_XXX" or just use the key
-                                                                    const displayLabel = isApiEventMode
+                                                                    const displayLabel = isApiEventMode 
                                                                         ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` : (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : `Status ${key}`))
                                                                         : (eventNames[key] || key);
                                                                     return (
                                                                         <div key={key} className="flex items-center justify-between">
                                                                             <span>{displayLabel}</span>
-                                                                            <span className="font-mono">{count.toLocaleString()}</span>
+                                                                            <span className="font-mono">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -751,30 +732,67 @@ export function PercentageGraph({
                                     }}
                                 />
 
-                                {/* Individual child event lines - one for each child */}
-                                {childEvents.map((childId, index) => {
-                                    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-                                    const color = eventColors[childId] || colors[index % colors.length];
-                                    const childDataKey = `child_${childId}_percentage`;
+                                {/* Individual child event lines - one for each child OR status code */}
+                                {(() => {
+                                    // For avgDelay metrics, use child events directly
+                                    // For API events with filters, use status codes
+                                    // Otherwise, use child events
+                                    const isAvgMetric = chartData.length > 0 && chartData[0].isAvgMetric;
+                                    
+                                    const renderKeys = isAvgMetric
+                                        ? childEvents // For avgDelay, render each child event
+                                        : isApiEventMode
+                                            ? [
+                                                ...(filters?.statusCodes || []).map((code: any) => `status_${code}`),
+                                                ...(filters?.cacheStatus || []).map((status: any) => `cache_${status}`)
+                                            ]
+                                            : childEvents;
 
-                                    return (
-                                        <Area
-                                            key={`child-line-${childId}`}
-                                            type="monotone"
-                                            dataKey={childDataKey}
-                                            stroke={color}
-                                            strokeWidth={2.5}
-                                            fill="none"
-                                            name={eventNames[childId] || childId}
-                                            isAnimationActive={false}
-                                            dot={{ fill: color, r: 3 }}
-                                            activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
-                                        />
-                                    );
-                                })}
+                                    return renderKeys.map((childId, index) => {
+                                        const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                                        const color = eventColors[childId] || colors[index % colors.length];
+                                        const childDataKey = `child_${childId}_percentage`;
 
-                                {/* Combined percentage line (only show if NOT avgDelay) */}
-                                {showCombinedPercentage && !(data.length > 0 && data[0].avgDelay !== undefined) && (
+                                        const displayName = isApiEventMode
+                                            ? (childId.startsWith('status_') ? `Status ${childId.replace('status_', '')}` :
+                                                childId.startsWith('cache_') ? `Cache: ${childId.replace('cache_', '')}` : childId)
+                                            : (eventNames[childId] || childId);
+
+                                        return (
+                                            <Area
+                                                key={`child-line-${childId}`}
+                                                type="monotone"
+                                                dataKey={childDataKey}
+                                                stroke={color}
+                                                strokeWidth={2.5}
+                                                fill="none"
+                                                name={displayName}
+                                                isAnimationActive={false}
+                                                dot={false}
+                                                activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
+                                            />
+                                        );
+                                    });
+                                })()}
+
+                                {/* Parent Event Line (Base 100%) - For avgDelay metrics */}
+                                {chartData.length > 0 && chartData[0].isAvgMetric && (
+                                    <Area
+                                        type="monotone"
+                                        dataKey="parent_percentage"
+                                        stroke="#3b82f6"
+                                        strokeWidth={2}
+                                        fill="none"
+                                        name="Parent Event (Avg)"
+                                        isAnimationActive={false}
+                                        dot={false}
+                                        strokeDasharray="5 5"
+                                        activeDot={{ r: 6, fill: "#3b82f6", stroke: '#fff', strokeWidth: 2 }}
+                                    />
+                                )}
+
+                                {/* Combined percentage line - hide for avgDelay metrics */}
+                                {showCombinedPercentage && !(chartData.length > 0 && chartData[0].isAvgMetric) && (
                                     <Area
                                         type="monotone"
                                         dataKey="percentage"
@@ -783,6 +801,7 @@ export function PercentageGraph({
                                         fill="url(#percentageGradient)"
                                         name="Combined %"
                                         isAnimationActive={false}
+                                        dot={false}
                                         activeDot={{
                                             r: 8,
                                             fill: "#8b5cf6",

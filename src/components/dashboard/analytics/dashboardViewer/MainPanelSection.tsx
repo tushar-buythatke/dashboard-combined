@@ -2601,15 +2601,6 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     />
                                                                 ))}
                                                             </Pie>
-                                                            <text
-                                                                x="50%"
-                                                                y="45%"
-                                                                textAnchor="middle"
-                                                                dominantBaseline="middle"
-                                                                className="fill-gray-900 dark:fill-gray-100 text-3xl font-bold"
-                                                            >
-                                                                {statusData.reduce((acc: number, item: any) => acc + item.value, 0).toLocaleString()}
-                                                            </text>
                                                             <Tooltip
                                                                 content={<PieTooltip
                                                                     totalValue={statusData.reduce((acc: number, item: any) => acc + item.value, 0)}
@@ -2682,15 +2673,6 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     />
                                                                 ))}
                                                             </Pie>
-                                                            <text
-                                                                x="50%"
-                                                                y="45%"
-                                                                textAnchor="middle"
-                                                                dominantBaseline="middle"
-                                                                className="fill-gray-900 dark:fill-gray-100 text-3xl font-bold"
-                                                            >
-                                                                {cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0).toLocaleString()}
-                                                            </text>
                                                             <Tooltip
                                                                 content={<PieTooltip
                                                                     totalValue={cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0)}
