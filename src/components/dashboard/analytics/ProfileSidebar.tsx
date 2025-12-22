@@ -372,12 +372,20 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                             </div>
 
                                             {isAdmin && (
-                                                <button
-                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-opacity"
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-opacity cursor-pointer"
                                                     onClick={(e) => handleDeleteClick(e, profile)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            handleDeleteClick(e as any, profile);
+                                                        }
+                                                    }}
                                                 >
                                                     <Trash2 className="h-3 w-3 text-red-500/70" />
-                                                </button>
+                                                </div>
                                             )}
                                         </button>
 
