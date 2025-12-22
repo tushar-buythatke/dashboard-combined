@@ -1201,7 +1201,19 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 });
 
                                 const percentageGraphData = hasAvgEvents
-                                    ? (panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [])
+                                    ? (() => {
+                                        let rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
+
+                                        // Apply sourceStr filtering if selected
+                                        const selectedSourceStrs = currentPanelFilters.sourceStrs || [];
+                                        if (selectedSourceStrs.length > 0) {
+                                            rawData = rawData.filter((d: any) =>
+                                                d.sourceStr && selectedSourceStrs.includes(d.sourceStr.toString())
+                                            );
+                                        }
+
+                                        return rawData;
+                                    })()
                                     : filteredGraphData;
 
                                 return (
