@@ -54,6 +54,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
         const stageCounts = stages.map((stage) => {
             let count = 0;
+
+            // Check if data is raw (has eventId and avgDelay fields)
+            const isRawData = data.length > 0 && data[0].eventId !== undefined;
+            const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
             data.forEach((record) => {
                 if (hasStatusFilter || hasCacheFilter) {
                     const baseName = eventNames[stage.eventId] || `Event ${stage.eventId}`;
@@ -72,12 +76,18 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             count += Number(record[countKey] || 0);
                         });
                     }
-                } else {
+                } else if (isRawData && String(record.eventId) === String(stage.eventId)) {
+                    // Raw data - for funnel, always count occurrences (not average delay)
+                    count += 1;
+                } else if (!isRawData) {
+                    // Processed data
                     const successKey = `${stage.eventId}_success`;
                     const countKey = `${stage.eventId}_count`;
                     count += Number(record[successKey] || record[countKey] || 0);
                 }
             });
+
+            // For funnel graphs, we always use count (number of occurrences)
             return { ...stage, count };
         });
 
@@ -85,10 +95,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
         // Check if we have multiple child events for the final stage
         const hasMultipleChildren = multipleChildEvents && multipleChildEvents.length > 0;
-        
+
         // Process ALL stages from the stages array as regular stages
         const regularStages = stageCounts;
-        
+
         const processedStages: FunnelStageData[] = regularStages.map((stage, index) => {
             const prevCount = index > 0 ? regularStages[index - 1].count : stage.count;
             const dropoff = prevCount > 0 ? ((prevCount - stage.count) / prevCount) * 100 : 0;
@@ -109,6 +119,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             // Final stage is an aggregate of multiple child events (AC_process_success, AC_process_failed)
             const lastStageChildren = multipleChildEvents.map((childEventId, idx) => {
                 let count = 0;
+
+                // Check if data is raw
+                const isRawData = data.length > 0 && data[0].eventId !== undefined;
+                const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
                 data.forEach((record) => {
                     if (hasStatusFilter || hasCacheFilter) {
                         const baseName = eventNames[childEventId] || `Event ${childEventId}`;
@@ -127,13 +141,18 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 count += Number(record[countKey] || 0);
                             });
                         }
-                    } else {
+                    } else if (isRawData && String(record.eventId) === String(childEventId)) {
+                        // Raw data - for funnel, always count occurrences (not average delay)
+                        count += 1;
+                    } else if (!isRawData) {
+                        // Processed data
                         const successKey = `${childEventId}_success`;
                         const countKey = `${childEventId}_count`;
                         count += Number(record[successKey] || record[countKey] || 0);
                     }
                 });
 
+                // For funnel graphs, we always use count (number of occurrences)
                 return {
                     eventId: childEventId,
                     eventName: eventNames[childEventId] || childEventId,
@@ -284,7 +303,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                         'from-cyan-300/80 to-cyan-400/80',
                                                         'from-fuchsia-300/80 to-fuchsia-400/80',
                                                     ];
-                                                    
+
                                                     return (
                                                         <div
                                                             key={child.eventId}
@@ -320,13 +339,16 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     </div>
 
                                     {/* Stage label with event name */}
-                                    <div className="mt-3 text-center">
-                                        <div className={cn(
-                                            "text-[10px] sm:text-xs font-semibold transition-colors mb-1",
-                                            isSelected 
-                                                ? "text-indigo-600 dark:text-indigo-400" 
-                                                : "text-gray-700 dark:text-gray-300"
-                                        )}>
+                                    <div className="mt-3 text-center w-full px-1">
+                                        <div
+                                            className={cn(
+                                                "text-[10px] sm:text-xs font-semibold transition-colors mb-1 truncate max-w-full",
+                                                isSelected
+                                                    ? "text-indigo-600 dark:text-indigo-400"
+                                                    : "text-gray-700 dark:text-gray-300"
+                                            )}
+                                            title={`${index + 1}. ${stage.eventName}`}
+                                        >
                                             {index + 1}. {stage.eventName}
                                         </div>
                                         <div className="text-[9px] text-gray-500 dark:text-gray-400">

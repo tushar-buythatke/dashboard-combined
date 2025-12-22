@@ -33,7 +33,7 @@ import { CollapsibleLegend } from './CollapsibleLegend';
 import { CustomTooltip } from './CustomTooltip';
 import { PieTooltip } from './PieTooltip';
 import { combinePieChartDuplicates, ERROR_COLORS, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './constants';
-import { MultiPercentageGraph } from '../charts/MultiPercentageGraph';
+import { PercentageGraph } from '../charts/PercentageGraph';
 import { FunnelGraph } from '../charts/FunnelGraph';
 
 import { DayWiseComparisonChart } from '../components/ComparisonCharts';
@@ -570,44 +570,71 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
-                                                                <MultiSelectDropdown
-                                                                    options={PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }))}
-                                                                    selected={(currentPanelFilters.platforms || []).map((id: any) => id.toString())}
-                                                                    onChange={(values) => {
-                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                        updatePanelFilter?.(panel.panelId, 'platforms', numericValues);
-                                                                    }}
-                                                                    placeholder="Select platforms"
-                                                                />
+                                                        <>
+                                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }))}
+                                                                        selected={(currentPanelFilters.platforms || []).map((id: any) => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter?.(panel.panelId, 'platforms', numericValues);
+                                                                        }}
+                                                                        placeholder="Select platforms"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={(siteDetails || []).map((s: any) => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }))}
+                                                                        selected={(currentPanelFilters.pos || []).map((id: any) => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter?.(panel.panelId, 'pos', numericValues);
+                                                                        }}
+                                                                        placeholder="Select POS"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
+                                                                        selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter?.(panel.panelId, 'sources', numericValues);
+                                                                        }}
+                                                                        placeholder="Select sources"
+                                                                    />
+                                                                </div>
                                                             </div>
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
-                                                                <MultiSelectDropdown
-                                                                    options={(siteDetails || []).map((s: any) => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }))}
-                                                                    selected={(currentPanelFilters.pos || []).map((id: any) => id.toString())}
-                                                                    onChange={(values) => {
-                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                        updatePanelFilter?.(panel.panelId, 'pos', numericValues);
-                                                                    }}
-                                                                    placeholder="Select POS"
-                                                                />
-                                                            </div>
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
-                                                                <MultiSelectDropdown
-                                                                    options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
-                                                                    selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
-                                                                    onChange={(values) => {
-                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                        updatePanelFilter?.(panel.panelId, 'sources', numericValues);
-                                                                    }}
-                                                                    placeholder="Select sources"
-                                                                />
-                                                            </div>
-                                                        </div>
+
+                                                            {/* SourceStr (Job ID) Filter */}
+                                                            {(() => {
+                                                                const rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
+                                                                return rawData.length > 0 && rawData.some((d: any) => d.sourceStr) && (
+                                                                    <div className="mt-3 space-y-1.5">
+                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Job IDs (sourceStr)</label>
+                                                                        <MultiSelectDropdown
+                                                                            options={(() => {
+                                                                                const unique = Array.from(new Set(rawData.map((d: any) => d.sourceStr).filter(Boolean))).sort();
+                                                                                return unique.map((s: any) => ({ value: s.toString(), label: `Job ${s}` }));
+                                                                            })()}
+                                                                            selected={(currentPanelFilters.sourceStrs || []).map((s: any) => s.toString())}
+                                                                            onChange={(values) => {
+                                                                                setPanelFiltersState?.((prev: any) => ({
+                                                                                    ...prev,
+                                                                                    [panel.panelId]: { ...prev?.[panel.panelId], sourceStrs: values }
+                                                                                }));
+                                                                                setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
+                                                                            }}
+                                                                            placeholder="Select Job IDs"
+                                                                        />
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </>
                                                     )}
                                                 </div>
                                             ) : panelGraphType === 'funnel' && panelConfig?.funnelConfig ? (
@@ -1179,7 +1206,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                                 return (
                                     <div className="space-y-6">
-                                        <MultiPercentageGraph
+                                        <PercentageGraph
                                             data={percentageGraphData}
                                             dateRange={currentPanelDateRange}
                                             parentEvents={activeParentEvents}
@@ -2172,7 +2199,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 <Area
                                                                                     key={`error_${idx}_${panel.panelId}_${eventKey}_errors`}
                                                                                     type="monotone"
-                                                                                    dataKey={`${eventKey}_success`}
+                                                                                    dataKey={`${eventKey}_fail`}
                                                                                     name={`${eventKeyInfo.eventName} (Errors)`}
                                                                                     stroke={errorColor}
                                                                                     strokeWidth={2.5}
@@ -2185,8 +2212,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 <Area
                                                                                     key={`error_${idx}_${panel.panelId}_${eventKey}_ok`}
                                                                                     type="monotone"
-                                                                                    dataKey={`${eventKey}_fail`}
-                                                                                    name={`${eventKeyInfo.eventName} (OK)`}
+                                                                                    dataKey={`${eventKey}_success`}
+                                                                                    name={`${eventKeyInfo.eventName} (Success)`}
                                                                                     stroke="#22c55e"
                                                                                     strokeWidth={2}
                                                                                     fill={`url(#errorSuccessGrad_${panel.panelId})`}
@@ -2398,18 +2425,6 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         fill={`url(#errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
                                                                         dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
                                                                         activeDot={{ r: 8, fill: errorColor, stroke: '#fff', strokeWidth: 3 }}
-                                                                        isAnimationActive={false}
-                                                                        animationDuration={0}
-                                                                    />
-                                                                    <Area
-                                                                        type="monotone"
-                                                                        dataKey={`${errorEventKeyInfo.eventKey}_fail`}
-                                                                        name="OK"
-                                                                        stroke="#22c55e"
-                                                                        strokeWidth={2}
-                                                                        fill={`url(#errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
-                                                                        dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
-                                                                        activeDot={{ r: 6, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
                                                                         isAnimationActive={false}
                                                                         animationDuration={0}
                                                                     />

@@ -47,7 +47,7 @@ export function MultiPercentageGraph({
                     filters={filters}
                     showCombinedPercentage={showCombinedPercentage}
                     isHourly={isHourly}
-                    onToggleBackToFunnel={index === 0 ? onToggleBackToFunnel : undefined} // Only show button on first chart
+                    onToggleBackToFunnel={onToggleBackToFunnel}
                 />
             ))}
         </div>

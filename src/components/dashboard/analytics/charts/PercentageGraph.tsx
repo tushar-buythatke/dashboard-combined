@@ -173,6 +173,12 @@ export function PercentageGraph({
                         Object.assign(finalChildBreakdown, values.childBreakdown);
                     }
 
+                    // Calculate individual child percentages for separate lines
+                    const childPercentages: Record<string, number> = {};
+                    Object.entries(finalChildBreakdown).forEach(([childId, childVal]) => {
+                        childPercentages[`child_${childId}_percentage`] = parentValue > 0 ? (childVal / parentValue) * 100 : 0;
+                    });
+
                     return {
                         time: timeKey,
                         percentage: parentValue > 0 ? (childValue / parentValue) * 100 : 0,
@@ -181,6 +187,7 @@ export function PercentageGraph({
                         timestamp: values.timestamp,
                         parentBreakdown: values.parentBreakdown,
                         childBreakdown: finalChildBreakdown,
+                        ...childPercentages, // Add individual child percentage fields
                         isAvgMetric: values.isAvgMetric,
                     };
                 })
@@ -397,10 +404,10 @@ export function PercentageGraph({
                 const parentValue = values.isAvgMetric
                     ? (values.parentAvgCount > 0 ? values.parentAvgSum / values.parentAvgCount : 0)
                     : values.parentTotal;
-                
+
                 let childValue = 0;
                 const finalChildBreakdown: Record<string, number> = {};
-                
+
                 if (values.isAvgMetric) {
                     // For avgDelay: compute average for each child event and populate breakdown
                     Object.entries(values.childAvgData).forEach(([eventId, data]) => {
@@ -414,6 +421,12 @@ export function PercentageGraph({
                     Object.assign(finalChildBreakdown, values.childBreakdown);
                 }
 
+                // Calculate individual child percentages for separate lines
+                const childPercentages: Record<string, number> = {};
+                Object.entries(finalChildBreakdown).forEach(([childId, childVal]) => {
+                    childPercentages[`child_${childId}_percentage`] = parentValue > 0 ? (childVal / parentValue) * 100 : 0;
+                });
+
                 return {
                     time: timeKey,
                     percentage: parentValue > 0 ? (childValue / parentValue) * 100 : 0,
@@ -422,6 +435,7 @@ export function PercentageGraph({
                     timestamp: values.timestamp,
                     parentBreakdown: values.parentBreakdown,
                     childBreakdown: finalChildBreakdown,
+                    ...childPercentages, // Add individual child percentage fields
                     isAvgMetric: values.isAvgMetric,
                 };
             })
@@ -562,36 +576,38 @@ export function PercentageGraph({
                 </CardHeader>
 
                 <CardContent className="p-4 md:p-6">
-                    {/* Summary Stats - Parent on Left, Child on Right */}
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                        <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30">
-                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                {overallStats.totalParent.toLocaleString()}
+                    {/* Summary Stats - Parent on Left, Child on Right - Only show for count-based events */}
+                    {!(data.length > 0 && data[0].avgDelay !== undefined) && (
+                        <div className="grid grid-cols-3 gap-4 mb-6">
+                            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30">
+                                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                    {overallStats.totalParent.toLocaleString()}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">Parent Events (Left)</div>
+                                <div className="text-xs text-muted-foreground truncate" title={getParentEventNames()}>
+                                    {getParentEventNames()}
+                                </div>
                             </div>
-                            <div className="text-xs text-muted-foreground mt-1">Parent Events (Left)</div>
-                            <div className="text-xs text-muted-foreground truncate" title={getParentEventNames()}>
-                                {getParentEventNames()}
+                            <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
+                                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                    {overallStats.percentage.toFixed(2)}%
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">Overall Ratio</div>
+                                <div className="text-xs text-muted-foreground">
+                                    Range: {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
+                                </div>
+                            </div>
+                            <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-500/30">
+                                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                    {overallStats.totalChild.toLocaleString()}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">Child Events (Right)</div>
+                                <div className="text-xs text-muted-foreground truncate" title={getChildEventNames()}>
+                                    {getChildEventNames()}
+                                </div>
                             </div>
                         </div>
-                        <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
-                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                {overallStats.percentage.toFixed(2)}%
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">Overall Ratio</div>
-                            <div className="text-xs text-muted-foreground">
-                                Range: {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
-                            </div>
-                        </div>
-                        <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-500/30">
-                            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                {overallStats.totalChild.toLocaleString()}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">Child Events (Right)</div>
-                            <div className="text-xs text-muted-foreground truncate" title={getChildEventNames()}>
-                                {getChildEventNames()}
-                            </div>
-                        </div>
-                    </div>
+                    )}
 
                     {/* Line Chart */}
                     <div className="h-[420px] mt-4">
@@ -641,7 +657,13 @@ export function PercentageGraph({
                                             const parentBreakdown = (data.parentBreakdown || {}) as Record<string, number>;
                                             const childBreakdown = (data.childBreakdown || {}) as Record<string, number>;
                                             const parentEntries = Object.entries(parentBreakdown);
-                                            const childEntries = Object.entries(childBreakdown);
+
+                                            // Sort child entries by percentage (descending)
+                                            const childEntries = Object.entries(childBreakdown).sort((a, b) => {
+                                                const aPercentage = data[`child_${a[0]}_percentage`] || 0;
+                                                const bPercentage = data[`child_${b[0]}_percentage`] || 0;
+                                                return bPercentage - aPercentage; // Descending order
+                                            });
                                             return (
                                                 <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
                                                     <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
@@ -661,16 +683,41 @@ export function PercentageGraph({
                                                                     {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
                                                                 </p>
                                                                 {childEntries.map(([key, count]) => {
-                                                                    // For API events, show actual status code or cache status
+                                                                    const isAvgDelay = data.isAvgMetric;
                                                                     const displayLabel = isApiEventMode
                                                                         ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
                                                                             key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
                                                                                 (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
                                                                         : (eventNames[key] || key);
+
+                                                                    // Get individual child percentage
+                                                                    const childPercentageKey = `child_${key}_percentage`;
+                                                                    const childPercentage = data[childPercentageKey];
+
+                                                                    // Get color for this child
+                                                                    const childIndex = childEvents.indexOf(key);
+                                                                    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                                                                    const childColor = eventColors[key] || colors[childIndex % colors.length];
+
                                                                     return (
-                                                                        <div key={key} className="flex items-center justify-between">
-                                                                            <span>{displayLabel}</span>
-                                                                            <span className="font-mono">{count.toLocaleString()}</span>
+                                                                        <div key={key} className="flex items-center justify-between gap-2">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <div
+                                                                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                                                                    style={{ backgroundColor: childColor }}
+                                                                                />
+                                                                                <span>{displayLabel}</span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="font-mono">
+                                                                                    {isAvgDelay ? count.toFixed(2) : count.toLocaleString()}
+                                                                                </span>
+                                                                                {childPercentage !== undefined && (
+                                                                                    <span className="text-purple-600 font-semibold">
+                                                                                        ({childPercentage.toFixed(2)}%)
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     );
                                                                 })}
@@ -703,34 +750,60 @@ export function PercentageGraph({
                                         return null;
                                     }}
                                 />
-                                <Area
-                                    type="monotone"
-                                    dataKey="percentage"
-                                    stroke="#8b5cf6"
-                                    strokeWidth={3}
-                                    fill="url(#percentageGradient)"
-                                    name="Child/Parent %"
-                                    isAnimationActive={false}
-                                    activeDot={{
-                                        r: 8,
-                                        fill: "#8b5cf6",
-                                        stroke: "#fff",
-                                        strokeWidth: 2,
-                                        cursor: "pointer",
-                                        onClick: (e: any, payload: any) => {
-                                            e?.stopPropagation?.();
-                                            if (payload?.payload) {
-                                                handleDataPointClick(payload.payload);
+
+                                {/* Individual child event lines - one for each child */}
+                                {childEvents.map((childId, index) => {
+                                    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                                    const color = eventColors[childId] || colors[index % colors.length];
+                                    const childDataKey = `child_${childId}_percentage`;
+
+                                    return (
+                                        <Area
+                                            key={`child-line-${childId}`}
+                                            type="monotone"
+                                            dataKey={childDataKey}
+                                            stroke={color}
+                                            strokeWidth={2.5}
+                                            fill="none"
+                                            name={eventNames[childId] || childId}
+                                            isAnimationActive={false}
+                                            dot={{ fill: color, r: 3 }}
+                                            activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
+                                        />
+                                    );
+                                })}
+
+                                {/* Combined percentage line (only show if NOT avgDelay) */}
+                                {showCombinedPercentage && !(data.length > 0 && data[0].avgDelay !== undefined) && (
+                                    <Area
+                                        type="monotone"
+                                        dataKey="percentage"
+                                        stroke="#8b5cf6"
+                                        strokeWidth={3}
+                                        fill="url(#percentageGradient)"
+                                        name="Combined %"
+                                        isAnimationActive={false}
+                                        activeDot={{
+                                            r: 8,
+                                            fill: "#8b5cf6",
+                                            stroke: "#fff",
+                                            strokeWidth: 2,
+                                            cursor: "pointer",
+                                            onClick: (e: any, payload: any) => {
+                                                e?.stopPropagation?.();
+                                                if (payload?.payload) {
+                                                    handleDataPointClick(payload.payload);
+                                                }
                                             }
-                                        }
-                                    }}
-                                    onClick={(e: any) => {
-                                        e?.stopPropagation?.();
-                                        if (e?.activePayload?.[0]?.payload) {
-                                            handleDataPointClick(e.activePayload[0].payload);
-                                        }
-                                    }}
-                                />
+                                        }}
+                                        onClick={(e: any) => {
+                                            e?.stopPropagation?.();
+                                            if (e?.activePayload?.[0]?.payload) {
+                                                handleDataPointClick(e.activePayload[0].payload);
+                                            }
+                                        }}
+                                    />
+                                )}
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
