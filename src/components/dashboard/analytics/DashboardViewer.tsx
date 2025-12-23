@@ -327,7 +327,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const [alertsExpanded, setAlertsExpanded] = useState(false);
     const [alertsPage, setAlertsPage] = useState(0);
     const [alertsPanelCollapsed, setAlertsPanelCollapsed] = useState(true);
-    const [alertIsApi, setAlertIsApi] = useState(0); // 0 = Regular events, 1 = API events - independent toggle
+    const [alertIsApi, setAlertIsApi] = useState(false); // false = Regular events, true = API events - independent toggle
 
 
     // Alert-specific filters (independent from main dashboard)
@@ -450,7 +450,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     const panelId = entry.target.getAttribute('data-panel-id');
                     if (panelId) {
                         onPanelActive(panelId);
-                        setActivePanelId(panelId); // Sync local state too if needed
+                        setActivePanelId(panelId);
                     }
                 }
             });
@@ -607,18 +607,25 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 if (!timeMap.has(dateKey)) timeMap.set(dateKey, { date: dateKey, timestamp: r.timestamp });
                 const entry = timeMap.get(dateKey);
 
-                const matchesStatus = !hasStatus || statusCodes.includes(String(r.status));
+                const matchesStatus = !hasStatus || (r.status !== undefined && statusCodes.includes(String(r.status)));
                 const matchesCache = !hasCache || cacheStatuses.includes(String(r.cacheStatus || 'none'));
-                if (!matchesStatus || !matchesCache) return;
+                // When status is undefined (aggregated data), always match if no filter is applied
+                if (r.status !== undefined && (!matchesStatus || !matchesCache)) return;
 
                 let eventKey: string;
                 if (isSpecialGraph) {
-                    if (r.status) {
+                    if (r.status !== undefined) {
                         eventKey = `status_${r.status}`;
                     } else if (r.cacheStatus) {
                         eventKey = `cache_${r.cacheStatus}`;
                     } else {
-                        return;
+                        // Fallback: use eventId-based key when status is aggregated
+                        const eventId = String(r.eventId);
+                        const eventConfig = eventConfigById.get(eventId);
+                        const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
+                            ? `${eventConfig.host} - ${eventConfig.url}`
+                            : (eventConfig?.eventName || `Event ${eventId}`);
+                        eventKey = `${baseName.replace(/[^a-zA-Z0-9]/g, '_')}_${eventId}`;
                     }
                 } else {
                     const eventId = String(r.eventId);
@@ -794,7 +801,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             : (mainPanelConfig?.events || []);
 
         const ids = (selectedEventIds || []).map((v: any) => String(v)).filter(Boolean);
-        return ids.map((id: string) => {
+        const result = ids.map((id: string) => {
             const ev = eventConfigById.get(String(id));
             const name = ev?.isApiEvent && ev?.host && ev?.url
                 ? `${ev.host} - ${ev.url}`
@@ -802,12 +809,47 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             return {
                 eventId: String(id),
                 eventName: name,
-                eventKey: name.replace(/[^a-zA-Z0-9]/g, '_'),
+                // IMPORTANT: Include _${eventId} suffix to match apiPerformanceSeries data keys
+                eventKey: `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${id}`,
                 isErrorEvent: 0,
                 isAvgEvent: 0,
             };
         });
+
+        return result;
     }, [isMainPanelApi, profile?.panels, panelFiltersState, eventConfigById, panelsDataMap, rawGraphResponse]);
+
+    // Separate eventKey source for API Performance Metrics - ALWAYS uses endpoint-based keys
+    // regardless of whether main graph is percentage/funnel
+    const apiPerformanceEventKeys = useMemo((): EventKeyInfo[] => {
+        if (!isMainPanelApi || !profile?.panels?.[0]) return [];
+
+        const mainPanelId = profile.panels[0].panelId;
+        const mainPanelConfig = (profile.panels[0] as any)?.filterConfig;
+        const mainPanelFilters = panelFiltersState[mainPanelId] || {};
+
+        // ALWAYS use endpoint-based keys for API Performance Metrics
+        const selectedEventIds = (mainPanelFilters.events && mainPanelFilters.events.length > 0)
+            ? mainPanelFilters.events
+            : (mainPanelConfig?.events || []);
+
+        const ids = (selectedEventIds || []).map((v: any) => String(v)).filter(Boolean);
+        const keysResult = ids.map((id: string) => {
+            const ev = eventConfigById.get(String(id));
+            const name = ev?.isApiEvent && ev?.host && ev?.url
+                ? `${ev.host} - ${ev.url}`
+                : (ev?.eventName || `Event ${id}`);
+            return {
+                eventId: String(id),
+                eventName: name,
+                eventKey: `${name.replace(/[^a-zA-Z0-9]/g, '_')}_${id}`,
+                isErrorEvent: 0,
+                isAvgEvent: 0,
+            };
+        });
+
+        return keysResult;
+    }, [isMainPanelApi, profile?.panels, panelFiltersState, eventConfigById]);
 
     // Build API Performance Metrics series directly from RAW API response so it works even in percentage/funnel views
     const apiPerformanceSeries = useMemo(() => {
@@ -851,20 +893,27 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             }
             const entry = timeMap.get(dateKey);
 
-            const matchesStatus = !hasStatusFilter || statusCodes.includes(String(r.status));
+            const matchesStatus = !hasStatusFilter || (r.status !== undefined && statusCodes.includes(String(r.status)));
             const matchesCache = !hasCacheFilter || cacheStatuses.includes(String(r.cacheStatus || 'none'));
-            if (!matchesStatus || !matchesCache) return;
+            // When status is undefined (aggregated data), always match if no filter is applied
+            if (r.status !== undefined && (!matchesStatus || !matchesCache)) return;
 
             // In percentage/funnel mode, aggregate by status/cache instead of by event endpoint
             let eventKey: string;
             if (isFirstPanelSpecialGraphLocal) {
                 // Use status code or cache status as the key
-                if (r.status) {
+                if (r.status !== undefined) {
                     eventKey = `status_${r.status}`;
                 } else if (r.cacheStatus) {
                     eventKey = `cache_${r.cacheStatus}`;
                 } else {
-                    return; // Skip if no status or cache info
+                    // Fallback: use eventId-based key when status is aggregated
+                    const eventId = String(r.eventId);
+                    const eventConfig = eventConfigById.get(eventId);
+                    const baseName = eventConfig?.isApiEvent && eventConfig?.host && eventConfig?.url
+                        ? `${eventConfig.host} - ${eventConfig.url}`
+                        : (eventConfig?.eventName || `Event ${eventId}`);
+                    eventKey = `${baseName.replace(/[^a-zA-Z0-9]/g, '_')}_${eventId}`;
                 }
             } else {
                 // Regular mode: use event endpoint name
@@ -991,7 +1040,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             try {
                 await apiService.uploadChildConfig(config);
                 lastConfigUploadTime.current = now;
-                console.log('✅ Uploaded child config:', config);
+                // Debug logging removed
             } catch (error) {
                 console.error('Failed to upload child config:', error);
             }
@@ -1190,7 +1239,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     // Fetch site details and events in parallel to reduce
                     // perceived latency on first render.
                     const [sites, featureEvents] = await Promise.all([
-                        apiService.getSiteDetails(),
+                        apiService.getSiteDetails(parseInt(loadedProfile.featureId) || undefined),
                         apiService.getEventsList(loadedProfile.featureId)
                     ]);
 
@@ -1313,7 +1362,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 }
             }));
 
-            console.log('🔧 Initialized API filters:', { statusCodes: defaultStatus, cacheStatuses: defaultCache });
+            // Debug logging removed
         }
     }, [profile, isMainPanelApi, panelsDataMap, rawGraphResponse, panelFiltersState]);
 
@@ -1831,7 +1880,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     filters: panelFilters,
                     dateRange: panelDateRange,
                     showLegend: false,
-                    rawGraphResponse: graphResponse // Store for re-processing with sourceStr filter
+                    rawGraphResponse: graphResponse, // Store for re-processing with sourceStr filter
+                    hasLoadedOnce: true // Prevent infinite loading loops
                 });
                 return newMap;
             });
@@ -1866,7 +1916,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     newMap.set(panelId, {
                         ...existing,
                         loading: false,
-                        error: `Failed to refresh: ${err instanceof Error ? err.message : 'Unknown error'}`
+                        error: `Failed to refresh: ${err instanceof Error ? err.message : 'Unknown error'}`,
+                        hasLoadedOnce: true // Prevent infinite loading loops even on error
                     });
                 }
                 return newMap;
@@ -1876,22 +1927,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         }
     }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr]);
 
-    // Auto-load all panel data when profile and events are ready
-    useEffect(() => {
-        if (!profile || events.length === 0) return;
-
-        // DISABLE AUTO-LOADING - only load on manual refresh
-        // console.log('🚀 Auto-loading all panels...');
-
-        // Check if we already have data for all panels
-
-        // Load data for all panels
-        // profile.panels.forEach(panel => {
-        //     refreshPanelData(panel.panelId);
-        // });
-
-        // initialLoadComplete.current = true;
-    }, [profile, events, refreshPanelData, panelsDataMap]);
+    // NOTE: Additional panels use LAZY LOADING - they load data ONLY when:
+    // 1. User clicks on the panel in the sidebar (see ProfileSidebar onPanelClick)
+    // 2. User manually clicks the "Refresh Panel" button
+    // This prevents excessive API calls on initial page load.
 
     // Load critical alerts - uses alert-specific filters (independent)
     const loadAlerts = useCallback(async (expanded: boolean = false) => {
@@ -1933,7 +1972,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         }
     }, [profile, events, alertFilters, alertDateRange, alertsPage]);
 
-    // Load chart data for all panels (in parallel for snappy first paint)
+    // Load chart data - LAZY LOADING: Only load first/main panel on initial load
+    // Additional panels load data on-demand when navigated to via sidebar
     const loadData = useCallback(async () => {
         if (!profile || events.length === 0) return;
 
@@ -1941,8 +1981,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         setError(null);
 
         try {
-            // Prepare fetch promises for each panel
-            const panelPromises = profile.panels.map(async (panel) => {
+            // LAZY LOADING: Only load the first (main) panel on initial load
+            // Additional panels will be loaded on-demand when clicked in sidebar
+            const panelsToLoad = [profile.panels[0]].filter(Boolean);
+
+            const panelPromises = panelsToLoad.map(async (panel) => {
                 const panelConfig = (panel as any).filterConfig;
                 const userPanelFilters = panelFiltersState[panel.panelId];
                 const panelDateRange = panelDateRanges[panel.panelId] || dateRange;
@@ -2053,27 +2096,40 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 const panelConfig = (panel as any)?.filterConfig;
                 const isApiPanel = panelConfig?.isApiEvent || false;
 
-                if (isApiPanel && data.rawGraphResponse?.data) {
+                if (isApiPanel) {
+                    // Extract status codes and cache statuses from pieChart data (pieChartApi response)
+                    // GraphV2 returns aggregated data without status breakdown, so we use pieChart for dropdowns
                     const statusCodes = new Set<string>();
                     const cacheStatuses = new Set<string>();
 
-                    data.rawGraphResponse.data.forEach((record: any) => {
-                        // Direct field extraction (API response format)
-                        if (record.status !== undefined && record.status !== null) {
-                            statusCodes.add(String(record.status));
-                        }
-                        if (record.cacheStatus && typeof record.cacheStatus === 'string') {
-                            cacheStatuses.add(record.cacheStatus);
-                        }
-
-                        // Also check key patterns for processed data format
-                        Object.keys(record).forEach(key => {
-                            const statusMatch = key.match(/_status_(\d+)_/);
-                            const cacheMatch = key.match(/_cache_([^_]+)_/);
-                            if (statusMatch) statusCodes.add(statusMatch[1]);
-                            if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
+                    // PieChartApi returns: { data: { status: { "200": {...}, "404": {...} }, cacheStatus: { "HIT": {...} } } }
+                    const pieData = data.pieChartData?.data;
+                    if (pieData?.status) {
+                        Object.keys(pieData.status).forEach(key => {
+                            if (key && key !== 'undefined') {
+                                statusCodes.add(String(key));
+                            }
                         });
-                    });
+                    }
+                    if (pieData?.cacheStatus) {
+                        Object.keys(pieData.cacheStatus).forEach(key => {
+                            if (key && key !== 'undefined') {
+                                cacheStatuses.add(String(key));
+                            }
+                        });
+                    }
+
+                    // Fallback: also check raw graph data for any status fields
+                    if (statusCodes.size === 0 && data.rawGraphResponse?.data) {
+                        data.rawGraphResponse.data.forEach((record: any) => {
+                            if (record.status !== undefined && record.status !== null) {
+                                statusCodes.add(String(record.status));
+                            }
+                            if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                                cacheStatuses.add(record.cacheStatus);
+                            }
+                        });
+                    }
 
                     const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
                     const sortedCacheStatuses = Array.from(cacheStatuses).sort();
@@ -2798,6 +2854,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         avgEventKeys={avgEventKeys}
                         errorEventKeys={errorEventKeys}
                         apiEndpointEventKeyInfos={apiEndpointEventKeyInfos}
+                        apiPerformanceEventKeys={apiPerformanceEventKeys}
                         mainLegendExpanded={mainLegendExpanded}
                         setMainLegendExpanded={setMainLegendExpanded}
                         selectedEventKey={selectedEventKey}

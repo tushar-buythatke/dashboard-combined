@@ -48,20 +48,14 @@ export function PercentageGraph({
         console.log('Child events:', childEvents);
         console.log('Filters:', filters);
 
-        // Check for avgDelay records specifically
-        const avgDelayRecords = data.filter((d: any) => d.avgDelay !== undefined && Number(d.avgDelay) > 0);
-        console.log('Records with avgDelay > 0:', avgDelayRecords.length);
-        if (avgDelayRecords.length > 0) {
-            console.log('Sample avgDelay record:', avgDelayRecords[0]);
-            // Check if eventId matches parentEvents or childEvents
-            const matchingAvgRecords = avgDelayRecords.filter((d: any) =>
-                parentEvents.includes(String(d.eventId)) || childEvents.includes(String(d.eventId))
-            );
-            console.log('AvgDelay records matching parent/child eventIds:', matchingAvgRecords.length);
+        if (data.length > 0) {
+            console.log('Sample data record:', data[0]);
+            console.log('Sample record keys:', Object.keys(data[0]));
+            console.log('Sample record.successCount:', data[0].successCount);
+            console.log('Sample record.count:', data[0].count);
+            console.log('Sample record.status:', data[0].status);
+            console.log('Sample record.eventId:', data[0].eventId);
         }
-
-        console.log('Sample data record:', data[0]);
-        console.log('Data keys:', data[0] ? Object.keys(data[0]) : 'No data');
     }
 
     const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
@@ -155,12 +149,11 @@ export function PercentageGraph({
                             groupedData[timeKey].parentAvgCount += 1;
                             groupedData[timeKey].isAvgMetric = true;
                         } else {
-                            // For regular count metrics without status, prefer successCount if available
-                            const count = alwaysUseCountInsteadOfSuccess
-                                ? Number(record.count || 0)
-                                : record.successCount !== undefined ? Number(record.successCount) : Number(record.count || 0);
-                            groupedData[timeKey].parentTotal += count;
-                            groupedData[timeKey].parentBreakdown[eventId] = (groupedData[timeKey].parentBreakdown[eventId] || 0) + count;
+                            // For aggregated API data (no status breakdown), parent uses TOTAL count
+                            // This represents all requests regardless of status
+                            const totalCount = Number(record.count || 0);
+                            groupedData[timeKey].parentTotal += totalCount;
+                            groupedData[timeKey].parentBreakdown[eventId] = (groupedData[timeKey].parentBreakdown[eventId] || 0) + totalCount;
                         }
                     } else if (!isRawApiData) {
                         const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || 0);
@@ -192,12 +185,11 @@ export function PercentageGraph({
                             groupedData[timeKey].childAvgCount += 1;
                             groupedData[timeKey].isAvgMetric = true;
                         } else {
-                            // For regular count metrics without status, prefer successCount if available
-                            const count = alwaysUseCountInsteadOfSuccess
-                                ? Number(record.count || 0)
-                                : record.successCount !== undefined ? Number(record.successCount) : Number(record.count || 0);
-                            groupedData[timeKey].childTotal += count;
-                            groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
+                            // For aggregated API data (no status breakdown), child uses SUCCESS count
+                            // This represents successful requests (2xx) - the "filtered" view
+                            const successCount = Number(record.successCount || 0);
+                            groupedData[timeKey].childTotal += successCount;
+                            groupedData[timeKey].childBreakdown[eventId] = (groupedData[timeKey].childBreakdown[eventId] || 0) + successCount;
                         }
                     } else if (!isRawApiData) {
                         const count = Number(record[`${eventId}_success`] || record[`${eventId}_count`] || 0);
@@ -407,13 +399,12 @@ export function PercentageGraph({
                             groupedData[timeKey].childAvgCount += 1;
                             groupedData[timeKey].isAvgMetric = true;
                         } else {
-                            // For regular count metrics without status
-                            count = alwaysUseCountInsteadOfSuccess
-                                ? Number(record.count || 0)
-                                : record.successCount !== undefined ? Number(record.successCount) : Number(record.count || 0);
+                            // For aggregated API data (no status breakdown), child uses SUCCESS count
+                            // This represents successful requests (2xx) - the "filtered" view
+                            const successCount = Number(record.successCount || 0);
                             groupedData[timeKey].childBreakdown[eventId] =
-                                (groupedData[timeKey].childBreakdown[eventId] || 0) + count;
-                            groupedData[timeKey].childTotal += count;
+                                (groupedData[timeKey].childBreakdown[eventId] || 0) + successCount;
+                            groupedData[timeKey].childTotal += successCount;
                         }
                     }
                 } else {

@@ -11,6 +11,15 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    proxy: {
+      // Proxy for coupon config API (CORS bypass)
+      '/coupon-config': {
+        target: 'https://search-new.bitbns.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/coupon-config/, '/extension/configs-coupons/prod'),
+        secure: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

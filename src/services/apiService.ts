@@ -141,6 +141,8 @@ interface GraphAPIRequest {
         platform: number[];
         source: number[];
         sourceStr: string[]; // Client-side filter - always send empty array to server
+        status?: number[]; // For API events - status code filter
+        cacheStatus?: string[]; // For API events - cache status filter
     };
     startTime: string; // YYYY-MM-DD
     endTime: string; // YYYY-MM-DD
@@ -258,7 +260,7 @@ interface AlertAPIRequest {
     startTime: string;
     endTime: string;
     isHourly: boolean;
-    isApi?: number; // 0 = Regular events, 1 = API events
+    isApi?: boolean; // false = Regular events, true = API events
 }
 
 interface CriticalAlertDetails {
@@ -303,9 +305,9 @@ export class APIService {
     async getEventsList(feature: string, organizationId: number = 0): Promise<EventConfig[]> {
         // Convert feature to numeric featureId - now expects numeric string IDs directly
         const featureId = parseInt(feature) || 1;
-        
+
         console.log(`📋 Fetching events list for feature: ${feature} -> featureId: ${featureId}, orgId: ${organizationId}`);
-        
+
         try {
             // Use /api proxy to avoid CORS issues
             const response = await fetch(
@@ -359,7 +361,7 @@ export class APIService {
             }));
 
             const events = [...regularEvents, ...apiEvents];
-            
+
             console.log(`✅ Loaded ${regularEvents.length} regular events and ${apiEvents.length} API events`);
             return events;
         } catch (error) {
@@ -378,22 +380,22 @@ export class APIService {
             console.log(`📋 Returning cached features for org ${organizationId} (${cachedFeatures.length} features)`);
             return cachedFeatures;
         }
-        
+
         // If org changed, clear cache
         if (cachedFeaturesOrgId !== null && cachedFeaturesOrgId !== organizationId) {
             console.log(`📋 Organization changed from ${cachedFeaturesOrgId} to ${organizationId}, clearing cache`);
             clearFeaturesCache();
         }
-        
+
         // If already fetching for same org, return the existing promise
         if (featuresFetchPromise && cachedFeaturesOrgId === organizationId) {
             console.log(`📋 Waiting for existing features fetch...`);
             return featuresFetchPromise;
         }
-        
+
         console.log(`📋 Fetching features list for orgId: ${organizationId}`);
         cachedFeaturesOrgId = organizationId;
-        
+
         // Create and store the promise
         featuresFetchPromise = (async () => {
             try {
@@ -420,11 +422,11 @@ export class APIService {
                     id: parseInt(id),
                     name: name
                 }));
-                
+
                 // Cache and update dynamic data
                 cachedFeatures = features;
                 updateFeatureData(features);
-                
+
                 console.log(`✅ Loaded ${features.length} features`);
                 return features;
             } catch (error) {
@@ -433,54 +435,133 @@ export class APIService {
                 throw error;
             }
         })();
-        
+
         return featuresFetchPromise;
     }
 
     /**
-     * Fetch site details for POS options
+     * Fetch POS data from coupon config JSON (for feature ID 2 - Auto Coupons)
+     * Returns sites parsed from the ALL_CONFIG_COUPON.json
      */
-    async getSiteDetails(): Promise<SiteDetail[]> {
-        // Return cached if available
-        if (this.siteDetailsCache) {
-            return this.siteDetailsCache;
-        }
+    private async getCouponConfigPosData(): Promise<SiteDetail[]> {
+        // Use Vite proxy to bypass CORS - proxied at /coupon-config in vite.config.ts
+        const COUPON_CONFIG_URL = '/coupon-config/ALL_CONFIG_COUPON.json';
 
-        console.log(`📋 Fetching site details for POS options`);
+        console.log('📋 Fetching POS from coupon config...');
 
         try {
-            // Use POS_API_BASE_URL which handles dev/prod environments
-            const response = await fetch(`${POS_API_BASE_URL}/siteDetails`);
+            const response = await fetch(COUPON_CONFIG_URL);
 
             if (!response.ok) {
-                throw new Error(`Failed to fetch site details: ${response.statusText}`);
+                throw new Error(`Failed to fetch coupon config: ${response.statusText}`);
             }
 
-            const result = await response.json();
+            const data = await response.json();
 
-            if (result.status !== 1) {
-                throw new Error(result.message || 'Failed to fetch site details');
-            }
+            // Parse the config - key is POS ID, extract name from first URL
+            const sites: SiteDetail[] = [];
+            const seenIds = new Set<number>();
 
-            // Transform to SiteDetail format
-            const sites: SiteDetail[] = Object.entries(result.data.siteDetails).map(([id, details]: [string, any]) => {
-                const siteId = parseInt(id);
-                this.siteDetailsMap[siteId] = details.name;
-                return {
-                    id: siteId,
-                    name: details.name,
-                    image: details.image
-                };
+            Object.entries(data).forEach(([id, config]: [string, any]) => {
+                const posId = parseInt(id);
+                if (isNaN(posId) || seenIds.has(posId)) return;
+
+                // Get name from first URL, removing www. prefix
+                const urls = config?.url || [];
+                if (urls.length === 0) return;
+
+                let name = urls[0];
+                // Remove www. prefix and extract domain
+                name = name.replace(/^www\./, '');
+                // Remove trailing path if any (e.g., "lenovo.com/in" -> "lenovo.com")
+                const slashIndex = name.indexOf('/');
+                if (slashIndex > 0) {
+                    name = name.substring(0, slashIndex);
+                }
+
+                seenIds.add(posId);
+                this.siteDetailsMap[posId] = name;
+                sites.push({
+                    id: posId,
+                    name,
+                    image: '' // Coupon config doesn't have images
+                });
             });
 
-            this.siteDetailsCache = sites;
-            cachedSiteDetails = sites;
+            console.log(`✅ Loaded ${sites.length} sites from coupon config`);
             return sites;
         } catch (error) {
-            console.error('Failed to fetch site details:', error);
-            // Return default Flipkart if API fails
-            return [{ id: 2, name: 'Flipkart', image: '' }];
+            console.error('Failed to fetch coupon config POS:', error);
+            throw error;
         }
+    }
+
+    /**
+     * Fetch site details for POS options
+     * For feature ID 2 (Auto Coupons), merges coupon config with siteDetails API
+     */
+    async getSiteDetails(featureId?: number): Promise<SiteDetail[]> {
+        // First, ensure we have the base siteDetails
+        if (!this.siteDetailsCache) {
+            console.log(`📋 Fetching site details for POS options`);
+
+            try {
+                const response = await fetch(`${POS_API_BASE_URL}/siteDetails`);
+
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch site details: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                if (result.status !== 1) {
+                    throw new Error(result.message || 'Failed to fetch site details');
+                }
+
+                // Transform to SiteDetail format
+                const sites: SiteDetail[] = Object.entries(result.data.siteDetails).map(([id, details]: [string, any]) => {
+                    const siteId = parseInt(id);
+                    this.siteDetailsMap[siteId] = details.name;
+                    return {
+                        id: siteId,
+                        name: details.name,
+                        image: details.image
+                    };
+                });
+
+                this.siteDetailsCache = sites;
+                cachedSiteDetails = sites;
+                console.log(`✅ Loaded ${sites.length} sites from siteDetails API`);
+            } catch (error) {
+                console.error('Failed to fetch site details:', error);
+                // Set empty cache to avoid repeated failures
+                this.siteDetailsCache = [{ id: 2, name: 'Flipkart', image: '' }];
+            }
+        }
+
+        // For feature 2, also fetch and merge coupon config sites
+        if (featureId === 2) {
+            try {
+                const couponSites = await this.getCouponConfigPosData();
+                if (couponSites.length > 0) {
+                    // Merge: add coupon sites not already in siteDetails
+                    const existingIds = new Set(this.siteDetailsCache!.map(s => s.id));
+                    const newSites = couponSites.filter(s => !existingIds.has(s.id));
+
+                    if (newSites.length > 0) {
+                        console.log(`✅ Adding ${newSites.length} new sites from coupon config`);
+                        const merged = [...this.siteDetailsCache!, ...newSites];
+                        // Sort by name for easier search
+                        merged.sort((a, b) => a.name.localeCompare(b.name));
+                        return merged;
+                    }
+                }
+            } catch (error) {
+                console.log('⚠️ Coupon config fetch failed, using siteDetails only');
+            }
+        }
+
+        return this.siteDetailsCache || [];
     }
 
     /**
@@ -492,6 +573,7 @@ export class APIService {
 
     /**
      * Fetch graph data from the backend API
+     * Uses graphV2 (pre-aggregated) first, falls back to graph (granular) on error
      * All parameters are now numeric IDs
      */
     async getGraphData(
@@ -501,16 +583,17 @@ export class APIService {
         sourceIds: (number | string)[],
         startDate: Date,
         endDate: Date,
-        isApiEvent: boolean = false // Added for API events
+        isApiEvent: boolean = false,
+        preferV1: boolean = false // Force v1 API if needed
     ): Promise<AnalyticsDataResponse> {
         // Determine if hourly based on date range (<=7 days = hourly)
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
 
         // Convert all IDs to numbers and filter out invalid ones
-        const toNumbers = (arr: (number | string)[]) => 
+        const toNumbers = (arr: (number | string)[]) =>
             arr.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
-               .filter(id => !isNaN(id) && id !== null);
+                .filter(id => !isNaN(id) && id !== null);
 
         const requestBody: GraphAPIRequest = {
             filter: {
@@ -518,7 +601,10 @@ export class APIService {
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
                 source: toNumbers(sourceIds),
-                sourceStr: [] // Always send empty array - client-side filtering only
+                sourceStr: [], // Always send empty array - client-side filtering only
+                // For API events, send empty arrays to get ALL status codes and cache statuses
+                // Backend needs these fields to return data broken down by status
+                ...(isApiEvent ? { status: [], cacheStatus: [] } : {})
             },
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),
@@ -526,8 +612,69 @@ export class APIService {
             isApi: isApiEvent // Pass isApi flag for API events
         };
 
-        console.log('Graph API Request:', requestBody);
+        // Transform response data helper
+        const transformResponse = (result: GraphAPIResponse): AnalyticsDataResponse => {
+            const transformedData = result.data.map(record => ({
+                timestamp: record.timestamp,
+                platform: record.platform,
+                eventId: record.eventId,
+                source: record.source,
+                sourceStr: record.sourceStr || '', // Include sourceStr for client-side filtering
+                pos: record.pos,
+                count: record.count || 0,
+                successCount: record.successCount || 0,
+                failCount: record.failCount || 0,
+                avgDelay: record.avgDelay || 0,
+                medianDelay: record.medianDelay || 0,
+                modeDelay: record.modeDelay || 0,
+                // API event specific fields
+                status: (record as any).status,
+                cacheStatus: (record as any).cacheStatus,
+                avgBytesIn: (record as any).avgBytesIn,
+                avgBytesOut: (record as any).avgBytesOut,
+                avgServerToUser: (record as any).avgServerToUser,
+                avgServerToCloud: (record as any).avgServerToCloud,
+                avgCloudToUser: (record as any).avgCloudToUser,
+                medianBytesIn: (record as any).medianBytesIn,
+                medianBytesOut: (record as any).medianBytesOut
+            })) as any[];
 
+            return {
+                data: transformedData,
+                metadata: {
+                    totalEvents: transformedData.reduce((acc, r) => acc + r.count, 0),
+                    timeRange: `${this.formatDate(startDate)} to ${this.formatDate(endDate)}`
+                }
+            };
+        };
+
+        // Try graphV2 first (unless preferV1 is set)
+        if (!preferV1) {
+            try {
+                console.log('📊 Trying graphV2 API (pre-aggregated)...');
+                const responseV2 = await fetch(`${API_BASE_URL}/graphV2`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (responseV2.ok) {
+                    const resultV2: GraphAPIResponse = await responseV2.json();
+                    if (resultV2.status === 1) {
+                        console.log(`✅ Using graphV2 API - ${resultV2.data.length} records`);
+                        return transformResponse(resultV2);
+                    }
+                }
+                console.log('⚠️ graphV2 returned non-success, falling back to graph...');
+            } catch (error) {
+                console.log('⚠️ graphV2 failed, falling back to graph:', error);
+            }
+        }
+
+        // Fallback to original graph API
+        console.log('📊 Using graph API (v1)...');
         const response = await fetch(`${API_BASE_URL}/graph`, {
             method: 'POST',
             headers: {
@@ -546,41 +693,8 @@ export class APIService {
             throw new Error(result.message || 'Failed to fetch graph data');
         }
 
-        // Pass through raw data - aggregation happens in processGraphData
-        // New API returns disaggregated data with platform/eventId/source/pos per record
-        // For API events, also include status and cacheStatus fields
-        const transformedData = result.data.map(record => ({
-            timestamp: record.timestamp,
-            platform: record.platform,
-            eventId: record.eventId,
-            source: record.source,
-            sourceStr: record.sourceStr || '', // Include sourceStr for client-side filtering
-            pos: record.pos,
-            count: record.count || 0,
-            successCount: record.successCount || 0,
-            failCount: record.failCount || 0,
-            avgDelay: record.avgDelay || 0,
-            medianDelay: record.medianDelay || 0,
-            modeDelay: record.modeDelay || 0,
-            // API event specific fields
-            status: (record as any).status,
-            cacheStatus: (record as any).cacheStatus,
-            avgBytesIn: (record as any).avgBytesIn,
-            avgBytesOut: (record as any).avgBytesOut,
-            avgServerToUser: (record as any).avgServerToUser,
-            avgServerToCloud: (record as any).avgServerToCloud,
-            avgCloudToUser: (record as any).avgCloudToUser,
-            medianBytesIn: (record as any).medianBytesIn,
-            medianBytesOut: (record as any).medianBytesOut
-        })) as any[];
-
-        return {
-            data: transformedData,
-            metadata: {
-                totalEvents: transformedData.reduce((acc, r) => acc + r.count, 0),
-                timeRange: `${this.formatDate(startDate)} to ${this.formatDate(endDate)}`
-            }
-        };
+        console.log(`✅ Using graph API (v1) - ${result.data.length} records`);
+        return transformResponse(result);
     }
 
     /**
@@ -599,9 +713,9 @@ export class APIService {
         const isHourly = daysDiff <= 7;
 
         // Convert all IDs to numbers and filter out invalid ones
-        const toNumbers = (arr: (number | string)[]) => 
+        const toNumbers = (arr: (number | string)[]) =>
             arr.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
-               .filter(id => !isNaN(id) && id !== null);
+                .filter(id => !isNaN(id) && id !== null);
 
         const requestBody: GraphAPIRequest = {
             filter: {
@@ -727,15 +841,15 @@ export class APIService {
         endDate: Date,
         limit: number = 10,
         page: number = 0,
-        isApi: number = 0 // 0 = Regular events, 1 = API events
+        isApi: boolean = false // false = Regular events, true = API events
     ): Promise<CriticalAlert[]> {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const isHourly = daysDiff <= 7;
 
         // Convert all IDs to numbers and filter out invalid ones
-        const toNumbers = (arr: (number | string)[]) => 
+        const toNumbers = (arr: (number | string)[]) =>
             arr.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
-               .filter(id => !isNaN(id) && id !== null);
+                .filter(id => !isNaN(id) && id !== null);
 
         const requestBody: AlertAPIRequest = {
             filter: {
@@ -824,15 +938,15 @@ export class APIService {
             console.log(`🏢 Returning cached organizations (${cachedOrganizations.length} orgs)`);
             return cachedOrganizations;
         }
-        
+
         // If already fetching, return the existing promise
         if (organizationsFetchPromise) {
             console.log(`🏢 Waiting for existing organizations fetch...`);
             return organizationsFetchPromise;
         }
-        
+
         console.log(`🏢 Fetching organizations list`);
-        
+
         // Create and store the promise
         organizationsFetchPromise = (async () => {
             try {
@@ -856,10 +970,10 @@ export class APIService {
                     id: parseInt(id),
                     name: name
                 }));
-                
+
                 // Cache the result
                 cachedOrganizations = organizations;
-                
+
                 console.log(`✅ Loaded ${organizations.length} organizations`);
                 return organizations;
             } catch (error) {
@@ -868,7 +982,7 @@ export class APIService {
                 throw error;
             }
         })();
-        
+
         return organizationsFetchPromise;
     }
 }

@@ -48,4 +48,5 @@ export interface PanelData {
     dateRange: DateRangeState;
     showLegend: boolean;
     rawGraphResponse?: any;
+    hasLoadedOnce?: boolean; // Prevents infinite loading loops when API returns empty data
 }

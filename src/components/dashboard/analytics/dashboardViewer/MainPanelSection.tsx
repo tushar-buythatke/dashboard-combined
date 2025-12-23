@@ -95,6 +95,7 @@ type MainPanelSectionProps = {
     avgEventKeys: EventKeyInfo[];
     errorEventKeys: EventKeyInfo[];
     apiEndpointEventKeyInfos: EventKeyInfo[];
+    apiPerformanceEventKeys: EventKeyInfo[];  // Always endpoint-based, for API Performance Metrics
     mainLegendExpanded: boolean;
     setMainLegendExpanded: (next: boolean) => void;
     selectedEventKey: string | null;
@@ -158,6 +159,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     avgEventKeys,
     errorEventKeys,
     apiEndpointEventKeyInfos,
+    apiPerformanceEventKeys,
     mainLegendExpanded,
     setMainLegendExpanded,
     selectedEventKey,
@@ -1831,7 +1833,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                         filter: 'url(#glow)',
                                                                                         cursor: 'pointer',
                                                                                     }}
-                                                                                    isAnimationActive={false}
+                                                                                    isAnimationActive={false} connectNulls={true}
                                                                                     animationDuration={0}
                                                                                 />
                                                                             );
@@ -1848,7 +1850,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                             fill="#6366f1"
                                                                             dot={false}
                                                                             activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                                                                            isAnimationActive={false}
+                                                                            isAnimationActive={false} connectNulls={true}
                                                                             animationDuration={0}
                                                                         />
                                                                     )}
@@ -2088,7 +2090,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     strokeWidth: 3,
                                                                     cursor: 'pointer',
                                                                 }}
-                                                                isAnimationActive={false}
+                                                                isAnimationActive={false} connectNulls={true}
                                                                 animationDuration={0}
                                                             />
                                                         );
@@ -2115,7 +2117,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 (() => {
                     const isApiEvent = isMainPanelApi;
 
-                    if (!isApiEvent || eventKeys.length === 0) return null;
+                    // Use apiPerformanceEventKeys for visibility check (always endpoint-based)
+                    if (!isApiEvent || apiPerformanceEventKeys.length === 0) return null;
 
                     return (
                         <div>
@@ -2141,9 +2144,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 </CardHeader>
                                 <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
                                     {/* Collapsible Legend - Status codes and cache status */}
-                                    {apiEndpointEventKeyInfos.length > 0 && (
+                                    {apiPerformanceEventKeys.length > 0 && (
                                         <CollapsibleLegend
-                                            eventKeys={apiEndpointEventKeyInfos}
+                                            eventKeys={apiPerformanceEventKeys}
                                             events={events}
                                             isExpanded={mainLegendExpanded}
                                             onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
@@ -2202,7 +2205,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     margin={{ top: 10, right: 30, left: 18, bottom: 50 }}
                                                 >
                                                     <defs>
-                                                        {apiEndpointEventKeyInfos.map((eventKeyInfo: EventKeyInfo, index: number) => {
+                                                        {apiPerformanceEventKeys.map((eventKeyInfo: EventKeyInfo, index: number) => {
                                                             const color = EVENT_COLORS[index % EVENT_COLORS.length];
                                                             return (
                                                                 <linearGradient key={`apiGrad_${index}_${eventKeyInfo.eventKey}`} id={`apiColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
@@ -2255,124 +2258,77 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         }}
                                                     />
                                                     <Tooltip
-                                                        content={<CustomTooltip events={events} eventKeys={apiEndpointEventKeyInfos} />}
+                                                        content={<CustomTooltip events={events} eventKeys={apiPerformanceEventKeys} />}
                                                         cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '5 5' }}
                                                     />
-                                                    {/* Dynamic areas based on selected metric view */}
-                                                    {apiEndpointEventKeyInfos
-                                                        .filter((eventKeyInfo: EventKeyInfo) => !apiSelectedEventKey || eventKeyInfo.eventKey === apiSelectedEventKey)
-                                                        .map((eventKeyInfo: EventKeyInfo, index: number) => {
-                                                            const color = EVENT_COLORS[index % EVENT_COLORS.length];
-                                                            const eventKey = eventKeyInfo.eventKey;
+                                                    {/* Dynamic areas - simplified approach that works */}
+                                                    {apiPerformanceEventKeys.map((eventKeyInfo: EventKeyInfo, index: number) => {
+                                                        // Only filter by apiSelectedEventKey if it matches one of the apiPerformanceEventKeys
+                                                        // This prevents status-based selections (like 'status_200') from hiding all endpoint-based areas
+                                                        const validSelection = apiSelectedEventKey && apiPerformanceEventKeys.some(k => k.eventKey === apiSelectedEventKey);
+                                                        if (validSelection && eventKeyInfo.eventKey !== apiSelectedEventKey) {
+                                                            return null;
+                                                        }
 
-                                                            // Determine dataKey based on metric view
-                                                            let dataKey = `${eventKey}_count`;
-                                                            if (apiMetricView === 'timing') {
-                                                                dataKey = `${eventKey}_avgServerToUser`;
-                                                            } else if (apiMetricView === 'timing-anomaly') {
-                                                                // Show avg timing but highlight anomalies (values > 2 std dev)
-                                                                dataKey = `${eventKey}_avgServerToUser`;
-                                                            } else if (apiMetricView === 'bytes') {
-                                                                dataKey = `${eventKey}_avgBytesOut`;
-                                                            } else if (apiMetricView === 'bytes-in') {
-                                                                dataKey = `${eventKey}_avgBytesIn`;
-                                                            }
+                                                        const color = EVENT_COLORS[index % EVENT_COLORS.length];
+                                                        const eventKey = eventKeyInfo.eventKey;
 
-                                                            // For timing breakdown, show 3 separate areas
-                                                            if (apiMetricView === 'timing-breakdown') {
-                                                                return (
-                                                                    <React.Fragment key={`api_breakdown_${index}_${eventKey}`}>
-                                                                        <Area
-                                                                            type="monotone"
-                                                                            dataKey={`${eventKey}_avgServerToCloud`}
-                                                                            name={`${eventKeyInfo.eventName} (Server)`}
-                                                                            stroke="#ef4444"
-                                                                            strokeWidth={2}
-                                                                            fillOpacity={0.3}
-                                                                            fill="#ef4444"
-                                                                            stackId={eventKey}
-                                                                            isAnimationActive={false}
-                                                                            animationDuration={0}
-                                                                        />
-                                                                        <Area
-                                                                            type="monotone"
-                                                                            dataKey={`${eventKey}_avgCloudToUser`}
-                                                                            name={`${eventKeyInfo.eventName} (Network)`}
-                                                                            stroke="#f59e0b"
-                                                                            strokeWidth={2}
-                                                                            fillOpacity={0.3}
-                                                                            fill="#f59e0b"
-                                                                            stackId={eventKey}
-                                                                            isAnimationActive={false}
-                                                                            animationDuration={0}
-                                                                        />
-                                                                    </React.Fragment>
-                                                                );
-                                                            }
+                                                        // Determine dataKey based on metric view
+                                                        let dataKey = `${eventKey}_count`;
+                                                        if (apiMetricView === 'timing' || apiMetricView === 'timing-anomaly') {
+                                                            dataKey = `${eventKey}_avgServerToUser`;
+                                                        } else if (apiMetricView === 'bytes') {
+                                                            dataKey = `${eventKey}_avgBytesOut`;
+                                                        } else if (apiMetricView === 'bytes-in') {
+                                                            dataKey = `${eventKey}_avgBytesIn`;
+                                                        }
 
-                                                            // Calculate anomaly threshold if in anomaly mode
-                                                            let isAnomalyMode = apiMetricView === 'timing-anomaly';
-                                                            let anomalyThreshold = 0;
-                                                            if (isAnomalyMode) {
-                                                                // Calculate mean and standard deviation for this event using filtered data
-                                                                const values = (isMainPanelApi ? apiPerformanceSeries : filteredApiData)
-                                                                    .map(d => d[dataKey])
-                                                                    .filter(v => typeof v === 'number' && v > 0);
-                                                                if (values.length > 0) {
-                                                                    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-                                                                    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
-                                                                    const stdDev = Math.sqrt(variance);
-                                                                    anomalyThreshold = mean + (2 * stdDev); // 2 standard deviations above mean
-                                                                }
-                                                            }
-
+                                                        // For timing breakdown, show stacked areas
+                                                        if (apiMetricView === 'timing-breakdown') {
                                                             return (
-                                                                <Area
-                                                                    key={`api_${index}_${eventKey}_${apiMetricView}`}
-                                                                    type="monotone"
-                                                                    dataKey={dataKey}
-                                                                    name={eventKeyInfo.eventName}
-                                                                    stroke={color}
-                                                                    strokeWidth={2.5}
-                                                                    fillOpacity={1}
-                                                                    fill={`url(#apiColor_${eventKey})`}
-                                                                    dot={isAnomalyMode ? ((props: any) => {
-                                                                        const value = props.payload?.[dataKey];
-                                                                        if (value && value > anomalyThreshold) {
-                                                                            return (
-                                                                                <circle
-                                                                                    cx={props.cx}
-                                                                                    cy={props.cy}
-                                                                                    r={6}
-                                                                                    fill="#ef4444"
-                                                                                    stroke="#fff"
-                                                                                    strokeWidth={2}
-                                                                                />
-                                                                            );
-                                                                        }
-                                                                        // Return invisible dot for non-anomalous points
-                                                                        return (
-                                                                            <circle
-                                                                                cx={props.cx}
-                                                                                cy={props.cy}
-                                                                                r={0}
-                                                                                fill="transparent"
-                                                                            />
-                                                                        );
-                                                                    }) as any : false}
-                                                                    activeDot={{
-                                                                        r: 8,
-                                                                        fill: color,
-                                                                        stroke: '#fff',
-                                                                        strokeWidth: 3,
-                                                                        cursor: 'pointer',
-                                                                    }}
-                                                                    isAnimationActive={false}
-                                                                    animationDuration={0}
-                                                                />
+                                                                <React.Fragment key={`api_breakdown_${index}_${eventKey}`}>
+                                                                    <Area
+                                                                        type="monotone"
+                                                                        dataKey={`${eventKey}_avgServerToCloud`}
+                                                                        name={`${eventKeyInfo.eventName} (Server)`}
+                                                                        stroke="#ef4444"
+                                                                        strokeWidth={2}
+                                                                        fill="#ef4444"
+                                                                        fillOpacity={0.3}
+                                                                        stackId={eventKey}
+                                                                        isAnimationActive={false}
+                                                                    />
+                                                                    <Area
+                                                                        type="monotone"
+                                                                        dataKey={`${eventKey}_avgCloudToUser`}
+                                                                        name={`${eventKeyInfo.eventName} (Network)`}
+                                                                        stroke="#f59e0b"
+                                                                        strokeWidth={2}
+                                                                        fill="#f59e0b"
+                                                                        fillOpacity={0.3}
+                                                                        stackId={eventKey}
+                                                                        isAnimationActive={false}
+                                                                    />
+                                                                </React.Fragment>
                                                             );
-                                                        })}
-                                                </AreaChart>
+                                                        }
+
+                                                        return (
+                                                            <Area
+                                                                key={`api_${index}_${eventKey}_${apiMetricView}`}
+                                                                type="monotone"
+                                                                dataKey={dataKey}
+                                                                name={eventKeyInfo.eventName}
+                                                                stroke={color}
+                                                                strokeWidth={2.5}
+                                                                fill={color}
+                                                                fillOpacity={0.4}
+                                                                activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
+                                                                isAnimationActive={false}
+                                                            />
+                                                        );
+                                                    })}
+                                                </AreaChart >
                                             </ResponsiveContainer>
                                         ) : (
                                             <div className="h-full flex items-center justify-center">
@@ -2480,7 +2436,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     fill="url(#errorGradient)"
                                                                     dot={false}
                                                                     activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
-                                                                    isAnimationActive={false}
+                                                                    isAnimationActive={false} connectNulls={true}
                                                                     animationDuration={0}
                                                                 />
                                                                 <Area
@@ -2492,7 +2448,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     fill="url(#okGradient)"
                                                                     dot={false}
                                                                     activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
-                                                                    isAnimationActive={false}
+                                                                    isAnimationActive={false} connectNulls={true}
                                                                     animationDuration={0}
                                                                 />
                                                             </React.Fragment>

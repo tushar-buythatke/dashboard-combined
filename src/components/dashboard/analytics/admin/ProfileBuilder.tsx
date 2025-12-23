@@ -359,7 +359,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 setAvailableEvents(events);
 
                 // Load site details for POS
-                const sites = await apiService.getSiteDetails();
+                const sites = await apiService.getSiteDetails(parseInt(featureId) || undefined);
                 setSiteDetails(sites);
             } catch (error) {
                 console.error('Failed to load API data:', error);

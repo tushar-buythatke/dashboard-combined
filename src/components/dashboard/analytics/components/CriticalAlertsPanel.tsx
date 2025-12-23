@@ -26,14 +26,14 @@ interface CriticalAlertsPanelProps {
     };
     alertDateRange: { from: Date; to: Date };
     alertsPage: number;
-    alertIsApi: number;
+    alertIsApi: boolean;
     events: EventConfig[];
     siteDetails: SiteDetail[];
     onToggleCollapse: () => void;
     onToggleExpanded: () => void;
     onFilterChange: (filters: any) => void;
     onDateRangeChange: (range: { from: Date; to: Date }) => void;
-    onIsApiChange: (isApi: number) => void;
+    onIsApiChange: (isApi: boolean) => void;
     onLoadAlerts: (expanded?: boolean) => void;
     onPageChange: (page: number) => void;
 }
@@ -108,7 +108,7 @@ export function CriticalAlertsPanel({
                             ? "bg-gradient-to-r from-red-500 via-orange-500 to-red-500"
                             : "bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500"
                 )} />
-                
+
                 {/* Collapsed Header Bar */}
                 <div
                     className={cn(
@@ -207,202 +207,202 @@ export function CriticalAlertsPanel({
                 {/* Expandable Content */}
                 {!alertsPanelCollapsed && (
                     <div className="overflow-hidden">
-                            {/* Alert Filters Section */}
-                            <div className={cn(
-                                "px-4 py-3 border-b",
-                                isAutosnipe
-                                    ? "bg-gray-900/50 border-green-500/20"
-                                    : "bg-gradient-to-r from-purple-50 via-white to-pink-50 dark:from-purple-900/20 dark:via-slate-900/30 dark:to-pink-900/10 border-purple-200 dark:border-purple-500/30"
-                            )}>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Filter className={cn(
-                                        "h-4 w-4",
-                                        isAutosnipe ? "text-green-400" : "text-purple-500"
-                                    )} />
-                                    <span className={cn(
-                                        "text-sm font-medium",
-                                        isAutosnipe ? "text-green-300" : "text-purple-700 dark:text-purple-300"
-                                    )}>Alert Filters</span>
-                                    <span className="text-xs text-muted-foreground">(Independent from dashboard)</span>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
-                                    {/* Date Range */}
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">Date Range</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" size="sm" className="w-full justify-start text-xs h-9">
-                                                    <CalendarIcon className="mr-2 h-3 w-3" />
-                                                    {alertDateRange.from.toLocaleDateString()} - {alertDateRange.to.toLocaleDateString()}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="range"
-                                                    selected={{ from: alertDateRange.from, to: alertDateRange.to }}
-                                                    onSelect={(range) => {
-                                                        if (range?.from && range?.to) {
-                                                            onDateRangeChange({ from: range.from, to: range.to });
-                                                        }
-                                                    }}
-                                                    numberOfMonths={2}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
+                        {/* Alert Filters Section */}
+                        <div className={cn(
+                            "px-4 py-3 border-b",
+                            isAutosnipe
+                                ? "bg-gray-900/50 border-green-500/20"
+                                : "bg-gradient-to-r from-purple-50 via-white to-pink-50 dark:from-purple-900/20 dark:via-slate-900/30 dark:to-pink-900/10 border-purple-200 dark:border-purple-500/30"
+                        )}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <Filter className={cn(
+                                    "h-4 w-4",
+                                    isAutosnipe ? "text-green-400" : "text-purple-500"
+                                )} />
+                                <span className={cn(
+                                    "text-sm font-medium",
+                                    isAutosnipe ? "text-green-300" : "text-purple-700 dark:text-purple-300"
+                                )}>Alert Filters</span>
+                                <span className="text-xs text-muted-foreground">(Independent from dashboard)</span>
+                            </div>
 
-                                    {/* Platform Filter - MultiSelect */}
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">Platform</Label>
-                                        <MultiSelectDropdown
-                                            options={PLATFORMS.map(p => ({ value: String(p.id), label: p.name }))}
-                                            selected={alertFilters.platforms.map(String)}
-                                            onChange={(values) => onFilterChange({
-                                                ...alertFilters,
-                                                platforms: values
-                                            })}
-                                            placeholder="All Platforms"
-                                            className="h-9"
-                                        />
-                                    </div>
-
-                                    {/* POS Filter - MultiSelect */}
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">POS</Label>
-                                        <MultiSelectDropdown
-                                            options={siteDetails.map(s => ({ value: String(s.id), label: `${s.name} (${s.id})` }))}
-                                            selected={alertFilters.pos.map(String)}
-                                            onChange={(values) => onFilterChange({
-                                                ...alertFilters,
-                                                pos: values.map(v => parseInt(v))
-                                            })}
-                                            placeholder="All POS"
-                                            className="h-9"
-                                        />
-                                    </div>
-
-                                    {/* Event Filter - MultiSelect */}
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">Event</Label>
-                                        <MultiSelectDropdown
-                                            options={events.map(e => ({ value: e.eventId, label: e.eventName }))}
-                                            selected={alertFilters.events.map(String)}
-                                            onChange={(values) => onFilterChange({
-                                                ...alertFilters,
-                                                events: values.map(v => parseInt(v))
-                                            })}
-                                            placeholder="All Events"
-                                            className="h-9"
-                                        />
-                                    </div>
-
-                                    {/* Event Type Toggle - isApi */}
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">Event Type</Label>
-                                        <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-purple-300 dark:border-purple-600 bg-white dark:bg-slate-800">
-                                            <span className="text-xs text-muted-foreground flex-1">Regular Events</span>
-                                            <Switch
-                                                checked={alertIsApi === 1}
-                                                onCheckedChange={(checked) => onIsApiChange(checked ? 1 : 0)}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
+                                {/* Date Range */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Date Range</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" size="sm" className="w-full justify-start text-xs h-9">
+                                                <CalendarIcon className="mr-2 h-3 w-3" />
+                                                {alertDateRange.from.toLocaleDateString()} - {alertDateRange.to.toLocaleDateString()}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="range"
+                                                selected={{ from: alertDateRange.from, to: alertDateRange.to }}
+                                                onSelect={(range) => {
+                                                    if (range?.from && range?.to) {
+                                                        onDateRangeChange({ from: range.from, to: range.to });
+                                                    }
+                                                }}
+                                                numberOfMonths={2}
+                                                initialFocus
                                             />
-                                            <span className="text-xs text-muted-foreground flex-1 text-right">API Events</span>
-                                        </div>
-                                    </div>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
 
-                                    {/* Refresh Button */}
-                                    <div className="space-y-1">
-                                        <Label className="text-xs text-muted-foreground">&nbsp;</Label>
-                                        <Button
-                                            onClick={() => onLoadAlerts(alertsExpanded)}
-                                            disabled={alertsLoading}
-                                            size="sm"
-                                            className={cn(
-                                                "w-full h-9",
-                                                isAutosnipe
-                                                    ? "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-lg shadow-green-500/30"
-                                                    : "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-lg shadow-purple-500/30"
-                                            )}
-                                        >
-                                            {alertsLoading ? (
-                                                <RefreshCw className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <RefreshCw className="h-4 w-4 mr-1" />
-                                                    Refresh Alerts
-                                                </>
-                                            )}
-                                        </Button>
+                                {/* Platform Filter - MultiSelect */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Platform</Label>
+                                    <MultiSelectDropdown
+                                        options={PLATFORMS.map(p => ({ value: String(p.id), label: p.name }))}
+                                        selected={alertFilters.platforms.map(String)}
+                                        onChange={(values) => onFilterChange({
+                                            ...alertFilters,
+                                            platforms: values
+                                        })}
+                                        placeholder="All Platforms"
+                                        className="h-9"
+                                    />
+                                </div>
+
+                                {/* POS Filter - MultiSelect */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">POS</Label>
+                                    <MultiSelectDropdown
+                                        options={siteDetails.map(s => ({ value: String(s.id), label: `${s.name} (${s.id})` }))}
+                                        selected={alertFilters.pos.map(String)}
+                                        onChange={(values) => onFilterChange({
+                                            ...alertFilters,
+                                            pos: values.map(v => parseInt(v))
+                                        })}
+                                        placeholder="All POS"
+                                        className="h-9"
+                                    />
+                                </div>
+
+                                {/* Event Filter - MultiSelect */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Event</Label>
+                                    <MultiSelectDropdown
+                                        options={events.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                        selected={alertFilters.events.map(String)}
+                                        onChange={(values) => onFilterChange({
+                                            ...alertFilters,
+                                            events: values.map(v => parseInt(v))
+                                        })}
+                                        placeholder="All Events"
+                                        className="h-9"
+                                    />
+                                </div>
+
+                                {/* Event Type Toggle - isApi */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">Event Type</Label>
+                                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-purple-300 dark:border-purple-600 bg-white dark:bg-slate-800">
+                                        <span className="text-xs text-muted-foreground flex-1">Regular Events</span>
+                                        <Switch
+                                            checked={alertIsApi === true}
+                                            onCheckedChange={(checked) => onIsApiChange(checked)}
+                                        />
+                                        <span className="text-xs text-muted-foreground flex-1 text-right">API Events</span>
+                                    </div>
+                                </div>
+
+                                {/* Refresh Button */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs text-muted-foreground">&nbsp;</Label>
+                                    <Button
+                                        onClick={() => onLoadAlerts(alertsExpanded)}
+                                        disabled={alertsLoading}
+                                        size="sm"
+                                        className={cn(
+                                            "w-full h-9",
+                                            isAutosnipe
+                                                ? "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-lg shadow-green-500/30"
+                                                : "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-lg shadow-purple-500/30"
+                                        )}
+                                    >
+                                        {alertsLoading ? (
+                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <>
+                                                <RefreshCw className="h-4 w-4 mr-1" />
+                                                Refresh Alerts
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Summary Stats Header */}
+                        {criticalAlerts.length > 0 && (
+                            <div className="px-4 py-3 border-b border-red-200/30 dark:border-red-500/20 bg-gradient-to-r from-red-50/50 to-orange-50/30 dark:from-red-900/10 dark:to-orange-900/5">
+                                <div className="grid grid-cols-4 gap-4">
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalAlerts.length}</div>
+                                        <div className="text-xs text-muted-foreground">Total Alerts</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                                            {new Set(criticalAlerts.map(alert => alert.pos)).size}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Affected POS</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                            {new Set(criticalAlerts.map(alert => alert.eventId)).size}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Event Types</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                            {new Set(criticalAlerts.map(alert => alert.details?.metric)).size}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Metrics</div>
                                     </div>
                                 </div>
                             </div>
+                        )}
 
-                            {/* Summary Stats Header */}
-                            {criticalAlerts.length > 0 && (
-                                <div className="px-4 py-3 border-b border-red-200/30 dark:border-red-500/20 bg-gradient-to-r from-red-50/50 to-orange-50/30 dark:from-red-900/10 dark:to-orange-900/5">
-                                    <div className="grid grid-cols-4 gap-4">
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalAlerts.length}</div>
-                                            <div className="text-xs text-muted-foreground">Total Alerts</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                                                {new Set(criticalAlerts.map(alert => alert.pos)).size}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">Affected POS</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                                {new Set(criticalAlerts.map(alert => alert.eventId)).size}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">Event Types</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                                {new Set(criticalAlerts.map(alert => alert.details?.metric)).size}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">Metrics</div>
-                                        </div>
-                                    </div>
+                        {/* Alerts List */}
+                        <div className={cn(
+                            "p-4",
+                            isAutosnipe
+                                ? "bg-gray-950/50"
+                                : "bg-white dark:bg-slate-800/50"
+                        )}>
+                            {alertsLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                                    <span className="ml-2 text-sm text-muted-foreground">Loading alerts...</span>
                                 </div>
-                            )}
+                            ) : criticalAlerts.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-2" />
+                                    <p className="text-sm text-muted-foreground">No critical alerts at this time</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3 border-l-4 border-red-200 dark:border-red-500/30 pl-4">
+                                    {dedupedAlerts
+                                        .sort((a, b) => {
+                                            // Priority-based sorting: HIGH -> MEDIUM -> LOW
+                                            const getPriorityWeight = (alert: any) => {
+                                                const details = alert.details || {};
+                                                const variance = Math.abs(((details.currentValue - details.expectedValue) / details.expectedValue) * 100);
 
-                            {/* Alerts List */}
-                            <div className={cn(
-                                "p-4",
-                                isAutosnipe 
-                                    ? "bg-gray-950/50" 
-                                    : "bg-white dark:bg-slate-800/50"
-                            )}>
-                                {alertsLoading ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-                                        <span className="ml-2 text-sm text-muted-foreground">Loading alerts...</span>
-                                    </div>
-                                ) : criticalAlerts.length === 0 ? (
-                                    <div className="text-center py-8">
-                                        <CheckCircle2 className="h-12 w-12 mx-auto text-green-500 mb-2" />
-                                        <p className="text-sm text-muted-foreground">No critical alerts at this time</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3 border-l-4 border-red-200 dark:border-red-500/30 pl-4">
-                                        {dedupedAlerts
-                                            .sort((a, b) => {
-                                                // Priority-based sorting: HIGH -> MEDIUM -> LOW
-                                                const getPriorityWeight = (alert: any) => {
-                                                    const details = alert.details || {};
-                                                    const variance = Math.abs(((details.currentValue - details.expectedValue) / details.expectedValue) * 100);
-                                                    
-                                                    if (variance > 50) return 3; // HIGH
-                                                    if (variance > 20) return 2; // MEDIUM  
-                                                    return 1; // LOW
-                                                };
-                                                
-                                                return getPriorityWeight(b) - getPriorityWeight(a);
-                                            })
-                                            .slice(0, alertsExpanded ? dedupedAlerts.length : 4)
-                                            .map((alert, index) => {
+                                                if (variance > 50) return 3; // HIGH
+                                                if (variance > 20) return 2; // MEDIUM  
+                                                return 1; // LOW
+                                            };
+
+                                            return getPriorityWeight(b) - getPriorityWeight(a);
+                                        })
+                                        .slice(0, alertsExpanded ? dedupedAlerts.length : 4)
+                                        .map((alert, index) => {
                                             const details = alert.details || {};
                                             const eventName = details.eventName || `Event ${alert.eventId}`;
                                             const platformName = PLATFORM_NAMES?.[alert.platform] ?? `Platform ${alert.platform}`;
@@ -426,7 +426,7 @@ export function CriticalAlertsPanel({
                                             };
 
                                             const siteDetail = siteDetails.find(site => site.id === alert.pos);
-                                            
+
                                             return (
                                                 <div
                                                     key={alert.id || index}
@@ -435,7 +435,7 @@ export function CriticalAlertsPanel({
                                                     <div className="flex items-center gap-3 flex-1">
                                                         {/* Alert Indicator */}
                                                         <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0"></div>
-                                                        
+
                                                         {/* Event Info */}
                                                         <div className="flex-1 min-w-0">
                                                             <div className="flex items-center gap-3 mb-1">
@@ -455,8 +455,8 @@ export function CriticalAlertsPanel({
                                                                     <span className={cn(
                                                                         "text-xs px-2 py-0.5 rounded font-bold",
                                                                         Math.abs(variance) > 50 ? "bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400" :
-                                                                        Math.abs(variance) > 20 ? "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400" :
-                                                                        "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
+                                                                            Math.abs(variance) > 20 ? "bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400" :
+                                                                                "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
                                                                     )}>
                                                                         {variance > 0 ? '+' : ''}{variance.toFixed(1)}% deviation
                                                                     </span>
@@ -471,7 +471,7 @@ export function CriticalAlertsPanel({
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        
+
                                                         {/* Values */}
                                                         <div className="flex items-center gap-6 text-sm">
                                                             <div className="text-center">
@@ -488,7 +488,7 @@ export function CriticalAlertsPanel({
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     {/* Timestamp */}
                                                     <div className="text-xs text-muted-foreground text-right ml-4">
                                                         {(() => {
@@ -508,45 +508,45 @@ export function CriticalAlertsPanel({
                                                 </div>
                                             );
                                         })}
-                                        
-                                        {/* Show More / Show Less Button */}
-                                        {dedupedAlerts.length > 4 && (
-                                            <div className="pt-2">
-                                                <Button
-                                                    onClick={onToggleExpanded}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className={cn(
-                                                        "w-full text-xs h-8",
-                                                        isAutosnipe
-                                                            ? "border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-400/50"
-                                                            : "border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-300 dark:hover:border-red-500/50"
-                                                    )}
-                                                >
-                                                    {alertsExpanded ? (
-                                                        <>Show Less ({dedupedAlerts.length - 4} hidden)</>
-                                                    ) : (
-                                                        <>Show All {dedupedAlerts.length} Alerts ({dedupedAlerts.length - 4} more)</>
-                                                    )}
-                                                </Button>
-                                            </div>
-                                        )}
-                                        
-                                        {/* Simple Summary */}
-                                        <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                                <span>
-                                                    {alertsExpanded ? 'Showing all' : `Showing ${Math.min(4, criticalAlerts.length)} of`} {criticalAlerts.length} critical alerts
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                                                    Live monitoring
-                                                </span>
-                                            </div>
+
+                                    {/* Show More / Show Less Button */}
+                                    {dedupedAlerts.length > 4 && (
+                                        <div className="pt-2">
+                                            <Button
+                                                onClick={onToggleExpanded}
+                                                variant="outline"
+                                                size="sm"
+                                                className={cn(
+                                                    "w-full text-xs h-8",
+                                                    isAutosnipe
+                                                        ? "border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-400/50"
+                                                        : "border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-300 dark:hover:border-red-500/50"
+                                                )}
+                                            >
+                                                {alertsExpanded ? (
+                                                    <>Show Less ({dedupedAlerts.length - 4} hidden)</>
+                                                ) : (
+                                                    <>Show All {dedupedAlerts.length} Alerts ({dedupedAlerts.length - 4} more)</>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Simple Summary */}
+                                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                            <span>
+                                                {alertsExpanded ? 'Showing all' : `Showing ${Math.min(4, criticalAlerts.length)} of`} {criticalAlerts.length} critical alerts
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                                Live monitoring
+                                            </span>
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
             </Card>

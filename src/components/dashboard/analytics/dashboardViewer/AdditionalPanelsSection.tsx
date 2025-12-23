@@ -1133,54 +1133,50 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 // Build event key info - if special graph (percentage/funnel), use status/cache keys
                                 const isSpecialGraph = true; // Inside percentage block
                                 const apiEventKeyInfos = (() => {
-                                    if (panelConfig?.isApiEvent && isSpecialGraph) {
-                                        const allStatusCodes = new Set<string>();
-                                        const rawData: any[] = (panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []) as any[];
-                                        rawData.forEach((r: any) => { if (r.status) allStatusCodes.add(String(r.status)); });
+                                    // First, try to extract keys from panelApiSeries data if available
+                                    // This is the most reliable method as it uses actual data keys
+                                    if (panelApiSeries.length > 0) {
+                                        const dataKeys = new Set<string>();
+                                        const firstRecord = panelApiSeries[0];
 
-                                        const successCodes = Array.from(allStatusCodes).filter((code: string) => {
-                                            const c = parseInt(code);
-                                            return c >= 200 && c < 300;
-                                        }).sort((a: string, b: string) => parseInt(a) - parseInt(b));
-
-                                        const selectedStatusCodes = (currentPanelFilters.percentageStatusCodes || []).filter(Boolean).map(String);
-                                        const selectedCacheStatus = (currentPanelFilters.percentageCacheStatus || []).filter(Boolean).map(String);
-
-                                        const keys: any[] = successCodes.map((code: string) => ({
-                                            eventId: `status_${code}`,
-                                            eventName: `Status ${code}`,
-                                            eventKey: `status_${code}`,
-                                            isErrorEvent: 0,
-                                            isAvgEvent: 0
-                                        }));
-
-                                        selectedStatusCodes.forEach((code: string) => {
-                                            keys.push({
-                                                eventId: `status_${code}`,
-                                                eventName: `Status ${code}`,
-                                                eventKey: `status_${code}`,
-                                                isErrorEvent: 0,
-                                                isAvgEvent: 0
-                                            });
+                                        // Extract unique event keys from data keys (format: eventKey_metric)
+                                        Object.keys(firstRecord).forEach(key => {
+                                            if (key === 'date' || key === 'timestamp') return;
+                                            // Extract base event key by removing metric suffix
+                                            const match = key.match(/^(.+)_(count|avgServerToUser|avgServerToCloud|avgCloudToUser|avgBytesOut|avgBytesIn|success|fail|sumCount)$/);
+                                            if (match) {
+                                                dataKeys.add(match[1]);
+                                            }
                                         });
 
-                                        selectedCacheStatus.forEach((cache: string) => {
-                                            keys.push({
-                                                eventId: `cache_${cache}`,
-                                                eventName: `Cache: ${cache}`,
-                                                eventKey: `cache_${cache}`,
-                                                isErrorEvent: 0,
-                                                isAvgEvent: 0
-                                            });
-                                        });
+                                        if (dataKeys.size > 0) {
+                                            return Array.from(dataKeys).map(eventKey => {
+                                                // Try to find event config for nicer display name
+                                                const eventIdMatch = eventKey.match(/_(\d+)$/);
+                                                const eventId = eventIdMatch ? eventIdMatch[1] : eventKey;
+                                                const ev = (events || []).find((e: any) => String(e.eventId) === eventId);
+                                                const displayName = ev?.isApiEvent && ev?.host && ev?.url
+                                                    ? `${ev.host} - ${ev.url}`
+                                                    : (ev?.eventName || eventKey.replace(/_/g, ' '));
 
-                                        // Deduplicate by eventKey
-                                        return Array.from(new Map(keys.map((item: any) => [item.eventKey, item])).values());
+                                                return {
+                                                    eventId,
+                                                    eventName: displayName,
+                                                    eventKey: eventKey,
+                                                    isErrorEvent: 0,
+                                                    isAvgEvent: 0
+                                                };
+                                            });
+                                        }
                                     }
 
-                                    const activeParentEvents = panelConfig.percentageConfig.parentEvents || [];
-                                    const activeChildEvents = panelConfig.percentageConfig.childEvents || [];
+                                    // Fallback: Build from panel config events
+                                    const activeParentEvents = panelConfig?.percentageConfig?.parentEvents || [];
+                                    const activeChildEvents = panelConfig?.percentageConfig?.childEvents || [];
                                     const apiEventIds = Array.from(new Set([...(activeParentEvents || []), ...(activeChildEvents || [])].map(String)));
+
+                                    if (apiEventIds.length === 0) return [];
+
                                     return apiEventIds.map((id) => {
                                         const ev = (events || []).find((e: any) => String(e.eventId) === String(id));
                                         const name = ev?.isApiEvent && ev?.host && ev?.url
@@ -1194,13 +1190,18 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                     });
                                 })();
 
-                                // For avgDelay events, use raw data instead of aggregated data
+                                // For avgDelay events OR API events, use raw data instead of aggregated data
+                                // API events need raw data to access successCount for percentage calculation
                                 const hasAvgEvents = [...activeParentEvents, ...activeChildEvents].some((eventId: string) => {
                                     const ev = (events || []).find((e: any) => String(e.eventId) === String(eventId));
                                     return ev?.isAvgEvent === 1;
                                 });
+                                const hasApiEvents = panelConfig?.isApiEvent || [...activeParentEvents, ...activeChildEvents].some((eventId: string) => {
+                                    const ev = (events || []).find((e: any) => String(e.eventId) === String(eventId));
+                                    return ev?.isApiEvent === 1 || ev?.isApiEvent === true;
+                                });
 
-                                const percentageGraphData = hasAvgEvents
+                                const percentageGraphData = (hasAvgEvents || hasApiEvents)
                                     ? (() => {
                                         let rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
 
@@ -1255,6 +1256,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 }
                                             } : undefined}
                                         />
+
 
                                         {panelConfig?.isApiEvent && apiEventKeyInfos.length > 0 && (
                                             <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl">
@@ -1328,8 +1330,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         if (panelMetricView === 'timing-breakdown') {
                                                                             return (
                                                                                 <Fragment key={`pbreak_${panel.panelId}_${ek.eventKey}`}>
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
                                                                                 </Fragment>
                                                                             );
                                                                         }
@@ -1346,7 +1348,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 fill={color}
                                                                                 dot={false}
                                                                                 activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
-                                                                                isAnimationActive={false}
+                                                                                isAnimationActive={false} connectNulls={true}
                                                                                 animationDuration={0}
                                                                             />
                                                                         );
@@ -1484,50 +1486,32 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                                 // Build apiEventKeyInfos for funnel
                                 const apiEventKeyInfos = (() => {
-                                    if (panelConfig?.isApiEvent) {
-                                        const allStatusCodes = new Set<string>();
-                                        const rawData: any[] = (panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []) as any[];
-                                        rawData.forEach((r: any) => { if (r.status) allStatusCodes.add(String(r.status)); });
+                                    // First, try to extract keys from panelApiSeries data if available
+                                    if (panelApiSeries.length > 0) {
+                                        const dataKeys = new Set<string>();
+                                        const firstRecord = panelApiSeries[0];
 
-                                        const successCodes = Array.from(allStatusCodes).filter((code: string) => {
-                                            const c = parseInt(code);
-                                            return c >= 200 && c < 300;
-                                        }).sort((a: string, b: string) => parseInt(a) - parseInt(b));
-
-                                        const selectedStatusCodes = (currentPanelFilters.percentageStatusCodes || []).filter(Boolean).map(String);
-                                        const selectedCacheStatus = (currentPanelFilters.percentageCacheStatus || []).filter(Boolean).map(String);
-
-                                        const keys: any[] = successCodes.map((code: string) => ({
-                                            eventId: `status_${code}`,
-                                            eventName: `Status ${code}`,
-                                            eventKey: `status_${code}`,
-                                            isErrorEvent: 0,
-                                            isAvgEvent: 0
-                                        }));
-
-                                        selectedStatusCodes.forEach((code: string) => {
-                                            keys.push({
-                                                eventId: `status_${code}`,
-                                                eventName: `Status ${code}`,
-                                                eventKey: `status_${code}`,
-                                                isErrorEvent: 0,
-                                                isAvgEvent: 0
-                                            });
+                                        Object.keys(firstRecord).forEach(key => {
+                                            if (key === 'date' || key === 'timestamp') return;
+                                            const match = key.match(/^(.+)_(count|avgServerToUser|avgServerToCloud|avgCloudToUser|avgBytesOut|avgBytesIn|success|fail|sumCount)$/);
+                                            if (match) dataKeys.add(match[1]);
                                         });
 
-                                        selectedCacheStatus.forEach((cache: string) => {
-                                            keys.push({
-                                                eventId: `cache_${cache}`,
-                                                eventName: `Cache: ${cache}`,
-                                                eventKey: `cache_${cache}`,
-                                                isErrorEvent: 0,
-                                                isAvgEvent: 0
-                                            });
-                                        });
+                                        if (dataKeys.size > 0) {
+                                            return Array.from(dataKeys).map(eventKey => {
+                                                const eventIdMatch = eventKey.match(/_(\d+)$/);
+                                                const eventId = eventIdMatch ? eventIdMatch[1] : eventKey;
+                                                const ev = (events || []).find((e: any) => String(e.eventId) === eventId);
+                                                const displayName = ev?.isApiEvent && ev?.host && ev?.url
+                                                    ? `${ev.host} - ${ev.url}`
+                                                    : (ev?.eventName || eventKey.replace(/_/g, ' '));
 
-                                        return Array.from(new Map(keys.map((item: any) => [item.eventKey, item])).values());
+                                                return { eventId, eventName: displayName, eventKey, isErrorEvent: 0, isAvgEvent: 0 };
+                                            });
+                                        }
                                     }
 
+                                    // Fallback: Build from funnel config
                                     const apiEventIds = Array.from(new Set([...(activeStages.map((s: any) => s.eventId)), ...(panelConfig.funnelConfig.multipleChildEvents || [])].map(String)));
                                     return apiEventIds.map((id) => {
                                         const ev = (events || []).find((e: any) => String(e.eventId) === String(id));
@@ -1654,8 +1638,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         if (panelMetricView === 'timing-breakdown') {
                                                                             return (
                                                                                 <Fragment key={`pbreak_fun_${panel.panelId}_${ek.eventKey}`}>
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
                                                                                 </Fragment>
                                                                             );
                                                                         }
@@ -1672,7 +1656,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 fill={color}
                                                                                 dot={false}
                                                                                 activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
-                                                                                isAnimationActive={false}
+                                                                                isAnimationActive={false} connectNulls={true}
                                                                                 animationDuration={0}
                                                                             />
                                                                         );
@@ -2245,7 +2229,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                     fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
                                                                                     dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
                                                                                     activeDot={{ r: 8, fill: errorColor, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
-                                                                                    isAnimationActive={false}
+                                                                                    isAnimationActive={false} connectNulls={true}
                                                                                     animationDuration={0}
                                                                                 />
                                                                                 <Area
@@ -2258,7 +2242,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                     fill={`url(#errorSuccessGrad_${panel.panelId})`}
                                                                                     dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
                                                                                     activeDot={{ r: 6, fill: '#22c55e', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
-                                                                                    isAnimationActive={false}
+                                                                                    isAnimationActive={false} connectNulls={true}
                                                                                     animationDuration={0}
                                                                                 />
                                                                             </>
@@ -2407,7 +2391,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         fill={`url(#avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey})`}
                                                                         dot={{ fill: avgColor, strokeWidth: 0, r: 3 }}
                                                                         activeDot={{ r: 8, fill: avgColor, stroke: '#fff', strokeWidth: 3 }}
-                                                                        isAnimationActive={false}
+                                                                        isAnimationActive={false} connectNulls={true}
                                                                         animationDuration={0}
                                                                     />
                                                                 </AreaChart>
@@ -2464,7 +2448,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         fill={`url(#errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey})`}
                                                                         dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
                                                                         activeDot={{ r: 8, fill: errorColor, stroke: '#fff', strokeWidth: 3 }}
-                                                                        isAnimationActive={false}
+                                                                        isAnimationActive={false} connectNulls={true}
                                                                         animationDuration={0}
                                                                     />
                                                                 </AreaChart>
