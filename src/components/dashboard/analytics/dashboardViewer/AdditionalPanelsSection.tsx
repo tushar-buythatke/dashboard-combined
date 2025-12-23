@@ -619,7 +619,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         <MultiSelectDropdown
                                                                             options={(() => {
                                                                                 const unique = Array.from(new Set(rawData.map((d: any) => d.sourceStr).filter(Boolean))).sort();
-                                                                                return unique.map((s: any) => ({ value: s.toString(), label: `Job ${ s } ` }));
+                                                                                return unique.map((s: any) => ({ value: s.toString(), label: `Job ${s} ` }));
                                                                             })()}
                                                                             selected={(currentPanelFilters.sourceStrs || []).map((s: any) => s.toString())}
                                                                             onChange={(values) => {
@@ -687,7 +687,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                     .filter((ev: any) => panelConfig?.isApiEvent ? ev.isApiEvent === true : ev.isApiEvent !== true)
                                                                                     .map((ev: any) => (
                                                                                         <option key={ev.eventId} value={ev.eventId}>
-                                                                                            {ev.isApiEvent && ev.host && ev.url ? `${ ev.host } - ${ ev.url } ` : ev.eventName}
+                                                                                            {ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url} ` : ev.eventName}
                                                                                         </option>
                                                                                     ))}
                                                                             </select>
@@ -750,7 +750,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         .filter((ev: any) => panelConfig?.isApiEvent ? ev.isApiEvent === true : ev.isApiEvent !== true)
                                                                         .map((ev: any) => ({
                                                                             value: String(ev.eventId),
-                                                                            label: ev.isApiEvent && ev.host && ev.url ? `${ ev.host } - ${ ev.url } ` : ev.eventName
+                                                                            label: ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url} ` : ev.eventName
                                                                         }))}
                                                                     selected={currentPanelFilters.activeFunnelChildEvents || panelConfig.funnelConfig.multipleChildEvents}
                                                                     onChange={(values) => {
@@ -843,7 +843,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             <div className="space-y-1.5">
                                                                 <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
                                                                 <MultiSelectDropdown
-                                                                    options={(siteDetails || []).map((s: any) => ({ value: s.id.toString(), label: `${ s.name } (${ s.id })` }))}
+                                                                    options={(siteDetails || []).map((s: any) => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }))}
                                                                     selected={(currentPanelFilters.pos || []).map((id: any) => id.toString())}
                                                                     onChange={(values) => {
                                                                         const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
@@ -851,6 +851,96 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     }}
                                                                     placeholder="Select POS"
                                                                 />
+                                                            </div>
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
+                                                                <MultiSelectDropdown
+                                                                    options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
+                                                                    selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
+                                                                    onChange={(values) => {
+                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                        updatePanelFilter?.(panel.panelId, 'sources', numericValues);
+                                                                    }}
+                                                                    placeholder="Select sources"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                /* Regular Graph Filters */
+                                                <>
+                                                    <div
+                                                        className={cn(
+                                                            "grid gap-3 sm:gap-4",
+                                                            panelConfig?.isApiEvent
+                                                                ? "grid-cols-1"
+                                                                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+                                                        )}
+                                                    >
+                                                        <div className="space-y-1.5">
+                                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                                                                {panelConfig?.isApiEvent ? 'API Events (Host / URL)' : 'Events'}
+                                                            </label>
+                                                            <MultiSelectDropdown
+                                                                options={events
+                                                                    .filter((e: any) => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                    .map((e: any) => {
+                                                                        let label = e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName;
+                                                                        const tags: string[] = [];
+                                                                        if (e.isErrorEvent === 1) tags.push('[isError]');
+                                                                        if (e.isAvgEvent === 1) tags.push('[isAvg]');
+                                                                        if (tags.length > 0) label = `${e.eventName} ${tags.join(' ')}`;
+                                                                        return {
+                                                                            value: e.eventId,
+                                                                            label,
+                                                                            isErrorEvent: e.isErrorEvent === 1,
+                                                                            isAvgEvent: e.isAvgEvent === 1
+                                                                        };
+                                                                    })}
+                                                                selected={(currentPanelFilters.events || []).map((id: any) => id.toString())}
+                                                                onChange={(values) => {
+                                                                    const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                    updatePanelFilter?.(panel.panelId, 'events', numericValues);
+                                                                }}
+                                                                placeholder={panelConfig?.isApiEvent ? "Select API events" : "Select events"}
+                                                            />
+                                                            {panelConfig?.isApiEvent && (currentPanelFilters.events || []).length > 0 && (() => {
+                                                                const selectedEvent = (events || []).find((e: any) => e.eventId === currentPanelFilters.events[0]?.toString());
+                                                                return selectedEvent?.callUrl ? (
+                                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                                        Call URL:{' '}
+                                                                        <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                                    </p>
+                                                                ) : null;
+                                                            })()}
+                                                        </div>
+
+                                                        {!panelConfig?.isApiEvent && (
+                                                            <>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }))}
+                                                                        selected={(currentPanelFilters.platforms || []).map((id: any) => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter?.(panel.panelId, 'platforms', numericValues);
+                                                                        }}
+                                                                        placeholder="Select platforms"
+                                                                    />
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
+                                                                    <MultiSelectDropdown
+                                                                        options={(siteDetails || []).map((s: any) => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }))}
+                                                                        selected={(currentPanelFilters.pos || []).map((id: any) => id.toString())}
+                                                                        onChange={(values) => {
+                                                                            const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
+                                                                            updatePanelFilter?.(panel.panelId, 'pos', numericValues);
+                                                                        }}
+                                                                        placeholder="Select POS"
+                                                                    />
                                                                 </div>
                                                                 <div className="space-y-1.5">
                                                                     <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
@@ -864,213 +954,123 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         placeholder="Select sources"
                                                                     />
                                                                 </div>
-                                                            </div>
-                                                    )}
-                                                        </div>
-                                                    ) : (
-                                                    /* Regular Graph Filters */
-                                                    <>
-                                                        <div
-                                                            className={cn(
-                                                                "grid gap-3 sm:gap-4",
-                                                                panelConfig?.isApiEvent
-                                                                    ? "grid-cols-1"
-                                                                    : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-                                                            )}
-                                                        >
-                                                            <div className="space-y-1.5">
-                                                                <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                                                                    {panelConfig?.isApiEvent ? 'API Events (Host / URL)' : 'Events'}
-                                                                </label>
-                                                                <MultiSelectDropdown
-                                                                    options={events
-                                                                        .filter((e: any) => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
-                                                                        .map((e: any) => {
-                                                                            let label = e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName;
-                                                                            const tags: string[] = [];
-                                                                            if (e.isErrorEvent === 1) tags.push('[isError]');
-                                                                            if (e.isAvgEvent === 1) tags.push('[isAvg]');
-                                                                            if (tags.length > 0) label = `${e.eventName} ${tags.join(' ')}`;
-                                                                            return {
-                                                                                value: e.eventId,
-                                                                                label,
-                                                                                isErrorEvent: e.isErrorEvent === 1,
-                                                                                isAvgEvent: e.isAvgEvent === 1
-                                                                            };
-                                                                        })}
-                                                                    selected={(currentPanelFilters.events || []).map((id: any) => id.toString())}
-                                                                    onChange={(values) => {
-                                                                        const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                        updatePanelFilter?.(panel.panelId, 'events', numericValues);
-                                                                    }}
-                                                                    placeholder={panelConfig?.isApiEvent ? "Select API events" : "Select events"}
-                                                                />
-                                                                {panelConfig?.isApiEvent && (currentPanelFilters.events || []).length > 0 && (() => {
-                                                                    const selectedEvent = (events || []).find((e: any) => e.eventId === currentPanelFilters.events[0]?.toString());
-                                                                    return selectedEvent?.callUrl ? (
-                                                                        <p className="text-xs text-muted-foreground mt-1">
-                                                                            Call URL:{' '}
-                                                                            <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
-                                                                        </p>
-                                                                    ) : null;
-                                                                })()}
-                                                            </div>
+                                                            </>
+                                                        )}
+                                                    </div>
 
-                                                            {!panelConfig?.isApiEvent && (
-                                                                <>
-                                                                    <div className="space-y-1.5">
-                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
-                                                                        <MultiSelectDropdown
-                                                                            options={PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }))}
-                                                                            selected={(currentPanelFilters.platforms || []).map((id: any) => id.toString())}
-                                                                            onChange={(values) => {
-                                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                                updatePanelFilter?.(panel.panelId, 'platforms', numericValues);
-                                                                            }}
-                                                                            placeholder="Select platforms"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="space-y-1.5">
-                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
-                                                                        <MultiSelectDropdown
-                                                                            options={(siteDetails || []).map((s: any) => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }))}
-                                                                            selected={(currentPanelFilters.pos || []).map((id: any) => id.toString())}
-                                                                            onChange={(values) => {
-                                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                                updatePanelFilter?.(panel.panelId, 'pos', numericValues);
-                                                                            }}
-                                                                            placeholder="Select POS"
-                                                                        />
-                                                                    </div>
-                                                                    <div className="space-y-1.5">
-                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
-                                                                        <MultiSelectDropdown
-                                                                            options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
-                                                                            selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
-                                                                            onChange={(values) => {
-                                                                                const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
-                                                                                updatePanelFilter?.(panel.panelId, 'sources', numericValues);
-                                                                            }}
-                                                                            placeholder="Select sources"
-                                                                        />
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
+                                                    {panelConfig?.isApiEvent && (() => {
+                                                        const rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
+                                                        const statusSet = new Set<string>();
+                                                        const cacheSet = new Set<string>();
 
-                                                        {panelConfig?.isApiEvent && (() => {
-                                                            const rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
-                                                            const statusSet = new Set<string>();
-                                                            const cacheSet = new Set<string>();
-
-                                                            rawData.forEach((record: any) => {
-                                                                if (record.status !== undefined && record.status !== null) {
-                                                                    statusSet.add(String(record.status));
-                                                                }
-                                                                if (record.cacheStatus && typeof record.cacheStatus === 'string') {
-                                                                    cacheSet.add(record.cacheStatus);
-                                                                }
-                                                                Object.keys(record).forEach(key => {
-                                                                    const statusMatch = key.match(/_status_(\d+)_/);
-                                                                    const cacheMatch = key.match(/_cache_([^_]+)_/);
-                                                                    if (statusMatch) statusSet.add(statusMatch[1]);
-                                                                    if (cacheMatch) cacheSet.add(cacheMatch[1]);
-                                                                });
+                                                        rawData.forEach((record: any) => {
+                                                            if (record.status !== undefined && record.status !== null) {
+                                                                statusSet.add(String(record.status));
+                                                            }
+                                                            if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                                                                cacheSet.add(record.cacheStatus);
+                                                            }
+                                                            Object.keys(record).forEach(key => {
+                                                                const statusMatch = key.match(/_status_(\d+)_/);
+                                                                const cacheMatch = key.match(/_cache_([^_]+)_/);
+                                                                if (statusMatch) statusSet.add(statusMatch[1]);
+                                                                if (cacheMatch) cacheSet.add(cacheMatch[1]);
                                                             });
+                                                        });
 
-                                                            const availableStatus = Array.from(statusSet).sort((a, b) => parseInt(a) - parseInt(b));
-                                                            const availableCache = Array.from(cacheSet).sort();
+                                                        const availableStatus = Array.from(statusSet).sort((a, b) => parseInt(a) - parseInt(b));
+                                                        const availableCache = Array.from(cacheSet).sort();
 
-                                                            if (!currentPanelFilters.apiStatusCodes && availableStatus.length > 0) {
-                                                                const defaultStatus = availableStatus.includes('200') ? ['200'] : availableStatus;
-                                                                setPanelFiltersState?.((prev: any) => ({
-                                                                    ...prev,
-                                                                    [panel.panelId]: {
-                                                                        ...prev?.[panel.panelId],
-                                                                        apiStatusCodes: defaultStatus
-                                                                    }
-                                                                }));
-                                                            }
-                                                            if (!currentPanelFilters.apiCacheStatus && availableCache.length > 0) {
-                                                                setPanelFiltersState?.((prev: any) => ({
-                                                                    ...prev,
-                                                                    [panel.panelId]: {
-                                                                        ...prev?.[panel.panelId],
-                                                                        apiCacheStatus: availableCache
-                                                                    }
-                                                                }));
-                                                            }
+                                                        if (!currentPanelFilters.apiStatusCodes && availableStatus.length > 0) {
+                                                            const defaultStatus = availableStatus.includes('200') ? ['200'] : availableStatus;
+                                                            setPanelFiltersState?.((prev: any) => ({
+                                                                ...prev,
+                                                                [panel.panelId]: {
+                                                                    ...prev?.[panel.panelId],
+                                                                    apiStatusCodes: defaultStatus
+                                                                }
+                                                            }));
+                                                        }
+                                                        if (!currentPanelFilters.apiCacheStatus && availableCache.length > 0) {
+                                                            setPanelFiltersState?.((prev: any) => ({
+                                                                ...prev,
+                                                                [panel.panelId]: {
+                                                                    ...prev?.[panel.panelId],
+                                                                    apiCacheStatus: availableCache
+                                                                }
+                                                            }));
+                                                        }
 
-                                                            const activeStatus = currentPanelFilters.apiStatusCodes || availableStatus;
-                                                            const activeCache = currentPanelFilters.apiCacheStatus || availableCache;
+                                                        const activeStatus = currentPanelFilters.apiStatusCodes || availableStatus;
+                                                        const activeCache = currentPanelFilters.apiCacheStatus || availableCache;
 
-                                                            return (
-                                                                <div className="mt-3 space-y-3">
-                                                                    <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
-                                                                        <p className="text-xs text-muted-foreground">
-                                                                            <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span>{' '}
-                                                                            Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and{' '}
-                                                                            <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>.
-                                                                        </p>
-                                                                    </div>
-                                                                    {(availableStatus.length > 0 || availableCache.length > 0) && (
-                                                                        <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 rounded-lg border-2 border-indigo-300 dark:border-indigo-500/30">
-                                                                            <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-3 flex items-center gap-2">
-                                                                                <Activity className="h-4 w-4" />
-                                                                                API Filters (Status & Cache)
-                                                                            </h4>
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                                {availableStatus.length > 0 && (
-                                                                                    <div className="space-y-1.5">
-                                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</label>
-                                                                                        <MultiSelectDropdown
-                                                                                            options={availableStatus.map(code => ({ label: code, value: code }))}
-                                                                                            selected={activeStatus}
-                                                                                            onChange={(values) => {
-                                                                                                setPanelFiltersState?.((prev: any) => ({
-                                                                                                    ...prev,
-                                                                                                    [panel.panelId]: {
-                                                                                                        ...prev?.[panel.panelId],
-                                                                                                        apiStatusCodes: values
-                                                                                                    }
-                                                                                                }));
-                                                                                                setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
-                                                                                            }}
-                                                                                            placeholder="Select status codes"
-                                                                                        />
-                                                                                    </div>
-                                                                                )}
-                                                                                {availableCache.length > 0 && (
-                                                                                    <div className="space-y-1.5">
-                                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</label>
-                                                                                        <MultiSelectDropdown
-                                                                                            options={availableCache.map(cache => ({ label: cache, value: cache }))}
-                                                                                            selected={activeCache}
-                                                                                            onChange={(values) => {
-                                                                                                setPanelFiltersState?.((prev: any) => ({
-                                                                                                    ...prev,
-                                                                                                    [panel.panelId]: {
-                                                                                                        ...prev?.[panel.panelId],
-                                                                                                        apiCacheStatus: values
-                                                                                                    }
-                                                                                                }));
-                                                                                                setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
-                                                                                            }}
-                                                                                            placeholder="Select cache status"
-                                                                                        />
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
+                                                        return (
+                                                            <div className="mt-3 space-y-3">
+                                                                <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span>{' '}
+                                                                        Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and{' '}
+                                                                        <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>.
+                                                                    </p>
                                                                 </div>
-                                                            );
-                                                        })()}
-                                                    </>
-                                            )}
+                                                                {(availableStatus.length > 0 || availableCache.length > 0) && (
+                                                                    <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 rounded-lg border-2 border-indigo-300 dark:border-indigo-500/30">
+                                                                        <h4 className="text-sm font-semibold text-indigo-700 dark:text-indigo-300 mb-3 flex items-center gap-2">
+                                                                            <Activity className="h-4 w-4" />
+                                                                            API Filters (Status & Cache)
+                                                                        </h4>
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                            {availableStatus.length > 0 && (
+                                                                                <div className="space-y-1.5">
+                                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</label>
+                                                                                    <MultiSelectDropdown
+                                                                                        options={availableStatus.map(code => ({ label: code, value: code }))}
+                                                                                        selected={activeStatus}
+                                                                                        onChange={(values) => {
+                                                                                            setPanelFiltersState?.((prev: any) => ({
+                                                                                                ...prev,
+                                                                                                [panel.panelId]: {
+                                                                                                    ...prev?.[panel.panelId],
+                                                                                                    apiStatusCodes: values
+                                                                                                }
+                                                                                            }));
+                                                                                            setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
+                                                                                        }}
+                                                                                        placeholder="Select status codes"
+                                                                                    />
+                                                                                </div>
+                                                                            )}
+                                                                            {availableCache.length > 0 && (
+                                                                                <div className="space-y-1.5">
+                                                                                    <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</label>
+                                                                                    <MultiSelectDropdown
+                                                                                        options={availableCache.map(cache => ({ label: cache, value: cache }))}
+                                                                                        selected={activeCache}
+                                                                                        onChange={(values) => {
+                                                                                            setPanelFiltersState?.((prev: any) => ({
+                                                                                                ...prev,
+                                                                                                [panel.panelId]: {
+                                                                                                    ...prev?.[panel.panelId],
+                                                                                                    apiCacheStatus: values
+                                                                                                }
+                                                                                            }));
+                                                                                            setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
+                                                                                        }}
+                                                                                        placeholder="Select cache status"
+                                                                                    />
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </>
                                             )}
-                                        </div>
+                                        </>
+                                    )}
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -1230,6 +1230,30 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             filters={mergedFilters}
                                             showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
                                             isHourly={pIsHourly}
+                                            onToggleBackToFunnel={(panel as any)?.previousGraphType === 'funnel' ? () => {
+                                                // Toggle back to funnel graph
+                                                if (profile && profile.panels) {
+                                                    const actualIndex = panelIndex + 1;
+                                                    const targetPanel = profile.panels[actualIndex];
+                                                    const updatedConfig = {
+                                                        ...targetPanel.filterConfig,
+                                                        graphType: 'funnel' as const,
+                                                    };
+
+                                                    const updatedProfile = {
+                                                        ...profile,
+                                                        panels: profile.panels.map((p: any, i: number) =>
+                                                            i === actualIndex ? {
+                                                                ...p,
+                                                                filterConfig: updatedConfig,
+                                                                previousGraphType: undefined
+                                                            } : p
+                                                        )
+                                                    };
+
+                                                    setProfile?.(updatedProfile);
+                                                }
+                                            } : undefined}
                                         />
 
                                         {panelConfig?.isApiEvent && apiEventKeyInfos.length > 0 && (
@@ -1548,7 +1572,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         panels: profile.panels.map((p: any, i: number) =>
                                                             i === actualIndex ? {
                                                                 ...p,
-                                                                filterConfig: updatedConfig
+                                                                filterConfig: updatedConfig,
+                                                                previousGraphType: p.filterConfig?.graphType // Track previous graph type for back button
                                                             } : p
                                                         )
                                                     };
