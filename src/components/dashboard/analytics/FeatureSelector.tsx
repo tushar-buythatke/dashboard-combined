@@ -154,8 +154,8 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                     </p>
                 </div>
 
-                {/* Base Features - Compact Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8">
+                {/* Base Features - Compact Centered Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 lg:gap-5 mb-6 lg:mb-8">
                     {features.map((feature) => {
                         const hasAlerts = (alertCounts[feature.id] || 0) > 0;
                         return (
@@ -163,13 +163,13 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                                 key={feature.id}
                                 onMouseEnter={() => setHoveredCard(feature.id)}
                                 onMouseLeave={() => setHoveredCard(null)}
-                                className="transform transition-transform duration-150 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98]"
+                                className="transform transition-transform duration-150 hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98]"
                             >
                                 <div
                                     onClick={() => onSelectFeature(feature.id)}
-                                    className="cursor-pointer"
+                                    className="cursor-pointer h-full"
                                 >
-                                    <Card className={`group relative overflow-hidden rounded-2xl transition-all duration-150 ${hasAlerts ?
+                                    <Card className={`group relative overflow-hidden rounded-2xl transition-all duration-150 h-full ${hasAlerts ?
                                         'border-2 border-red-300 dark:border-red-500/50 bg-gradient-to-br from-red-50/80 via-white to-orange-50/60 dark:from-red-900/10 dark:via-slate-900/80 dark:to-orange-900/10 shadow-[0_4px_20px_rgba(239,68,68,0.15)] hover:shadow-[0_25px_50px_rgba(239,68,68,0.25)]' :
                                         hoveredCard === feature.id ?
                                             'border-2 border-purple-400 dark:border-purple-500 bg-gradient-to-br from-purple-50/90 via-white to-pink-50/80 dark:from-purple-900/30 dark:via-slate-900/80 dark:to-pink-900/20 shadow-[0_25px_50px_rgba(147,51,234,0.25)]' :
@@ -194,22 +194,22 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                                         {/* Gradient overlay on hover */}
                                         <div className={`absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-indigo-500/10 transition-opacity duration-150 ${hoveredCard === feature.id ? 'opacity-100' : 'opacity-30'}`} />
 
-                                        <CardHeader className="text-center relative z-10 p-3 lg:p-4">
+                                        <CardHeader className="text-center relative z-10 px-3 py-4 lg:px-4 lg:py-5">
                                             <div className="flex justify-center mb-2">
-                                                <div className={`h-10 w-10 lg:h-12 lg:w-12 rounded-xl flex items-center justify-center shadow-lg transition-all duration-150 ${hasAlerts ?
+                                                <div className={`h-11 w-11 lg:h-12 lg:w-12 rounded-xl flex items-center justify-center shadow-lg transition-all duration-150 ${hasAlerts ?
                                                     'bg-gradient-to-br from-red-100 to-orange-100 dark:from-red-500/20 dark:to-orange-500/20 border border-red-300 dark:border-red-500/30 shadow-red-500/20' :
                                                     'bg-gradient-to-br from-purple-100 via-violet-100 to-fuchsia-100 dark:from-purple-500/20 dark:via-violet-500/20 dark:to-fuchsia-500/20 border border-purple-300/60 dark:border-purple-500/30 shadow-purple-500/20 group-hover:shadow-purple-500/30 group-hover:scale-105'
                                                     }`}>
                                                     {getIcon(feature.id)}
                                                 </div>
                                             </div>
-                                            <CardTitle className="text-sm lg:text-base text-foreground mb-0.5 truncate font-semibold">
+                                            <CardTitle className="text-sm lg:text-base text-foreground mb-1 font-semibold leading-tight">
                                                 {feature.name}
                                             </CardTitle>
-                                            <CardDescription className="text-muted-foreground text-[10px] lg:text-xs line-clamp-1">{feature.description}</CardDescription>
+                                            <CardDescription className="text-muted-foreground text-[10px] lg:text-xs line-clamp-2 leading-relaxed">{feature.description}</CardDescription>
                                         </CardHeader>
                                         <CardContent className="flex justify-center pb-3 lg:pb-4 pt-0 relative z-10">
-                                            <Button variant="outline" size="sm" className={`gap-1 text-[10px] lg:text-xs h-7 px-3 rounded-full border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-indigo-500 hover:text-white hover:border-transparent transition-all duration-150 ${hasAlerts ? 'border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:from-red-500 hover:to-orange-500' : ''}`}>
+                                            <Button variant="outline" size="sm" className={`gap-1.5 text-[10px] lg:text-xs h-7 px-3 rounded-full border-purple-300 dark:border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-indigo-500 hover:text-white hover:border-transparent transition-all duration-150 ${hasAlerts ? 'border-red-300 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:from-red-500 hover:to-orange-500' : ''}`}>
                                                 View
                                                 <ArrowRight className="h-3 w-3" />
                                             </Button>
