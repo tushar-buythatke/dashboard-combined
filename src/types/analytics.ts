@@ -125,6 +125,7 @@ export interface CriticalAlertsConfig {
     filterByPOS: string[];
     filterByEvents: string[]; // Event IDs to monitor for alerts
     isApi?: boolean;
+    isHourly?: boolean;
 }
 
 export interface DashboardProfile {

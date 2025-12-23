@@ -58,6 +58,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const [panels, setPanels] = useState<ExtendedPanelConfig[]>([]);
     const [alertEventFilters, setAlertEventFilters] = useState<number[]>([]); // Event IDs for critical alerts
     const [alertsIsApi, setAlertsIsApi] = useState(false);
+    const [alertsIsHourly, setAlertsIsHourly] = useState(true);
     const [loading, setLoading] = useState(true);
     const [workflowMode, setWorkflowMode] = useState<'quick' | 'template'>('template');
     const [combineModalOpen, setCombineModalOpen] = useState(false);
@@ -435,9 +436,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
 
                     // Check if profile already has alerts panel, if not add one at beginning
                     const hasAlertsPanel = extendedPanels.some(p => p.type === 'alerts');
-                    // Load alert event filters from profile
+                    // Load alert config from profile
                     setAlertEventFilters(profile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || []);
                     setAlertsIsApi(Boolean(profile.criticalAlerts?.isApi));
+                    setAlertsIsHourly(profile.criticalAlerts?.isHourly !== false); // Default to true
 
                     if (!hasAlertsPanel) {
                         const alertsPanel: ExtendedPanelConfig = {
@@ -836,6 +838,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 filterByPOS: [],
                 filterByEvents: alertEventFilters.map(id => id.toString()),
                 isApi: alertsIsApi,
+                isHourly: alertsIsHourly,
             }
         };
 
@@ -1072,11 +1075,65 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                     {/* Event Selection for Alert Panel */}
                                                     <div className="p-4 bg-muted/20 rounded-lg">
                                                         <div className="flex items-center justify-between gap-4 mb-3" id="alert-api-toggle">
-                                                            <Label className="font-semibold">API Events</Label>
-                                                            <Switch
-                                                                checked={alertsIsApi}
-                                                                onCheckedChange={(checked) => setAlertsIsApi(checked)}
-                                                            />
+                                                            <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Event Type</Label>
+                                                            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[200px]">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setAlertsIsApi(false)}
+                                                                    className={cn(
+                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                        !alertsIsApi 
+                                                                            ? "bg-green-600 text-white shadow-md" 
+                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                    )}
+                                                                >
+                                                                    REGULAR
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setAlertsIsApi(true)}
+                                                                    className={cn(
+                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                        alertsIsApi 
+                                                                            ? "bg-purple-600 text-white shadow-md" 
+                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                    )}
+                                                                >
+                                                                    API
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-4 mb-4">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Granularity</Label>
+                                                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Requires range ≤ 7 days</span>
+                                                            </div>
+                                                            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[200px]">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setAlertsIsHourly(false)}
+                                                                    className={cn(
+                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                        !alertsIsHourly 
+                                                                            ? "bg-blue-600 text-white shadow-md" 
+                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                    )}
+                                                                >
+                                                                    DAILY
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setAlertsIsHourly(true)}
+                                                                    className={cn(
+                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                        alertsIsHourly 
+                                                                            ? "bg-orange-500 text-white shadow-md" 
+                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                    )}
+                                                                >
+                                                                    HOURLY
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                         <Label className="mb-3 font-semibold">Monitor Specific Events</Label>
                                                         <div id="alert-event-dropdown">

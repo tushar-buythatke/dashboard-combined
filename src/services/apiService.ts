@@ -841,10 +841,11 @@ export class APIService {
         endDate: Date,
         limit: number = 10,
         page: number = 0,
-        isApi: boolean = false // false = Regular events, true = API events
+        isApi: boolean = false, // false = Regular events, true = API events
+        isHourly: boolean | null = null // null means calculate based on range
     ): Promise<CriticalAlert[]> {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        const isHourly = daysDiff <= 7;
+        const finalIsHourly = isHourly !== null ? isHourly : (daysDiff <= 7);
 
         // Convert all IDs to numbers and filter out invalid ones
         const toNumbers = (arr: (number | string)[]) =>
@@ -861,7 +862,7 @@ export class APIService {
             },
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),
-            isHourly,
+            isHourly: finalIsHourly,
             isApi // Add isApi field
         };
 
@@ -887,6 +888,56 @@ export class APIService {
 
         // Handle the new response format with alerts array inside data
         return result.data?.alerts || [];
+    }
+
+    /**
+     * Fetch alert counts summary for multiple event IDs
+     * @returns Map of eventId -> alert count
+     */
+    async getAlertList(
+        eventIds: (number | string)[],
+        startDate: Date,
+        endDate: Date,
+        isHourly: boolean = true,
+        isApi: boolean = false
+    ): Promise<Record<string, number>> {
+        // Convert all IDs to numbers and filter out invalid ones
+        const toNumbers = (arr: (number | string)[]) =>
+            arr.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
+                .filter(id => !isNaN(id) && id !== null);
+
+        const requestBody = {
+            eventId: toNumbers(eventIds),
+            startTime: this.formatDate(startDate, false).split(' ')[0], // YYYY-MM-DD
+            endTime: this.formatDate(endDate, true).split(' ')[0], // YYYY-MM-DD
+            isHourly,
+            isApi
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/alertList`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                throw new Error(`AlertList API request failed: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            if (result.status !== 1) {
+                throw new Error(result.message || 'Failed to fetch alert list');
+            }
+
+            // Return eventId -> count map from result.data.alertsList
+            return result.data?.alertsList || {};
+        } catch (error) {
+            console.error('Failed to fetch alert list:', error);
+            return {};
+        }
     }
 
     /**

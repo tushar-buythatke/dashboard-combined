@@ -6,12 +6,18 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Switch } from '@/components/ui/switch';
-import { Bell, CheckCircle2, ChevronDown, Filter, CalendarIcon, RefreshCw, X, AlertTriangle } from 'lucide-react';
+import { Bell, CheckCircle2, ChevronDown, Filter, CalendarIcon, RefreshCw, X, AlertTriangle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
 import { PLATFORMS, PLATFORM_NAMES, SOURCE_NAMES } from '@/services/apiService';
 import type { SiteDetail } from '@/services/apiService';
 import type { EventConfig } from '@/types/analytics';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface CriticalAlertsPanelProps {
     criticalAlerts: any[];
@@ -27,15 +33,20 @@ interface CriticalAlertsPanelProps {
     alertDateRange: { from: Date; to: Date };
     alertsPage: number;
     alertIsApi: boolean;
+    alertIsHourly: boolean;
     events: EventConfig[];
     siteDetails: SiteDetail[];
+    alertSummary?: Record<string, number>; // Summary counts per event
     onToggleCollapse: () => void;
     onToggleExpanded: () => void;
     onFilterChange: (filters: any) => void;
     onDateRangeChange: (range: { from: Date; to: Date }) => void;
     onIsApiChange: (isApi: boolean) => void;
+    onIsHourlyChange: (isHourly: boolean) => void;
     onLoadAlerts: (expanded?: boolean) => void;
     onPageChange: (page: number) => void;
+    onJumpToPanel?: (panelId: string, panelName?: string) => void;
+    eventToPanelMap?: Record<string, string>;
 }
 
 export function CriticalAlertsPanel({
@@ -47,15 +58,20 @@ export function CriticalAlertsPanel({
     alertDateRange,
     alertsPage,
     alertIsApi,
+    alertIsHourly,
     events,
     siteDetails,
+    alertSummary = {},
     onToggleCollapse,
     onToggleExpanded,
     onFilterChange,
     onDateRangeChange,
     onIsApiChange,
+    onIsHourlyChange,
     onLoadAlerts,
     onPageChange,
+    onJumpToPanel,
+    eventToPanelMap = {}
 }: CriticalAlertsPanelProps) {
     const { isAutosnipe } = useTheme();
 
@@ -84,6 +100,8 @@ export function CriticalAlertsPanel({
 
         return Array.from(map.values());
     }, [criticalAlerts]);
+    const diffInDays = (alertDateRange.to.getTime() - alertDateRange.from.getTime()) / (1000 * 60 * 60 * 24);
+    const isHourlyDisabled = diffInDays > 7;
 
     return (
         <div className="relative">
@@ -299,16 +317,81 @@ export function CriticalAlertsPanel({
                                 </div>
 
                                 {/* Event Type Toggle - isApi */}
-                                <div className="space-y-1">
-                                    <Label className="text-xs text-muted-foreground">Event Type</Label>
-                                    <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-purple-300 dark:border-purple-600 bg-white dark:bg-slate-800">
-                                        <span className="text-xs text-muted-foreground flex-1">Regular Events</span>
-                                        <Switch
-                                            checked={alertIsApi === true}
-                                            onCheckedChange={(checked) => onIsApiChange(checked)}
-                                        />
-                                        <span className="text-xs text-muted-foreground flex-1 text-right">API Events</span>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Event Type</Label>
+                                    <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm w-full">
+                                        <button
+                                            type="button"
+                                            onClick={() => onIsApiChange(false)}
+                                            className={cn(
+                                                "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
+                                                !alertIsApi 
+                                                    ? "bg-green-600 text-white shadow-md scale-[1.02]" 
+                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                            )}
+                                        >
+                                            REGULAR
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onIsApiChange(true)}
+                                            className={cn(
+                                                "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
+                                                alertIsApi 
+                                                    ? "bg-purple-600 text-white shadow-md scale-[1.02]" 
+                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                            )}
+                                        >
+                                            API
+                                        </button>
                                     </div>
+                                </div>
+
+                                {/* Granularity Toggle - isHourly */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Granularity</Label>
+                                    <TooltipProvider delayDuration={100}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <div className={cn(
+                                                    "flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm w-full transition-opacity",
+                                                    isHourlyDisabled ? "opacity-60 grayscale-[0.4] cursor-not-allowed" : ""
+                                                )}>
+                                                    <button
+                                                        type="button"
+                                                        disabled={isHourlyDisabled}
+                                                        onClick={() => onIsHourlyChange(false)}
+                                                        className={cn(
+                                                            "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
+                                                            !alertIsHourly 
+                                                                ? "bg-blue-600 text-white shadow-md scale-[1.02]" 
+                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                                        )}
+                                                    >
+                                                        DAILY
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={isHourlyDisabled}
+                                                        onClick={() => onIsHourlyChange(true)}
+                                                        className={cn(
+                                                            "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
+                                                            alertIsHourly 
+                                                                ? "bg-orange-500 text-white shadow-md scale-[1.02]" 
+                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                                        )}
+                                                    >
+                                                        HOURLY
+                                                    </button>
+                                                </div>
+                                            </TooltipTrigger>
+                                            {isHourlyDisabled && (
+                                                <TooltipContent side="top" className="bg-slate-900 text-white border-slate-700 max-w-[200px] text-center">
+                                                    <p className="text-xs font-semibold">Hourly data restricted to ranges ≤ 7 days.</p>
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </TooltipProvider>
                                 </div>
 
                                 {/* Refresh Button */}
@@ -339,30 +422,39 @@ export function CriticalAlertsPanel({
                         </div>
 
                         {/* Summary Stats Header */}
-                        {criticalAlerts.length > 0 && (
+                        {(criticalAlerts.length > 0 || Object.keys(alertSummary).length > 0) && (
                             <div className="px-4 py-3 border-b border-red-200/30 dark:border-red-500/20 bg-gradient-to-r from-red-50/50 to-orange-50/30 dark:from-red-900/10 dark:to-orange-900/5">
                                 <div className="grid grid-cols-4 gap-4">
                                     <div className="text-center">
-                                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">{criticalAlerts.length}</div>
-                                        <div className="text-xs text-muted-foreground">Total Alerts</div>
+                                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                            {(() => {
+                                                const summaryTotal = Object.values(alertSummary).reduce((a, b) => a + b, 0);
+                                                return summaryTotal > 0 ? summaryTotal : criticalAlerts.length;
+                                            })()}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">Real-time alerts</div>
                                     </div>
                                     <div className="text-center">
                                         <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                                            {new Set(criticalAlerts.map(alert => alert.pos)).size}
+                                            {(() => {
+                                                const eventWithAlerts = Object.keys(alertSummary).filter(id => alertSummary[id] > 0).length;
+                                                const alertEventIds = new Set(criticalAlerts.map(alert => alert.eventId)).size;
+                                                return Math.max(eventWithAlerts, alertEventIds);
+                                            })()}
                                         </div>
-                                        <div className="text-xs text-muted-foreground">Affected POS</div>
+                                        <div className="text-xs text-muted-foreground">Impacted Events</div>
                                     </div>
                                     <div className="text-center">
                                         <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                                            {new Set(criticalAlerts.map(alert => alert.eventId)).size}
+                                            {new Set(criticalAlerts.map(alert => alert.eventId)).size || Object.keys(alertSummary).length}
                                         </div>
                                         <div className="text-xs text-muted-foreground">Event Types</div>
                                     </div>
                                     <div className="text-center">
                                         <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                            {new Set(criticalAlerts.map(alert => alert.details?.metric)).size}
+                                            {new Set(criticalAlerts.map(alert => alert.details?.metric)).size || 0}
                                         </div>
-                                        <div className="text-xs text-muted-foreground">Metrics</div>
+                                        <div className="text-xs text-muted-foreground">Total Metrics</div>
                                     </div>
                                 </div>
                             </div>
@@ -486,6 +578,28 @@ export function CriticalAlertsPanel({
                                                                 <div className="text-xs text-muted-foreground">Threshold</div>
                                                                 <div className="font-medium text-blue-600 dark:text-blue-400">{formatNum(details.threshold)}</div>
                                                             </div>
+                                                        </div>
+
+                                                        {/* Drill-down action */}
+                                                        <div className="ml-auto pl-4">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full transition-all duration-200 group-hover:scale-110"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const eventIdStr = String(alert.eventId);
+                                                                    const panelId = eventToPanelMap[eventIdStr];
+                                                                    if (onJumpToPanel && panelId) {
+                                                                        onJumpToPanel(panelId, eventName);
+                                                                    } else if (onJumpToPanel) {
+                                                                        onJumpToPanel('', eventName);
+                                                                    }
+                                                                }}
+                                                                title={`Drill down to ${eventName}`}
+                                                            >
+                                                                <ArrowRight className="h-4 w-4" />
+                                                            </Button>
                                                         </div>
                                                     </div>
 

@@ -327,7 +327,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const [alertsExpanded, setAlertsExpanded] = useState(false);
     const [alertsPage, setAlertsPage] = useState(0);
     const [alertsPanelCollapsed, setAlertsPanelCollapsed] = useState(true);
+    const [alertSummary, setAlertSummary] = useState<Record<string, number>>({});
     const [alertIsApi, setAlertIsApi] = useState(false); // false = Regular events, true = API events - independent toggle
+    const [alertIsHourly, setAlertIsHourly] = useState(true); // true = Hourly, false = Daily
 
 
     // Alert-specific filters (independent from main dashboard)
@@ -433,6 +435,55 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         });
         return map;
     }, [events]);
+
+    // Initialize alertIsApi from profile automatically
+    useEffect(() => {
+        if (!profile) return;
+
+        // If profile explicitly defines isApi for alerts, use it
+        if (profile.criticalAlerts?.isApi !== undefined) {
+            setAlertIsApi(profile.criticalAlerts.isApi);
+        } else {
+            // Otherwise fallback to whether the main panel is an API panel
+            setAlertIsApi(isMainPanelApi);
+        }
+
+        // Initialize isHourly from profile
+        if (profile.criticalAlerts?.isHourly !== undefined) {
+            setAlertIsHourly(profile.criticalAlerts.isHourly);
+        } else {
+            setAlertIsHourly(true);
+        }
+    }, [profile, isMainPanelApi]);
+
+    // Force isHourly to false if date range > 7 days
+    useEffect(() => {
+        const diffInDays = (alertDateRange.to.getTime() - alertDateRange.from.getTime()) / (1000 * 60 * 60 * 24);
+        if (diffInDays > 7 && alertIsHourly) {
+            setAlertIsHourly(false);
+        }
+    }, [alertDateRange, alertIsHourly]);
+
+    // Map of eventId -> panelId for drill-down support
+    const eventToPanelMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        profile?.panels?.forEach(panel => {
+            panel.events?.forEach((ev: any) => {
+                map[String(ev.eventId)] = panel.panelId;
+            });
+            // Handle special graphs (percentage, funnel)
+            if (panel.specialGraph) {
+                if (panel.specialGraph.type === 'percentage') {
+                    panel.specialGraph.parentEvents?.forEach(id => map[String(id)] = panel.panelId);
+                    panel.specialGraph.childEvents?.forEach(id => map[String(id)] = panel.panelId);
+                } else if (panel.specialGraph.type === 'funnel') {
+                    panel.specialGraph.stages?.forEach(s => map[String(s.eventId)] = panel.panelId);
+                    panel.specialGraph.multipleChildEvents?.forEach(id => map[String(id)] = panel.panelId);
+                }
+            }
+        });
+        return map;
+    }, [profile]);
 
     // Scroll Spy: Notify parent of active panel
     useEffect(() => {
@@ -1950,27 +2001,46 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     : events.map(e => parseInt(e.eventId));
 
             const limit = expanded ? 20 : 10;
-            const alerts = await apiService.getCriticalAlerts(
-                eventIds,
-                alertFilters.platforms.length > 0 ? alertFilters.platforms : [],
-                alertFilters.pos.length > 0 ? alertFilters.pos : [],
-                alertFilters.sources.length > 0 ? alertFilters.sources : [],
-                alertDateRange.from,
-                alertDateRange.to,
-                limit,
-                alertsPage,
-                alertIsApi // Pass isApi parameter
-            );
+
+            // Robust isHourly check: Force to false if range > 7 days
+            const diffInDays = (alertDateRange.to.getTime() - alertDateRange.from.getTime()) / (1000 * 60 * 60 * 24);
+            const effectiveIsHourly = diffInDays > 7 ? false : alertIsHourly;
+
+            // Fetch both detailed alerts and summary counts in parallel
+            const [alerts, summary] = await Promise.all([
+                apiService.getCriticalAlerts(
+                    eventIds,
+                    alertFilters.platforms.length > 0 ? alertFilters.platforms : [],
+                    alertFilters.pos.length > 0 ? alertFilters.pos : [],
+                    alertFilters.sources.length > 0 ? alertFilters.sources : [],
+                    alertDateRange.from,
+                    alertDateRange.to,
+                    limit,
+                    alertsPage,
+                    alertIsApi,
+                    effectiveIsHourly
+                ),
+                apiService.getAlertList(
+                    eventIds,
+                    alertDateRange.from,
+                    alertDateRange.to,
+                    effectiveIsHourly,
+                    alertIsApi
+                )
+            ]);
+
             setCriticalAlerts(alerts);
+            setAlertSummary(summary);
             onAlertsUpdate?.(alerts); // Send alerts to parent
         } catch (err) {
             console.error('Failed to load critical alerts:', err);
             setCriticalAlerts([]);
+            setAlertSummary({});
             onAlertsUpdate?.([]); // Send empty array on error
         } finally {
             setAlertsLoading(false);
         }
-    }, [profile, events, alertFilters, alertDateRange, alertsPage]);
+    }, [profile, events, alertFilters, alertDateRange, alertsPage, alertIsApi, alertIsHourly]);
 
     // Load chart data - LAZY LOADING: Only load first/main panel on initial load
     // Additional panels load data on-demand when navigated to via sidebar
@@ -2289,7 +2359,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     }, [refreshPanelData]);
 
     // Function to jump to a panel - scrolls and auto-fetches data if needed
-    const handleJumpToPanel = useCallback((panelId: string) => {
+    const handleJumpToPanel = useCallback((panelId: string, panelName?: string) => {
         // Scroll to panel
         const panelElement = panelRefs.current[panelId];
         if (panelElement) {
@@ -2753,6 +2823,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 {profile?.criticalAlerts?.enabled !== false && (
                     <CriticalAlertsPanel
                         criticalAlerts={criticalAlerts}
+                        alertSummary={alertSummary}
                         alertsLoading={alertsLoading}
                         alertsExpanded={alertsExpanded}
                         alertsPanelCollapsed={alertsPanelCollapsed}
@@ -2760,6 +2831,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         alertDateRange={alertDateRange}
                         alertsPage={alertsPage}
                         alertIsApi={alertIsApi}
+                        alertIsHourly={alertIsHourly}
                         events={events}
                         siteDetails={siteDetails}
                         onToggleCollapse={() => setAlertsPanelCollapsed(!alertsPanelCollapsed)}
@@ -2767,8 +2839,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         onFilterChange={setAlertFilters}
                         onDateRangeChange={setAlertDateRange}
                         onIsApiChange={setAlertIsApi}
+                        onIsHourlyChange={setAlertIsHourly}
                         onLoadAlerts={loadAlerts}
                         onPageChange={setAlertsPage}
+                        eventToPanelMap={eventToPanelMap}
+                        onJumpToPanel={(panelId, panelName) => {
+                            if (handleJumpToPanel) {
+                                handleJumpToPanel(panelId, panelName);
+                            }
+                        }}
                     />
                 )}
 

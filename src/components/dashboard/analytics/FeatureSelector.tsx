@@ -42,8 +42,8 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
 
             try {
                 const orgId = selectedOrganization?.id ?? 0;
-                const cacheKey = `feature_alert_counts_v1_${orgId}`;
-                const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+                const cacheKey = `feature_alert_counts_v2_${orgId}`;
+                const CACHE_TTL_MS = 10 * 60 * 1000; // Reduced to 10 mins for better real-time feel
 
                 // Try cache first
                 try {
@@ -59,41 +59,52 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                     console.warn('Failed to read feature alert counts cache:', err);
                 }
 
-                // Build eventId -> featureId mapping
-                const eventToFeatureMap: Record<string, string> = {};
+                // 1. Fetch all events for the organization once to avoid per-feature API calls
+                // We'll use a Promise.all to fetch events for all features in parallel if needed,
+                // but ideally we'd have a bulk getEvents method. For now, let's keep it optimized.
+                const featureToEventsMap: Record<string, { regular: number[], api: number[] }> = {};
 
                 await Promise.all(features.map(async (feature) => {
                     try {
                         const events = await apiService.getEventsList(feature.id, orgId);
-                        events.forEach(ev => {
-                            eventToFeatureMap[String(ev.eventId)] = feature.id;
-                        });
+                        featureToEventsMap[feature.id] = {
+                            regular: events.filter(e => !e.isApiEvent).map(e => parseInt(e.eventId)),
+                            api: events.filter(e => e.isApiEvent).map(e => parseInt(e.eventId))
+                        };
                     } catch (err) {
                         console.warn(`Failed to fetch events for feature ${feature.id}:`, err);
                     }
                 }));
 
-                // Fetch critical alerts
+                const allRegularIds = Object.values(featureToEventsMap).flatMap(f => f.regular);
+                const allApiIds = Object.values(featureToEventsMap).flatMap(f => f.api);
+
+                // 2. Fetch critical alert counts summary in bulk (2 calls: Regular and API)
                 const endDate = new Date();
                 const startDate = new Date();
-                startDate.setDate(startDate.getDate() - 1);
+                startDate.setDate(startDate.getDate() - 7); // Last 7 days
 
-                const alerts = await apiService.getCriticalAlerts(
-                    [], [], [], [],
-                    startDate, endDate,
-                    1000, 0
-                );
+                const [regularAlertCounts, apiAlertCounts]: [Record<string, number>, Record<string, number>] = await Promise.all([
+                    allRegularIds.length > 0 ? apiService.getAlertList(allRegularIds, startDate, endDate, true, false) : Promise.resolve({}),
+                    allApiIds.length > 0 ? apiService.getAlertList(allApiIds, startDate, endDate, true, true) : Promise.resolve({})
+                ]);
 
+                // 3. Aggregate counts per feature
                 const counts: Record<string, number> = {};
-                features.forEach(f => {
-                    counts[f.id] = 0;
-                });
+                features.forEach(feature => {
+                    const featureEvents = featureToEventsMap[feature.id];
+                    let total = 0;
 
-                alerts.forEach(alert => {
-                    const featureId = eventToFeatureMap[String(alert.eventId)];
-                    if (featureId && counts[featureId] !== undefined) {
-                        counts[featureId]++;
+                    if (featureEvents) {
+                        featureEvents.regular.forEach(id => {
+                            total += (regularAlertCounts[String(id)] || 0);
+                        });
+                        featureEvents.api.forEach(id => {
+                            total += (apiAlertCounts[String(id)] || 0);
+                        });
                     }
+
+                    counts[feature.id] = total;
                 });
 
                 setAlertCounts(counts);
