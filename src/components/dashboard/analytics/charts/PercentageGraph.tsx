@@ -42,10 +42,24 @@ export function PercentageGraph({
 }: PercentageGraphProps) {
     const debug = false;
     if (debug) {
+        console.log('=== PercentageGraph Debug ===');
         console.log('PercentageGraph received data:', data.length, 'records');
         console.log('Parent events:', parentEvents);
         console.log('Child events:', childEvents);
         console.log('Filters:', filters);
+
+        // Check for avgDelay records specifically
+        const avgDelayRecords = data.filter((d: any) => d.avgDelay !== undefined && Number(d.avgDelay) > 0);
+        console.log('Records with avgDelay > 0:', avgDelayRecords.length);
+        if (avgDelayRecords.length > 0) {
+            console.log('Sample avgDelay record:', avgDelayRecords[0]);
+            // Check if eventId matches parentEvents or childEvents
+            const matchingAvgRecords = avgDelayRecords.filter((d: any) =>
+                parentEvents.includes(String(d.eventId)) || childEvents.includes(String(d.eventId))
+            );
+            console.log('AvgDelay records matching parent/child eventIds:', matchingAvgRecords.length);
+        }
+
         console.log('Sample data record:', data[0]);
         console.log('Data keys:', data[0] ? Object.keys(data[0]) : 'No data');
     }

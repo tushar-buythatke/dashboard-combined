@@ -37,15 +37,15 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
 
     // Group data by day
     const groupedByDay: Record<string, any[]> = {};
-    
+
     data.forEach((record) => {
         const date = new Date(record.timestamp || record.date);
         const dayKey = date.toDateString();
-        
+
         if (!groupedByDay[dayKey]) {
             groupedByDay[dayKey] = [];
         }
-        
+
         groupedByDay[dayKey].push({
             hour: date.getHours(),
             ...record
@@ -88,16 +88,41 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
 
     // Build base comparison data - aggregate by hour across all days
     // Only aggregate the eventKeys that are passed in (filtered)
+    // For today, only include hours that have passed (not future hours with 0)
+    const now = new Date();
+    const currentHour = now.getHours();
+    const todayDateString = now.toDateString();
+
     const baseData = timePoints.map(({ hour, label }) => {
         const point: any = { hour, time: label };
-        
+
         daySeriesAsc.forEach(({ dayKey, label: dayLabel }) => {
             const dayData = groupedByDay[dayKey];
             const hourData = dayData.filter(d => d.hour === hour);
-            
-            // Always initialize to 0 to prevent gaps in the chart
+
+            // Check if this is today
+            const isToday = dayKey === todayDateString;
+
+            // For today: if no data for this hour AND hour is >= current hour, treat as future (null)
+            // This prevents showing 0 for hours that haven't happened yet
+            const hasNoData = hourData.length === 0 || (eventKeys.length > 0 && eventKeys.every(eventKey => {
+                return hourData.every(d => {
+                    const value = Number(d[`${eventKey}_count`]) || Number(d[eventKey]) || 0;
+                    return value === 0;
+                });
+            }));
+
+            const isFutureHour = isToday && hasNoData && hour >= currentHour;
+
+            // For future hours of today (no data yet), set to null to avoid plotting 0s
+            if (isFutureHour) {
+                point[dayLabel] = null;
+                return;
+            }
+
+            // Initialize to 0 for past hours (this prevents gaps for hours with no data)
             point[dayLabel] = 0;
-            
+
             if (hourData.length > 0 && eventKeys.length > 0) {
                 // Sum only the filtered event counts for this hour
                 const totalCount = eventKeys.reduce((sum, eventKey) => {
@@ -111,7 +136,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                 point[dayLabel] = Math.round(totalCount / hourData.length);
             }
         });
-        
+
         return point;
     });
 
@@ -234,43 +259,42 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                 return b.total - a.total;
                             })
                             .map((stat, idx) => {
-                            const isSelected = selectedEventKey === stat.eventKey;
-                            // Determine color based on status code
-                            const statusMatch = stat.eventKey.match(/\d{3}/);
-                            const statusCode = statusMatch ? parseInt(statusMatch[0]) : NaN;
-                            let badgeColor;
-                            if (!isNaN(statusCode)) {
-                                if (statusCode >= 200 && statusCode < 300) {
-                                    badgeColor = '#22c55e'; // Green for 2xx
-                                } else if (statusCode >= 400 && statusCode < 500) {
-                                    badgeColor = '#f59e0b'; // Orange for 4xx
-                                } else if (statusCode >= 500) {
-                                    badgeColor = '#ef4444'; // Red for 5xx
+                                const isSelected = selectedEventKey === stat.eventKey;
+                                // Determine color based on status code
+                                const statusMatch = stat.eventKey.match(/\d{3}/);
+                                const statusCode = statusMatch ? parseInt(statusMatch[0]) : NaN;
+                                let badgeColor;
+                                if (!isNaN(statusCode)) {
+                                    if (statusCode >= 200 && statusCode < 300) {
+                                        badgeColor = '#22c55e'; // Green for 2xx
+                                    } else if (statusCode >= 400 && statusCode < 500) {
+                                        badgeColor = '#f59e0b'; // Orange for 4xx
+                                    } else if (statusCode >= 500) {
+                                        badgeColor = '#ef4444'; // Red for 5xx
+                                    } else {
+                                        badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
+                                    }
                                 } else {
                                     badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
                                 }
-                            } else {
-                                badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
-                            }
-                            return (
-                                <div
-                                    key={stat.eventKey}
-                                    onClick={() => onEventClick?.(stat.eventKey)}
-                                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer transition-all ${
-                                        isSelected 
-                                            ? 'bg-purple-100 dark:bg-purple-900/40 border-2 border-purple-500 shadow-md scale-105' 
+                                return (
+                                    <div
+                                        key={stat.eventKey}
+                                        onClick={() => onEventClick?.(stat.eventKey)}
+                                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer transition-all ${isSelected
+                                            ? 'bg-purple-100 dark:bg-purple-900/40 border-2 border-purple-500 shadow-md scale-105'
                                             : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-102'
-                                    }`}
-                                >
-                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: badgeColor }} />
-                                    <span className={`text-[11px] font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>{stat.eventKey}</span>
-                                    <span className={`text-[11px] font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
-                                        {stat.successRate.toFixed(0)}%
-                                    </span>
-                                </div>
-                            );
-                        })}
+                                            }`}
+                                    >
+                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: badgeColor }} />
+                                        <span className={`text-[11px] font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>{stat.eventKey}</span>
+                                        <span className={`text-[11px] font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
+                                            {stat.successRate.toFixed(0)}%
+                                        </span>
+                                    </div>
+                                );
+                            })}
                     </div>
                 )}
             </CardHeader>
@@ -294,15 +318,15 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis 
-                                dataKey="time" 
+                            <XAxis
+                                dataKey="time"
                                 tick={{ fontSize: 11 }}
                                 interval={2}
                             />
                             <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip 
-                                contentStyle={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
                                     border: '1px solid #ddd',
                                     borderRadius: '8px'
                                 }}
@@ -326,7 +350,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                     }
                                 }}
                             />
-                            
+
                             {/* Render a line for each day - legend newest first */}
                             {daySeriesDesc.map(({ dayKey, label, color }) => {
                                 const recentThreeKeys = daySeriesAsc.slice(-3).map(ds => ds.dayKey);
@@ -340,7 +364,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
 
                                 // Check if this is today (the most recent/last day)
                                 const isToday = dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
-                                
+
                                 const strokeColor = isSelected ? color : '#9CA3AF';
                                 const strokeOpacity = isSelected ? (highlightRecentTwo ? 0.9 : 1) : 0.2;
                                 const strokeWidth = isSelected ? (isToday ? 3.5 : (highlightRecentTwo ? 2 : 2.5)) : 1.25;
@@ -382,15 +406,15 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
 
     // Calculate hourly averages and deviations
     const hourlyStats: Record<number, { values: number[]; avg: number; min: number; max: number }> = {};
-    
+
     data.forEach((record) => {
         const date = new Date(record.timestamp || record.date);
         const hour = date.getHours();
-        
+
         if (!hourlyStats[hour]) {
             hourlyStats[hour] = { values: [], avg: 0, min: Infinity, max: -Infinity };
         }
-        
+
         const value = eventKeys.reduce((sum, key) => sum + (Number(record[key]) || 0), 0);
         hourlyStats[hour].values.push(value);
     });
@@ -436,26 +460,26 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                         <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                             <defs>
                                 <linearGradient id="deviationGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis 
-                                dataKey="time" 
+                            <XAxis
+                                dataKey="time"
                                 tick={{ fontSize: 12 }}
                                 interval="preserveStartEnd"
                             />
                             <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip 
-                                contentStyle={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
                                     border: '1px solid #ddd',
                                     borderRadius: '8px'
                                 }}
                             />
                             <Legend />
-                            
+
                             <Line
                                 type="monotone"
                                 dataKey="avg"
@@ -498,7 +522,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
     if (!data || data.length === 0) return null;
 
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     // Only show this chart for > 7 days
     if (daysDiff <= 7) return null;
 
@@ -507,11 +531,11 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
 
     // Group by day
     const dailyData: Record<string, any> = {};
-    
+
     data.forEach((record) => {
         const date = new Date(record.timestamp || record.date);
         const dayKey = date.toDateString();
-        
+
         if (!dailyData[dayKey]) {
             dailyData[dayKey] = {
                 date: dayKey,
@@ -520,7 +544,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                 count: 0
             };
         }
-        
+
         // Match the graphData shape used elsewhere: `${eventKey}_count` first, then plain key
         const value = filteredEventKeys.reduce((sum, key) => {
             const countKey = `${key}_count`;
@@ -581,7 +605,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                             let bgColor = 'bg-slate-100 dark:bg-slate-800';
                             let borderColor = 'border-slate-300 dark:border-slate-600';
                             let textColor = 'text-slate-700 dark:text-slate-300';
-                            
+
                             if (statusCode >= 200 && statusCode < 300) {
                                 bgColor = 'bg-green-50 dark:bg-green-900/20';
                                 borderColor = 'border-green-300 dark:border-green-600';
@@ -595,7 +619,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                 borderColor = 'border-red-300 dark:border-red-600';
                                 textColor = 'text-red-700 dark:text-red-300';
                             }
-                            
+
                             return (
                                 <button
                                     key={stat.eventKey}
@@ -623,43 +647,43 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                         <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
                             <defs>
                                 <linearGradient id="dailyGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis 
-                                dataKey="date" 
+                            <XAxis
+                                dataKey="date"
                                 tick={{ fontSize: 11 }}
                                 angle={-45}
                                 textAnchor="end"
                                 height={80}
                             />
                             <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip 
-                                contentStyle={{ 
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+                            <Tooltip
+                                contentStyle={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
                                     border: '1px solid #ddd',
                                     borderRadius: '8px'
                                 }}
                             />
                             <Legend />
-                            
+
                             {/* Average reference line */}
-                            <ReferenceLine 
-                                y={overallAvg} 
-                                stroke="#f59e0b" 
+                            <ReferenceLine
+                                y={overallAvg}
+                                stroke="#f59e0b"
                                 strokeWidth={2}
                                 strokeDasharray="5 5"
-                                label={{ 
-                                    value: `Avg: ${overallAvg.toFixed(0)}`, 
+                                label={{
+                                    value: `Avg: ${overallAvg.toFixed(0)}`,
                                     position: 'right',
                                     fill: '#f59e0b',
                                     fontSize: 12,
                                     fontWeight: 'bold'
                                 }}
                             />
-                            
+
                             <Line
                                 type="monotone"
                                 dataKey="value"
