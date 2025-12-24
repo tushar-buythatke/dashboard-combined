@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InfoTooltip } from '../components/InfoTooltip';
 import {
@@ -67,6 +67,7 @@ type MainPanelSectionProps = {
     filteredApiData: any[];
     dateRange: DateRangeState;
     isHourly: boolean;
+    setHourlyOverride?: React.Dispatch<React.SetStateAction<boolean | null>>;
     filtersCollapsed: boolean;
     setFiltersCollapsed: (next: boolean) => void;
     pendingRefresh: boolean;
@@ -131,6 +132,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     filteredApiData,
     dateRange,
     isHourly,
+    setHourlyOverride,
     filtersCollapsed,
     setFiltersCollapsed,
     pendingRefresh,
@@ -231,6 +233,34 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 </CardHeader>
                 {!filtersCollapsed && (
                     <CardContent>
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
+                            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                                <button
+                                    onClick={() => setHourlyOverride && setHourlyOverride(false)}
+                                    className={cn(
+                                        "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                                        !isHourly
+                                            ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                    )}
+                                >
+                                    DAILY
+                                </button>
+                                <button
+                                    onClick={() => setHourlyOverride && setHourlyOverride(true)}
+                                    className={cn(
+                                        "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                                        isHourly
+                                            ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                    )}
+                                >
+                                    HOURLY
+                                </button>
+                            </div>
+                        </div>
+
                         <div className={cn(
                             "grid gap-3 sm:gap-4",
                             isMainPanelApi
@@ -1112,6 +1142,14 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             cacheStatus: activeCacheStatus
                                         }}
                                         isHourly={isHourly}
+                                        onToggleHourly={(newValue) => {
+                                            // Set the hourly override to the new value and refetch
+                                            if (setHourlyOverride) {
+                                                setHourlyOverride(newValue);
+                                            }
+                                            // Refetch with new granularity
+                                            setTimeout(() => handleApplyFilters(), 100);
+                                        }}
                                         onToggleBackToFunnel={(profile?.panels?.[0] as any)?.previousGraphType === 'funnel' ? () => {
                                             // Toggle back to funnel graph
                                             if (profile && profile.panels && profile.panels[0]) {
@@ -2357,8 +2395,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <div className="flex-1 min-w-0">
                                             <CardTitle className="text-base md:text-lg">Error Event Tracking</CardTitle>
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                <span className="hidden md:inline">Error vs Non-Error counts • Red = Errors, Green = OK</span>
-                                                <span className="md:hidden">Error tracking for isError events</span>
+                                                <span className="hidden md:inline">Failed event counts over time • Red line = Failed Count</span>
+                                                <span className="md:hidden">Failed count tracking for isError events</span>
                                             </p>
                                         </div>
                                     </div>
@@ -2427,27 +2465,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         const eventKey = eventKeyInfo.eventKey;
                                                         return (
                                                             <React.Fragment key={`error_main_${eventKey}`}>
+                                                                {/* isError events: Show ONLY successCount as RED line (it represents FAILED count) */}
                                                                 <Area
                                                                     type="monotone"
                                                                     dataKey={`${eventKey}_success`}
-                                                                    name={`${eventKeyInfo.eventName} (Errors)`}
+                                                                    name={`${eventKeyInfo.eventName} (Failed Count)`}
                                                                     stroke="#ef4444"
-                                                                    strokeWidth={2.5}
+                                                                    strokeWidth={3}
                                                                     fill="url(#errorGradient)"
                                                                     dot={false}
-                                                                    activeDot={{ r: 6, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
-                                                                    isAnimationActive={false} connectNulls={true}
-                                                                    animationDuration={0}
-                                                                />
-                                                                <Area
-                                                                    type="monotone"
-                                                                    dataKey={`${eventKey}_fail`}
-                                                                    name={`${eventKeyInfo.eventName} (OK)`}
-                                                                    stroke="#22c55e"
-                                                                    strokeWidth={2}
-                                                                    fill="url(#okGradient)"
-                                                                    dot={false}
-                                                                    activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
+                                                                    activeDot={{ r: 7, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
                                                                     isAnimationActive={false} connectNulls={true}
                                                                     animationDuration={0}
                                                                 />

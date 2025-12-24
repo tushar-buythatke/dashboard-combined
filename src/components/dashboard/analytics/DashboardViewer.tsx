@@ -291,8 +291,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         to: new Date()
     });
 
-    // Compute isHourly based on date range (8 days or less = hourly)
-    const isHourly = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
+    // Manual override for hourly/daily toggle (null = auto based on date range)
+    const [hourlyOverride, setHourlyOverride] = useState<boolean | null>(null);
+
+    // Compute isHourly based on date range (8 days or less = hourly) OR manual override
+    const autoIsHourly = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
+    const isHourly = hourlyOverride !== null ? hourlyOverride : autoIsHourly;
 
     // Expanded pie chart modal state
     const [expandedPie, setExpandedPie] = useState<ExpandedPieData | null>(null);
@@ -328,7 +332,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const [alertsPage, setAlertsPage] = useState(0);
     const [alertsPanelCollapsed, setAlertsPanelCollapsed] = useState(true);
     const [alertSummary, setAlertSummary] = useState<Record<string, number>>({});
-    const [alertIsApi, setAlertIsApi] = useState(false); // false = Regular events, true = API events - independent toggle
+    const [alertIsApi, setAlertIsApi] = useState<number>(0); // 0 = Regular, 1 = API, 2 = Funnel/Percent - independent toggle
     const [alertIsHourly, setAlertIsHourly] = useState(true); // true = Hourly, false = Daily
 
 
@@ -380,6 +384,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
     // Panel navigation and UI state
     const [_activePanelId, setActivePanelId] = useState<string | null>(null);
+    // Single-panel architecture: Only one panel is shown at a time
+    const [activePanelIndex, setActivePanelIndex] = useState<number>(0); // 0 = main panel, 1+ = additional panels
     const [mainLegendExpanded, setMainLegendExpanded] = useState(false);
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
     const [apiSelectedEventKey, setApiSelectedEventKey] = useState<string | null>(null); // Independent selection for API Performance Metrics
@@ -442,10 +448,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         // If profile explicitly defines isApi for alerts, use it
         if (profile.criticalAlerts?.isApi !== undefined) {
-            setAlertIsApi(profile.criticalAlerts.isApi);
+            setAlertIsApi(profile.criticalAlerts.isApi ? 1 : 0);
         } else {
             // Otherwise fallback to whether the main panel is an API panel
-            setAlertIsApi(isMainPanelApi);
+            setAlertIsApi(isMainPanelApi ? 1 : 0);
         }
 
         // Initialize isHourly from profile
@@ -1908,9 +1914,24 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     console.warn(`⚠️ Pie chart data failed for panel ${panelId}, continuing without it:`, pieErr);
                 }
             }
+            // Fetch available sourceStrs from dedicated API endpoint (parallel with graph data)
+            let sourceStrsFromApi: string[] = [];
+            try {
+                // Use event IDs from the panel to fetch available sourceStr options
+                const eventIdsForSourceStr = eventIdsToFetch.map(id => typeof id === 'number' ? id : parseInt(id)).filter(id => !isNaN(id));
+                if (eventIdsForSourceStr.length > 0) {
+                    sourceStrsFromApi = await apiService.fetchSourceStr(eventIdsForSourceStr);
+                }
+            } catch (sourceStrErr) {
+                // Fallback: extract from graph response
+                console.warn('📋 SourceStr API failed, falling back to extraction from graph data:', sourceStrErr);
+                sourceStrsFromApi = extractSourceStrs(graphResponse);
+            }
 
-            // Extract available sourceStrs from the raw response
-            const sourceStrsInData = extractSourceStrs(graphResponse);
+            // If API returned no results, try extracting from graph response as fallback
+            if (sourceStrsFromApi.length === 0) {
+                sourceStrsFromApi = extractSourceStrs(graphResponse);
+            }
 
             // Apply sourceStr filter (client-side) then process
             const filteredResponse = filterBySourceStr(graphResponse, currentSourceStrFilter);
@@ -1937,13 +1958,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 return newMap;
             });
 
-            // Update available sourceStrs for this panel
+            // Update available sourceStrs for this panel (from API)
             if (profile.panels[0]?.panelId === panelId) {
-                setAvailableSourceStrs(sourceStrsInData);
+                setAvailableSourceStrs(sourceStrsFromApi);
             } else {
                 setPanelAvailableSourceStrs(prev => ({
                     ...prev,
-                    [panelId]: sourceStrsInData
+                    [panelId]: sourceStrsFromApi
                 }));
             }
 
@@ -2017,7 +2038,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     alertDateRange.to,
                     limit,
                     alertsPage,
-                    alertIsApi,
+                    alertIsApi, // Now a number (0, 1, or 2)
                     effectiveIsHourly
                 ),
                 apiService.getAlertList(
@@ -2025,7 +2046,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     alertDateRange.from,
                     alertDateRange.to,
                     effectiveIsHourly,
-                    alertIsApi
+                    alertIsApi // Now a number
                 )
             ]);
 
@@ -2358,12 +2379,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         }));
     }, [refreshPanelData]);
 
-    // Function to jump to a panel - scrolls and auto-fetches data if needed
+    // Function to jump to a panel - sets activePanelIndex and auto-fetches data if needed
     const handleJumpToPanel = useCallback((panelId: string, panelName?: string) => {
-        // Scroll to panel
-        const panelElement = panelRefs.current[panelId];
-        if (panelElement) {
-            panelElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // SINGLE PANEL ARCHITECTURE: Set the active panel index
+        const panelIndex = profile?.panels.findIndex(p => p.panelId === panelId) ?? -1;
+        if (panelIndex >= 0) {
+            setActivePanelIndex(panelIndex);
         }
 
         // Auto-fetch panel data if not already loaded
@@ -2894,76 +2915,81 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     </div>
                 )}
 
-                {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
-                <div ref={el => { if (profile.panels[0]) panelRefs.current[profile.panels[0].panelId] = el; }}>
-                    <MainPanelSection
-                        profile={profile}
-                        setProfile={setProfile}
-                        panelsDataMap={panelsDataMap}
-                        rawGraphResponse={rawGraphResponse}
-                        graphData={graphData}
-                        filteredApiData={filteredApiData}
-                        dateRange={dateRange}
-                        isHourly={isHourly}
-                        filtersCollapsed={filtersCollapsed}
-                        setFiltersCollapsed={setFiltersCollapsed}
-                        pendingRefresh={pendingRefresh}
-                        panelFiltersState={panelFiltersState}
-                        handleFilterChange={handleFilterChange}
-                        handleApplyFilters={handleApplyFilters}
-                        dataLoading={dataLoading}
-                        autoRefreshMinutes={autoRefreshMinutes}
-                        setAutoRefreshMinutes={setAutoRefreshMinutes}
-                        availableStatusCodes={availableStatusCodes}
-                        availableCacheStatuses={availableCacheStatuses}
-                        availableSourceStrs={availableSourceStrs}
-                        selectedSourceStrs={selectedSourceStrs}
-                        setSelectedSourceStrs={setSelectedSourceStrs}
-                        platformOptions={platformOptions}
-                        posOptions={posOptions}
-                        sourceOptions={sourceOptions}
-                        eventOptions={eventOptions}
-                        totalCount={totalCount}
-                        totalSuccess={totalSuccess}
-                        totalFail={totalFail}
-                        selectedEventsList={selectedEventsList}
-                        isMainPanelApi={isMainPanelApi}
-                        normalEventKeys={normalEventKeys}
-                        eventKeys={eventKeys}
-                        avgEventKeys={avgEventKeys}
-                        errorEventKeys={errorEventKeys}
-                        apiEndpointEventKeyInfos={apiEndpointEventKeyInfos}
-                        apiPerformanceEventKeys={apiPerformanceEventKeys}
-                        mainLegendExpanded={mainLegendExpanded}
-                        setMainLegendExpanded={setMainLegendExpanded}
-                        selectedEventKey={selectedEventKey}
-                        handleEventClick={handleEventClick}
-                        overlaySelectedEventKey={overlaySelectedEventKey}
-                        handleOverlayEventClick={handleOverlayEventClick}
-                        errorSelectedEventKey={errorSelectedEventKey}
-                        handleErrorEventClick={handleErrorEventClick}
-                        apiSelectedEventKey={apiSelectedEventKey}
-                        handleApiEventClick={handleApiEventClick}
-                        panelChartType={panelChartType}
-                        setPanelChartType={setPanelChartType}
-                        pinnedTooltip={pinnedTooltip}
-                        setPinnedTooltip={setPinnedTooltip}
-                        isFirstPanelSpecialGraph={isFirstPanelSpecialGraph}
-                        apiPerformanceSeries={apiPerformanceSeries}
-                        apiMetricView={apiMetricView}
-                        setApiMetricView={setApiMetricView}
-                        pieChartData={pieChartData}
-                        openExpandedPie={openExpandedPie}
-                        CustomXAxisTick={CustomXAxisTick}
-                        HourlyStatsCard={HourlyStatsCard}
-                        events={events}
-                        toast={toast}
-                    />
-                </div>
+                {/* Panel switching is handled via sidebar - no tabs needed */}
 
+                {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
+                {/* Only render main panel when activePanelIndex === 0 */}
+                {activePanelIndex === 0 && (
+                    <div ref={el => { if (profile.panels[0]) panelRefs.current[profile.panels[0].panelId] = el; }}>
+                        <MainPanelSection
+                            profile={profile}
+                            setProfile={setProfile}
+                            panelsDataMap={panelsDataMap}
+                            rawGraphResponse={rawGraphResponse}
+                            graphData={graphData}
+                            filteredApiData={filteredApiData}
+                            dateRange={dateRange}
+                            isHourly={isHourly}
+                            setHourlyOverride={setHourlyOverride}
+                            filtersCollapsed={filtersCollapsed}
+                            setFiltersCollapsed={setFiltersCollapsed}
+                            pendingRefresh={pendingRefresh}
+                            panelFiltersState={panelFiltersState}
+                            handleFilterChange={handleFilterChange}
+                            handleApplyFilters={handleApplyFilters}
+                            dataLoading={dataLoading}
+                            autoRefreshMinutes={autoRefreshMinutes}
+                            setAutoRefreshMinutes={setAutoRefreshMinutes}
+                            availableStatusCodes={availableStatusCodes}
+                            availableCacheStatuses={availableCacheStatuses}
+                            availableSourceStrs={availableSourceStrs}
+                            selectedSourceStrs={selectedSourceStrs}
+                            setSelectedSourceStrs={setSelectedSourceStrs}
+                            platformOptions={platformOptions}
+                            posOptions={posOptions}
+                            sourceOptions={sourceOptions}
+                            eventOptions={eventOptions}
+                            totalCount={totalCount}
+                            totalSuccess={totalSuccess}
+                            totalFail={totalFail}
+                            selectedEventsList={selectedEventsList}
+                            isMainPanelApi={isMainPanelApi}
+                            normalEventKeys={normalEventKeys}
+                            eventKeys={eventKeys}
+                            avgEventKeys={avgEventKeys}
+                            errorEventKeys={errorEventKeys}
+                            apiEndpointEventKeyInfos={apiEndpointEventKeyInfos}
+                            apiPerformanceEventKeys={apiPerformanceEventKeys}
+                            mainLegendExpanded={mainLegendExpanded}
+                            setMainLegendExpanded={setMainLegendExpanded}
+                            selectedEventKey={selectedEventKey}
+                            handleEventClick={handleEventClick}
+                            overlaySelectedEventKey={overlaySelectedEventKey}
+                            handleOverlayEventClick={handleOverlayEventClick}
+                            errorSelectedEventKey={errorSelectedEventKey}
+                            handleErrorEventClick={handleErrorEventClick}
+                            apiSelectedEventKey={apiSelectedEventKey}
+                            handleApiEventClick={handleApiEventClick}
+                            panelChartType={panelChartType}
+                            setPanelChartType={setPanelChartType}
+                            pinnedTooltip={pinnedTooltip}
+                            setPinnedTooltip={setPinnedTooltip}
+                            isFirstPanelSpecialGraph={isFirstPanelSpecialGraph}
+                            apiPerformanceSeries={apiPerformanceSeries}
+                            apiMetricView={apiMetricView}
+                            setApiMetricView={setApiMetricView}
+                            pieChartData={pieChartData}
+                            openExpandedPie={openExpandedPie}
+                            CustomXAxisTick={CustomXAxisTick}
+                            HourlyStatsCard={HourlyStatsCard}
+                            events={events}
+                            toast={toast}
+                        />
+                    </div>
+                )}
                 {/* Additional Panels (if profile has more than one panel) */}
-                {/* Render additional panels normally - each panel will check if it's a special graph */}
-                {profile.panels.length > 1 && (
+                {/* SINGLE PANEL ARCHITECTURE: Only render the active panel */}
+                {profile.panels.length > 1 && activePanelIndex > 0 && (
                     <AdditionalPanelsSection
                         profile={profile}
                         setProfile={setProfile}
@@ -3000,6 +3026,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         openExpandedPie={openExpandedPie}
                         isHourly={isHourly}
                         HourlyStatsCard={HourlyStatsCard}
+                        // NEW: Pass active panel index to render only that panel
+                        activePanelIndex={activePanelIndex}
                     />
                 )}
 

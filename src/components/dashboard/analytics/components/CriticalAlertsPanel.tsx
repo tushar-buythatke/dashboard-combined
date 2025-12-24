@@ -32,7 +32,7 @@ interface CriticalAlertsPanelProps {
     };
     alertDateRange: { from: Date; to: Date };
     alertsPage: number;
-    alertIsApi: boolean;
+    alertIsApi: number; // 0=Regular, 1=API, 2=Funnel/Percent
     alertIsHourly: boolean;
     events: EventConfig[];
     siteDetails: SiteDetail[];
@@ -41,7 +41,7 @@ interface CriticalAlertsPanelProps {
     onToggleExpanded: () => void;
     onFilterChange: (filters: any) => void;
     onDateRangeChange: (range: { from: Date; to: Date }) => void;
-    onIsApiChange: (isApi: boolean) => void;
+    onIsApiChange: (isApi: number) => void;
     onIsHourlyChange: (isHourly: boolean) => void;
     onLoadAlerts: (expanded?: boolean) => void;
     onPageChange: (page: number) => void;
@@ -319,14 +319,14 @@ export function CriticalAlertsPanel({
                                 {/* Event Type Toggle - isApi */}
                                 <div className="space-y-1.5">
                                     <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Event Type</Label>
-                                    <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm w-full">
+                                    <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm w-full gap-1">
                                         <button
                                             type="button"
-                                            onClick={() => onIsApiChange(false)}
+                                            onClick={() => onIsApiChange(0)}
                                             className={cn(
-                                                "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
-                                                !alertIsApi 
-                                                    ? "bg-green-600 text-white shadow-md scale-[1.02]" 
+                                                "flex-1 px-1 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                alertIsApi === 0
+                                                    ? "bg-green-600 text-white shadow-sm scale-[1.02]"
                                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
                                             )}
                                         >
@@ -334,15 +334,27 @@ export function CriticalAlertsPanel({
                                         </button>
                                         <button
                                             type="button"
-                                            onClick={() => onIsApiChange(true)}
+                                            onClick={() => onIsApiChange(1)}
                                             className={cn(
-                                                "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
-                                                alertIsApi 
-                                                    ? "bg-purple-600 text-white shadow-md scale-[1.02]" 
+                                                "flex-1 px-1 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                alertIsApi === 1
+                                                    ? "bg-purple-600 text-white shadow-sm scale-[1.02]"
                                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
                                             )}
                                         >
                                             API
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onIsApiChange(2)}
+                                            className={cn(
+                                                "flex-1 px-1 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                alertIsApi === 2
+                                                    ? "bg-amber-500 text-white shadow-sm scale-[1.02]"
+                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                            )}
+                                        >
+                                            PERCENT
                                         </button>
                                     </div>
                                 </div>
@@ -363,8 +375,8 @@ export function CriticalAlertsPanel({
                                                         onClick={() => onIsHourlyChange(false)}
                                                         className={cn(
                                                             "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
-                                                            !alertIsHourly 
-                                                                ? "bg-blue-600 text-white shadow-md scale-[1.02]" 
+                                                            !alertIsHourly
+                                                                ? "bg-blue-600 text-white shadow-md scale-[1.02]"
                                                                 : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
                                                         )}
                                                     >
@@ -376,8 +388,8 @@ export function CriticalAlertsPanel({
                                                         onClick={() => onIsHourlyChange(true)}
                                                         className={cn(
                                                             "flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition-all duration-200",
-                                                            alertIsHourly 
-                                                                ? "bg-orange-500 text-white shadow-md scale-[1.02]" 
+                                                            alertIsHourly
+                                                                ? "bg-orange-500 text-white shadow-md scale-[1.02]"
                                                                 : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
                                                         )}
                                                     >

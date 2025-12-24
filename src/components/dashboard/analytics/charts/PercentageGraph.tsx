@@ -20,6 +20,7 @@ interface PercentageGraphProps {
     };
     showCombinedPercentage?: boolean;
     isHourly?: boolean;
+    onToggleHourly?: (isHourly: boolean) => void;
     onToggleBackToFunnel?: () => void;
 }
 
@@ -38,6 +39,7 @@ export function PercentageGraph({
     filters,
     showCombinedPercentage = true,
     isHourly = true,
+    onToggleHourly,
     onToggleBackToFunnel,
 }: PercentageGraphProps) {
     const debug = false;
@@ -59,9 +61,119 @@ export function PercentageGraph({
     }
 
     const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
+    // Line selection state: null = show all, 'all' = show all (explicit), or specific line ID
+    const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return [];
+
+        // DETECT: Same parent and child events = show successCount and failCount as 2 lines
+        const isSameParentChild = parentEvents.length === childEvents.length &&
+            parentEvents.every(pe => childEvents.includes(pe));
+
+        // Check data format: raw API data has eventId, processed has _success/_count keys
+        const isRawApiData = data.some(r => r.eventId !== undefined);
+        const hasSuccessFailData = data.some(r => 
+            (r.successCount !== undefined && r.failCount !== undefined) ||
+            data.some(d => Object.keys(d).some(k => k.endsWith('_success') || k.endsWith('_fail')))
+        );
+
+        // If same parent/child, we'll show success% and fail% instead of child/parent ratio
+        if (isSameParentChild && (isRawApiData || hasSuccessFailData)) {
+            const groupedData: Record<string, {
+                count: number;
+                successCount: number;
+                failCount: number;
+                timestamp: number;
+                hasAnomaly: boolean;
+            }> = {};
+
+            data.forEach((record) => {
+                const date = new Date(record.timestamp || record.date);
+                const timeKey = isHourly
+                    ? `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${date.getHours()}:00`
+                    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+                parentEvents.forEach((eventId) => {
+                    let count = 0;
+                    let successCount = 0;
+                    let failCount = 0;
+                    let hasMatch = false;
+
+                    if (isRawApiData && record.eventId !== undefined && String(record.eventId) === String(eventId)) {
+                        // Raw API data format
+                        count = Number(record.count || 0);
+                        successCount = Number(record.successCount || 0);
+                        failCount = Number(record.failCount || 0);
+                        hasMatch = true;
+                    } else if (!isRawApiData) {
+                        // Processed data format - look for _success and _fail keys
+                        const successKey = `${eventId}_success`;
+                        const failKey = `${eventId}_fail`;
+                        const countKey = `${eventId}_count`;
+
+                        if (record[successKey] !== undefined || record[countKey] !== undefined) {
+                            successCount = Number(record[successKey] || 0);
+                            failCount = Number(record[failKey] || 0);
+                            count = Number(record[countKey] || successCount + failCount);
+                            hasMatch = true;
+                        }
+                    }
+
+                    if (!hasMatch) return;
+
+                    if (!groupedData[timeKey]) {
+                        groupedData[timeKey] = {
+                            count: 0,
+                            successCount: 0,
+                            failCount: 0,
+                            timestamp: date.getTime(),
+                            hasAnomaly: false,
+                        };
+                    }
+
+                    groupedData[timeKey].count += count;
+                    groupedData[timeKey].successCount += successCount;
+                    groupedData[timeKey].failCount += failCount;
+
+                    // Anomaly detection: successCount + failCount != count
+                    if (count > 0 && Math.abs((successCount + failCount) - count) > 1) {
+                        groupedData[timeKey].hasAnomaly = true;
+                    }
+                });
+            });
+
+            // Only return if we have data
+            const entries = Object.entries(groupedData);
+            if (entries.length > 0) {
+                return entries
+                    .map(([timeKey, values]) => ({
+                        time: timeKey,
+                        timestamp: values.timestamp,
+                        count: values.count,
+                        successCount: values.successCount,
+                        failCount: values.failCount,
+                        // Calculate percentages relative to count
+                        success_percentage: values.count > 0 ? (values.successCount / values.count) * 100 : 0,
+                        fail_percentage: values.count > 0 ? (values.failCount / values.count) * 100 : 0,
+                        child_success_percentage: values.count > 0 ? (values.successCount / values.count) * 100 : 0,
+                        child_fail_percentage: values.count > 0 ? (values.failCount / values.count) * 100 : 0,
+                        percentage: values.count > 0 ? (values.successCount / values.count) * 100 : 0, // Default combined
+                        hasAnomaly: values.hasAnomaly,
+                        isSameParentChild: true,
+                        isAvgMetric: false,
+                        parentCount: values.count,
+                        childCount: values.successCount,
+                        parentBreakdown: {} as Record<string, number>,
+                        childBreakdown: {} as Record<string, number>,
+                        parent_percentage: 100,
+                    }))
+                    .sort((a, b) => a.timestamp - b.timestamp);
+            }
+            // Fall through to regular processing if no data matched
+        }
+
+
         // --- PATCH: Fallback to count if all successCount are zero in visible data ---
         let alwaysUseCountInsteadOfSuccess = false;
         const sample = data.find(
@@ -240,6 +352,8 @@ export function PercentageGraph({
                         parentBreakdown: values.parentBreakdown,
                         childBreakdown: finalChildBreakdown,
                         isAvgMetric: values.isAvgMetric,
+                        isSameParentChild: false,
+                        hasAnomaly: false,
                         ...childPercentages, // Add individual child percentage fields
                         parent_percentage: parentValue > 0 ? 100 : 0, // Parent line at 100%
                     };
@@ -511,6 +625,8 @@ export function PercentageGraph({
                     parentBreakdown: values.parentBreakdown,
                     childBreakdown: finalChildBreakdown,
                     isAvgMetric: values.isAvgMetric,
+                    isSameParentChild: false,
+                    hasAnomaly: false,
                     ...childPercentages, // Add individual child percentage fields
                     parent_percentage: parentValue > 0 ? 100 : 0, // Parent line at 100%
                 };
@@ -633,6 +749,33 @@ export function PercentageGraph({
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
+                            {/* Day-wise / Hourly Toggle */}
+                            {onToggleHourly && (
+                                <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-800/80 rounded-lg border border-purple-200 dark:border-purple-500/30 p-0.5">
+                                    <button
+                                        onClick={() => onToggleHourly(false)}
+                                        className={cn(
+                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                                            !isHourly
+                                                ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm"
+                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                        )}
+                                    >
+                                        Daily
+                                    </button>
+                                    <button
+                                        onClick={() => onToggleHourly(true)}
+                                        className={cn(
+                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                                            isHourly
+                                                ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm"
+                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                        )}
+                                    >
+                                        Hourly
+                                    </button>
+                                </div>
+                            )}
                             {onToggleBackToFunnel && (
                                 <Button
                                     variant="outline"
@@ -751,6 +894,48 @@ export function PercentageGraph({
                                                 return true;
                                             };
 
+                                            // Custom tooltip for "Same Parent/Child" mode (Dual Success/Fail lines)
+                                            if (data.isSameParentChild) {
+                                                const eventId = childEvents[0];
+                                                const eventName = eventId ? (eventNames[eventId] || `Event ${eventId}`) : 'Event';
+
+                                                return (
+                                                    <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
+                                                        <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
+                                                        <div className="space-y-2 text-xs">
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <span className="font-semibold text-green-600 flex items-center gap-1.5">
+                                                                    <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                                                                    {eventName} Success
+                                                                </span>
+                                                                <span className="font-mono font-bold text-gray-900">
+                                                                    {Number(data.successCount).toLocaleString()}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <span className="font-semibold text-red-600 flex items-center gap-1.5">
+                                                                    <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                                                                    {eventName} Fail
+                                                                </span>
+                                                                <span className="font-mono font-bold text-gray-900">
+                                                                    {Number(data.failCount).toLocaleString()}
+                                                                </span>
+                                                            </div>
+                                                            {/* Show percentages as supplemental info */}
+                                                            <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between text-[10px] text-muted-foreground">
+                                                                <span className="text-green-600/80">Success Rate: {data.success_percentage.toFixed(2)}%</span>
+                                                                <span className="text-red-600/80">Fail Rate: {data.fail_percentage.toFixed(2)}%</span>
+                                                            </div>
+                                                            {data.hasAnomaly && (
+                                                                <div className="mt-1 px-2 py-1 bg-amber-50 text-amber-700 rounded border border-amber-200 text-xs font-bold text-center flex items-center justify-center gap-1">
+                                                                    <span>⚠️</span> Anomaly Detected
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
                                             const filteredChildEntries = isApiEventMode
                                                 ? childEntries.filter(([key]) => shouldKeepApiEntry(key))
                                                 : childEntries;
@@ -817,8 +1002,41 @@ export function PercentageGraph({
                                     }}
                                 />
 
-                                {/* Individual child event lines - one for each child OR status code */}
+                                {/* Individual child event lines - one for each child OR status code OR success/fail for same parent/child */}
                                 {(() => {
+                                    // SPECIAL CASE: Same parent and child events - show success% and fail% as 2 lines
+                                    const isSameParentChildMode = chartData.length > 0 && chartData[0].isSameParentChild;
+
+                                    if (isSameParentChildMode) {
+                                        // Render SUCCESS and FAIL lines for same parent/child
+                                        const lines = [
+                                            { id: 'success', dataKey: 'success_percentage', color: '#22c55e', name: 'Success %' },
+                                            { id: 'fail', dataKey: 'fail_percentage', color: '#ef4444', name: 'Fail %' }
+                                        ];
+
+                                        return lines.map(({ id, dataKey, color, name }) => {
+                                            const isLineSelected = selectedLineId === null || selectedLineId === id;
+                                            const lineOpacity = isLineSelected ? 1 : 0.15;
+                                            const lineWidth = isLineSelected ? 2.5 : 1;
+
+                                            return (
+                                                <Area
+                                                    key={`same-parent-child-${id}`}
+                                                    type="monotone"
+                                                    dataKey={dataKey}
+                                                    stroke={color}
+                                                    strokeWidth={lineWidth}
+                                                    strokeOpacity={lineOpacity}
+                                                    fill="none"
+                                                    name={name}
+                                                    isAnimationActive={false}
+                                                    dot={false}
+                                                    activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
+                                                />
+                                            );
+                                        });
+                                    }
+
                                     // For avgDelay metrics, use child events directly
                                     // For API events with filters, use status codes
                                     // Otherwise, use child events
@@ -834,7 +1052,7 @@ export function PercentageGraph({
                                             : childEvents;
 
                                     return renderKeys.map((childId, index) => {
-                                        const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+                                        const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
                                         const color = eventColors[childId] || colors[index % colors.length];
                                         const childDataKey = `child_${childId}_percentage`;
 
@@ -843,18 +1061,24 @@ export function PercentageGraph({
                                                 childId.startsWith('cache_') ? `Cache: ${childId.replace('cache_', '')}` : childId)
                                             : (eventNames[childId] || childId);
 
+                                        // Apply line selection filtering
+                                        const isLineSelected = selectedLineId === null || selectedLineId === childId;
+                                        const lineOpacity = isLineSelected ? 1 : 0.15;
+                                        const lineWidth = isLineSelected ? 2.5 : 1;
+
                                         return (
                                             <Area
                                                 key={`child-line-${childId}`}
                                                 type="monotone"
                                                 dataKey={childDataKey}
                                                 stroke={color}
-                                                strokeWidth={2.5}
+                                                strokeWidth={lineWidth}
+                                                strokeOpacity={lineOpacity}
                                                 fill="none"
                                                 name={displayName}
                                                 isAnimationActive={false}
                                                 dot={false}
-                                                activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
+                                                activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
                                             />
                                         );
                                     });
@@ -912,26 +1136,89 @@ export function PercentageGraph({
                         </ResponsiveContainer>
                     </div>
 
-                    {/* Legend */}
+                    {/* Line Selection Buttons - Color Coded Legend */}
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                                <div className="h-3 w-3 rounded-full bg-purple-500"></div>
-                                <span>Percentage</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                                <span>{isApiEventMode ? 'Selected Status/Cache' : 'Child Events'}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="h-3 w-3 rounded-full bg-blue-500"></div>
-                                <span>{isApiEventMode ? 'All Status Codes' : 'Parent Events'}</span>
-                            </div>
+                        <div className="flex items-center justify-center gap-2 flex-wrap">
+                            <span className="text-xs font-semibold text-muted-foreground mr-2">Select Line:</span>
+                            <button
+                                onClick={() => setSelectedLineId(null)}
+                                className={cn(
+                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+                                    selectedLineId === null
+                                        ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-md"
+                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                )}
+                            >
+                                All
+                            </button>
+                            {/* Same parent/child mode: Show Success and Fail buttons */}
+                            {chartData.length > 0 && chartData[0].isSameParentChild ? (
+                                <>
+                                    <button
+                                        onClick={() => setSelectedLineId(selectedLineId === 'success' ? null : 'success')}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
+                                            selectedLineId === 'success'
+                                                ? "text-white shadow-md"
+                                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                        )}
+                                        style={selectedLineId === 'success' ? { backgroundColor: '#22c55e' } : {}}
+                                    >
+                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#22c55e' }} />
+                                        Success %
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedLineId(selectedLineId === 'fail' ? null : 'fail')}
+                                        className={cn(
+                                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
+                                            selectedLineId === 'fail'
+                                                ? "text-white shadow-md"
+                                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                        )}
+                                        style={selectedLineId === 'fail' ? { backgroundColor: '#ef4444' } : {}}
+                                    >
+                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />
+                                        Fail %
+                                    </button>
+                                    {/* Anomaly indicator */}
+                                    {chartData.some(d => d.hasAnomaly) && (
+                                        <span className="px-2 py-1 text-xs font-bold rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                            ⚠️ Anomaly Detected
+                                        </span>
+                                    )}
+                                </>
+                            ) : (
+                                /* Regular child events mode */
+                                childEvents.map((eventId, idx) => {
+                                    const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+                                    const color = eventColors[eventId] || colors[idx % colors.length];
+                                    const name = eventNames[eventId] || `Event ${eventId}`;
+                                    const isSelected = selectedLineId === eventId;
+                                    return (
+                                        <button
+                                            key={eventId}
+                                            onClick={() => setSelectedLineId(isSelected ? null : eventId)}
+                                            className={cn(
+                                                "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
+                                                isSelected
+                                                    ? "text-white shadow-md"
+                                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                            )}
+                                            style={isSelected ? { backgroundColor: color } : {}}
+                                            title={`${name}: Click to highlight this line`}
+                                        >
+                                            <span
+                                                className="h-2.5 w-2.5 rounded-full"
+                                                style={{ backgroundColor: color }}
+                                            />
+                                            {name.length > 18 ? `${name.substring(0, 18)}...` : name}
+                                        </button>
+                                    );
+                                })
+                            )}
                         </div>
-                        <p className="text-center text-xs text-muted-foreground mt-2">
-                            Click any point on the chart to view detailed breakdown
-                        </p>
                     </div>
+
                 </CardContent>
             </Card>
 

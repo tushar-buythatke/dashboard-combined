@@ -147,7 +147,7 @@ interface GraphAPIRequest {
     startTime: string; // YYYY-MM-DD
     endTime: string; // YYYY-MM-DD
     isHourly: boolean;
-    isApi?: boolean; // Added for API events
+    isApi?: number; // 0=Regular, 1=API, 2=Funnel/Percent
 }
 
 interface GraphAPIResponse {
@@ -260,7 +260,7 @@ interface AlertAPIRequest {
     startTime: string;
     endTime: string;
     isHourly: boolean;
-    isApi?: boolean; // false = Regular events, true = API events
+    isApi?: number; // 0=Regular, 1=API, 2=Funnel/Percent
 }
 
 interface CriticalAlertDetails {
@@ -572,6 +572,47 @@ export class APIService {
     }
 
     /**
+     * Fetch available sourceStr options for given event IDs
+     * POST /sourceStr with eventId array
+     * Returns array of sourceStr values (job IDs)
+     */
+    async fetchSourceStr(eventIds: number[]): Promise<string[]> {
+        if (!eventIds || eventIds.length === 0) {
+            return [];
+        }
+
+        try {
+            console.log('📋 Fetching sourceStr options for events:', eventIds);
+
+            const response = await fetch(`${API_BASE_URL}/sourceStr`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ eventId: eventIds }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch sourceStr: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            if (result.status !== 1) {
+                console.warn('SourceStr API returned non-success status:', result);
+                return [];
+            }
+
+            const sourceStrs = result.data || [];
+            console.log(`✅ Loaded ${sourceStrs.length} sourceStr options`);
+            return sourceStrs.filter((s: string) => s && s.trim() !== ''); // Filter out empty strings
+        } catch (error) {
+            console.error('Failed to fetch sourceStr:', error);
+            return [];
+        }
+    }
+
+    /**
      * Fetch graph data from the backend API
      * Uses graphV2 (pre-aggregated) first, falls back to graph (granular) on error
      * All parameters are now numeric IDs
@@ -609,7 +650,7 @@ export class APIService {
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),
             isHourly,
-            isApi: isApiEvent // Pass isApi flag for API events
+            isApi: isApiEvent ? 1 : 0 // Pass isApi flag for API events (converted to number)
         };
 
         // Transform response data helper
@@ -841,7 +882,7 @@ export class APIService {
         endDate: Date,
         limit: number = 10,
         page: number = 0,
-        isApi: boolean = false, // false = Regular events, true = API events
+        isApi: number = 0, // 0 = Regular events, 1 = API events, 2 = Funnel/Percent
         isHourly: boolean | null = null // null means calculate based on range
     ): Promise<CriticalAlert[]> {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -899,7 +940,7 @@ export class APIService {
         startDate: Date,
         endDate: Date,
         isHourly: boolean = true,
-        isApi: boolean = false
+        isApi: number = 0
     ): Promise<Record<string, number>> {
         // Convert all IDs to numbers and filter out invalid ones
         const toNumbers = (arr: (number | string)[]) =>
