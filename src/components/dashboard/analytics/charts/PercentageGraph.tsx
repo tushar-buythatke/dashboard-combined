@@ -1185,17 +1185,15 @@ export function PercentageGraph({
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-center gap-2 flex-wrap">
                             <span className="text-xs font-semibold text-muted-foreground mr-2">Select Line:</span>
-                            <button
-                                onClick={() => setSelectedLineId(null)}
-                                className={cn(
-                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
-                                    selectedLineId === null
-                                        ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-md"
-                                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                )}
-                            >
-                                All
-                            </button>
+                            {/* Only show "All" button when no specific line is selected */}
+                            {selectedLineId === null && (
+                                <button
+                                    onClick={() => setSelectedLineId(null)}
+                                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-md"
+                                >
+                                    All
+                                </button>
+                            )}
                             {/* Same parent/child mode: Show Success and Fail buttons */}
                             {chartData.length > 0 && chartData[0].isSameParentChild ? (
                                 <>
@@ -1210,7 +1208,7 @@ export function PercentageGraph({
                                         style={selectedLineId === 'success' ? { backgroundColor: '#22c55e' } : {}}
                                     >
                                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#22c55e' }} />
-                                        Success %
+                                        {selectedLineId === 'success' ? 'AC_process_success' : 'Success %'}
                                     </button>
                                     <button
                                         onClick={() => setSelectedLineId(selectedLineId === 'fail' ? null : 'fail')}
@@ -1223,7 +1221,7 @@ export function PercentageGraph({
                                         style={selectedLineId === 'fail' ? { backgroundColor: '#ef4444' } : {}}
                                     >
                                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />
-                                        Fail %
+                                        {selectedLineId === 'fail' ? 'AC_process_failed' : 'Fail %'}
                                     </button>
                                     {/* Anomaly indicator */}
                                     {chartData.some(d => d.hasAnomaly) && (

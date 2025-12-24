@@ -115,7 +115,10 @@ export interface PanelConfig {
         graphType: 'line' | 'bar' | 'percentage' | 'funnel'; // Add new graph types
         dailyDeviationCurve?: boolean; // For <7 days: show 7-day overlay comparison
         isApiEvent?: boolean; // Toggle for API events vs regular events
+        showHourlyStats?: boolean; // Enable hourly/daily toggle for this panel
     };
+    // Per-panel critical alerts configuration
+    alertsConfig?: CriticalAlertsConfig;
 }
 
 export interface CriticalAlertsConfig {

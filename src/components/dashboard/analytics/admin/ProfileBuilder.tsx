@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { PanelCombineModal } from './PanelCombineModal';
 import { PanelPreview } from './PanelPreview';
-import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle, RefreshCw, Activity } from 'lucide-react';
+import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle, RefreshCw, Activity, ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
@@ -51,6 +51,13 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
     dailyDeviationCurve?: boolean;
     isApiEvent?: boolean; // Toggle for API events vs regular events
     autoApiConfig?: boolean; // Auto-detect and configure API events
+    // Per-panel critical alert configuration
+    criticalAlertConfig?: {
+        enabled: boolean;
+        alertEventFilters: number[]; // Event IDs to monitor
+        alertsIsApi: number; // 0=REGULAR, 1=API, 2=PERCENT
+        alertsIsHourly: boolean;
+    };
 }
 
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {
@@ -65,6 +72,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const [workflowMode, setWorkflowMode] = useState<'quick' | 'template'>('template');
     const [combineModalOpen, setCombineModalOpen] = useState(false);
     const [combiningPanel, setCombiningPanel] = useState<ExtendedPanelConfig | null>(null);
+    const [currentPanelIndex, setCurrentPanelIndex] = useState(0); // For single-panel edit mode
 
     // Tutorial state
     const [isTutorialOpen, setIsTutorialOpen] = useState(false);
@@ -294,8 +302,9 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             // 1. Fetch Job IDs (sourceStr) using dedicated API
             promises.push(apiService.fetchSourceStr(panel.filters.events).then((response: any) => {
                 const jobIds = new Set<string>();
-                if (response?.data && Array.isArray(response.data)) {
-                    response.data.forEach((id: string) => {
+                // fetchSourceStr returns array directly
+                if (Array.isArray(response)) {
+                    response.forEach((id: string) => {
                         if (id && typeof id === 'string' && id.trim() !== '') {
                             jobIds.add(id);
                         }
@@ -460,6 +469,25 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             basePanel.funnelConfig = savedConfig.funnelConfig;
                         }
 
+                        // Load per-panel critical alert configuration
+                        if ((p as any).alertsConfig) {
+                            const alertsConfig = (p as any).alertsConfig;
+                            basePanel.criticalAlertConfig = {
+                                enabled: alertsConfig.enabled !== false,
+                                alertEventFilters: alertsConfig.filterByEvents?.map((id: string) => parseInt(id)) || [],
+                                alertsIsApi: typeof alertsConfig.isApi === 'number' ? alertsConfig.isApi : (alertsConfig.isApi ? 1 : 0),
+                                alertsIsHourly: alertsConfig.isHourly || false
+                            };
+                        } else {
+                            // Initialize default critical alert config if not present
+                            basePanel.criticalAlertConfig = {
+                                enabled: true,
+                                alertEventFilters: [],
+                                alertsIsApi: 0,
+                                alertsIsHourly: false
+                            };
+                        }
+
                         return basePanel;
                     });
 
@@ -592,9 +620,17 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     { type: 'pos', enabled: true, aggregationMethod: 'sum' },
                     { type: 'source', enabled: true, aggregationMethod: 'sum' }
                 ]
+            },
+            // Initialize per-panel critical alert configuration
+            criticalAlertConfig: {
+                enabled: true,
+                alertEventFilters: [], // Empty = monitor all events
+                alertsIsApi: 0, // Default to regular events
+                alertsIsHourly: false // Default to daily
             }
         };
         setPanels([...panels, newPanel]);
+        setCurrentPanelIndex(panels.length); // Navigate to the new panel
     };
 
     const deletePanel = (panelId: string) => {
@@ -722,6 +758,67 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         }));
     };
 
+    // Helper functions for updating per-panel critical alert configuration
+    const updatePanelAlertEvents = (panelId: string, eventIds: number[]) => {
+        setPanels(panels.map(p => {
+            if (p.panelId === panelId) {
+                return {
+                    ...p,
+                    criticalAlertConfig: {
+                        ...(p.criticalAlertConfig || { enabled: true, alertEventFilters: [], alertsIsApi: 0, alertsIsHourly: false }),
+                        alertEventFilters: eventIds
+                    }
+                };
+            }
+            return p;
+        }));
+    };
+
+    const updatePanelAlertIsApi = (panelId: string, isApi: number) => {
+        setPanels(panels.map(p => {
+            if (p.panelId === panelId) {
+                return {
+                    ...p,
+                    criticalAlertConfig: {
+                        ...(p.criticalAlertConfig || { enabled: true, alertEventFilters: [], alertsIsApi: 0, alertsIsHourly: false }),
+                        alertsIsApi: isApi
+                    }
+                };
+            }
+            return p;
+        }));
+    };
+
+    const updatePanelAlertIsHourly = (panelId: string, isHourly: boolean) => {
+        setPanels(panels.map(p => {
+            if (p.panelId === panelId) {
+                return {
+                    ...p,
+                    criticalAlertConfig: {
+                        ...(p.criticalAlertConfig || { enabled: true, alertEventFilters: [], alertsIsApi: 0, alertsIsHourly: false }),
+                        alertsIsHourly: isHourly
+                    }
+                };
+            }
+            return p;
+        }));
+    };
+
+    const togglePanelAlertEnabled = (panelId: string) => {
+        setPanels(panels.map(p => {
+            if (p.panelId === panelId) {
+                return {
+                    ...p,
+                    criticalAlertConfig: {
+                        ...(p.criticalAlertConfig || { enabled: true, alertEventFilters: [], alertsIsApi: 0, alertsIsHourly: false }),
+                        enabled: !(p.criticalAlertConfig?.enabled ?? true)
+                    }
+                };
+            }
+            return p;
+        }));
+    };
+
     const handleCombinePanels = (sourcePanelId: string, targetPanelId: string) => {
         const source = panels.find(p => p.panelId === sourcePanelId);
         const target = panels.find(p => p.panelId === targetPanelId);
@@ -821,7 +918,18 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     events: p.events,
                     visualizations: p.visualizations,
                     // Store filter config in panel for persistence
-                    filterConfig
+                    filterConfig,
+                    // Store per-panel critical alert configuration
+                    alertsConfig: p.criticalAlertConfig ? {
+                        enabled: p.criticalAlertConfig.enabled,
+                        position: 'top',
+                        refreshInterval: 30,
+                        maxAlerts: 5,
+                        filterByPOS: [],
+                        filterByEvents: p.criticalAlertConfig.alertEventFilters.map(id => id.toString()),
+                        isApi: p.criticalAlertConfig.alertsIsApi,
+                        isHourly: p.criticalAlertConfig.alertsIsHourly
+                    } : undefined
                 } as any;
             });
 
@@ -1019,184 +1127,242 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             </div>
                         ) : (
                             <>
-                                {panels.map((panel) => (
-                                    <Card key={panel.panelId} className={cn(
-                                        "relative",
-                                        panel.type === 'alerts' && "border-2 border-red-200 dark:border-red-500/30 bg-gradient-to-br from-red-50/30 to-orange-50/20 dark:from-red-900/10 dark:to-orange-900/5"
-                                    )}>
-                                        <CardHeader>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3" id="panel-alerts">
-                                                    {panel.type === 'alerts' && (
-                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center">
-                                                            <Bell className="h-4 w-4 text-white" />
-                                                        </div>
-                                                    )}
-                                                    <div>
-                                                        <div className="flex items-center gap-1.5">
-                                                            <div id="panel-name-input">
-                                                                <Input
-                                                                    value={panel.panelName}
-                                                                    onChange={(e) => updatePanelName(panel.panelId, e.target.value)}
-                                                                    className="text-lg font-semibold w-auto max-w-md"
-                                                                />
+                                {/* Panel Navigation Header */}
+                                <div className="flex items-center justify-between bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 p-4 rounded-lg border-2 border-violet-200 dark:border-violet-500/30">
+                                    <div className="flex items-center gap-3">
+                                        <LayoutDashboard className="h-5 w-5 text-violet-600" />
+                                        <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                                            Panel {currentPanelIndex + 1} of {panels.filter(p => p.type !== 'alerts').length}
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPanelIndex(Math.max(0, currentPanelIndex - 1))}
+                                            disabled={currentPanelIndex === 0}
+                                            className="h-8"
+                                        >
+                                            <ChevronLeft className="h-4 w-4 mr-1" />
+                                            Prev
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPanelIndex(Math.min(panels.filter(p => p.type !== 'alerts').length - 1, currentPanelIndex + 1))}
+                                            disabled={currentPanelIndex >= panels.filter(p => p.type !== 'alerts').length - 1}
+                                            className="h-8"
+                                        >
+                                            Next
+                                            <ChevronRight className="h-4 w-4 ml-1" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleAddPanel}
+                                            className="h-8 bg-violet-600 text-white hover:bg-violet-700 border-violet-600"
+                                        >
+                                            <Plus className="h-4 w-4 mr-1" />
+                                            Add Panel
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Current Panel Display */}
+                                {(() => {
+                                    const regularPanels = panels.filter(p => p.type !== 'alerts');
+                                    const panel = regularPanels[currentPanelIndex];
+                                    
+                                    if (!panel) return null;
+
+                                    return (
+                                        <Card key={panel.panelId} className="relative">
+                                            <CardHeader>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div id="panel-name-input">
+                                                                    <Input
+                                                                        value={panel.panelName}
+                                                                        onChange={(e) => updatePanelName(panel.panelId, e.target.value)}
+                                                                        className="text-lg font-semibold w-auto max-w-md"
+                                                                    />
+                                                                </div>
+                                                                <InfoTooltip content="Give your panel a descriptive name to identify it on the dashboard." />
                                                             </div>
-                                                            <InfoTooltip content="Give your panel a descriptive name to identify it on the dashboard." />
                                                         </div>
-                                                        {panel.type === 'alerts' && (
-                                                            <p className="text-xs text-muted-foreground mt-1">Panel 0 - Critical Alerts Monitor (removable)</p>
-                                                        )}
                                                     </div>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    {panel.type !== 'alerts' && panels.filter(p => p.type !== 'alerts').length > 1 && (
+                                                    <div className="flex gap-2">
+                                                        {regularPanels.length > 1 && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    setCombiningPanel(panel);
+                                                                    setCombineModalOpen(true);
+                                                                }}
+                                                            >
+                                                                <Combine className="h-4 w-4 mr-1" />
+                                                                Combine
+                                                            </Button>
+                                                        )}
                                                         <Button
-                                                            variant="outline"
-                                                            size="sm"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-destructive"
                                                             onClick={() => {
-                                                                setCombiningPanel(panel);
-                                                                setCombineModalOpen(true);
+                                                                deletePanel(panel.panelId);
+                                                                if (currentPanelIndex >= regularPanels.length - 1) {
+                                                                    setCurrentPanelIndex(Math.max(0, currentPanelIndex - 1));
+                                                                }
                                                             }}
                                                         >
-                                                            <Combine className="h-4 w-4 mr-1" />
-                                                            Combine
+                                                            <Trash2 className="h-4 w-4" />
                                                         </Button>
-                                                    )}
-                                                    {/* All panels including alerts can be deleted */}
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-destructive"
-                                                        onClick={() => deletePanel(panel.panelId)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="space-y-6">
-                                            {/* Alert Panel - Special config with event selection */}
-                                            {panel.type === 'alerts' ? (
-                                                <div className="space-y-4">
-                                                    <div className="p-4 bg-white/50 dark:bg-gray-800/30 rounded-lg border border-red-100 dark:border-red-500/20">
-                                                        <p className="text-sm text-muted-foreground mb-3">
-                                                            <AlertTriangle className="h-4 w-4 inline mr-2 text-amber-500" />
-                                                            This panel monitors critical alerts. Select which events to monitor below.
-                                                        </p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                            <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                                                                <div className="text-2xl font-bold text-red-600">{alertEventFilters.length > 0 ? alertEventFilters.length : '∞'}</div>
-                                                                <div className="text-xs text-muted-foreground">Events Monitored</div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-8">
+                                                {/* SECTION 1: Critical Alert Configuration for this Panel */}
+                                                <div className="space-y-4 p-6 bg-gradient-to-br from-red-50/50 to-orange-50/30 dark:from-red-900/10 dark:to-orange-900/5 rounded-lg border-2 border-red-200 dark:border-red-500/30">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center">
+                                                                <Bell className="h-5 w-5 text-white" />
                                                             </div>
-                                                            <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                                                                <div className="text-2xl font-bold text-orange-600">∞</div>
-                                                                <div className="text-xs text-muted-foreground">POS Monitored</div>
-                                                            </div>
-                                                            <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                                                                <div className="text-2xl font-bold text-purple-600">7d</div>
-                                                                <div className="text-xs text-muted-foreground">Default Range</div>
-                                                            </div>
-                                                            <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                                                                <div className="text-2xl font-bold text-blue-600">✓</div>
-                                                                <div className="text-xs text-muted-foreground">Collapsible</div>
+                                                            <div>
+                                                                <h3 className="text-lg font-bold text-red-700 dark:text-red-300">Critical Alert Monitor</h3>
+                                                                <p className="text-xs text-muted-foreground">Configure alerts specific to this panel</p>
                                                             </div>
                                                         </div>
+                                                        <Switch
+                                                            checked={panel.criticalAlertConfig?.enabled ?? true}
+                                                            onCheckedChange={() => togglePanelAlertEnabled(panel.panelId)}
+                                                        />
                                                     </div>
 
-                                                    {/* Event Selection for Alert Panel */}
-                                                    <div className="p-4 bg-muted/20 rounded-lg">
-                                                        <div className="flex items-center justify-between gap-4 mb-3" id="alert-api-toggle">
-                                                            <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Event Type</Label>
-                                                            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[280px] gap-1">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setAlertsIsApi(0)}
-                                                                    className={cn(
-                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        alertsIsApi === 0
-                                                                            ? "bg-green-600 text-white shadow-md"
-                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                                                    )}
-                                                                >
-                                                                    REGULAR
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setAlertsIsApi(1)}
-                                                                    className={cn(
-                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        alertsIsApi === 1
-                                                                            ? "bg-purple-600 text-white shadow-md"
-                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                                                    )}
-                                                                >
-                                                                    API
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setAlertsIsApi(2)}
-                                                                    className={cn(
-                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        alertsIsApi === 2
-                                                                            ? "bg-amber-500 text-white shadow-md"
-                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                                                    )}
-                                                                >
-                                                                    PERCENT
-                                                                </button>
+                                                    {(panel.criticalAlertConfig?.enabled ?? true) && (
+                                                        <>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                                <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                                                    <div className="text-2xl font-bold text-red-600">
+                                                                        {panel.criticalAlertConfig?.alertEventFilters?.length || '∞'}
+                                                                    </div>
+                                                                    <div className="text-xs text-muted-foreground">Events Monitored</div>
+                                                                </div>
+                                                                <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                                                                    <div className="text-2xl font-bold text-orange-600">∞</div>
+                                                                    <div className="text-xs text-muted-foreground">POS Monitored</div>
+                                                                </div>
+                                                                <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                                                                    <div className="text-2xl font-bold text-purple-600">7d</div>
+                                                                    <div className="text-xs text-muted-foreground">Default Range</div>
+                                                                </div>
+                                                                <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                                                                    <div className="text-2xl font-bold text-blue-600">✓</div>
+                                                                    <div className="text-xs text-muted-foreground">Enabled</div>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <div className="flex items-center justify-between gap-4 mb-4">
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Granularity</Label>
-                                                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">Requires range ≤ 7 days</span>
+
+                                                            <div className="p-4 bg-muted/20 rounded-lg">
+                                                                <div className="flex items-center justify-between gap-4 mb-3">
+                                                                    <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Event Type</Label>
+                                                                    <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[280px] gap-1">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updatePanelAlertIsApi(panel.panelId, 0)}
+                                                                            className={cn(
+                                                                                "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                (panel.criticalAlertConfig?.alertsIsApi ?? 0) === 0
+                                                                                    ? "bg-green-600 text-white shadow-md"
+                                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                            )}
+                                                                        >
+                                                                            REGULAR
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updatePanelAlertIsApi(panel.panelId, 1)}
+                                                                            className={cn(
+                                                                                "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                (panel.criticalAlertConfig?.alertsIsApi ?? 0) === 1
+                                                                                    ? "bg-purple-600 text-white shadow-md"
+                                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                            )}
+                                                                        >
+                                                                            API
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updatePanelAlertIsApi(panel.panelId, 2)}
+                                                                            className={cn(
+                                                                                "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                (panel.criticalAlertConfig?.alertsIsApi ?? 0) === 2
+                                                                                    ? "bg-amber-500 text-white shadow-md"
+                                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                            )}
+                                                                        >
+                                                                            PERCENT
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-4 mb-4">
+                                                                    <div className="flex flex-col gap-0.5">
+                                                                        <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Granularity</Label>
+                                                                        <span className="text-[9px] text-muted-foreground whitespace-nowrap">Requires range ≤ 7 days</span>
+                                                                    </div>
+                                                                    <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[200px]">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updatePanelAlertIsHourly(panel.panelId, false)}
+                                                                            className={cn(
+                                                                                "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                !(panel.criticalAlertConfig?.alertsIsHourly ?? false)
+                                                                                    ? "bg-blue-600 text-white shadow-md"
+                                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                            )}
+                                                                        >
+                                                                            DAILY
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updatePanelAlertIsHourly(panel.panelId, true)}
+                                                                            className={cn(
+                                                                                "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                (panel.criticalAlertConfig?.alertsIsHourly ?? false)
+                                                                                    ? "bg-orange-500 text-white shadow-md"
+                                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                            )}
+                                                                        >
+                                                                            HOURLY
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                <Label className="mb-3 font-semibold">Monitor Specific Events</Label>
+                                                                <MultiSelectDropdown
+                                                                    options={eventOptions}
+                                                                    selected={(panel.criticalAlertConfig?.alertEventFilters || []).map(id => id.toString())}
+                                                                    onChange={(values: string[]) => {
+                                                                        updatePanelAlertEvents(panel.panelId, values.map(v => parseInt(v)));
+                                                                    }}
+                                                                    placeholder="Select events to monitor"
+                                                                />
+                                                                <p className="text-xs text-muted-foreground mt-2">
+                                                                    Select specific events to monitor, or leave empty to monitor all events
+                                                                </p>
                                                             </div>
-                                                            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[200px]">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setAlertsIsHourly(false)}
-                                                                    className={cn(
-                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        !alertsIsHourly
-                                                                            ? "bg-blue-600 text-white shadow-md"
-                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                                                    )}
-                                                                >
-                                                                    DAILY
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setAlertsIsHourly(true)}
-                                                                    className={cn(
-                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        alertsIsHourly
-                                                                            ? "bg-orange-500 text-white shadow-md"
-                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                                                    )}
-                                                                >
-                                                                    HOURLY
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <Label className="mb-3 font-semibold">Monitor Specific Events</Label>
-                                                        <div id="alert-event-dropdown">
-                                                            <MultiSelectDropdown
-                                                                options={eventOptions}
-                                                                selected={alertEventFilters.map(id => id.toString())}
-                                                                onChange={(values: string[]) => {
-                                                                    setAlertEventFilters(values.map(v => parseInt(v)));
-                                                                }}
-                                                                placeholder="Select events to monitor"
-                                                            />
-                                                        </div>
-                                                        <p className="text-xs text-muted-foreground mt-2">
-                                                            Select specific events to monitor, or leave empty to monitor all events
-                                                        </p>
-                                                    </div>
+                                                        </>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                /* Regular Panel - Full filter configuration */
+
+                                                {/* SECTION 2: Dashboard Panel Configuration */}
                                                 <div className="space-y-6">
+                                                    <div className="flex items-center gap-3 pb-3 border-b">
+                                                        <LayoutDashboard className="h-5 w-5 text-violet-600" />
+                                                        <h3 className="text-lg font-bold text-violet-700 dark:text-violet-300">Dashboard Configuration</h3>
+                                                    </div>
+
                                                     {/* API Events Toggle */}
                                                     <div className={cn(
                                                         "flex items-center justify-between p-4 rounded-lg border",
@@ -1447,6 +1613,57 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                 </div>
                                                             </RadioGroup>
                                                         </div>
+
+                                                        {/* Granularity Toggle for Line and Bar Charts */}
+                                                        {(panel.graphType === 'line' || panel.graphType === 'bar') && (
+                                                            <div className="space-y-3">
+                                                                <div className="flex items-center justify-between gap-4">
+                                                                    <div className="flex flex-col gap-0.5">
+                                                                        <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                                            Data Granularity
+                                                                            <InfoTooltip content="Choose hourly (≤7 days) for detailed analysis or daily for broader trends" />
+                                                                        </Label>
+                                                                        <span className="text-[9px] text-muted-foreground whitespace-nowrap">
+                                                                            Hourly requires range ≤ 7 days
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[200px]">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPanels(prev => prev.map(p =>
+                                                                                p.panelId === panel.panelId
+                                                                                    ? { ...p, showHourlyStats: false }
+                                                                                    : p
+                                                                            ))}
+                                                                            className={cn(
+                                                                                "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                !panel.showHourlyStats
+                                                                                    ? "bg-blue-600 text-white shadow-md"
+                                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                            )}
+                                                                        >
+                                                                            DAILY
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setPanels(prev => prev.map(p =>
+                                                                                p.panelId === panel.panelId
+                                                                                    ? { ...p, showHourlyStats: true }
+                                                                                    : p
+                                                                            ))}
+                                                                            className={cn(
+                                                                                "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                panel.showHourlyStats
+                                                                                    ? "bg-orange-500 text-white shadow-md"
+                                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                            )}
+                                                                        >
+                                                                            HOURLY
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
                                                         {/* Conditional configuration based on graph type */}
                                                         {panel.graphType === 'percentage' ? (
@@ -1913,33 +2130,11 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         dateRange={panel.dateRange}
                                                     />
                                                 </div>
-                                            )}
-                                        </CardContent>
-
-                                        {/* Add Panel Button Below */}
-                                        <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 z-10">
-                                            <Button
-                                                onClick={handleAddPanel}
-                                                size="sm"
-                                                className="rounded-full h-8 w-8 p-0 shadow-lg"
-                                                title="Add panel below"
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </Card>
-                                ))}
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })()}
                             </>
-                        )}
-
-                        {/* Final Add Button */}
-                        {panels.length > 0 && (
-                            <div className="flex justify-center py-8">
-                                <Button onClick={handleAddPanel} size="lg" className="gap-2" id="add-panel-btn">
-                                    <Plus className="h-5 w-5" />
-                                    Add New Panel Configuration
-                                </Button>
-                            </div>
                         )}
                     </div>
                 </TabsContent>
