@@ -24,11 +24,32 @@ export const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6'
 export const combinePieChartDuplicates = (data: any[] | Record<string, any>): any[] => {
     if (!data) return [];
 
-    // Convert object to array if needed (API returns objects sometimes)
-    const arrayData = Array.isArray(data) ? data : Object.values(data);
+    // Handle API response format: { "0": { count: 123, ... }, "3": { count: 456, ... } }
+    // OR array format: [{ name: "x", value: 123 }, { name: "y", value: 456 }]
+    let arrayData: any[];
+
+    if (Array.isArray(data)) {
+        arrayData = data;
+    } else {
+        // Convert object to array, using keys as names
+        arrayData = Object.entries(data).map(([key, item]: [string, any]) => {
+            // If item already has name/value, use them; otherwise extract from API format
+            return {
+                name: item.name || key, // Use key as name if no name property
+                value: item.value ?? item.count ?? 0, // Use value, or count from API
+                metricType: item.metricType,
+                // Preserve other useful properties
+                platform: item.platform,
+                pos: item.pos,
+                source: item.source,
+                sourceStr: item.sourceStr,
+            };
+        });
+    }
 
     if (arrayData.length === 0) return [];
 
+    // Now combine duplicates by name
     const combinedMap = new Map<string, { value: number; metricType?: string }>();
     arrayData.forEach((item: any) => {
         const name = item.name || 'Unknown';

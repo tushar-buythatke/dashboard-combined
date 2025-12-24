@@ -10,6 +10,7 @@ import {
     ChevronUp,
     Clock,
     Filter,
+    Hash,
     Layers,
     Maximize2,
     Percent,
@@ -324,51 +325,73 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             </CardHeader>
                             <CardContent className="pt-0">
                                 <div className="p-3 sm:p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl border border-purple-100 dark:border-purple-900/30 shadow-sm">
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
-                                        <div className="flex items-center gap-2">
-                                            <Filter className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                                            <span className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300">Panel Filters</span>
-                                            <InfoTooltip content="Independent filters for this specific panel. Does not affect other panels." />
-                                            <span className="text-xs text-muted-foreground hidden sm:inline">(Independent from dashboard)</span>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() =>
-                                                    setPanelFiltersCollapsed?.((prev: any) => ({
-                                                        ...prev,
-                                                        [panel.panelId]: !prev?.[panel.panelId]
-                                                    }))
-                                                }
-                                                className="h-6 w-6 p-0 ml-2"
-                                            >
-                                                {panelFiltersCollapsed?.[panel.panelId] ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                                            </Button>
-                                        </div>
-                                        <div>
-                                            <InteractiveButton
-                                                onClick={() => handlePanelRefresh?.(panel.panelId)}
-                                                disabled={isPanelLoading}
-                                                size="sm"
-                                                className={cn(
-                                                    "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] w-full sm:w-auto",
-                                                    panelFilterChanges?.[panel.panelId]
-                                                        ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
-                                                        : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2 mb-4">
+                                        {/* Clickable Filter Toggle Bar */}
+                                        <button
+                                            onClick={() =>
+                                                setPanelFiltersCollapsed?.((prev: any) => ({
+                                                    ...prev,
+                                                    [panel.panelId]: !prev?.[panel.panelId]
+                                                }))
+                                            }
+                                            className={cn(
+                                                "flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer group",
+                                                panelFiltersCollapsed?.[panel.panelId] !== false
+                                                    ? "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                                    : "bg-gradient-to-r from-purple-100 to-fuchsia-100 dark:from-purple-900/30 dark:to-fuchsia-900/20 border border-purple-200 dark:border-purple-500/30"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn(
+                                                    "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
+                                                    panelFiltersCollapsed?.[panel.panelId] !== false
+                                                        ? "bg-slate-200 dark:bg-slate-700"
+                                                        : "bg-gradient-to-br from-purple-500 to-fuchsia-600"
+                                                )}>
+                                                    <Filter className={cn(
+                                                        "w-4 h-4",
+                                                        panelFiltersCollapsed?.[panel.panelId] !== false ? "text-slate-500" : "text-white"
+                                                    )} />
+                                                </div>
+                                                <div className="text-left">
+                                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">Panel Filters</span>
+                                                    <span className="text-xs text-muted-foreground">Click to {panelFiltersCollapsed?.[panel.panelId] !== false ? 'expand' : 'collapse'}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-muted-foreground hidden sm:inline">(Independent)</span>
+                                                {panelFiltersCollapsed?.[panel.panelId] !== false ? (
+                                                    <ChevronDown className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
+                                                ) : (
+                                                    <ChevronUp className="h-5 w-5 text-purple-500" />
                                                 )}
-                                                loading={isPanelLoading}
-                                            >
-                                                <RefreshCw className="w-4 h-4 mr-1.5" />
-                                                {panelFilterChanges?.[panel.panelId] ? "⚡ APPLY FILTERS" : "Refresh Panel"}
-                                                {panelFilterChanges?.[panel.panelId] && (
-                                                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
-                                                        !
-                                                    </div>
-                                                )}
-                                            </InteractiveButton>
-                                        </div>
+                                            </div>
+                                        </button>
+                                        {/* Refresh Button */}
+                                        <InteractiveButton
+                                            onClick={() => handlePanelRefresh?.(panel.panelId)}
+                                            disabled={isPanelLoading}
+                                            size="sm"
+                                            className={cn(
+                                                "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] w-full sm:w-auto",
+                                                panelFilterChanges?.[panel.panelId]
+                                                    ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
+                                                    : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
+                                            )}
+                                            loading={isPanelLoading}
+                                        >
+                                            <RefreshCw className="w-4 h-4 mr-1.5" />
+                                            {panelFilterChanges?.[panel.panelId] ? "⚡ APPLY" : "Refresh"}
+                                            {panelFilterChanges?.[panel.panelId] && (
+                                                <div className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
+                                                    !
+                                                </div>
+                                            )}
+                                        </InteractiveButton>
                                     </div>
 
-                                    {!panelFiltersCollapsed?.[panel.panelId] && (
+                                    {/* Show filters only if explicitly NOT collapsed (false means expanded now) */}
+                                    {panelFiltersCollapsed?.[panel.panelId] === false && (
                                         <>
                                             <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/10 rounded-lg border border-purple-200 dark:border-purple-500/30">
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
@@ -636,15 +659,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             {/* SourceStr (Job ID) Filter - Only for NON-API events */}
                                                             {!panelConfig?.isApiEvent && (() => {
                                                                 const rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
+                                                                const selectedJobIds = (currentPanelFilters.sourceStrs || []).map((s: any) => s.toString());
                                                                 return rawData.length > 0 && rawData.some((d: any) => d.sourceStr) && (
                                                                     <div className="mt-3 space-y-1.5">
                                                                         <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Job IDs (sourceStr)</label>
                                                                         <MultiSelectDropdown
                                                                             options={(() => {
                                                                                 const unique = Array.from(new Set(rawData.map((d: any) => d.sourceStr).filter(Boolean))).sort();
-                                                                                return unique.map((s: any) => ({ value: s.toString(), label: `Job ${s} ` }));
+                                                                                return unique.map((s: any) => ({ value: s.toString(), label: `Job ${s}` }));
                                                                             })()}
-                                                                            selected={(currentPanelFilters.sourceStrs || []).map((s: any) => s.toString())}
+                                                                            selected={selectedJobIds}
                                                                             onChange={(values) => {
                                                                                 setPanelFiltersState?.((prev: any) => ({
                                                                                     ...prev,
@@ -654,6 +678,18 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             }}
                                                                             placeholder="Select Job IDs"
                                                                         />
+                                                                        {/* Show selected Job IDs immediately */}
+                                                                        {selectedJobIds.length > 0 && (
+                                                                            <div className="flex items-center gap-2 mt-2 p-2 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 rounded-md">
+                                                                                <Hash className="h-3 w-3 text-cyan-600 dark:text-cyan-400" />
+                                                                                <span className="text-xs font-medium text-cyan-700 dark:text-cyan-300">
+                                                                                    Filtering: {selectedJobIds.map((id: string) => `Job ${id}`).join(', ')}
+                                                                                </span>
+                                                                                <span className="ml-auto text-xs text-cyan-600 dark:text-cyan-400">
+                                                                                    ({selectedJobIds.length} selected)
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 );
                                                             })()}
@@ -1254,6 +1290,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             filters={mergedFilters}
                                             showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
                                             isHourly={pIsHourly}
+                                            onToggleHourly={(newIsHourly: boolean) => {
+                                                // Update hourly override state using the prop setter
+                                                setHourlyOverride?.(newIsHourly ? 'hourly' : 'daily');
+                                            }}
                                             onToggleBackToFunnel={(panel as any)?.previousGraphType === 'funnel' ? () => {
                                                 // Toggle back to funnel graph
                                                 if (profile && profile.panels) {
@@ -1557,8 +1597,15 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 cacheStatus: currentPanelFilters.percentageCacheStatus || [],
                                             } : undefined}
                                             onViewAsPercentage={(parentEventId, childEventIds) => {
+                                                console.log('🔄 View as Percentage clicked:', { parentEventId, childEventIds, panelIndex, panelId: panel.panelId });
                                                 if (profile && profile.panels) {
-                                                    const actualIndex = panelIndex + 1;
+                                                    // CRITICAL FIX: Find actual index in profile.panels using panelId, not filtered array index
+                                                    const actualIndex = profile.panels.findIndex((p: any) => p.panelId === panel.panelId);
+                                                    console.log('📍 Found panel at actual index:', actualIndex);
+                                                    if (actualIndex === -1) {
+                                                        console.error('❌ Could not find panel in profile.panels');
+                                                        return;
+                                                    }
                                                     const targetPanel = profile.panels[actualIndex];
                                                     const filterConfig = targetPanel.filterConfig;
 
@@ -1575,6 +1622,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         }
                                                     };
 
+                                                    console.log('📊 Updated config:', updatedConfig);
+
                                                     const updatedProfile = {
                                                         ...profile,
                                                         panels: profile.panels.map((p: any, i: number) =>
@@ -1586,6 +1635,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         )
                                                     };
                                                     setProfile?.(updatedProfile);
+                                                    
+                                                    // Mark panel for refresh to fetch percentage data
+                                                    setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
+                                                    
+                                                    // Also refresh panel data automatically
+                                                    setTimeout(() => {
+                                                        handlePanelRefresh?.(panel.panelId);
+                                                    }, 100);
+                                                    
+                                                    console.log('✅ Switched to Percentage View');
                                                 }
                                             }}
                                         />
@@ -1703,7 +1762,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                         {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (() => {
                             const pAvgEventKeys = pEventKeys.filter((ek: any) => ek.isAvgEvent >= 1);
-                            const pErrorEventKeys = pEventKeys.filter((ek: any) => ek.isErrorEvent === 1 && !ek.isAvgEvent || ek.isAvgEvent === 0);
+                            // FIXED: Added parentheses for correct operator precedence
+                            const pErrorEventKeys = pEventKeys.filter((ek: any) => ek.isErrorEvent === 1 && (!ek.isAvgEvent || ek.isAvgEvent === 0));
                             const pNormalEventKeys = pEventKeys.filter((ek: any) => (!ek.isAvgEvent || ek.isAvgEvent === 0) && (!ek.isErrorEvent || ek.isErrorEvent === 0));
 
                             return (

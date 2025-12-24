@@ -455,8 +455,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             showHourlyStats: savedConfig?.showHourlyStats !== false, // Default to true
                             // Default deviation curve to enabled unless explicitly disabled
                             dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false,
-                            // Load API event flag
-                            isApiEvent: savedConfig?.isApiEvent || false
+                            // Load API event flag - preserve from filterConfig OR detect from events
+                            isApiEvent: (() => {
+                                // First priority: explicit saved config
+                                if (savedConfig?.isApiEvent !== undefined) return savedConfig.isApiEvent;
+                                // Second priority: check if all events are API events (disabled for now to avoid errors)
+                                // Auto-detection would require access to availableEvents which isn't in scope here
+                                return false;
+                            })()
                         };
 
                         // Restore percentageConfig if it exists
@@ -651,11 +657,30 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 if (filterType === 'events') {
                     const numericValues = filterValues as number[];
                     const selectedEvents = availableEvents.filter(e => numericValues.includes(parseInt(e.eventId)));
+                    
+                    // Auto-sync critical alert event filters for API panels
+                    const updatedCriticalAlertConfig = p.isApiEvent && p.criticalAlertConfig
+                        ? {
+                            ...p.criticalAlertConfig,
+                            alertEventFilters: numericValues, // Auto-sync event IDs to alert config
+                            alertsIsApi: 1, // Ensure API mode is set
+                            alertsIsHourly: p.criticalAlertConfig.alertsIsHourly ?? true // Keep hourly or default to true
+                        }
+                        : p.isApiEvent && !p.criticalAlertConfig
+                            ? {
+                                enabled: true,
+                                alertEventFilters: numericValues,
+                                alertsIsApi: 1,
+                                alertsIsHourly: true
+                            }
+                            : p.criticalAlertConfig;
+                    
                     return {
                         ...p,
                         filters: updatedFilters,
                         events: selectedEvents.length > 0 ? selectedEvents : p.events,
-                        type: selectedEvents.length > 1 ? 'combined' as const : 'separate' as const
+                        type: selectedEvents.length > 1 ? 'combined' as const : 'separate' as const,
+                        criticalAlertConfig: updatedCriticalAlertConfig
                     };
                 }
 
@@ -747,11 +772,28 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         { type: 'source' as const, enabled: false, aggregationMethod: 'count' as const }
                     ];
 
+                // When switching to API events, add default critical alert config if not present
+                const updatedCriticalAlertConfig = newIsApiEvent && !p.criticalAlertConfig
+                    ? {
+                        enabled: true,
+                        alertEventFilters: p.filters.events.length > 0 ? p.filters.events : [], // Use panel's event IDs
+                        alertsIsApi: 1, // API mode
+                        alertsIsHourly: true // Hourly by default
+                    }
+                    : (newIsApiEvent && p.criticalAlertConfig
+                        ? {
+                            ...p.criticalAlertConfig,
+                            alertsIsApi: 1, // Update to API mode
+                            alertEventFilters: p.filters.events.length > 0 ? p.filters.events : p.criticalAlertConfig.alertEventFilters
+                        }
+                        : p.criticalAlertConfig);
+
                 return {
                     ...p,
                     isApiEvent: newIsApiEvent,
                     filters: { ...p.filters, events: [] },
-                    visualizations: { ...p.visualizations, pieCharts: newPieCharts }
+                    visualizations: { ...p.visualizations, pieCharts: newPieCharts },
+                    criticalAlertConfig: updatedCriticalAlertConfig
                 };
             }
             return p;
@@ -1341,7 +1383,27 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                 </div>
                                                                 <Label className="mb-3 font-semibold">Monitor Specific Events</Label>
                                                                 <MultiSelectDropdown
-                                                                    options={eventOptions}
+                                                                    options={(() => {
+                                                                        // Filter events based on alertsIsApi: 0=REGULAR, 1=API, 2=PERCENT
+                                                                        const alertsIsApi = panel.criticalAlertConfig?.alertsIsApi ?? 0;
+                                                                        if (alertsIsApi === 1) {
+                                                                            // API events only
+                                                                            return availableEvents
+                                                                                .filter(e => e.isApiEvent === true)
+                                                                                .map(e => ({
+                                                                                    value: e.eventId,
+                                                                                    label: e.host && e.url ? `${e.host} - ${e.url}` : e.eventName
+                                                                                }));
+                                                                        } else {
+                                                                            // Regular events only (for REGULAR and PERCENT)
+                                                                            return availableEvents
+                                                                                .filter(e => e.isApiEvent !== true)
+                                                                                .map(e => ({
+                                                                                    value: e.eventId,
+                                                                                    label: e.eventName
+                                                                                }));
+                                                                        }
+                                                                    })()}
                                                                     selected={(panel.criticalAlertConfig?.alertEventFilters || []).map(id => id.toString())}
                                                                     onChange={(values: string[]) => {
                                                                         updatePanelAlertEvents(panel.panelId, values.map(v => parseInt(v)));

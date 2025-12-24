@@ -98,7 +98,12 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     }, [featureId, refreshTrigger]);
 
     const handleSelectProfile = (profileId: string) => {
-        onSelectProfile(profileId);
+        // If clicking the same profile again, deselect it (collapse panels)
+        if (selectedProfileId === profileId) {
+            onSelectProfile(''); // Empty string to deselect
+        } else {
+            onSelectProfile(profileId);
+        }
         setIsMobileOpen(false);
     };
 
@@ -403,7 +408,28 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                 className="overflow-hidden ml-5 mt-1 border-l-2 border-dashed border-purple-100 dark:border-purple-800/40 pl-3 space-y-1 relative"
                                             >
                                                 {profile.panels.map((panel, pIndex) => {
-                                                    const panelAlerts = pIndex === 0 ? selectedProfileAlertCount : 0;
+                                                    // Get alert count for THIS specific panel based on its alertsConfig
+                                                    const panelAlerts = (() => {
+                                                        if (!criticalAlerts || criticalAlerts.length === 0) return 0;
+                                                        
+                                                        // Check if this panel has alert config with specific event filter
+                                                        const panelAlertConfig = (panel as any).alertsConfig;
+                                                        const panelEventFilter = panelAlertConfig?.filterByEvents?.map((id: string) => parseInt(id)) || [];
+                                                        
+                                                        // If no specific events selected in panel config, check panel's regular events
+                                                        const relevantEventIds = panelEventFilter.length > 0 
+                                                            ? panelEventFilter 
+                                                            : (panel.events?.map((e: any) => Number(e.eventId)) || []);
+                                                        
+                                                        if (relevantEventIds.length === 0) return 0;
+                                                        
+                                                        // Count alerts matching this panel's events
+                                                        return criticalAlerts.filter((alert: any) => {
+                                                            const alertEventId = Number(alert.eventId || alert.event_id || alert.eventID);
+                                                            return relevantEventIds.includes(alertEventId);
+                                                        }).length;
+                                                    })();
+                                                    
                                                     const isPanelActive = activePanelId && (panel.panelId === activePanelId || `panel-${panel.panelId}` === activePanelId);
 
                                                     return (
