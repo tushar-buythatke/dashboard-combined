@@ -529,13 +529,24 @@ export class APIService {
                     };
                 });
 
-                this.siteDetailsCache = sites;
+                // Add special POS values at the beginning
+                const specialSites: SiteDetail[] = [
+                    { id: 0, name: 'All POS', image: '' },
+                    { id: -1, name: 'Others', image: '' },
+                    ...sites
+                ];
+
+                this.siteDetailsCache = specialSites;
                 cachedSiteDetails = sites;
                 console.log(`✅ Loaded ${sites.length} sites from siteDetails API`);
             } catch (error) {
                 console.error('Failed to fetch site details:', error);
-                // Set empty cache to avoid repeated failures
-                this.siteDetailsCache = [{ id: 2, name: 'Flipkart', image: '' }];
+                // Set fallback cache with special POS values
+                this.siteDetailsCache = [
+                    { id: 0, name: 'All POS', image: '' },
+                    { id: -1, name: 'Others', image: '' },
+                    { id: 2, name: 'Flipkart', image: '' }
+                ];
             }
         }
 

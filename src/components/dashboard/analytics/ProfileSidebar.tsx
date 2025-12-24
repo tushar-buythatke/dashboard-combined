@@ -404,7 +404,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                             >
                                                 {profile.panels.map((panel, pIndex) => {
                                                     const panelAlerts = pIndex === 0 ? selectedProfileAlertCount : 0;
-                                                    const isPanelActive = panel.panelId === activePanelId;
+                                                    const isPanelActive = activePanelId && (panel.panelId === activePanelId || `panel-${panel.panelId}` === activePanelId);
 
                                                     return (
                                                         <motion.button
@@ -412,7 +412,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                             whileHover={{ x: 2 }}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                // activePanelId updated via parent/scroll
+                                                                // Jump to panel and mark as active
                                                                 onJumpToPanel?.(panel.panelId, panel.panelName || `Panel ${pIndex + 1}`);
                                                             }}
                                                             className={cn(

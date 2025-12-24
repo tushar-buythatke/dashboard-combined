@@ -7,7 +7,7 @@ import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { AnalyticsLogin } from './AnalyticsLogin';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
@@ -77,9 +77,12 @@ export function AnalyticsLayout() {
     const [showNewConfigModal, setShowNewConfigModal] = useState(false);
     const [newConfigName, setNewConfigName] = useState('');
     const [newConfigFeature, setNewConfigFeature] = useState('1');
+    const [newConfigMode, setNewConfigMode] = useState<'new' | 'existing'>('new'); // New or add to existing
+    const [selectedExistingProfile, setSelectedExistingProfile] = useState<string | null>(null);
 
     // Available features from API
     const [availableFeatures, setAvailableFeatures] = useState<Feature[]>([]);
+    const [existingProfiles, setExistingProfiles] = useState<DashboardProfile[]>([]);
 
     // Sidebar collapse state
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -129,10 +132,31 @@ export function AnalyticsLayout() {
                 }
             } catch (error) {
                 console.error('Failed to load features:', error);
+                // Set empty array as fallback to prevent blank screen
+                setAvailableFeatures([]);
             }
         };
         loadFeatures();
-    }, [selectedOrganization?.id]);
+    }, [selectedOrganization?.id, selectedFeatureId]);
+
+    // Load existing profiles when modal opens
+    useEffect(() => {
+        const loadExistingProfiles = async () => {
+            if (showNewConfigModal && newConfigMode === 'existing' && newConfigFeature) {
+                try {
+                    const profiles = await mockService.getProfiles(newConfigFeature);
+                    setExistingProfiles(profiles);
+                    if (profiles.length > 0 && !selectedExistingProfile) {
+                        setSelectedExistingProfile(profiles[0].profileId);
+                    }
+                } catch (error) {
+                    console.error('Failed to load existing profiles:', error);
+                    setExistingProfiles([]);
+                }
+            }
+        };
+        loadExistingProfiles();
+    }, [showNewConfigModal, newConfigMode, newConfigFeature]);
 
     // When organization changes, restore selection from URL
     useEffect(() => {
@@ -158,39 +182,53 @@ export function AnalyticsLayout() {
     };
 
     const handleCreateNewConfig = async () => {
-        if (!newConfigName.trim()) return;
+        if (newConfigMode === 'new' && !newConfigName.trim()) return;
+        if (newConfigMode === 'existing' && !selectedExistingProfile) return;
 
-        const newProfile: DashboardProfile = {
-            profileId: `profile_${Date.now()}`,
-            profileName: newConfigName,
-            featureId: newConfigFeature,
-            createdBy: user?.id || 'admin',
-            createdAt: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            version: 1,
-            isActive: true,
-            panels: [],
-            filters: {
-                platform: { type: 'multi-select', options: [], defaultValue: ['0'] },
-                pos: { type: 'multi-select', options: [], defaultValue: [] },
-                source: { type: 'multi-select', options: [], defaultValue: ['1'] },
-                event: { type: 'multi-select', options: [], defaultValue: [] }
-            },
-            defaultSettings: {
-                timeRange: { preset: 'last_7_days', granularity: 'hourly' },
-                autoRefresh: 60
-            },
-            criticalAlerts: { enabled: false, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [], filterByEvents: [], isApi: false }
-        };
+        if (newConfigMode === 'new') {
+            // Create new profile
+            const newProfile: DashboardProfile = {
+                profileId: `profile_${Date.now()}`,
+                profileName: newConfigName,
+                featureId: newConfigFeature,
+                createdBy: user?.id || 'admin',
+                createdAt: new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                version: 1,
+                isActive: true,
+                panels: [],
+                filters: {
+                    platform: { type: 'multi-select', options: [], defaultValue: ['0'] },
+                    pos: { type: 'multi-select', options: [], defaultValue: [] },
+                    source: { type: 'multi-select', options: [], defaultValue: ['1'] },
+                    event: { type: 'multi-select', options: [], defaultValue: [] }
+                },
+                defaultSettings: {
+                    timeRange: { preset: 'last_7_days', granularity: 'hourly' },
+                    autoRefresh: 60
+                },
+                criticalAlerts: { enabled: false, refreshInterval: 30, position: 'top', maxAlerts: 5, filterByPOS: [], filterByEvents: [], isApi: false }
+            };
 
-        await mockService.saveProfile(newProfile);
-        setFeatureSelectorKey(prev => prev + 1);
-        setSelectedFeatureId(newConfigFeature);
-        setSelectedProfileId(newProfile.profileId);
-        setIsCreatingProfile(true);
-        setSidebarRefreshTrigger(prev => prev + 1);
+            await mockService.saveProfile(newProfile);
+            setFeatureSelectorKey(prev => prev + 1);
+            setSelectedFeatureId(newConfigFeature);
+            setSelectedProfileId(newProfile.profileId);
+            setIsCreatingProfile(true);
+            setSidebarRefreshTrigger(prev => prev + 1);
+        } else {
+            // Add panels to existing profile
+            setFeatureSelectorKey(prev => prev + 1);
+            setSelectedFeatureId(newConfigFeature);
+            setSelectedProfileId(selectedExistingProfile);
+            setIsCreatingProfile(true);
+            setSidebarRefreshTrigger(prev => prev + 1);
+        }
+
         setShowNewConfigModal(false);
         setNewConfigName('');
+        setNewConfigMode('new');
+        setSelectedExistingProfile(null);
         setNewConfigFeature(selectedFeatureId || availableFeatures[0]?.id || '1');
     };
 
@@ -288,23 +326,40 @@ export function AnalyticsLayout() {
 
                 {/* New Config Modal */}
                 <Dialog open={showNewConfigModal} onOpenChange={setShowNewConfigModal}>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-[500px]">
                         <DialogHeader>
                             <DialogTitle>Create New Dashboard Config</DialogTitle>
                             <DialogDescription>
-                                Create a new dashboard configuration. Choose a feature type and give it a name.
+                                Create a new profile or add panels to an existing one.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="config-name">Configuration Name</Label>
-                                <Input
-                                    id="config-name"
-                                    placeholder="e.g., Price Alert - Production"
-                                    value={newConfigName}
-                                    onChange={(e) => setNewConfigName(e.target.value)}
-                                />
+                            {/* Mode Selection */}
+                            <div className="grid gap-3">
+                                <Label>Configuration Mode</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={newConfigMode === 'new' ? 'default' : 'outline'}
+                                        className="flex-1"
+                                        onClick={() => setNewConfigMode('new')}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        New Profile
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={newConfigMode === 'existing' ? 'default' : 'outline'}
+                                        className="flex-1"
+                                        onClick={() => setNewConfigMode('existing')}
+                                    >
+                                        <Layers className="h-4 w-4 mr-2" />
+                                        Add to Existing
+                                    </Button>
+                                </div>
                             </div>
+
+                            {/* Feature Selection */}
                             <div className="grid gap-2">
                                 <Label htmlFor="feature-type">Feature Type</Label>
                                 <Select value={newConfigFeature} onValueChange={setNewConfigFeature}>
@@ -320,14 +375,67 @@ export function AnalyticsLayout() {
                                     </SelectContent>
                                 </Select>
                             </div>
+
+                            {/* Conditional: New Profile Name OR Existing Profile Selection */}
+                            {newConfigMode === 'new' ? (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="config-name">Profile Name</Label>
+                                    <Input
+                                        id="config-name"
+                                        placeholder="e.g., Price Alert - Production"
+                                        value={newConfigName}
+                                        onChange={(e) => setNewConfigName(e.target.value)}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="existing-profile">Select Existing Profile</Label>
+                                    <Select value={selectedExistingProfile || undefined} onValueChange={setSelectedExistingProfile}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select profile to add panels to" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {existingProfiles.map(profile => (
+                                                <SelectItem key={profile.profileId} value={profile.profileId}>
+                                                    {profile.profileName} ({profile.panels.length} panels)
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {existingProfiles.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">
+                                            No existing profiles for this feature. Create a new one instead.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setShowNewConfigModal(false)}>
+                            <Button variant="outline" onClick={() => {
+                                setShowNewConfigModal(false);
+                                setNewConfigMode('new');
+                                setSelectedExistingProfile(null);
+                            }}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleCreateNewConfig} disabled={!newConfigName.trim()}>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Create Config
+                            <Button 
+                                onClick={handleCreateNewConfig} 
+                                disabled={
+                                    (newConfigMode === 'new' && !newConfigName.trim()) ||
+                                    (newConfigMode === 'existing' && !selectedExistingProfile)
+                                }
+                            >
+                                {newConfigMode === 'new' ? (
+                                    <>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Create Profile
+                                    </>
+                                ) : (
+                                    <>
+                                        <Layers className="h-4 w-4 mr-2" />
+                                        Add Panels
+                                    </>
+                                )}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -516,23 +624,40 @@ export function AnalyticsLayout() {
 
             {/* New Config Modal (also available when feature is selected) */}
             <Dialog open={showNewConfigModal} onOpenChange={setShowNewConfigModal}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-[500px]">
                     <DialogHeader>
                         <DialogTitle>Create New Dashboard Config</DialogTitle>
                         <DialogDescription>
-                            Create a new dashboard configuration for {getFeatureName(selectedFeatureId || newConfigFeature)}.
+                            Create a new profile or add panels to an existing profile for {getFeatureName(selectedFeatureId || newConfigFeature)}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="config-name-2">Configuration Name</Label>
-                            <Input
-                                id="config-name-2"
-                                placeholder={`e.g., ${getFeatureName(selectedFeatureId || newConfigFeature)} - Production`}
-                                value={newConfigName}
-                                onChange={(e) => setNewConfigName(e.target.value)}
-                            />
+                        {/* Mode Selection */}
+                        <div className="grid gap-3">
+                            <Label>Configuration Mode</Label>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant={newConfigMode === 'new' ? 'default' : 'outline'}
+                                    className="flex-1"
+                                    onClick={() => setNewConfigMode('new')}
+                                >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    New Profile
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={newConfigMode === 'existing' ? 'default' : 'outline'}
+                                    className="flex-1"
+                                    onClick={() => setNewConfigMode('existing')}
+                                >
+                                    <Layers className="h-4 w-4 mr-2" />
+                                    Add to Existing
+                                </Button>
+                            </div>
                         </div>
+
+                        {/* Feature Display */}
                         <div className="grid gap-2">
                             <Label>Feature Type</Label>
                             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 border">
@@ -542,14 +667,67 @@ export function AnalyticsLayout() {
                                 </span>
                             </div>
                         </div>
+
+                        {/* Conditional: New Profile Name OR Existing Profile Selection */}
+                        {newConfigMode === 'new' ? (
+                            <div className="grid gap-2">
+                                <Label htmlFor="config-name-2">Profile Name</Label>
+                                <Input
+                                    id="config-name-2"
+                                    placeholder={`e.g., ${getFeatureName(selectedFeatureId || newConfigFeature)} - Production`}
+                                    value={newConfigName}
+                                    onChange={(e) => setNewConfigName(e.target.value)}
+                                />
+                            </div>
+                        ) : (
+                            <div className="grid gap-2">
+                                <Label htmlFor="existing-profile-2">Select Existing Profile</Label>
+                                <Select value={selectedExistingProfile || undefined} onValueChange={setSelectedExistingProfile}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select profile to add panels to" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {existingProfiles.map(profile => (
+                                            <SelectItem key={profile.profileId} value={profile.profileId}>
+                                                {profile.profileName} ({profile.panels.length} panels)
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {existingProfiles.length === 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                        No existing profiles for this feature. Create a new one instead.
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowNewConfigModal(false)}>
+                        <Button variant="outline" onClick={() => {
+                            setShowNewConfigModal(false);
+                            setNewConfigMode('new');
+                            setSelectedExistingProfile(null);
+                        }}>
                             Cancel
                         </Button>
-                        <Button onClick={handleCreateNewConfig} disabled={!newConfigName.trim()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Config
+                        <Button 
+                            onClick={handleCreateNewConfig} 
+                            disabled={
+                                (newConfigMode === 'new' && !newConfigName.trim()) ||
+                                (newConfigMode === 'existing' && !selectedExistingProfile)
+                            }
+                        >
+                            {newConfigMode === 'new' ? (
+                                <>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Create Profile
+                                </>
+                            ) : (
+                                <>
+                                    <Layers className="h-4 w-4 mr-2" />
+                                    Add Panels
+                                </>
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

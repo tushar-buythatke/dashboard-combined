@@ -446,17 +446,21 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     useEffect(() => {
         if (!profile) return;
 
-        // If profile explicitly defines isApi for alerts, use it
-        if (profile.criticalAlerts?.isApi !== undefined) {
-            setAlertIsApi(profile.criticalAlerts.isApi ? 1 : 0);
+        // Read from first panel's alertsConfig
+        const firstPanel = profile.panels[0];
+        const panelAlertConfig = firstPanel?.alertsConfig;
+
+        // If panel explicitly defines isApi for alerts, use it
+        if (panelAlertConfig?.isApi !== undefined) {
+            setAlertIsApi(typeof panelAlertConfig.isApi === 'number' ? panelAlertConfig.isApi : (panelAlertConfig.isApi ? 1 : 0));
         } else {
             // Otherwise fallback to whether the main panel is an API panel
             setAlertIsApi(isMainPanelApi ? 1 : 0);
         }
 
-        // Initialize isHourly from profile
-        if (profile.criticalAlerts?.isHourly !== undefined) {
-            setAlertIsHourly(profile.criticalAlerts.isHourly);
+        // Initialize isHourly from panel config
+        if (panelAlertConfig?.isHourly !== undefined) {
+            setAlertIsHourly(panelAlertConfig.isHourly);
         } else {
             setAlertIsHourly(true);
         }
@@ -497,13 +501,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         const observerOptions = {
             root: null,
-            rootMargin: '-10% 0px -50% 0px', // Active when top/center of panel overlaps the upper viewport
-            threshold: 0
+            rootMargin: '-20% 0px -40% 0px', // More sensitive tracking
+            threshold: [0, 0.1, 0.5] // Multiple thresholds for better detection
         };
 
         const handleIntersect = (entries: IntersectionObserverEntry[]) => {
             entries.forEach(entry => {
-                if (entry.isIntersecting) {
+                if (entry.isIntersecting && entry.intersectionRatio > 0) {
                     const panelId = entry.target.getAttribute('data-panel-id');
                     if (panelId) {
                         onPanelActive(panelId);
@@ -515,7 +519,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         const observer = new IntersectionObserver(handleIntersect, observerOptions);
 
-        // Delay to ensure refs are attached
+        // Reduced delay for faster tracking
         const timeout = setTimeout(() => {
             Object.entries(panelRefs.current).forEach(([id, element]) => {
                 if (element) {
@@ -525,7 +529,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     observer.observe(element);
                 }
             });
-        }, 500);
+        }, 100); // Reduced from 500ms to 100ms
 
         return () => {
             observer.disconnect();
@@ -1441,15 +1445,42 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         // If no filter selected (empty array), return all data
         if (selectedStrs.length === 0) return graphResponse;
 
+        const filteredData = graphResponse.data.filter((record: any) => {
+            // If record has no sourceStr, exclude it when filtering
+            if (!record.sourceStr || record.sourceStr.trim() === '') {
+                return false;
+            }
+            return selectedStrs.includes(record.sourceStr);
+        });
+
+        // Rebuild pie chart data from filtered data
+        const rebuildPieData = (dimension: string) => {
+            const aggregated: Record<string, any> = {};
+            filteredData.forEach((record: any) => {
+                const key = record[dimension];
+                if (key !== undefined && key !== null) {
+                    const keyStr = String(key);
+                    if (!aggregated[keyStr]) {
+                        aggregated[keyStr] = { ...record, count: 0, successCount: 0, failCount: 0 };
+                    }
+                    aggregated[keyStr].count += record.count || 0;
+                    aggregated[keyStr].successCount += record.successCount || 0;
+                    aggregated[keyStr].failCount += record.failCount || 0;
+                }
+            });
+            return aggregated;
+        };
+
         return {
             ...graphResponse,
-            data: graphResponse.data.filter((record: any) => {
-                // If record has no sourceStr, include it only if we're not filtering
-                if (!record.sourceStr || record.sourceStr.trim() === '') {
-                    return false; // Exclude records without sourceStr when filtering
-                }
-                return selectedStrs.includes(record.sourceStr);
-            })
+            data: filteredData,
+            // Rebuild pie chart data
+            pieChartData: {
+                platform: rebuildPieData('platform'),
+                pos: rebuildPieData('pos'),
+                source: rebuildPieData('source'),
+                sourceStr: rebuildPieData('sourceStr')
+            }
         };
     }, []);
 
@@ -2012,8 +2043,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         setAlertsLoading(true);
         try {
-            // Check if profile has Critical Alerts config with specific event selection
-            const profileEventFilter = profile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || [];
+            // Check if first panel has Critical Alerts config with specific event selection
+            const firstPanel = profile.panels[0];
+            const panelAlertConfig = firstPanel?.alertsConfig;
+            const profileEventFilter = panelAlertConfig?.filterByEvents?.map(id => parseInt(id)) || [];
 
             // Priority: profile-level event filter > runtime alert filters > all events
             const eventIds = profileEventFilter.length > 0
@@ -2768,7 +2801,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                     className="bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm"
                                 >
                                     <Edit className="mr-2 h-4 w-4" />
-                                    <span className="hidden sm:inline">Edit Profile</span>
+                                    <span className="hidden sm:inline">Edit Panels</span>
                                     <span className="sm:hidden">Edit</span>
                                 </Button>
                             )}
@@ -2875,7 +2908,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 </div>
 
                 {/* ==================== CRITICAL ALERTS PANEL (Panel 0) ==================== */}
-                {profile?.criticalAlerts?.enabled !== false && (
+                {profile?.panels?.[0]?.alertsConfig?.enabled !== false && (
                     <CriticalAlertsPanel
                         criticalAlerts={criticalAlerts}
                         alertSummary={alertSummary}

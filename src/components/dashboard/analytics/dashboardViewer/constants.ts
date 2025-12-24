@@ -1,8 +1,8 @@
 // Event colors for the chart
 export const EVENT_COLORS = [
     '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#84cc16',
-    '#a855f7', '#3b82f6'
+    '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#3b82f6',
+    '#a855f7', '#7c3aed'
 ];
 
 // Distinct color palette for error events - various shades for better distinction
