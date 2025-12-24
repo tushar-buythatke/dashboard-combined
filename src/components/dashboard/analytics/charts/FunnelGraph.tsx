@@ -21,6 +21,8 @@ interface FunnelGraphProps {
     };
     onViewAsPercentage?: (parentEventId: string, childEventIds: string[]) => void;
     isAvgDelayMode?: boolean; // When true, show avg delay instead of count
+    isHourly?: boolean;
+    onToggleHourly?: (isHourly: boolean) => void;
 }
 
 interface FunnelStageData {
@@ -43,7 +45,7 @@ interface FunnelStageData {
     }>;
 }
 
-export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage, isAvgDelayMode = false }: FunnelGraphProps) {
+export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage, isAvgDelayMode = false, isHourly = false, onToggleHourly }: FunnelGraphProps) {
     const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
     // Stage highlighting state: null = show all, or specific stage eventId
     const [highlightedStageId, setHighlightedStageId] = useState<string | null>(null);
@@ -60,8 +62,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
         const stageCounts = stages.map((stage) => {
             let count = 0;
-            let avgDelaySum = 0;
-            let avgDelayCount = 0;
+            let weightedDelaySum = 0;
+            let delayCountBase = 0;
 
             // Check if data is raw (has eventId and avgDelay fields)
             const isRawData = data.length > 0 && data[0].eventId !== undefined;
@@ -76,27 +78,49 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         statusCodes.forEach((status) => {
                             const statusKey = `${eventKey}_status_${status}`;
                             const countKey = `${statusKey}_count`;
-                            count += Number(record[countKey] || 0);
+                            const currentCount = Number(record[countKey] || 0);
+                            count += currentCount;
+
+                            if (isAvgDelayMode) {
+                                // For API filters, we might have avgDelay per status if available
+                                // Assuming record has `${statusKey}_avgDelay`
+                                const delay = Number(record[`${statusKey}_avgDelay`] || 0);
+                                if (delay > 0) {
+                                    weightedDelaySum += delay * currentCount;
+                                    delayCountBase += currentCount;
+                                }
+                            }
                         });
                     } else if (hasCacheFilter) {
                         cacheStatuses.forEach((cache) => {
                             const cacheKey = `${eventKey}_cache_${cache}`;
                             const countKey = `${cacheKey}_count`;
-                            count += Number(record[countKey] || 0);
+                            const currentCount = Number(record[countKey] || 0);
+                            count += currentCount;
+
+                            if (isAvgDelayMode) {
+                                const delay = Number(record[`${cacheKey}_avgDelay`] || 0);
+                                if (delay > 0) {
+                                    weightedDelaySum += delay * currentCount;
+                                    delayCountBase += currentCount;
+                                }
+                            }
                         });
                     }
                 } else if (isRawData && String(record.eventId) === String(stage.eventId)) {
                     // Raw data
+                    const currentCount = Number(record.count || record.successCount || 1);
+
                     if (isAvgDelayMode && hasAvgData) {
-                        // avgDelay mode - accumulate for averaging
+                        // avgDelay mode - accumulate for weighted average
                         const delay = Number(record.avgDelay || record.avg || 0);
                         if (delay > 0) {
-                            avgDelaySum += delay;
-                            avgDelayCount += 1;
+                            weightedDelaySum += delay * currentCount;
+                            delayCountBase += currentCount;
                         }
                     }
                     // Always count occurrences for percentage calculation
-                    count += Number(record.count || record.successCount || 1);
+                    count += currentCount;
                 } else if (!isRawData) {
                     // Processed data
                     const successKey = `${stage.eventId}_success`;
@@ -106,7 +130,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             });
 
             // Calculate average delay if in avgDelay mode
-            const avgDelay = avgDelayCount > 0 ? avgDelaySum / avgDelayCount : 0;
+            const avgDelay = delayCountBase > 0 ? weightedDelaySum / delayCountBase : 0;
 
             return { ...stage, count, avgDelay, isAvgMetric: isAvgDelayMode && hasAvgData };
         });
@@ -237,9 +261,37 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <TrendingDown className="h-4 w-4" />
-                            <span>Success rate tracking</span>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <TrendingDown className="h-4 w-4" />
+                                <span>Success rate tracking</span>
+                            </div>
+                            {onToggleHourly && (
+                                <div className="flex bg-white dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onToggleHourly(false); }}
+                                        className={cn(
+                                            "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                                            !isHourly
+                                                ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shadow-sm"
+                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                        )}
+                                    >
+                                        DAILY
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onToggleHourly(true); }}
+                                        className={cn(
+                                            "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                                            isHourly
+                                                ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shadow-sm"
+                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                        )}
+                                    >
+                                        HOURLY
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </CardHeader>
@@ -404,12 +456,13 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1 font-medium">Conversion Rate</div>
                             </div>
-                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-200/50 dark:border-orange-500/30">
+                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-200/50 dark:border-orange-500/30 relative z-20">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full text-xs font-medium bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800"
-                                    onClick={() => {
+                                    className="w-full text-xs font-medium bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800 relative z-30 cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation(); // Prevent card clicks
                                         if (onViewAsPercentage && stages.length > 0) {
                                             // Use first stage as parent
                                             const parentEventId = stages[0].eventId;
@@ -429,44 +482,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             </div>
                         </div>
 
-                        {/* Stage Selection Buttons */}
-                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <div className="flex items-center justify-center gap-2 flex-wrap">
-                                <span className="text-xs font-semibold text-muted-foreground mr-2">Highlight Stage:</span>
-                                <button
-                                    onClick={() => setHighlightedStageId(null)}
-                                    className={cn(
-                                        "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                                        highlightedStageId === null
-                                            ? "bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md"
-                                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                    )}
-                                >
-                                    All
-                                </button>
-                                {funnelData.map((stage, idx) => (
-                                    <button
-                                        key={stage.eventId}
-                                        onClick={() => setHighlightedStageId(stage.eventId === highlightedStageId ? null : stage.eventId)}
-                                        className={cn(
-                                            "px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5",
-                                            highlightedStageId === stage.eventId
-                                                ? "bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md"
-                                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                        )}
-                                    >
-                                        <span
-                                            className="h-2 w-2 rounded-full"
-                                            style={{ backgroundColor: stage.color }}
-                                        />
-                                        {idx + 1}. {stage.eventName.length > 12 ? `${stage.eventName.substring(0, 12)}...` : stage.eventName}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+
                     </div>
                 </CardContent>
-            </Card>
+            </Card >
 
             {/* Expanded Stage Details Modal */}
             <Dialog open={!!selectedStage} onOpenChange={(open) => !open && setSelectedStage(null)}>
@@ -591,7 +610,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         </>
                     )}
                 </DialogContent>
-            </Dialog>
+            </Dialog >
         </>
     );
 }

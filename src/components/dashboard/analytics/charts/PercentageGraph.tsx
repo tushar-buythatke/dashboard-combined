@@ -2,8 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ReferenceLine } from 'recharts';
-import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ReferenceLine, ComposedChart, Scatter } from 'recharts';
+import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -73,7 +73,7 @@ export function PercentageGraph({
 
         // Check data format: raw API data has eventId, processed has _success/_count keys
         const isRawApiData = data.some(r => r.eventId !== undefined);
-        const hasSuccessFailData = data.some(r => 
+        const hasSuccessFailData = data.some(r =>
             (r.successCount !== undefined && r.failCount !== undefined) ||
             data.some(d => Object.keys(d).some(k => k.endsWith('_success') || k.endsWith('_fail')))
         );
@@ -160,6 +160,7 @@ export function PercentageGraph({
                         child_fail_percentage: values.count > 0 ? (values.failCount / values.count) * 100 : 0,
                         percentage: values.count > 0 ? (values.successCount / values.count) * 100 : 0, // Default combined
                         hasAnomaly: values.hasAnomaly,
+                        anomalyValue: values.hasAnomaly ? (values.count > 0 ? (values.successCount / values.count) * 100 : 0) : null,
                         isSameParentChild: true,
                         isAvgMetric: false,
                         parentCount: values.count,
@@ -638,9 +639,28 @@ export function PercentageGraph({
             console.log('Total parent events across all time periods:', result.reduce((sum, r) => sum + r.parentCount, 0));
             console.log('Total child events across all time periods:', result.reduce((sum, r) => sum + r.childCount, 0));
         }
-
         return result;
     }, [data, parentEvents, childEvents, filters, eventNames, isHourly]);
+
+    // Sort child events by average percentage (Descending)
+    const sortedChildEvents = useMemo(() => {
+        if (!childEvents || childEvents.length === 0 || !chartData || chartData.length === 0) {
+            return childEvents;
+        }
+
+        const stats = childEvents.map(eventId => {
+            const key = `child_${eventId}_percentage`;
+            const total = chartData.reduce((sum, item) => sum + (Number((item as any)[key]) || 0), 0);
+            const avg = total / chartData.length;
+            return { eventId, avg };
+        });
+
+        return stats.sort((a, b) => b.avg - a.avg).map(s => s.eventId);
+    }, [childEvents, chartData]);
+
+    const visibleLegendEvents = selectedLineId
+        ? sortedChildEvents.filter(id => id === selectedLineId)
+        : sortedChildEvents;
 
     const overallStats = useMemo(() => {
         const totalParent = chartData.reduce((sum, d: any) => sum + (d.parentCount || 0), 0);
@@ -831,8 +851,9 @@ export function PercentageGraph({
                     {/* Line Chart */}
                     <div className={chartData.length > 0 && chartData[0].isAvgMetric ? "h-[420px] mt-2" : "h-[420px] mt-4"}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart
+                            <ComposedChart
                                 data={chartData}
+                                margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
                                 onClick={(e: any) => {
                                     // Handle chart background click
                                     if (e?.activePayload?.[0]?.payload) {
@@ -1010,31 +1031,54 @@ export function PercentageGraph({
                                     if (isSameParentChildMode) {
                                         // Render SUCCESS and FAIL lines for same parent/child
                                         const lines = [
-                                            { id: 'success', dataKey: 'success_percentage', color: '#22c55e', name: 'Success %' },
+                                            { id: 'success', dataKey: 'success_percentage', color: '#22c55e', name: 'Success %' }, // Fixed to Green
                                             { id: 'fail', dataKey: 'fail_percentage', color: '#ef4444', name: 'Fail %' }
                                         ];
 
-                                        return lines.map(({ id, dataKey, color, name }) => {
-                                            const isLineSelected = selectedLineId === null || selectedLineId === id;
-                                            const lineOpacity = isLineSelected ? 1 : 0.15;
-                                            const lineWidth = isLineSelected ? 2.5 : 1;
+                                        return (
+                                            <>
+                                                {lines.map(({ id, dataKey, color, name }) => {
+                                                    const isLineSelected = selectedLineId === null || selectedLineId === id;
+                                                    const lineOpacity = isLineSelected ? 1 : 0.15;
+                                                    const lineWidth = isLineSelected ? 2.5 : 1;
 
-                                            return (
-                                                <Area
-                                                    key={`same-parent-child-${id}`}
-                                                    type="monotone"
-                                                    dataKey={dataKey}
-                                                    stroke={color}
-                                                    strokeWidth={lineWidth}
-                                                    strokeOpacity={lineOpacity}
-                                                    fill="none"
-                                                    name={name}
-                                                    isAnimationActive={false}
-                                                    dot={false}
-                                                    activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
+                                                    return (
+                                                        <Area
+                                                            key={`same-parent-child-${id}`}
+                                                            type="monotone"
+                                                            dataKey={dataKey}
+                                                            stroke={color}
+                                                            strokeWidth={lineWidth}
+                                                            strokeOpacity={lineOpacity}
+                                                            fill="none"
+                                                            name={name}
+                                                            isAnimationActive={false}
+                                                            dot={false}
+                                                            activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
+                                                        />
+                                                    );
+                                                })}
+                                                {/* Anomaly Scatter Plot Layer */}
+                                                <Scatter
+                                                    name="Anomaly Detected"
+                                                    dataKey="anomalyValue"
+                                                    fill="#f59e0b"
+                                                    shape={(props: any) => {
+                                                        const { cx, cy, payload } = props;
+                                                        if (payload.hasAnomaly) {
+                                                            return (
+                                                                <foreignObject x={cx - 10} y={cy - 10} width={20} height={20}>
+                                                                    <div className="flex items-center justify-center w-full h-full bg-amber-100 rounded-full border border-amber-500 shadow-sm animate-pulse">
+                                                                        <AlertTriangle className="h-3 w-3 text-amber-600" />
+                                                                    </div>
+                                                                </foreignObject>
+                                                            );
+                                                        }
+                                                        return <g />;
+                                                    }}
                                                 />
-                                            );
-                                        });
+                                            </>
+                                        );
                                     }
 
                                     // For avgDelay metrics, use child events directly
@@ -1052,7 +1096,7 @@ export function PercentageGraph({
                                             : childEvents;
 
                                     return renderKeys.map((childId, index) => {
-                                        const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+                                        const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
                                         const color = eventColors[childId] || colors[index % colors.length];
                                         const childDataKey = `child_${childId}_percentage`;
 
@@ -1132,9 +1176,10 @@ export function PercentageGraph({
                                         }}
                                     />
                                 )}
-                            </AreaChart>
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </div>
+
 
                     {/* Line Selection Buttons - Color Coded Legend */}
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -1189,11 +1234,25 @@ export function PercentageGraph({
                                 </>
                             ) : (
                                 /* Regular child events mode */
-                                childEvents.map((eventId, idx) => {
+                                visibleLegendEvents.map((eventId) => {
+                                    // Find original index for color consistency?
+                                    // Actually, we should use eventColors map or consistent hash
+                                    // The map above used index in childEvents logic: 
+                                    // const color = eventColors[childId] || colors[index % colors.length];
+                                    // We need to preserve that color mapping irrespective of sort order
+
+                                    const originalIndex = childEvents.indexOf(eventId);
                                     const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-                                    const color = eventColors[eventId] || colors[idx % colors.length];
+                                    const color = eventColors[eventId] || colors[originalIndex % colors.length];
+
                                     const name = eventNames[eventId] || `Event ${eventId}`;
                                     const isSelected = selectedLineId === eventId;
+
+                                    // Calculate current avg for display?
+                                    const key = `child_${eventId}_percentage`;
+                                    const total = chartData.reduce((sum, item) => sum + (Number((item as any)[key]) || 0), 0);
+                                    const avg = chartData.length > 0 ? (total / chartData.length).toFixed(1) : '0.0';
+
                                     return (
                                         <button
                                             key={eventId}
@@ -1201,17 +1260,18 @@ export function PercentageGraph({
                                             className={cn(
                                                 "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
                                                 isSelected
-                                                    ? "text-white shadow-md"
+                                                    ? "text-white shadow-md ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-900 ring-gray-400"
                                                     : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
                                             )}
                                             style={isSelected ? { backgroundColor: color } : {}}
-                                            title={`${name}: Click to highlight this line`}
+                                            title={`${name}: ${avg}% avg`}
                                         >
                                             <span
-                                                className="h-2.5 w-2.5 rounded-full"
-                                                style={{ backgroundColor: color }}
+                                                className={cn("h-2.5 w-2.5 rounded-full", isSelected ? "ring-1 ring-white" : "")}
+                                                style={{ backgroundColor: isSelected ? 'white' : color }}
                                             />
                                             {name.length > 18 ? `${name.substring(0, 18)}...` : name}
+                                            <span className="opacity-70 text-[10px] ml-0.5">({avg}%)</span>
                                         </button>
                                     );
                                 })

@@ -90,6 +90,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     HourlyStatsCard,
     // Single-panel architecture: Render only this panel index
     activePanelIndex,
+    hourlyOverride,
+    setHourlyOverride,
 }: any) {
     const eventColors = useMemo(() => {
         const map: Record<string, string> = {};
@@ -227,7 +229,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                     pTotalFail = filteredGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
                 }
 
-                const pIsHourly = Math.ceil((currentPanelDateRange.to.getTime() - currentPanelDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 7;
+                const isRangeShortEnoughForHourly = Math.ceil((currentPanelDateRange.to.getTime() - currentPanelDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 7;
+                const pIsHourly = hourlyOverride === 'hourly' || (hourlyOverride !== 'daily' && isRangeShortEnoughForHourly);
 
                 return (
                     <div
@@ -394,16 +397,30 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
                                                         />
                                                     </div>
-                                                    <span
-                                                        className={cn(
-                                                            "text-xs px-2 py-0.5 rounded-full",
-                                                            pIsHourly
-                                                                ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
-                                                                : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
-                                                        )}
-                                                    >
-                                                        {pIsHourly ? 'Hourly' : 'Daily'} data
-                                                    </span>
+                                                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                                        <button
+                                                            onClick={() => setHourlyOverride('hourly')}
+                                                            className={cn(
+                                                                "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                pIsHourly
+                                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                            )}
+                                                        >
+                                                            Hourly
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setHourlyOverride('daily')}
+                                                            className={cn(
+                                                                "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                !pIsHourly
+                                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                            )}
+                                                        >
+                                                            Daily
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -1534,6 +1551,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             multipleChildEvents={panelConfig.funnelConfig.multipleChildEvents || []}
                                             eventColors={eventColors}
                                             eventNames={eventNames}
+                                            isHourly={pIsHourly}
                                             filters={panelConfig?.isApiEvent ? {
                                                 statusCodes: currentPanelFilters.percentageStatusCodes || [],
                                                 cacheStatus: currentPanelFilters.percentageCacheStatus || [],

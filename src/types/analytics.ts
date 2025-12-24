@@ -61,6 +61,7 @@ export interface PercentageGraphConfig {
         cacheStatus?: string[]; // For API events
     };
     showCombinedPercentage: boolean; // Show overall percentage in legend
+    groupChildEvents?: boolean; // Toggle: true = Single Graph (grouped), false = Separate Graphs
 }
 
 export interface FunnelGraphConfig {
