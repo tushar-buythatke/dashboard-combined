@@ -497,7 +497,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         const observerOptions = {
             root: null,
-            rootMargin: '-20% 0px -60% 0px', // Active when top of panel is near top of viewport
+            rootMargin: '-10% 0px -50% 0px', // Active when top/center of panel overlaps the upper viewport
             threshold: 0
         };
 
@@ -525,7 +525,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     observer.observe(element);
                 }
             });
-        }, 800);
+        }, 500);
 
         return () => {
             observer.disconnect();
@@ -1891,6 +1891,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
                 hasApiEvents ? [] : panelFilters.pos, // Empty for API events
                 hasApiEvents ? [] : panelFilters.sources, // Empty for API events
+                currentSourceStrFilter, // Pass sourceStr filter to API
                 panelDateRange.from,
                 panelDateRange.to,
                 hasApiEvents // Pass isApiEvent flag -> sets isApi: true in request body
@@ -1906,6 +1907,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
                         hasApiEvents ? [] : panelFilters.pos, // Empty for API events
                         hasApiEvents ? [] : panelFilters.sources, // Empty for API events
+                        currentSourceStrFilter, // Pass sourceStr filter to API
                         panelDateRange.from,
                         panelDateRange.to,
                         hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
@@ -2008,7 +2010,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const loadAlerts = useCallback(async (expanded: boolean = false) => {
         if (!profile || events.length === 0) return;
 
-        // ...
         setAlertsLoading(true);
         try {
             // Check if profile has Critical Alerts config with specific event selection
@@ -2027,41 +2028,42 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             const diffInDays = (alertDateRange.to.getTime() - alertDateRange.from.getTime()) / (1000 * 60 * 60 * 24);
             const effectiveIsHourly = diffInDays > 7 ? false : alertIsHourly;
 
-            // Fetch both detailed alerts and summary counts in parallel
-            const [alerts, summary] = await Promise.all([
-                apiService.getCriticalAlerts(
-                    eventIds,
-                    alertFilters.platforms.length > 0 ? alertFilters.platforms : [],
-                    alertFilters.pos.length > 0 ? alertFilters.pos : [],
-                    alertFilters.sources.length > 0 ? alertFilters.sources : [],
-                    alertDateRange.from,
-                    alertDateRange.to,
-                    limit,
-                    alertsPage,
-                    alertIsApi, // Now a number (0, 1, or 2)
-                    effectiveIsHourly
-                ),
-                apiService.getAlertList(
-                    eventIds,
-                    alertDateRange.from,
-                    alertDateRange.to,
-                    effectiveIsHourly,
-                    alertIsApi // Now a number
-                )
-            ]);
+            // Fetch alerts using the new unified API endpoint
+            const data = await apiService.getAlerts(
+                eventIds,
+                alertDateRange.from.toISOString().split('T')[0], // YYYY-MM-DD
+                alertDateRange.to.toISOString().split('T')[0],   // YYYY-MM-DD
+                effectiveIsHourly,
+                alertIsApi,
+                limit,
+                alertsPage,
+                alertFilters.platforms.length > 0 ? alertFilters.platforms.map(p => Number(p)) : [], // Convert to numbers if needed
+                alertFilters.pos.length > 0 ? alertFilters.pos : [],
+                alertFilters.sources.length > 0 ? alertFilters.sources.map(s => Number(s)) : [],
+                [] // sourceStr - not currently filtered in UI
+            );
 
-            setCriticalAlerts(alerts);
-            setAlertSummary(summary);
-            onAlertsUpdate?.(alerts); // Send alerts to parent
+            setCriticalAlerts(data.alerts || []);
+            setAlertSummary(data.summary || {});
+            onAlertsUpdate?.(data.alerts || []);
         } catch (err) {
             console.error('Failed to load critical alerts:', err);
             setCriticalAlerts([]);
             setAlertSummary({});
-            onAlertsUpdate?.([]); // Send empty array on error
+            onAlertsUpdate?.([]);
         } finally {
             setAlertsLoading(false);
         }
     }, [profile, events, alertFilters, alertDateRange, alertsPage, alertIsApi, alertIsHourly]);
+
+    // Auto-refresh alerts every 15 minutes
+    useEffect(() => {
+        if (!profile || events.length === 0) return;
+        const interval = setInterval(() => {
+            loadAlerts(alertsExpanded);
+        }, 15 * 60 * 1000); // 15 minutes
+        return () => clearInterval(interval);
+    }, [loadAlerts, alertsExpanded, profile, events.length]);
 
     // Load chart data - LAZY LOADING: Only load first/main panel on initial load
     // Additional panels load data on-demand when navigated to via sidebar
@@ -2094,7 +2096,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         : (panelConfig?.pos || []),
                     sources: userPanelFilters?.sources?.length > 0
                         ? userPanelFilters.sources
-                        : (panelConfig?.sources || [])
+                        : (panelConfig?.sources || []),
+                    sourceStr: userPanelFilters?.sourceStr && userPanelFilters.sourceStr.length > 0
+                        ? userPanelFilters.sourceStr
+                        : (panelConfig?.sourceStr || [])
                 };
 
 
@@ -2110,6 +2115,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
                         hasApiEvents ? [] : panelFilters.pos, // Empty for API events
                         hasApiEvents ? [] : panelFilters.sources, // Empty for API events
+                        hasApiEvents ? [] : panelFilters.sourceStr || [], // Empty for API events
                         panelDateRange.from,
                         panelDateRange.to,
                         hasApiEvents // Pass isApiEvent flag -> sets isApi: true
@@ -2123,6 +2129,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
                             hasApiEvents ? [] : panelFilters.pos, // Empty for API events
                             hasApiEvents ? [] : panelFilters.sources, // Empty for API events
+                            hasApiEvents ? [] : panelFilters.sourceStr || [], // Empty for API events
                             panelDateRange.from,
                             panelDateRange.to,
                             hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
@@ -2324,6 +2331,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
             // Upload child config when profile is loaded (once per hour max)
             uploadChildConfigIfNeeded(false);
+
+            // Initialize selectedSourceStrs from panel config (Main Panel)
+            if (profile.panels[0]) {
+                const config = (profile.panels[0] as any).filterConfig;
+                setSelectedSourceStrs(config?.sourceStr || []);
+            }
         }
     }, [loading, profileId, profile, events.length, graphData.length, toast, uploadChildConfigIfNeeded]);
 
@@ -2532,17 +2545,38 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         }
     }, [profile, isMainPanelApi, events.length, panelsDataMap, rawGraphResponse]);
 
-    const handleFilterChange = (type: keyof FilterState, values: string[]) => {
+    const handleFilterChange = (type: keyof FilterState, values: any) => {
         // console.log('handleFilterChange called:', { type, values });
+
+        // Special handling for boolean toggles
+        if (type === 'activePercentageGroupChildEvents') {
+            // Update the main panel's filter state (first panel) - SCOPED TO MAIN PANEL ONLY
+            if (profile?.panels && profile.panels.length > 0) {
+                const mainPanelId = profile.panels[0].panelId;
+                setPanelFiltersState(prev => ({
+                    ...prev,
+                    [mainPanelId]: {
+                        ...prev[mainPanelId],
+                        [type]: values
+                    }
+                }));
+                // Set pending refresh to true to show the "Changed" badge
+                setPendingRefresh(true);
+            }
+            return;
+        }
 
         // Determine value type based on filter key
         // activeStages, activePercentageEvents, activeFunnelChildEvents use string IDs
         // platform, pos, source, events use numeric IDs
         const isStringFilter = ['activeStages', 'activePercentageEvents', 'activePercentageChildEvents', 'activeFunnelChildEvents', 'percentageStatusCodes', 'percentageCacheStatus'].includes(type as string);
 
+        // Ensure values is an array for mapping
+        const valuesArray = Array.isArray(values) ? values : [values];
+
         const finalValues = isStringFilter
-            ? values
-            : values.map(v => parseInt(v)).filter(id => !isNaN(id));
+            ? valuesArray
+            : valuesArray.map((v: any) => parseInt(v)).filter((id: number) => !isNaN(id));
 
         // console.log('Final values after processing:', finalValues);
 
@@ -3028,6 +3062,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         HourlyStatsCard={HourlyStatsCard}
                         // NEW: Pass active panel index to render only that panel
                         activePanelIndex={activePanelIndex}
+                        hourlyOverride={hourlyOverride}
+                        setHourlyOverride={setHourlyOverride}
                     />
                 )}
 

@@ -12,6 +12,7 @@ export interface FilterState {
     pos: number[];
     sources: number[];
     events: number[];
+    sourceStr?: string[];
     // New fields for togglable filters
     activeStages?: string[];
     activePercentageEvents?: string[];
@@ -21,6 +22,7 @@ export interface FilterState {
     percentageCacheStatus?: string[];
     apiStatusCodes?: string[];
     apiCacheStatus?: string[];
+    activePercentageGroupChildEvents?: boolean; // Toggle: true = Single Graph, false = Separate Graphs
 }
 
 export interface DateRangeState {

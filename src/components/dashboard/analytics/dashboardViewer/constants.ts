@@ -21,11 +21,16 @@ export const ERROR_COLORS = [
 export const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
 
 // Utility function to combine duplicate entries (like multiple "Unknown") in pie chart data
-export const combinePieChartDuplicates = (data: any[]): any[] => {
-    if (!data || !Array.isArray(data) || data.length === 0) return [];
+export const combinePieChartDuplicates = (data: any[] | Record<string, any>): any[] => {
+    if (!data) return [];
+
+    // Convert object to array if needed (API returns objects sometimes)
+    const arrayData = Array.isArray(data) ? data : Object.values(data);
+
+    if (arrayData.length === 0) return [];
 
     const combinedMap = new Map<string, { value: number; metricType?: string }>();
-    data.forEach(item => {
+    arrayData.forEach((item: any) => {
         const name = item.name || 'Unknown';
         const prev = combinedMap.get(name);
         const nextValue = (prev?.value || 0) + (item.value || 0);
@@ -40,8 +45,8 @@ export const combinePieChartDuplicates = (data: any[]): any[] => {
 
 // Utility function to check if pie chart should be displayed
 // Returns false if there's only 1 item (100% share) - no point showing that
-export const shouldShowPieChart = (data: any[]): boolean => {
-    if (!data || data.length === 0) return false;
+export const shouldShowPieChart = (data: any[] | Record<string, any>): boolean => {
+    if (!data) return false;
     const combinedData = combinePieChartDuplicates(data);
     return combinedData.length > 1;
 };

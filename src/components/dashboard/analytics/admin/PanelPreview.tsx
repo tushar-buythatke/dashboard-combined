@@ -43,6 +43,7 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                 filters.platforms.length > 0 ? filters.platforms : [0],
                 filters.pos.length > 0 ? filters.pos : [2],
                 filters.sources.length > 0 ? filters.sources : [],
+                [], // sourceStrs
                 startDate,
                 endDate
             );                const records = analyticsData.data || [];

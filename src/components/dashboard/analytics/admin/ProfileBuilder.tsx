@@ -312,7 +312,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             if (panel.isApiEvent) {
                 promises.push(apiService.getGraphData(
                     panel.filters.events,
-                    [], [], [], // empty filters
+
+                    [], [], [], [], // empty filters (including sourceStr)
                     panel.dateRange.from,
                     panel.dateRange.to,
                     true

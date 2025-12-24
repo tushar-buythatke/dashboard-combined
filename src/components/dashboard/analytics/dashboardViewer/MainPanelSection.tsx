@@ -72,7 +72,7 @@ type MainPanelSectionProps = {
     setFiltersCollapsed: (next: boolean) => void;
     pendingRefresh: boolean;
     panelFiltersState: Record<string, Partial<FilterState>>;
-    handleFilterChange: (type: keyof FilterState, values: string[]) => void;
+    handleFilterChange: (type: keyof FilterState, values: any) => void;
     handleApplyFilters: () => void;
     dataLoading: boolean;
     autoRefreshMinutes: number;
@@ -235,30 +235,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     <CardContent>
                         <div className="flex justify-between items-center mb-4">
                             <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
-                            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
-                                <button
-                                    onClick={() => setHourlyOverride && setHourlyOverride(false)}
-                                    className={cn(
-                                        "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
-                                        !isHourly
-                                            ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                    )}
-                                >
-                                    DAILY
-                                </button>
-                                <button
-                                    onClick={() => setHourlyOverride && setHourlyOverride(true)}
-                                    className={cn(
-                                        "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
-                                        isHourly
-                                            ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                                    )}
-                                >
-                                    HOURLY
-                                </button>
-                            </div>
+
                         </div>
 
                         <div className={cn(
@@ -320,11 +297,42 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                 // Specialized Filters for Percentage Graph
                                 if (isPercentageGraph && percentageConfig) {
+                                    // Default to grouped if not specified
+                                    const isGrouped = currentFilters.activePercentageGroupChildEvents ?? percentageConfig.groupChildEvents ?? true;
+
                                     return (
                                         <div className="col-span-12 space-y-4">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Percent className="h-4 w-4 text-purple-500" />
-                                                <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Percentage Graph - Event Selection</span>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Percent className="h-4 w-4 text-purple-500" />
+                                                    <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Percentage Graph - Event Selection</span>
+                                                </div>
+
+                                                {/* Graph Grouping Toggle */}
+                                                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                                                    <button
+                                                        onClick={() => handleFilterChange('activePercentageGroupChildEvents', true)}
+                                                        className={cn(
+                                                            "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                                                            isGrouped
+                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                        )}
+                                                    >
+                                                        SINGLE GRAPH
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleFilterChange('activePercentageGroupChildEvents', false)}
+                                                        className={cn(
+                                                            "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                                                            !isGrouped
+                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                        )}
+                                                    >
+                                                        SEPARATE GRAPHS
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1124,64 +1132,100 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             return graphData;
                         })();
 
-                        // Create separate percentage graphs for each child event
-                        return (
-                            <div className="space-y-6">
-                                {activeChildEvents.map((childEvent: string, index: number) => (
-                                    <PercentageGraph
-                                        key={`${activeParentEvents.join('-')}-${childEvent}-${index}`}
-                                        data={percentageGraphData}
-                                        dateRange={dateRange}
-                                        parentEvents={activeParentEvents}
-                                        childEvents={[childEvent]} // Single child event per graph
-                                        eventColors={eventColors}
-                                        eventNames={eventNames}
-                                        filters={{
-                                            ...(percentageConfig?.filters || {}),
-                                            statusCodes: activeStatusCodes,
-                                            cacheStatus: activeCacheStatus
-                                        }}
-                                        isHourly={isHourly}
-                                        onToggleHourly={(newValue) => {
-                                            // Set the hourly override to the new value and refetch
-                                            if (setHourlyOverride) {
-                                                setHourlyOverride(newValue);
-                                            }
-                                            // Refetch with new granularity
-                                            setTimeout(() => handleApplyFilters(), 100);
-                                        }}
-                                        onToggleBackToFunnel={(profile?.panels?.[0] as any)?.previousGraphType === 'funnel' ? () => {
-                                            // Toggle back to funnel graph
-                                            if (profile && profile.panels && profile.panels[0]) {
-                                                const updatedConfig = {
-                                                    ...profile.panels[0].filterConfig,
-                                                    graphType: 'funnel' as const,
-                                                };
+                        // Define onToggleBackToFunnel handler once
+                        const handleToggleBackToFunnel = (profile?.panels?.[0] as any)?.previousGraphType === 'funnel' ? () => {
+                            if (profile && profile.panels && profile.panels[0]) {
+                                const updatedConfig = {
+                                    ...profile.panels[0].filterConfig,
+                                    graphType: 'funnel' as const,
+                                };
 
-                                                const updatedProfile = {
-                                                    ...profile,
-                                                    panels: profile.panels.map((panel, index) =>
-                                                        index === 0 ? {
-                                                            ...panel,
-                                                            filterConfig: updatedConfig,
-                                                            previousGraphType: undefined
-                                                        } : panel
-                                                    )
-                                                };
+                                const updatedProfile = {
+                                    ...profile,
+                                    panels: profile.panels.map((panel, index) =>
+                                        index === 0 ? {
+                                            ...panel,
+                                            filterConfig: updatedConfig,
+                                            previousGraphType: undefined
+                                        } : panel
+                                    )
+                                };
 
-                                                setProfile(updatedProfile as any);
+                                setProfile(updatedProfile as any);
 
-                                                toast({
-                                                    title: "🔄 Switched to Funnel Analysis",
-                                                    description: "Back to funnel view",
-                                                    duration: 2000,
-                                                });
-                                            }
-                                        } : undefined}
-                                    />
-                                ))}
-                            </div>
-                        );
+                                toast({
+                                    title: "🔄 Switched to Funnel Analysis",
+                                    description: "Back to funnel view",
+                                    duration: 2000,
+                                });
+                            }
+                        } : undefined;
+
+                        const isGrouped = panelFilters.activePercentageGroupChildEvents ?? percentageConfig.groupChildEvents ?? true;
+
+                        if (isGrouped) {
+                            return (
+                                <PercentageGraph
+                                    data={percentageGraphData}
+                                    parentEvents={activeParentEvents}
+                                    childEvents={activeChildEvents}
+                                    eventColors={eventColors}
+                                    eventNames={eventNames}
+                                    filters={{
+                                        ...(percentageConfig?.filters || {}),
+                                        statusCodes: activeStatusCodes,
+                                        cacheStatus: activeCacheStatus
+                                    }}
+                                    isHourly={isHourly}
+                                    onToggleHourly={(newValue) => {
+                                        if (setHourlyOverride) {
+                                            setHourlyOverride(newValue);
+                                        }
+                                    }}
+                                    onToggleBackToFunnel={handleToggleBackToFunnel}
+
+                                />
+                            );
+                        } else {
+                            // Separate Graphs Mode
+                            return (
+                                <div className="space-y-6">
+                                    {activeChildEvents.map((childEvent: string, index: number) => (
+                                        <div key={childEvent} className="relative">
+                                            <div className="flex items-center gap-2 mb-2 px-2 bg-slate-50 dark:bg-slate-900/50 py-1.5 rounded-md border border-slate-100 dark:border-slate-800">
+                                                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: eventColors[childEvent] || '#8884d8' }} />
+                                                <span className="font-semibold text-sm text-foreground">
+                                                    {eventNames[childEvent] || childEvent}
+                                                </span>
+                                            </div>
+                                            <PercentageGraph
+                                                data={percentageGraphData}
+                                                parentEvents={activeParentEvents}
+                                                childEvents={[childEvent]}
+                                                eventColors={eventColors}
+                                                eventNames={eventNames}
+                                                filters={{
+                                                    ...(percentageConfig?.filters || {}),
+                                                    statusCodes: activeStatusCodes,
+                                                    cacheStatus: activeCacheStatus
+                                                }}
+                                                isHourly={isHourly}
+                                                showCombinedPercentage={false}
+                                                onToggleHourly={(newValue) => {
+                                                    if (setHourlyOverride) {
+                                                        setHourlyOverride(newValue);
+                                                    }
+                                                }}
+                                                onToggleBackToFunnel={index === 0 ? handleToggleBackToFunnel : undefined}
+
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                        }
+
+                        // Close Percentage Graph Block
                     }
 
                     // Funnel Graph - EXCLUSIVE RENDERING
@@ -1215,10 +1259,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     multipleChildEvents={activeChildEvents}
                                     eventColors={eventColors}
                                     eventNames={eventNames}
+                                    isHourly={isHourly}
                                     filters={isMainPanelApi ? {
                                         statusCodes: (mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>).percentageStatusCodes || [],
                                         cacheStatus: (mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>).percentageCacheStatus || []
                                     } : undefined}
+                                    onToggleHourly={(newValue) => {
+                                        if (setHourlyOverride) {
+                                            setHourlyOverride(newValue);
+                                        }
+                                    }}
                                     onViewAsPercentage={(parentEventId, childEventIds) => {
                                         // Switch to percentage graph
                                         if (profile && profile.panels && profile.panels[0]) {
@@ -2967,6 +3017,6 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     </div>
                 )
             }
-        </div>
+        </div >
     );
 });

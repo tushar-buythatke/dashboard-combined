@@ -565,6 +565,63 @@ export class APIService {
     }
 
     /**
+     * Fetch critical alerts
+     */
+    async getAlerts(
+        eventIds: number[],
+        startTime: string,
+        endTime: string,
+        isHourly: boolean,
+        isApi: number,
+        limit: number = 1000,
+        page: number = 0,
+        platforms: number[] = [],  // Optional filters
+        pos: number[] = [],
+        sources: number[] = [],
+        sourceStr: string[] = []
+    ): Promise<any> {
+        const body = {
+            filter: {
+                eventId: eventIds,
+                platform: platforms,
+                pos: pos,
+                source: sources,
+                sourceStr: sourceStr
+            },
+            startTime,
+            endTime,
+            isHourly,
+            limit,
+            page,
+            isApi
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/alert`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+                console.error(`Alerts fetch failed: ${response.status} ${response.statusText}`);
+                return { alerts: [], summary: {} };
+            }
+
+            const result = await response.json();
+            if (result.status === 1 && result.data) {
+                return result.data; // Expected { alerts: [], summary: {} }
+            }
+            return { alerts: [], summary: {} };
+        } catch (error) {
+            console.error("Error fetching alerts:", error);
+            return { alerts: [], summary: {} };
+        }
+    }
+
+    /**
      * Get POS name by ID
      */
     getPosName(posId: number): string {
@@ -622,6 +679,7 @@ export class APIService {
         platformIds: (number | string)[],
         posIds: (number | string)[],
         sourceIds: (number | string)[],
+        sourceStrs: string[],
         startDate: Date,
         endDate: Date,
         isApiEvent: boolean = false,
@@ -642,7 +700,7 @@ export class APIService {
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
                 source: toNumbers(sourceIds),
-                sourceStr: [], // Always send empty array - client-side filtering only
+                sourceStr: sourceStrs || [],
                 // For API events, send empty arrays to get ALL status codes and cache statuses
                 // Backend needs these fields to return data broken down by status
                 ...(isApiEvent ? { status: [], cacheStatus: [] } : {})
@@ -746,6 +804,7 @@ export class APIService {
         platformIds: (number | string)[],
         posIds: (number | string)[],
         sourceIds: (number | string)[],
+        sourceStrs: string[],
         startDate: Date,
         endDate: Date,
         isApiEvent: boolean = false // Added for API events
@@ -764,7 +823,7 @@ export class APIService {
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
                 source: toNumbers(sourceIds),
-                sourceStr: [] // Always send empty array - client-side filtering only
+                sourceStr: sourceStrs || [] // Filter by sourceStr
             },
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),
