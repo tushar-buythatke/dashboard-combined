@@ -80,6 +80,14 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     );
     const [highlightRecentTwo, setHighlightRecentTwo] = React.useState<boolean>(true);
 
+    // Auto-select first event on load if available
+    React.useEffect(() => {
+        if (eventStats && eventStats.length > 0 && !selectedEventKey && onEventClick) {
+            // Auto-select the first event (highest total by default as they're sorted)
+            onEventClick(eventStats[0].eventKey);
+        }
+    }, [eventStats, selectedEventKey, onEventClick]);
+
     // Create unified time points (0-23 hours)
     const timePoints = Array.from({ length: 24 }, (_, i) => ({
         hour: i,

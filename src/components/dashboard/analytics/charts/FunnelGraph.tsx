@@ -49,6 +49,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
     const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
     // Stage highlighting state: null = show all, or specific stage eventId
     const [highlightedStageId, setHighlightedStageId] = useState<string | null>(null);
+    // Hovered stage for tooltip
+    const [hoveredStage, setHoveredStage] = useState<FunnelStageData | null>(null);
 
     const funnelData = useMemo<FunnelStageData[]>(() => {
         if (!data || data.length === 0 || stages.length === 0) return [];
@@ -296,7 +298,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     </div>
                 </CardHeader>
                 <CardContent className="p-6 md:p-8">
-                    <div className="relative h-[420px] flex items-end justify-center gap-4 md:gap-6 pl-12 pr-8 md:pl-14 md:pr-12">
+                    <div className="relative h-[450px] flex items-end justify-center gap-6 md:gap-8 pl-12 pr-8 md:pl-14 md:pr-12">
                         {/* Grid Lines - representing 0%, 25%, 50%, 75%, 100% */}
                         <div className="absolute inset-x-0 bottom-0 h-full pointer-events-none" style={{ left: '3rem', right: '2rem' }}>
                             {[0, 25, 50, 75, 100].map((level) => (
@@ -321,10 +323,38 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             return (
                                 <div
                                     key={stage.eventId}
-                                    className="flex flex-col items-center group w-16 sm:w-20 md:w-24 h-full cursor-pointer relative z-10"
+                                    className="flex flex-col items-center group w-24 sm:w-32 md:w-40 h-full cursor-pointer relative z-10"
                                     onClick={() => setSelectedStage(stage)}
-                                    title={`${stage.eventName}\nCount: ${stage.count.toLocaleString()}\nPercentage: ${stage.percentage.toFixed(2)}%\nDrop-off: ${stage.dropoffPercentage.toFixed(2)}%`}
+                                    onMouseEnter={() => setHoveredStage(stage)}
+                                    onMouseLeave={() => setHoveredStage(null)}
                                 >
+                                    {/* Premium Hover Tooltip */}
+                                    {hoveredStage?.eventId === stage.eventId && (
+                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
+                                            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border-2 border-indigo-200 dark:border-indigo-500/40 p-4 min-w-[200px]">
+                                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-slate-900 rotate-45 border-r-2 border-b-2 border-indigo-200 dark:border-indigo-500/40" />
+                                                <div className="font-bold text-gray-900 dark:text-gray-100 text-sm mb-2 truncate" title={stage.eventName}>
+                                                    {index + 1}. {stage.eventName}
+                                                </div>
+                                                <div className="space-y-1.5 text-xs">
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <span className="text-gray-500">Count:</span>
+                                                        <span className="font-bold text-indigo-600 dark:text-indigo-400">{stage.count.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <span className="text-gray-500">Percentage:</span>
+                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{stage.percentage.toFixed(2)}%</span>
+                                                    </div>
+                                                    {stage.dropoffPercentage > 0 && (
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span className="text-gray-500">Drop-off:</span>
+                                                            <span className="font-bold text-red-600 dark:text-red-400">-{stage.dropoffPercentage.toFixed(2)}%</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     {/* Bar container - aligned to bottom (0%) */}
                                     <div className="flex-1 flex items-end w-full relative">
                                         {!isFinalMultiple ? (

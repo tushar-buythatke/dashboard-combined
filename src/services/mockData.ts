@@ -145,6 +145,17 @@ class MockService {
             const desiredPanelIds = new Set(apiEvents.map(e => `api_${e.eventId}`));
 
             const buildPanel = (apiEvent: any, index: number) => {
+                // Add default critical alert config for API panels with the event ID
+                const alertsConfig = {
+                    enabled: true,
+                    position: 'top',
+                    refreshInterval: 30,
+                    maxAlerts: 5,
+                    filterByPOS: [],
+                    filterByEvents: [apiEvent.eventId.toString()], // Default to this API event
+                    isApi: 1, // API mode
+                    isHourly: true // Hourly by default
+                };
                 const panelId = `api_${apiEvent.eventId}`;
                 const panelName = apiEvent.host && apiEvent.url
                     ? `${apiEvent.host} - ${apiEvent.url}`
@@ -176,7 +187,8 @@ class MockService {
                             },
                             showCombinedPercentage: true
                         }
-                    }
+                    },
+                    alertsConfig // Add default critical alert config for API panels
                 } as any;
             };
 

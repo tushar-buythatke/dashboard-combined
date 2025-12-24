@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ReferenceLine, ComposedChart, Scatter } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ReferenceLine, ComposedChart, Scatter, PieChart, Pie, Cell } from 'recharts';
 import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -658,9 +658,56 @@ export function PercentageGraph({
         return stats.sort((a, b) => b.avg - a.avg).map(s => s.eventId);
     }, [childEvents, chartData]);
 
-    const visibleLegendEvents = selectedLineId
-        ? sortedChildEvents.filter(id => id === selectedLineId)
-        : sortedChildEvents;
+    const visibleLegendEvents = sortedChildEvents; // Always show all events in legend
+
+    // Pie chart data for child event distribution
+    const childEventPieData = useMemo(() => {
+        if (!childEvents || childEvents.length === 0 || !chartData || chartData.length === 0) {
+            return [];
+        }
+
+        // Premium color palette - vibrant and visually appealing
+        const premiumColors = [
+            '#8b5cf6', // Violet 500
+            '#06b6d4', // Cyan 500
+            '#f43f5e', // Rose 500
+            '#10b981', // Emerald 500
+            '#f59e0b', // Amber 500
+            '#6366f1', // Indigo 500
+            '#ec4899', // Pink 500
+            '#14b8a6', // Teal 500
+            '#a855f7', // Purple 500
+            '#f97316', // Orange 500
+        ];
+
+        // Aggregate childBreakdown across all time points
+        const totalCounts: Record<string, number> = {};
+        chartData.forEach((item: any) => {
+            if (item.childBreakdown) {
+                Object.entries(item.childBreakdown).forEach(([eventId, count]) => {
+                    totalCounts[eventId] = (totalCounts[eventId] || 0) + (Number(count) || 0);
+                });
+            }
+        });
+
+        // Calculate total parent count for percentage
+        const totalParentCount = chartData.reduce((sum, item: any) => sum + (item.parentCount || 0), 0);
+
+        // Build pie data from aggregated counts
+        return childEvents.map((eventId, index) => {
+            const totalCount = totalCounts[eventId] || 0;
+            const name = eventNames[eventId] || `Event ${eventId}`;
+            const color = eventColors[eventId] || premiumColors[index % premiumColors.length];
+
+            return {
+                name,
+                value: totalCount,
+                color,
+                eventId,
+                parentPercentage: totalParentCount > 0 ? (totalCount / totalParentCount) * 100 : 0,
+            };
+        }).filter(item => item.value > 0).sort((a, b) => b.value - a.value);
+    }, [childEvents, chartData, eventNames, eventColors]);
 
     const overallStats = useMemo(() => {
         const totalParent = chartData.reduce((sum, d: any) => sum + (d.parentCount || 0), 0);
@@ -965,54 +1012,72 @@ export function PercentageGraph({
                                                 : parentEntries;
 
                                             return (
-                                                <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
-                                                    <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
-                                                    <div className="space-y-1 text-xs">
-                                                        <p className="text-purple-600 font-bold">
-                                                            Percentage: {data.percentage.toFixed(2)}%
-                                                        </p>
-                                                        <p className="text-green-600">
-                                                            {isAvgDelay ? 'Child Avg' : 'Child'}: {isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}
-                                                        </p>
-                                                        <p className="text-blue-600">
-                                                            {isAvgDelay ? 'Parent Avg' : 'Parent'}: {isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}
-                                                        </p>
+                                                <div className="bg-white dark:bg-white p-4 rounded-xl shadow-xl border-2 border-gray-100 min-w-[220px]" style={{ backgroundColor: 'white' }}>
+                                                    <p className="text-sm font-bold mb-3 text-gray-900 border-b pb-2">{data.time}</p>
+                                                    <div className="space-y-2 text-xs">
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span className="text-gray-500">Percentage:</span>
+                                                            <span className="font-bold text-purple-600 text-sm">{data.percentage.toFixed(2)}%</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span className="text-gray-500">{isAvgDelay ? 'Child Avg' : 'Child'}:</span>
+                                                            <span className="font-bold text-gray-900">{isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span className="text-gray-500">{isAvgDelay ? 'Parent Avg' : 'Parent'}:</span>
+                                                            <span className="font-bold text-gray-900">{isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}</span>
+                                                        </div>
                                                         {filteredChildEntries.length > 0 && (
-                                                            <div className="mt-2">
-                                                                <p className="font-semibold mb-1 text-xs text-green-700">
+                                                            <div className="mt-3 pt-2 border-t border-gray-100">
+                                                                <p className="font-bold mb-2 text-xs text-green-700 flex items-center gap-1">
                                                                     {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
                                                                 </p>
-                                                                {filteredChildEntries.map(([key, count]) => {
-                                                                    const displayLabel = isApiEventMode
-                                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                            key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : key)
-                                                                        : (eventNames[key] || key);
-                                                                    return (
-                                                                        <div key={key} className="flex items-center justify-between">
-                                                                            <span>{displayLabel}</span>
-                                                                            <span className="font-mono">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
-                                                                        </div>
-                                                                    );
-                                                                })}
+                                                                <div className="space-y-1.5">
+                                                                    {filteredChildEntries.map(([key, count], idx) => {
+                                                                        const displayLabel = isApiEventMode
+                                                                            ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : key)
+                                                                            : (eventNames[key] || key);
+                                                                        // Use color from eventColors or fallback to premium colors
+                                                                        const colors = ['#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#6366f1', '#ec4899'];
+                                                                        const color = eventColors[key] || colors[idx % colors.length];
+                                                                        return (
+                                                                            <div key={key} className="flex items-center justify-between gap-3">
+                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[150px]" title={displayLabel}>
+                                                                                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                                                                                    {displayLabel.length > 18 ? displayLabel.substring(0, 18) + '...' : displayLabel}
+                                                                                </span>
+                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             </div>
                                                         )}
                                                         {filteredParentEntries.length > 0 && (
-                                                            <div className="mt-2">
-                                                                <p className="font-semibold mb-1 text-xs text-blue-700">
+                                                            <div className="mt-3 pt-2 border-t border-gray-100">
+                                                                <p className="font-bold mb-2 text-xs text-blue-700 flex items-center gap-1">
                                                                     {isApiEventMode ? 'Status/Cache Breakdown' : 'Parent breakdown'}
                                                                 </p>
-                                                                {filteredParentEntries.map(([key, count]) => {
-                                                                    const displayLabel = isApiEventMode
-                                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                            key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : key)
-                                                                        : (eventNames[key] || key);
-                                                                    return (
-                                                                        <div key={key} className="flex items-center justify-between">
-                                                                            <span>{displayLabel}</span>
-                                                                            <span className="font-mono">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
-                                                                        </div>
-                                                                    );
-                                                                })}
+                                                                <div className="space-y-1.5">
+                                                                    {filteredParentEntries.map(([key, count], idx) => {
+                                                                        const displayLabel = isApiEventMode
+                                                                            ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : key)
+                                                                            : (eventNames[key] || key);
+                                                                        const colors = ['#3b82f6', '#14b8a6', '#a855f7', '#f97316', '#22c55e'];
+                                                                        const color = eventColors[key] || colors[idx % colors.length];
+                                                                        return (
+                                                                            <div key={key} className="flex items-center justify-between gap-3">
+                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[150px]" title={displayLabel}>
+                                                                                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                                                                                    {displayLabel.length > 18 ? displayLabel.substring(0, 18) + '...' : displayLabel}
+                                                                                </span>
+                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1185,15 +1250,18 @@ export function PercentageGraph({
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-center gap-2 flex-wrap">
                             <span className="text-xs font-semibold text-muted-foreground mr-2">Select Line:</span>
-                            {/* Only show "All" button when no specific line is selected */}
-                            {selectedLineId === null && (
-                                <button
-                                    onClick={() => setSelectedLineId(null)}
-                                    className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-md"
-                                >
-                                    All
-                                </button>
-                            )}
+                            {/* Always show "All" button */}
+                            <button
+                                onClick={() => setSelectedLineId(null)}
+                                className={cn(
+                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+                                    selectedLineId === null
+                                        ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-md"
+                                        : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:shadow-md border border-slate-200 dark:border-slate-700"
+                                )}
+                            >
+                                All
+                            </button>
                             {/* Same parent/child mode: Show Success and Fail buttons */}
                             {chartData.length > 0 && chartData[0].isSameParentChild ? (
                                 <>
@@ -1231,51 +1299,165 @@ export function PercentageGraph({
                                     )}
                                 </>
                             ) : (
-                                /* Regular child events mode */
-                                visibleLegendEvents.map((eventId) => {
-                                    // Find original index for color consistency?
-                                    // Actually, we should use eventColors map or consistent hash
-                                    // The map above used index in childEvents logic: 
-                                    // const color = eventColors[childId] || colors[index % colors.length];
-                                    // We need to preserve that color mapping irrespective of sort order
+                                /* Regular child events mode - sorted by average percentage descending */
+                                (() => {
+                                    // Calculate averages and sort by descending order
+                                    const eventsWithAvg = visibleLegendEvents.map((eventId) => {
+                                        const key = `child_${eventId}_percentage`;
+                                        const total = chartData.reduce((sum, item) => sum + (Number((item as any)[key]) || 0), 0);
+                                        const avg = chartData.length > 0 ? (total / chartData.length) : 0;
+                                        return { eventId, avg };
+                                    }).sort((a, b) => b.avg - a.avg); // Sort descending by average
+                                    
+                                    return eventsWithAvg.map(({ eventId, avg }) => {
+                                        // Find original index for color consistency
+                                        const originalIndex = childEvents.indexOf(eventId);
+                                        const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+                                        const color = eventColors[eventId] || colors[originalIndex % colors.length];
 
-                                    const originalIndex = childEvents.indexOf(eventId);
-                                    const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-                                    const color = eventColors[eventId] || colors[originalIndex % colors.length];
+                                        const name = eventNames[eventId] || `Event ${eventId}`;
+                                        const isSelected = selectedLineId === eventId;
+                                        const avgStr = avg.toFixed(1);
 
-                                    const name = eventNames[eventId] || `Event ${eventId}`;
-                                    const isSelected = selectedLineId === eventId;
-
-                                    // Calculate current avg for display?
-                                    const key = `child_${eventId}_percentage`;
-                                    const total = chartData.reduce((sum, item) => sum + (Number((item as any)[key]) || 0), 0);
-                                    const avg = chartData.length > 0 ? (total / chartData.length).toFixed(1) : '0.0';
-
-                                    return (
-                                        <button
-                                            key={eventId}
-                                            onClick={() => setSelectedLineId(isSelected ? null : eventId)}
-                                            className={cn(
-                                                "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
-                                                isSelected
-                                                    ? "text-white shadow-md ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-900 ring-gray-400"
-                                                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                            )}
-                                            style={isSelected ? { backgroundColor: color } : {}}
-                                            title={`${name}: ${avg}% avg`}
-                                        >
-                                            <span
-                                                className={cn("h-2.5 w-2.5 rounded-full", isSelected ? "ring-1 ring-white" : "")}
-                                                style={{ backgroundColor: isSelected ? 'white' : color }}
-                                            />
-                                            {name.length > 18 ? `${name.substring(0, 18)}...` : name}
-                                            <span className="opacity-70 text-[10px] ml-0.5">({avg}%)</span>
-                                        </button>
-                                    );
-                                })
+                                        return (
+                                            <button
+                                                key={eventId}
+                                                onClick={() => setSelectedLineId(isSelected ? null : eventId)}
+                                                className={cn(
+                                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
+                                                    isSelected
+                                                        ? "text-white shadow-lg ring-2 ring-white/40"
+                                                        : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:shadow-md border border-slate-200 dark:border-slate-700"
+                                                )}
+                                                style={isSelected ? { backgroundColor: color } : {}}
+                                                title={`${name}: ${avgStr}% avg`}
+                                            >
+                                                <span
+                                                    className="h-2.5 w-2.5 rounded-full"
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                                {name.length > 18 ? `${name.substring(0, 18)}...` : name}
+                                                <span className={cn("text-[10px] ml-0.5", isSelected ? "opacity-90" : "opacity-70")}>({avgStr}%)</span>
+                                            </button>
+                                        );
+                                    });
+                                })()
                             )}
                         </div>
                     </div>
+
+                    {/* Child Event Distribution Pie Chart */}
+                    {childEventPieData.length > 0 && (
+                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <h4 className="text-sm font-semibold text-muted-foreground mb-4 flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                                    <BarChart3 className="h-3.5 w-3.5 text-white" />
+                                </div>
+                                Child Event Distribution
+                                <span className="text-xs font-normal text-muted-foreground/70 ml-1">
+                                    ({childEventPieData.length} events)
+                                </span>
+                            </h4>
+                            <div className="h-64 relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={childEventPieData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={55}
+                                            outerRadius={90}
+                                            paddingAngle={3}
+                                            dataKey="value"
+                                            strokeWidth={3}
+                                            stroke="#fff"
+                                            isAnimationActive={false}
+                                            label={({ name, percent, value }: any) => {
+                                                const displayName = (name || '').length > 15 
+                                                    ? (name || '').substring(0, 15) + '...' 
+                                                    : name;
+                                                const pct = ((percent || 0) * 100).toFixed(1);
+                                                return `${displayName} (${pct}%)`;
+                                            }}
+                                            labelLine={{ 
+                                                strokeWidth: 2, 
+                                                stroke: '#94a3b8',
+                                                strokeDasharray: '3 3'
+                                            }}
+                                        >
+                                            {childEventPieData.map((entry, index) => (
+                                                <Cell 
+                                                    key={`cell-${entry.eventId || index}`} 
+                                                    fill={entry.color}
+                                                    style={{
+                                                        filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))',
+                                                    }}
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            content={({ active, payload }: any) => {
+                                                if (active && payload && payload[0]) {
+                                                    const data = payload[0].payload;
+                                                    return (
+                                                        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-2xl border-2 border-gray-100 dark:border-gray-700 min-w-[180px]">
+                                                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
+                                                                <span 
+                                                                    className="w-4 h-4 rounded-full shadow-md"
+                                                                    style={{ backgroundColor: data.color }}
+                                                                />
+                                                                <p className="font-bold text-sm text-gray-900 dark:text-white">{data.name}</p>
+                                                            </div>
+                                                            <div className="space-y-2 text-xs">
+                                                                <div className="flex justify-between gap-4">
+                                                                    <span className="text-gray-500 dark:text-gray-400">Count:</span>
+                                                                    <span className="font-bold text-gray-900 dark:text-white text-sm">{data.value?.toLocaleString()}</span>
+                                                                </div>
+                                                                <div className="flex justify-between gap-4">
+                                                                    <span className="text-gray-500 dark:text-gray-400">Of Children:</span>
+                                                                    <span className="font-bold text-purple-600 dark:text-purple-400 text-sm">
+                                                                        {((payload[0].percent || 0) * 100).toFixed(1)}%
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between gap-4 pt-2 border-t border-gray-100 dark:border-gray-600">
+                                                                    <span className="text-gray-500 dark:text-gray-400">Of Parent:</span>
+                                                                    <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+                                                                        {data.parentPercentage?.toFixed(2)}%
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                            {/* Enhanced Legend - sorted by value descending */}
+                            <div className="flex flex-wrap gap-2 justify-center mt-4">
+                                {childEventPieData.map((entry: any, index: number) => (
+                                    <div 
+                                        key={`legend-${entry.eventId}`} 
+                                        className="flex items-center gap-2 text-xs bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/80 dark:to-slate-700/50 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 shadow-sm hover:shadow-md transition-shadow"
+                                    >
+                                        <span
+                                            className="w-3.5 h-3.5 rounded-full shadow-md ring-2 ring-white dark:ring-slate-900"
+                                            style={{ backgroundColor: entry.color }}
+                                        />
+                                        <span className="text-slate-700 dark:text-slate-300 font-medium max-w-[100px] truncate" title={entry.name}>
+                                            {entry.name}
+                                        </span>
+                                        <span className="font-bold text-slate-900 dark:text-white">{entry.value.toLocaleString()}</span>
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px] px-1.5 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded">
+                                            {entry.parentPercentage?.toFixed(1)}%
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                 </CardContent>
             </Card>
@@ -1430,21 +1612,41 @@ export function PercentageGraph({
                                                 Child Event Breakdown
                                             </h3>
                                             <div className="space-y-3">
-                                                {Object.entries(selectedPoint.childBreakdown as Record<string, number>).map(([key, count]) => {
-                                                    const displayLabel = isApiEventMode
-                                                        ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                            key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
-                                                                (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
-                                                        : (eventNames[key] || key);
-                                                    return (
+                                                {(() => {
+                                                    // Premium color palette for child events
+                                                    const premiumColors = [
+                                                        '#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b',
+                                                        '#6366f1', '#ec4899', '#14b8a6', '#a855f7', '#f97316',
+                                                    ];
+                                                    
+                                                    // Sort by count in descending order and add colors
+                                                    const entries = Object.entries(selectedPoint.childBreakdown as Record<string, number>)
+                                                        .map(([key, count], index) => {
+                                                            const displayLabel = isApiEventMode
+                                                                ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                    key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
+                                                                        (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
+                                                                : (eventNames[key] || key);
+                                                            const color = eventColors[key] || premiumColors[index % premiumColors.length];
+                                                            return { key, count, displayLabel, color };
+                                                        })
+                                                        .sort((a, b) => b.count - a.count); // Sort descending by count
+                                                    
+                                                    return entries.map(({ key, count, displayLabel, color }) => (
                                                         <div
                                                             key={key}
                                                             className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200"
                                                             style={{ backgroundColor: '#f0fdf4' }}
                                                         >
-                                                            <span className="text-sm font-medium truncate flex-1 mr-2">
-                                                                {displayLabel}
-                                                            </span>
+                                                            <div className="flex items-center gap-2 flex-1 mr-2">
+                                                                <span
+                                                                    className="w-3 h-3 rounded-full shadow-sm flex-shrink-0"
+                                                                    style={{ backgroundColor: color }}
+                                                                />
+                                                                <span className="text-sm font-medium truncate text-gray-900">
+                                                                    {displayLabel}
+                                                                </span>
+                                                            </div>
                                                             <div className="text-right">
                                                                 <div className="text-sm font-bold text-blue-700 dark:text-blue-300">
                                                                     {count.toLocaleString()}
@@ -1456,8 +1658,8 @@ export function PercentageGraph({
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
+                                                    ));
+                                                })()}
                                             </div>
                                         </div>
                                     )}

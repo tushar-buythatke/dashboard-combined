@@ -2754,17 +2754,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         );
                     }
 
-                    // Check if ANY panel is a special graph (percentage or funnel)
-                    // If so, we hide the top-level pie charts to avoid clutter/confusion
-                    const isAnyPanelSpecial = profile?.panels?.some((p: any) =>
-                        p.filterConfig?.graphType === 'percentage' || p.filterConfig?.graphType === 'funnel' ||
-                        p.graphType === 'percentage' || p.graphType === 'funnel'
-                    );
-
-                    // If special graph exists, don't show pie charts
-                    if (isAnyPanelSpecial) {
-                        return null;
-                    }
+                    // Note: Removed check that blocked pie charts when ANY panel was percentage/funnel
+                    // This was too restrictive - let pie charts show if they have valid data
 
                     // Process pie chart data - combine duplicates and filter out single-item charts
                     const platformData = pieChartData?.platform ? combinePieChartDuplicates(pieChartData.platform) : [];
