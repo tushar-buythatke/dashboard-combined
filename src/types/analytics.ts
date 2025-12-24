@@ -124,7 +124,7 @@ export interface CriticalAlertsConfig {
     maxAlerts: number;
     filterByPOS: string[];
     filterByEvents: string[]; // Event IDs to monitor for alerts
-    isApi?: boolean;
+    isApi?: boolean | number; // 0=REGULAR, 1=API, 2=PERCENT (or boolean for legacy)
     isHourly?: boolean;
 }
 

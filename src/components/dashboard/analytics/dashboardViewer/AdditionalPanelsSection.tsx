@@ -88,6 +88,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     openExpandedPie,
     isHourly,
     HourlyStatsCard,
+    // Single-panel architecture: Render only this panel index
+    activePanelIndex,
 }: any) {
     const eventColors = useMemo(() => {
         const map: Record<string, string> = {};
@@ -184,7 +186,11 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
     return (
         <>
-            {profile.panels.slice(1).map((panel: any, panelIndex: number) => {
+            {profile.panels.slice(1).filter((_: any, idx: number) => {
+                // SINGLE PANEL ARCHITECTURE: Only render the panel that matches activePanelIndex
+                // activePanelIndex 0 = main panel, 1+ = additional panels (so idx 0 in slice = activePanelIndex 1)
+                return activePanelIndex === idx + 1;
+            }).map((panel: any, panelIndex: number) => {
                 const panelData = panelsDataMap.get(panel.panelId);
                 const rawPanelGraphData = panelData?.graphData || [];
                 const pEventKeys = panelData?.eventKeys || [];
@@ -2216,36 +2222,21 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
                                                                     .map((eventKeyInfo: any, idx: number) => {
                                                                         const eventKey = eventKeyInfo.eventKey;
-                                                                        const errorColor = ERROR_COLORS[idx % ERROR_COLORS.length];
+                                                                        // For isError events: successCount = failed count, so show ONLY red line
                                                                         return (
-                                                                            <>
-                                                                                <Area
-                                                                                    key={`error_${idx}_${panel.panelId}_${eventKey}_errors`}
-                                                                                    type="monotone"
-                                                                                    dataKey={`${eventKey}_fail`}
-                                                                                    name={`${eventKeyInfo.eventName} (Errors)`}
-                                                                                    stroke={errorColor}
-                                                                                    strokeWidth={2.5}
-                                                                                    fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
-                                                                                    dot={{ fill: errorColor, strokeWidth: 0, r: 3 }}
-                                                                                    activeDot={{ r: 8, fill: errorColor, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
-                                                                                    isAnimationActive={false} connectNulls={true}
-                                                                                    animationDuration={0}
-                                                                                />
-                                                                                <Area
-                                                                                    key={`error_${idx}_${panel.panelId}_${eventKey}_ok`}
-                                                                                    type="monotone"
-                                                                                    dataKey={`${eventKey}_success`}
-                                                                                    name={`${eventKeyInfo.eventName} (Success)`}
-                                                                                    stroke="#22c55e"
-                                                                                    strokeWidth={2}
-                                                                                    fill={`url(#errorSuccessGrad_${panel.panelId})`}
-                                                                                    dot={{ fill: '#22c55e', strokeWidth: 0, r: 2 }}
-                                                                                    activeDot={{ r: 6, fill: '#22c55e', stroke: '#fff', strokeWidth: 2, cursor: 'pointer' }}
-                                                                                    isAnimationActive={false} connectNulls={true}
-                                                                                    animationDuration={0}
-                                                                                />
-                                                                            </>
+                                                                            <Area
+                                                                                key={`error_${idx}_${panel.panelId}_${eventKey}_failed`}
+                                                                                type="monotone"
+                                                                                dataKey={`${eventKey}_success`}
+                                                                                name={`${eventKeyInfo.eventName} (Failed Count)`}
+                                                                                stroke="#ef4444"
+                                                                                strokeWidth={3}
+                                                                                fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
+                                                                                dot={false}
+                                                                                activeDot={{ r: 7, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
+                                                                                isAnimationActive={false} connectNulls={true}
+                                                                                animationDuration={0}
+                                                                            />
                                                                         );
                                                                     })}
                                                             </AreaChart>

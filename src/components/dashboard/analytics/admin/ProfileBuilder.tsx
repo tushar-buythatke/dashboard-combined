@@ -23,6 +23,7 @@ import type { DateRange } from 'react-day-picker';
 import { TutorialOverlay, type TutorialStep } from '../components/TutorialOverlay';
 import { InfoTooltip } from '../components/InfoTooltip';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProfileBuilderProps {
     featureId: string;
@@ -54,11 +55,12 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
 
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {
     const { user } = useAnalyticsAuth();
+    const { toast } = useToast();
     const [profileName, setProfileName] = useState('New Profile');
     const [panels, setPanels] = useState<ExtendedPanelConfig[]>([]);
     const [alertEventFilters, setAlertEventFilters] = useState<number[]>([]); // Event IDs for critical alerts
-    const [alertsIsApi, setAlertsIsApi] = useState(false);
-    const [alertsIsHourly, setAlertsIsHourly] = useState(true);
+    const [alertsIsApi, setAlertsIsApi] = useState<number>(0); // 0=REGULAR, 1=API, 2=PERCENT
+    const [alertsIsHourly, setAlertsIsHourly] = useState(false); // Default to Daily as per request
     const [loading, setLoading] = useState(true);
     const [workflowMode, setWorkflowMode] = useState<'quick' | 'template'>('template');
     const [combineModalOpen, setCombineModalOpen] = useState(false);
@@ -70,7 +72,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const [savedTutorialState, setSavedTutorialState] = useState<{
         panels: ExtendedPanelConfig[];
         alertEventFilters: number[];
-        alertsIsApi: boolean;
+        alertsIsApi: number;
     } | null>(null);
 
     const tutorialSteps: TutorialStep[] = [
@@ -287,69 +289,95 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
 
         setLoadingJobIds(true);
         try {
-            // Fetch sample data - for API events, pass empty arrays for platform/pos/source
-            const response = await apiService.getGraphData(
-                panel.filters.events,
-                panel.isApiEvent ? [] : (panel.filters.platforms.length > 0 ? panel.filters.platforms : [0]),
-                panel.isApiEvent ? [] : panel.filters.pos,
-                panel.isApiEvent ? [] : panel.filters.sources,
-                panel.dateRange.from,
-                panel.dateRange.to,
-                panel.isApiEvent || false
-            );
+            const promises: Promise<any>[] = [];
 
-            // Extract unique sourceStr values (Job IDs), status codes, and cache statuses
-            if (response?.data) {
+            // 1. Fetch Job IDs (sourceStr) using dedicated API
+            promises.push(apiService.fetchSourceStr(panel.filters.events).then((response: any) => {
                 const jobIds = new Set<string>();
-                const statusCodes = new Set<string>();
-                const cacheStatuses = new Set<string>();
-
-                response.data.forEach((record: any) => {
-                    // Extract Job IDs
-                    if (record.sourceStr && typeof record.sourceStr === 'string' && record.sourceStr.trim() !== '') {
-                        jobIds.add(record.sourceStr);
-                    }
-
-                    // For API events, extract status and cacheStatus directly from record fields
-                    if (panel.isApiEvent) {
-                        // Direct field extraction (API response format)
-                        if (record.status !== undefined && record.status !== null) {
-                            statusCodes.add(String(record.status));
+                if (response?.data && Array.isArray(response.data)) {
+                    response.data.forEach((id: string) => {
+                        if (id && typeof id === 'string' && id.trim() !== '') {
+                            jobIds.add(id);
                         }
-                        if (record.cacheStatus && typeof record.cacheStatus === 'string') {
-                            cacheStatuses.add(record.cacheStatus);
-                        }
+                    });
+                }
+                return { type: 'jobIds', data: jobIds };
+            }).catch((err: any) => {
+                console.error("Failed to fetch sourceStrs", err);
+                return { type: 'jobIds', data: new Set<string>() };
+            }));
 
-                        // Also check key patterns for processed data format
-                        Object.keys(record).forEach(key => {
-                            const statusMatch = key.match(/_status_(\d+)_/);
-                            const cacheMatch = key.match(/_cache_([^_]+)_/);
-                            if (statusMatch) statusCodes.add(statusMatch[1]);
-                            if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
+            // 2. For API events, we also need status codes and cache statuses
+            // We still need to fetch some graph data to find active status codes if no dedicated API exists
+            if (panel.isApiEvent) {
+                promises.push(apiService.getGraphData(
+                    panel.filters.events,
+                    [], [], [], // empty filters
+                    panel.dateRange.from,
+                    panel.dateRange.to,
+                    true
+                ).then((response: any) => {
+                    const statusCodes = new Set<string>();
+                    const cacheStatuses = new Set<string>();
+
+                    if (response?.data) {
+                        response.data.forEach((record: any) => {
+                            // Direct field extraction
+                            if (record.status !== undefined && record.status !== null) {
+                                statusCodes.add(String(record.status));
+                            }
+                            if (record.cacheStatus && typeof record.cacheStatus === 'string') {
+                                cacheStatuses.add(record.cacheStatus);
+                            }
+
+                            // Processed data format keys extraction
+                            Object.keys(record).forEach((key: string) => {
+                                const statusMatch = key.match(/_status_(\d+)_/);
+                                const cacheMatch = key.match(/_cache_([^_]+)_/);
+                                if (statusMatch) statusCodes.add(statusMatch[1]);
+                                if (cacheMatch) cacheStatuses.add(cacheMatch[1]);
+                            });
                         });
                     }
-                });
-
-                const sortedJobIds = Array.from(jobIds).sort();
-                const sortedStatusCodes = Array.from(statusCodes).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-                const sortedCacheStatuses = Array.from(cacheStatuses).sort();
-
-                setAvailableJobIds(sortedJobIds);
-                setAvailableStatusCodes(sortedStatusCodes);
-                setAvailableCacheStatuses(sortedCacheStatuses);
-
-                console.log(`📋 Loaded ${sortedJobIds.length} job IDs:`, sortedJobIds);
-                if (panel.isApiEvent) {
-                    console.log(`📊 Loaded ${sortedStatusCodes.length} status codes:`, sortedStatusCodes);
-                    console.log(`🗄️ Loaded ${sortedCacheStatuses.length} cache statuses:`, sortedCacheStatuses);
-                }
+                    return { type: 'apiMeta', statusCodes, cacheStatuses };
+                }).catch((err: any) => {
+                    console.error("Failed to fetch API metadata", err);
+                    return { type: 'apiMeta', statusCodes: new Set(), cacheStatuses: new Set() };
+                }));
             }
+
+            const results = await Promise.all(promises);
+            let jobIds = new Set<string>();
+            let statusCodes = new Set<string>();
+            let cacheStatuses = new Set<string>();
+
+            results.forEach((res: any) => {
+                if (res.type === 'jobIds') jobIds = res.data;
+                if (res.type === 'apiMeta') {
+                    statusCodes = res.statusCodes;
+                    cacheStatuses = res.cacheStatuses;
+                }
+            });
+
+            setAvailableJobIds(Array.from(jobIds).sort());
+            if (panel.isApiEvent) {
+                setAvailableStatusCodes(Array.from(statusCodes).sort((a, b) => Number(a) - Number(b)));
+                setAvailableCacheStatuses(Array.from(cacheStatuses).sort());
+            }
+
         } catch (error) {
-            console.error('Failed to fetch job IDs:', error);
+            console.error("Error fetching available options:", error);
+            toast({
+                title: "Error fetching options",
+                description: "Could not load Job IDs or metadata. Please try again.",
+                variant: "destructive"
+            });
         } finally {
             setLoadingJobIds(false);
         }
     };
+
+
 
     // Load events and site details from APIs
     useEffect(() => {
@@ -438,7 +466,9 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     const hasAlertsPanel = extendedPanels.some(p => p.type === 'alerts');
                     // Load alert config from profile
                     setAlertEventFilters(profile.criticalAlerts?.filterByEvents?.map(id => parseInt(id)) || []);
-                    setAlertsIsApi(Boolean(profile.criticalAlerts?.isApi));
+                    // Handle both boolean (legacy) and number values for isApi
+                    const savedIsApi = profile.criticalAlerts?.isApi;
+                    setAlertsIsApi(typeof savedIsApi === 'number' ? savedIsApi : (savedIsApi ? 1 : 0));
                     setAlertsIsHourly(profile.criticalAlerts?.isHourly !== false); // Default to true
 
                     if (!hasAlertsPanel) {
@@ -498,7 +528,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     }
                 };
                 setPanels([alertsPanel]);
-                setAlertsIsApi(false);
+                setAlertsIsApi(0);
             }
 
             setLoading(false);
@@ -1076,14 +1106,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                     <div className="p-4 bg-muted/20 rounded-lg">
                                                         <div className="flex items-center justify-between gap-4 mb-3" id="alert-api-toggle">
                                                             <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Event Type</Label>
-                                                            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[200px]">
+                                                            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[280px] gap-1">
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setAlertsIsApi(false)}
+                                                                    onClick={() => setAlertsIsApi(0)}
                                                                     className={cn(
                                                                         "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        !alertsIsApi 
-                                                                            ? "bg-green-600 text-white shadow-md" 
+                                                                        alertsIsApi === 0
+                                                                            ? "bg-green-600 text-white shadow-md"
                                                                             : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                                                     )}
                                                                 >
@@ -1091,15 +1121,27 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setAlertsIsApi(true)}
+                                                                    onClick={() => setAlertsIsApi(1)}
                                                                     className={cn(
                                                                         "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        alertsIsApi 
-                                                                            ? "bg-purple-600 text-white shadow-md" 
+                                                                        alertsIsApi === 1
+                                                                            ? "bg-purple-600 text-white shadow-md"
                                                                             : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                                                     )}
                                                                 >
                                                                     API
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setAlertsIsApi(2)}
+                                                                    className={cn(
+                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                        alertsIsApi === 2
+                                                                            ? "bg-amber-500 text-white shadow-md"
+                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                    )}
+                                                                >
+                                                                    PERCENT
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -1114,8 +1156,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     onClick={() => setAlertsIsHourly(false)}
                                                                     className={cn(
                                                                         "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        !alertsIsHourly 
-                                                                            ? "bg-blue-600 text-white shadow-md" 
+                                                                        !alertsIsHourly
+                                                                            ? "bg-blue-600 text-white shadow-md"
                                                                             : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                                                     )}
                                                                 >
@@ -1126,8 +1168,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     onClick={() => setAlertsIsHourly(true)}
                                                                     className={cn(
                                                                         "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
-                                                                        alertsIsHourly 
-                                                                            ? "bg-orange-500 text-white shadow-md" 
+                                                                        alertsIsHourly
+                                                                            ? "bg-orange-500 text-white shadow-md"
                                                                             : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                                                     )}
                                                                 >
@@ -1466,6 +1508,50 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                 className="h-9"
                                                                             />
                                                                             <p className="text-xs text-muted-foreground">Events to use as numerator</p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Child Events Grouping Toggle */}
+                                                                    <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
+                                                                        <div className="flex items-center justify-between gap-4">
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Child Events Display</Label>
+                                                                                <span className="text-[9px] text-muted-foreground">How to display multiple child events</span>
+                                                                            </div>
+                                                                            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 w-[250px] gap-1">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setPanels(prev => prev.map(p =>
+                                                                                        p.panelId === panel.panelId
+                                                                                            ? { ...p, percentageConfig: { ...(p as any).percentageConfig, groupChildEvents: true } }
+                                                                                            : p
+                                                                                    ))}
+                                                                                    className={cn(
+                                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                        (panel as any).percentageConfig?.groupChildEvents !== false
+                                                                                            ? "bg-purple-600 text-white shadow-md"
+                                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                                    )}
+                                                                                >
+                                                                                    SINGLE GRAPH
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setPanels(prev => prev.map(p =>
+                                                                                        p.panelId === panel.panelId
+                                                                                            ? { ...p, percentageConfig: { ...(p as any).percentageConfig, groupChildEvents: false } }
+                                                                                            : p
+                                                                                    ))}
+                                                                                    className={cn(
+                                                                                        "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
+                                                                                        (panel as any).percentageConfig?.groupChildEvents === false
+                                                                                            ? "bg-amber-500 text-white shadow-md"
+                                                                                            : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                                    )}
+                                                                                >
+                                                                                    SEPARATE GRAPHS
+                                                                                </button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
 

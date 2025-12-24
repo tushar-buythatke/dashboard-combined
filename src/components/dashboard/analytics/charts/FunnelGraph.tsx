@@ -20,27 +20,33 @@ interface FunnelGraphProps {
         cacheStatus?: string[];
     };
     onViewAsPercentage?: (parentEventId: string, childEventIds: string[]) => void;
+    isAvgDelayMode?: boolean; // When true, show avg delay instead of count
 }
 
 interface FunnelStageData {
     eventId: string;
     eventName: string;
     count: number;
+    avgDelay?: number; // Average delay in ms (for avgDelay mode)
     percentage: number;
     dropoffPercentage: number;
     color: string;
     isMultiple?: boolean;
+    isAvgMetric?: boolean; // Indicates this is avgDelay metric
     children?: Array<{
         eventId: string;
         eventName: string;
         count: number;
+        avgDelay?: number;
         percentage: number;
         color: string;
     }>;
 }
 
-export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage }: FunnelGraphProps) {
+export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage, isAvgDelayMode = false }: FunnelGraphProps) {
     const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
+    // Stage highlighting state: null = show all, or specific stage eventId
+    const [highlightedStageId, setHighlightedStageId] = useState<string | null>(null);
 
     const funnelData = useMemo<FunnelStageData[]>(() => {
         if (!data || data.length === 0 || stages.length === 0) return [];
@@ -54,10 +60,13 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
         const stageCounts = stages.map((stage) => {
             let count = 0;
+            let avgDelaySum = 0;
+            let avgDelayCount = 0;
 
             // Check if data is raw (has eventId and avgDelay fields)
             const isRawData = data.length > 0 && data[0].eventId !== undefined;
             const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
+
             data.forEach((record) => {
                 if (hasStatusFilter || hasCacheFilter) {
                     const baseName = eventNames[stage.eventId] || `Event ${stage.eventId}`;
@@ -77,8 +86,17 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         });
                     }
                 } else if (isRawData && String(record.eventId) === String(stage.eventId)) {
-                    // Raw data - for funnel, always count occurrences (not average delay)
-                    count += 1;
+                    // Raw data
+                    if (isAvgDelayMode && hasAvgData) {
+                        // avgDelay mode - accumulate for averaging
+                        const delay = Number(record.avgDelay || record.avg || 0);
+                        if (delay > 0) {
+                            avgDelaySum += delay;
+                            avgDelayCount += 1;
+                        }
+                    }
+                    // Always count occurrences for percentage calculation
+                    count += Number(record.count || record.successCount || 1);
                 } else if (!isRawData) {
                     // Processed data
                     const successKey = `${stage.eventId}_success`;
@@ -87,8 +105,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 }
             });
 
-            // For funnel graphs, we always use count (number of occurrences)
-            return { ...stage, count };
+            // Calculate average delay if in avgDelay mode
+            const avgDelay = avgDelayCount > 0 ? avgDelaySum / avgDelayCount : 0;
+
+            return { ...stage, count, avgDelay, isAvgMetric: isAvgDelayMode && hasAvgData };
         });
 
         const baseCount = stageCounts[0]?.count || 1;
@@ -107,10 +127,12 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 eventId: stage.eventId,
                 eventName: stage.eventName || eventNames[stage.eventId] || stage.eventId,
                 count: stage.count,
+                avgDelay: stage.avgDelay,
                 percentage: (stage.count / baseCount) * 100,
                 dropoffPercentage: dropoff,
                 color: funnelPalette[index % funnelPalette.length],
                 isMultiple: false,
+                isAvgMetric: stage.isAvgMetric,
             };
         });
 
@@ -249,6 +271,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     key={stage.eventId}
                                     className="flex flex-col items-center group w-16 sm:w-20 md:w-24 h-full cursor-pointer relative z-10"
                                     onClick={() => setSelectedStage(stage)}
+                                    title={`${stage.eventName}\nCount: ${stage.count.toLocaleString()}\nPercentage: ${stage.percentage.toFixed(2)}%\nDrop-off: ${stage.dropoffPercentage.toFixed(2)}%`}
                                 >
                                     {/* Bar container - aligned to bottom (0%) */}
                                     <div className="flex-1 flex items-end w-full relative">
@@ -387,17 +410,58 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     size="sm"
                                     className="w-full text-xs font-medium bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800"
                                     onClick={() => {
-                                        if (onViewAsPercentage && stages.length > 0 && multipleChildEvents.length > 0) {
-                                            // Use first stage as parent and final stage children as child events
+                                        if (onViewAsPercentage && stages.length > 0) {
+                                            // Use first stage as parent
                                             const parentEventId = stages[0].eventId;
-                                            onViewAsPercentage(parentEventId, multipleChildEvents);
+                                            // Combine ALL stages + multipleChildEvents for child selection
+                                            const allChildEvents = [
+                                                ...stages.slice(1).map(s => s.eventId), // All stages except first (parent)
+                                                ...multipleChildEvents
+                                            ];
+                                            onViewAsPercentage(parentEventId, allChildEvents);
                                         }
                                     }}
                                 >
                                     <BarChart3 className="h-3 w-3 mr-1" />
                                     View as %
                                 </Button>
-                                <div className="text-xs text-muted-foreground mt-1 font-medium">Final Stage Analysis</div>
+                                <div className="text-xs text-muted-foreground mt-1 font-medium">All Stages Analysis</div>
+                            </div>
+                        </div>
+
+                        {/* Stage Selection Buttons */}
+                        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-center gap-2 flex-wrap">
+                                <span className="text-xs font-semibold text-muted-foreground mr-2">Highlight Stage:</span>
+                                <button
+                                    onClick={() => setHighlightedStageId(null)}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                                        highlightedStageId === null
+                                            ? "bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md"
+                                            : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                    )}
+                                >
+                                    All
+                                </button>
+                                {funnelData.map((stage, idx) => (
+                                    <button
+                                        key={stage.eventId}
+                                        onClick={() => setHighlightedStageId(stage.eventId === highlightedStageId ? null : stage.eventId)}
+                                        className={cn(
+                                            "px-3 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1.5",
+                                            highlightedStageId === stage.eventId
+                                                ? "bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md"
+                                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                        )}
+                                    >
+                                        <span
+                                            className="h-2 w-2 rounded-full"
+                                            style={{ backgroundColor: stage.color }}
+                                        />
+                                        {idx + 1}. {stage.eventName.length > 12 ? `${stage.eventName.substring(0, 12)}...` : stage.eventName}
+                                    </button>
+                                ))}
                             </div>
                         </div>
                     </div>

@@ -85,8 +85,8 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                 startDate.setDate(startDate.getDate() - 7); // Last 7 days
 
                 const [regularAlertCounts, apiAlertCounts]: [Record<string, number>, Record<string, number>] = await Promise.all([
-                    allRegularIds.length > 0 ? apiService.getAlertList(allRegularIds, startDate, endDate, true, false) : Promise.resolve({}),
-                    allApiIds.length > 0 ? apiService.getAlertList(allApiIds, startDate, endDate, true, true) : Promise.resolve({})
+                    allRegularIds.length > 0 ? apiService.getAlertList(allRegularIds, startDate, endDate, true, 0) : Promise.resolve({}),
+                    allApiIds.length > 0 ? apiService.getAlertList(allApiIds, startDate, endDate, true, 1) : Promise.resolve({})
                 ]);
 
                 // 3. Aggregate counts per feature

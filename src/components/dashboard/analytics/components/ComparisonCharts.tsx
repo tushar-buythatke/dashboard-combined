@@ -120,8 +120,8 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                 return;
             }
 
-            // Initialize to 0 for past hours (this prevents gaps for hours with no data)
-            point[dayLabel] = 0;
+            // Initialize to null for past hours (this allows showing gaps for hours with no data)
+            point[dayLabel] = null;
 
             if (hourData.length > 0 && eventKeys.length > 0) {
                 // Sum only the filtered event counts for this hour
@@ -140,31 +140,8 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
         return point;
     });
 
-    // Apply simple moving-average smoothing (window = 3) to reduce micro-jitters
-    const windowSize = 3;
-    const halfWindow = Math.floor(windowSize / 2);
-    const comparisonData = baseData.map((point, index) => {
-        const smoothedPoint: any = { ...point };
-
-        daySeriesAsc.forEach(({ label }) => {
-            const values: number[] = [];
-            for (let i = index - halfWindow; i <= index + halfWindow; i++) {
-                if (i < 0 || i >= baseData.length) continue;
-                const v = baseData[i][label];
-                if (typeof v === 'number' && !Number.isNaN(v)) {
-                    values.push(v);
-                }
-            }
-
-            if (values.length > 0) {
-                smoothedPoint[label] = Math.round(
-                    values.reduce((sum, v) => sum + v, 0) / values.length
-                );
-            }
-        });
-
-        return smoothedPoint;
-    });
+    // Smoothing logic removed as per requirements to show raw data precision
+    const comparisonData = baseData;
 
     // Derive simple insights for summary chips
     let peakHourTime: string | null = null;
@@ -379,7 +356,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                         strokeOpacity={strokeOpacity}
                                         strokeWidth={strokeWidth}
                                         dot={false}
-                                        connectNulls={true}
+                                        connectNulls={false}
                                         activeDot={{
                                             r: isSelected ? 5 : 3,
                                             strokeWidth: 2,
