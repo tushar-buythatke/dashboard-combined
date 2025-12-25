@@ -270,7 +270,7 @@ class MockService {
             const connected = await firebaseConfigService.checkConnection();
             this.firebaseInitialized = connected;
             this.useFirebase = connected;
-            console.log(`🔥 Firebase connection: ${connected ? 'Connected' : 'Fallback to localStorage'}`);
+            // console.log(`🔥 Firebase connection: ${connected ? 'Connected' : 'Fallback to localStorage'}`);
         } catch (error) {
             console.warn('⚠️ Firebase not available, using localStorage fallback');
             this.useFirebase = false;
@@ -361,7 +361,7 @@ class MockService {
             try {
                 const result = await firebaseConfigService.getFeatures(organizationId.toString());
                 if (result.success && result.items.length > 0) {
-                    console.log('✅ Loaded features from Firebase:', result.items.length);
+                    // console.log('✅ Loaded features from Firebase:', result.items.length);
                     return result.items.map(f => this.convertFirebaseFeatureToLocal(f));
                 }
             } catch (error) {
@@ -384,7 +384,7 @@ class MockService {
                 description: `${f.name} analytics and tracking`
             }));
             
-            console.log('✅ Loaded features from API:', features);
+            // console.log('✅ Loaded features from API:', features);
             return features;
         } catch (error) {
             console.error('❌ Failed to load features from API, using fallback:', error);
@@ -399,7 +399,7 @@ class MockService {
             // This handles the case where featureId might be numeric (from API) or string (stored in Firebase)
             const result = await firebaseConfigService.getAllProfiles();
             if (result.success && result.items.length > 0) {
-                console.log(`📦 Total profiles in Firebase: ${result.items.length}`);
+                // console.log(`📦 Total profiles in Firebase: ${result.items.length}`);
                 
                 // Try to match by featureId (could be numeric string like "1" or name like "price_alert")
                 const matchingProfiles = result.items.filter(p => {
@@ -409,14 +409,14 @@ class MockService {
                 });
                 
                 if (matchingProfiles.length > 0) {
-                    console.log(`✅ Loaded ${matchingProfiles.length} profiles from Firebase for featureId: ${featureId}`);
+                    // console.log(`✅ Loaded ${matchingProfiles.length} profiles from Firebase for featureId: ${featureId}`);
                     this.firebaseInitialized = true;
                     this.useFirebase = true;
                     const localProfiles = matchingProfiles.map(p => this.convertFirebaseToLocal(p));
                     return await this.ensureApisProfile(featureId, orgId, localProfiles);
                 } else {
-                    console.log(`⚠️ No profiles match featureId "${featureId}". Available featureIds:`, 
-                        [...new Set(result.items.map(p => p.featureId))]);
+                    // console.log(`⚠️ No profiles match featureId "${featureId}". Available featureIds:`, 
+                        // [...new Set(result.items.map(p => p.featureId))]);
                 }
             }
         } catch (error) {
@@ -433,7 +433,7 @@ class MockService {
         try {
             const result = await firebaseConfigService.getProfile(profileId);
             if (result.success && result.data) {
-                console.log('✅ Loaded profile from Firebase:', profileId);
+                // console.log('✅ Loaded profile from Firebase:', profileId);
                 // Mark Firebase as working
                 this.firebaseInitialized = true;
                 this.useFirebase = true;
@@ -454,7 +454,7 @@ class MockService {
                 const firebaseProfile = this.convertLocalToFirebase(profile, orgId);
                 const result = await firebaseConfigService.saveProfile(firebaseProfile, username);
                 if (result.success && result.data) {
-                    console.log('✅ Saved profile to Firebase:', profile.profileId);
+                    // console.log('✅ Saved profile to Firebase:', profile.profileId);
                     // Also update localStorage as backup
                     this.updateLocalProfile(profile);
                     return this.convertFirebaseToLocal(result.data);
@@ -485,7 +485,7 @@ class MockService {
             try {
                 const result = await firebaseConfigService.deleteProfile(profileId);
                 if (result.success) {
-                    console.log('✅ Deleted profile from Firebase:', profileId);
+                    // console.log('✅ Deleted profile from Firebase:', profileId);
                 }
             } catch (error) {
                 console.warn('⚠️ Firebase delete failed');
@@ -517,16 +517,16 @@ class MockService {
             return { synced: 0, failed: 0, error: 'No local profiles found' };
         }
         
-        console.log(`🔄 Starting sync of ${this.profiles.length} profiles to Firebase...`);
+        // console.log(`🔄 Starting sync of ${this.profiles.length} profiles to Firebase...`);
         
         for (const profile of this.profiles) {
             try {
-                console.log(`📤 Syncing profile: ${profile.profileName} (${profile.profileId})`);
+                // console.log(`📤 Syncing profile: ${profile.profileName} (${profile.profileId})`);
                 const firebaseProfile = this.convertLocalToFirebase(profile, orgId);
                 const result = await firebaseConfigService.saveProfile(firebaseProfile, username);
                 if (result.success) {
                     synced++;
-                    console.log(`✅ Synced: ${profile.profileName}`);
+                    // console.log(`✅ Synced: ${profile.profileName}`);
                 } else {
                     failed++;
                     console.error(`❌ Failed to sync ${profile.profileName}:`, result.error);
@@ -543,7 +543,7 @@ class MockService {
             this.useFirebase = true;
         }
         
-        console.log(`🔄 Sync complete: ${synced} synced, ${failed} failed`);
+        // console.log(`🔄 Sync complete: ${synced} synced, ${failed} failed`);
         return { synced, failed };
     }
 

@@ -306,7 +306,7 @@ export class APIService {
         // Convert feature to numeric featureId - now expects numeric string IDs directly
         const featureId = parseInt(feature) || 1;
 
-        console.log(`📋 Fetching events list for feature: ${feature} -> featureId: ${featureId}, orgId: ${organizationId}`);
+        // console.log(`📋 Fetching events list for feature: ${feature} -> featureId: ${featureId}, orgId: ${organizationId}`);
 
         try {
             // Use /api proxy to avoid CORS issues
@@ -320,7 +320,7 @@ export class APIService {
             }
 
             const result: EventsListAPIResponse = await response.json();
-            console.log(`📋 Events API response:`, result);
+            // console.log(`📋 Events API response:`, result);
 
             if (result.status !== 1) {
                 console.error(`❌ Events API returned error:`, result);
@@ -362,7 +362,7 @@ export class APIService {
 
             const events = [...regularEvents, ...apiEvents];
 
-            console.log(`✅ Loaded ${regularEvents.length} regular events and ${apiEvents.length} API events`);
+            // console.log(`✅ Loaded ${regularEvents.length} regular events and ${apiEvents.length} API events`);
             return events;
         } catch (error) {
             console.error(`❌ Failed to fetch events:`, error);
@@ -377,23 +377,23 @@ export class APIService {
     async getFeaturesList(organizationId: number = 0): Promise<FeatureInfo[]> {
         // If cached for same org, return cached
         if (cachedFeatures && cachedFeaturesOrgId === organizationId) {
-            console.log(`📋 Returning cached features for org ${organizationId} (${cachedFeatures.length} features)`);
+            // console.log(`📋 Returning cached features for org ${organizationId} (${cachedFeatures.length} features)`);
             return cachedFeatures;
         }
 
         // If org changed, clear cache
         if (cachedFeaturesOrgId !== null && cachedFeaturesOrgId !== organizationId) {
-            console.log(`📋 Organization changed from ${cachedFeaturesOrgId} to ${organizationId}, clearing cache`);
+            // console.log(`📋 Organization changed from ${cachedFeaturesOrgId} to ${organizationId}, clearing cache`);
             clearFeaturesCache();
         }
 
         // If already fetching for same org, return the existing promise
         if (featuresFetchPromise && cachedFeaturesOrgId === organizationId) {
-            console.log(`📋 Waiting for existing features fetch...`);
+            // console.log(`📋 Waiting for existing features fetch...`);
             return featuresFetchPromise;
         }
 
-        console.log(`📋 Fetching features list for orgId: ${organizationId}`);
+        // console.log(`📋 Fetching features list for orgId: ${organizationId}`);
         cachedFeaturesOrgId = organizationId;
 
         // Create and store the promise
@@ -410,7 +410,7 @@ export class APIService {
                 }
 
                 const result: FeaturesListAPIResponse = await response.json();
-                console.log(`📋 Features API response:`, result);
+                // console.log(`📋 Features API response:`, result);
 
                 if (result.status !== 1) {
                     console.error(`❌ Features API returned error:`, result);
@@ -427,7 +427,7 @@ export class APIService {
                 cachedFeatures = features;
                 updateFeatureData(features);
 
-                console.log(`✅ Loaded ${features.length} features`);
+                // console.log(`✅ Loaded ${features.length} features`);
                 return features;
             } catch (error) {
                 console.error(`❌ Failed to fetch features:`, error);
@@ -447,7 +447,7 @@ export class APIService {
         // Use Vite proxy to bypass CORS - proxied at /coupon-config in vite.config.ts
         const COUPON_CONFIG_URL = '/coupon-config/ALL_CONFIG_COUPON.json';
 
-        console.log('📋 Fetching POS from coupon config...');
+        // console.log('📋 Fetching POS from coupon config...');
 
         try {
             const response = await fetch(COUPON_CONFIG_URL);
@@ -488,7 +488,7 @@ export class APIService {
                 });
             });
 
-            console.log(`✅ Loaded ${sites.length} sites from coupon config`);
+            // console.log(`✅ Loaded ${sites.length} sites from coupon config`);
             return sites;
         } catch (error) {
             console.error('Failed to fetch coupon config POS:', error);
@@ -503,7 +503,7 @@ export class APIService {
     async getSiteDetails(featureId?: number): Promise<SiteDetail[]> {
         // First, ensure we have the base siteDetails
         if (!this.siteDetailsCache) {
-            console.log(`📋 Fetching site details for POS options`);
+            // console.log(`📋 Fetching site details for POS options`);
 
             try {
                 const response = await fetch(`${POS_API_BASE_URL}/siteDetails`);
@@ -538,7 +538,7 @@ export class APIService {
 
                 this.siteDetailsCache = specialSites;
                 cachedSiteDetails = sites;
-                console.log(`✅ Loaded ${sites.length} sites from siteDetails API`);
+                // console.log(`✅ Loaded ${sites.length} sites from siteDetails API`);
             } catch (error) {
                 console.error('Failed to fetch site details:', error);
                 // Set fallback cache with special POS values
@@ -560,7 +560,7 @@ export class APIService {
                     const newSites = couponSites.filter(s => !existingIds.has(s.id));
 
                     if (newSites.length > 0) {
-                        console.log(`✅ Adding ${newSites.length} new sites from coupon config`);
+                        // console.log(`✅ Adding ${newSites.length} new sites from coupon config`);
                         const merged = [...this.siteDetailsCache!, ...newSites];
                         // Sort by name for easier search
                         merged.sort((a, b) => a.name.localeCompare(b.name));
@@ -568,7 +568,7 @@ export class APIService {
                     }
                 }
             } catch (error) {
-                console.log('⚠️ Coupon config fetch failed, using siteDetails only');
+                // console.log('⚠️ Coupon config fetch failed, using siteDetails only');
             }
         }
 
@@ -650,7 +650,7 @@ export class APIService {
         }
 
         try {
-            console.log('📋 Fetching sourceStr options for events:', eventIds);
+            // console.log('📋 Fetching sourceStr options for events:', eventIds);
 
             const response = await fetch(`${API_BASE_URL}/sourceStr`, {
                 method: 'POST',
@@ -672,7 +672,7 @@ export class APIService {
             }
 
             const sourceStrs = result.data || [];
-            console.log(`✅ Loaded ${sourceStrs.length} sourceStr options`);
+            // console.log(`✅ Loaded ${sourceStrs.length} sourceStr options`);
             return sourceStrs.filter((s: string) => s && s.trim() !== ''); // Filter out empty strings
         } catch (error) {
             console.error('Failed to fetch sourceStr:', error);
@@ -694,11 +694,13 @@ export class APIService {
         startDate: Date,
         endDate: Date,
         isApiEvent: boolean = false,
-        preferV1: boolean = false // Force v1 API if needed
+        preferV1: boolean = false, // Force v1 API if needed
+        isHourlyOverride: boolean | null = null // Allow overriding hourly/daily logic
     ): Promise<AnalyticsDataResponse> {
         // Determine if hourly based on date range (<=7 days = hourly)
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        const isHourly = daysDiff <= 7;
+        // Use override if provided, otherwise fallback to date-based logic
+        const isHourly = isHourlyOverride !== null ? isHourlyOverride : daysDiff <= 7;
 
         // Convert all IDs to numbers and filter out invalid ones
         const toNumbers = (arr: (number | string)[]) =>
@@ -761,7 +763,7 @@ export class APIService {
         // Try graphV2 first (unless preferV1 is set)
         if (!preferV1) {
             try {
-                console.log('📊 Trying graphV2 API (pre-aggregated)...');
+                // console.log('📊 Trying graphV2 API (pre-aggregated)...');
                 const responseV2 = await fetch(`${API_BASE_URL}/graphV2`, {
                     method: 'POST',
                     headers: {
@@ -773,18 +775,18 @@ export class APIService {
                 if (responseV2.ok) {
                     const resultV2: GraphAPIResponse = await responseV2.json();
                     if (resultV2.status === 1) {
-                        console.log(`✅ Using graphV2 API - ${resultV2.data.length} records`);
+                        // console.log(`✅ Using graphV2 API - ${resultV2.data.length} records`);
                         return transformResponse(resultV2);
                     }
                 }
-                console.log('⚠️ graphV2 returned non-success, falling back to graph...');
+                // console.log('⚠️ graphV2 returned non-success, falling back to graph...');
             } catch (error) {
-                console.log('⚠️ graphV2 failed, falling back to graph:', error);
+                // console.log('⚠️ graphV2 failed, falling back to graph:', error);
             }
         }
 
         // Fallback to original graph API
-        console.log('📊 Using graph API (v1)...');
+        // console.log('📊 Using graph API (v1)...');
         const response = await fetch(`${API_BASE_URL}/graph`, {
             method: 'POST',
             headers: {
@@ -841,7 +843,7 @@ export class APIService {
             isHourly
         };
 
-        console.log('PieChart API Request:', requestBody);
+        // console.log('PieChart API Request:', requestBody);
 
         // Use different endpoint for API events
         const endpoint = isApiEvent ? `${API_BASE_URL}/pieChartApi` : `${API_BASE_URL}/pieChart`;

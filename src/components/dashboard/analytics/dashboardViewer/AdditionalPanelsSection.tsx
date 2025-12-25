@@ -230,8 +230,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                     pTotalFail = filteredGraphData.reduce((sum: number, d: any) => sum + (d.failCount || 0), 0);
                 }
 
-                const isRangeShortEnoughForHourly = Math.ceil((currentPanelDateRange.to.getTime() - currentPanelDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 7;
-                const pIsHourly = hourlyOverride === 'hourly' || (hourlyOverride !== 'daily' && isRangeShortEnoughForHourly);
+                const isRangeShortEnoughForHourly = Math.ceil((currentPanelDateRange.to.getTime() - currentPanelDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
+                const pIsHourly = hourlyOverride !== null ? hourlyOverride : isRangeShortEnoughForHourly;
 
                 return (
                     <div
@@ -422,7 +422,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                     <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
                                                         <button
-                                                            onClick={() => setHourlyOverride('hourly')}
+                                                            onClick={() => setHourlyOverride?.(true)}
                                                             className={cn(
                                                                 "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
                                                                 pIsHourly
@@ -433,7 +433,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             Hourly
                                                         </button>
                                                         <button
-                                                            onClick={() => setHourlyOverride('daily')}
+                                                            onClick={() => setHourlyOverride?.(false)}
                                                             className={cn(
                                                                 "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
                                                                 !pIsHourly
@@ -1292,7 +1292,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             isHourly={pIsHourly}
                                             onToggleHourly={(newIsHourly: boolean) => {
                                                 // Update hourly override state using the prop setter
-                                                setHourlyOverride?.(newIsHourly ? 'hourly' : 'daily');
+                                                setHourlyOverride?.(newIsHourly);
                                             }}
                                             onToggleBackToFunnel={(panel as any)?.previousGraphType === 'funnel' ? () => {
                                                 // Toggle back to funnel graph
@@ -1597,11 +1597,11 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 cacheStatus: currentPanelFilters.percentageCacheStatus || [],
                                             } : undefined}
                                             onViewAsPercentage={(parentEventId, childEventIds) => {
-                                                console.log('🔄 View as Percentage clicked:', { parentEventId, childEventIds, panelIndex, panelId: panel.panelId });
+                                                // console.log('🔄 View as Percentage clicked:', { parentEventId, childEventIds, panelIndex, panelId: panel.panelId });
                                                 if (profile && profile.panels) {
                                                     // CRITICAL FIX: Find actual index in profile.panels using panelId, not filtered array index
                                                     const actualIndex = profile.panels.findIndex((p: any) => p.panelId === panel.panelId);
-                                                    console.log('📍 Found panel at actual index:', actualIndex);
+                                                    // console.log('📍 Found panel at actual index:', actualIndex);
                                                     if (actualIndex === -1) {
                                                         console.error('❌ Could not find panel in profile.panels');
                                                         return;
@@ -1622,7 +1622,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         }
                                                     };
 
-                                                    console.log('📊 Updated config:', updatedConfig);
+                                                    // console.log('📊 Updated config:', updatedConfig);
 
                                                     const updatedProfile = {
                                                         ...profile,
@@ -1635,16 +1635,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         )
                                                     };
                                                     setProfile?.(updatedProfile);
-                                                    
+
                                                     // Mark panel for refresh to fetch percentage data
                                                     setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
-                                                    
+
                                                     // Also refresh panel data automatically
                                                     setTimeout(() => {
                                                         handlePanelRefresh?.(panel.panelId);
                                                     }, 100);
-                                                    
-                                                    console.log('✅ Switched to Percentage View');
+
+                                                    // console.log('✅ Switched to Percentage View');
                                                 }
                                             }}
                                         />
@@ -1778,6 +1778,31 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-xs text-muted-foreground">{pNormalEventKeys.length} events</span>
+                                                        {/* Hourly/Daily Toggle */}
+                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                                            <button
+                                                                onClick={() => setHourlyOverride?.(true)}
+                                                                className={cn(
+                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    pIsHourly
+                                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                )}
+                                                            >
+                                                                Hourly
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setHourlyOverride?.(false)}
+                                                                className={cn(
+                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    !pIsHourly
+                                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                )}
+                                                            >
+                                                                Daily
+                                                            </button>
+                                                        </div>
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
@@ -2241,7 +2266,34 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         <AlertTriangle className="w-4 h-4 text-red-500" />
                                                         <CardTitle className="text-base font-semibold">Error Event Trends (Combined)</CardTitle>
                                                     </div>
-                                                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Hourly/Daily Toggle */}
+                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                                            <button
+                                                                onClick={() => setHourlyOverride?.(true)}
+                                                                className={cn(
+                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    pIsHourly
+                                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                )}
+                                                            >
+                                                                Hourly
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setHourlyOverride?.(false)}
+                                                                className={cn(
+                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    !pIsHourly
+                                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                )}
+                                                            >
+                                                                Daily
+                                                            </button>
+                                                        </div>
+                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
+                                                    </div>
                                                 </div>
                                             </CardHeader>
                                             <CardContent className="space-y-4">

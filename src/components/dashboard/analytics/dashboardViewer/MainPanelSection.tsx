@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InfoTooltip } from '../components/InfoTooltip';
 import {
@@ -188,6 +188,28 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     toast,
 }: MainPanelSectionProps) {
 
+    // Memoize event lookup maps to prevent recreation on every render
+    const eventColors = useMemo(() => {
+        const map: Record<string, string> = {};
+        (events || []).forEach((e: any) => { map[String(e.eventId)] = e.color; });
+        return map;
+    }, [events]);
+
+    const eventNames = useMemo(() => {
+        const map: Record<string, string> = {};
+        (events || []).forEach((e: any) => { map[String(e.eventId)] = e.eventName; });
+        return map;
+    }, [events]);
+
+    // Memoize status code groupings for filter UI
+    const statusCodeGroups = useMemo(() => ({
+        codes2xx: (availableStatusCodes || []).filter((c: string) => c.startsWith('2')),
+        codes3xx: (availableStatusCodes || []).filter((c: string) => c.startsWith('3')),
+        codes4xx: (availableStatusCodes || []).filter((c: string) => c.startsWith('4')),
+        codes5xx: (availableStatusCodes || []).filter((c: string) => c.startsWith('5')),
+        codesOther: (availableStatusCodes || []).filter((c: string) => !c.startsWith('2') && !c.startsWith('3') && !c.startsWith('4') && !c.startsWith('5')),
+    }), [availableStatusCodes]);
+
     return (
         <div className="space-y-8">
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
@@ -235,7 +257,34 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     <CardContent>
                         <div className="flex justify-between items-center mb-4">
                             <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
-
+                            {/* Hourly/Daily Toggle in Filter Panel */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">Data Resolution:</span>
+                                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                    <button
+                                        onClick={() => setHourlyOverride?.(true)}
+                                        className={cn(
+                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                            isHourly
+                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                        )}
+                                    >
+                                        Hourly
+                                    </button>
+                                    <button
+                                        onClick={() => setHourlyOverride?.(false)}
+                                        className={cn(
+                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                            !isHourly
+                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                        )}
+                                    >
+                                        Daily
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <div className={cn(
@@ -1585,6 +1634,31 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            {/* Hourly/Daily Toggle */}
+                                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                                <button
+                                                    onClick={() => setHourlyOverride?.(true)}
+                                                    className={cn(
+                                                        "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                        isHourly
+                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                    )}
+                                                >
+                                                    Hourly
+                                                </button>
+                                                <button
+                                                    onClick={() => setHourlyOverride?.(false)}
+                                                    className={cn(
+                                                        "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                        !isHourly
+                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                    )}
+                                                >
+                                                    Daily
+                                                </button>
+                                            </div>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
@@ -2451,6 +2525,31 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {/* Hourly/Daily Toggle */}
+                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                            <button
+                                                onClick={() => setHourlyOverride?.(true)}
+                                                className={cn(
+                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    isHourly
+                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                )}
+                                            >
+                                                Hourly
+                                            </button>
+                                            <button
+                                                onClick={() => setHourlyOverride?.(false)}
+                                                className={cn(
+                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    !isHourly
+                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                )}
+                                            >
+                                                Daily
+                                            </button>
+                                        </div>
                                         <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isError Events</span>
                                     </div>
                                 </div>

@@ -181,7 +181,7 @@ class FirebaseConfigService {
     const cacheKey = orgId;
     const cached = cache.features.get(cacheKey);
     if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log(`🔄 Returning cached features for org ${orgId} (${cached.data.length} features)`);
+      // console.log(`🔄 Returning cached features for org ${orgId} (${cached.data.length} features)`);
       return { success: true, items: cached.data, total: cached.data.length };
     }
 
@@ -268,16 +268,16 @@ class FirebaseConfigService {
    */
   async getProfiles(featureId: string, orgId: string): Promise<ConfigListResult<DashboardProfileConfig>> {
     try {
-      console.log(`🔍 Fetching profiles for featureId: "${featureId}", orgId: "${orgId}"`);
+      // console.log(`🔍 Fetching profiles for featureId: "${featureId}", orgId: "${orgId}"`);
       
       // First, let's get ALL profiles to see what's available
       const allSnapshot = await getDocs(collection(db, FIREBASE_COLLECTIONS.PROFILES));
-      console.log(`📦 Total profiles in Firebase: ${allSnapshot.docs.length}`);
+      // console.log(`📦 Total profiles in Firebase: ${allSnapshot.docs.length}`);
       
       if (allSnapshot.docs.length > 0) {
         // Log unique featureIds to help debug
         const uniqueFeatureIds = [...new Set(allSnapshot.docs.map(d => d.data().featureId))];
-        console.log(`📋 Available featureIds in Firebase:`, uniqueFeatureIds);
+        // console.log(`📋 Available featureIds in Firebase:`, uniqueFeatureIds);
       }
       
       // Simple query - filter by featureId only to avoid index requirements
@@ -286,14 +286,14 @@ class FirebaseConfigService {
         where('featureId', '==', featureId)
       );
       const snapshot = await getDocs(q);
-      console.log(`🔎 Profiles matching featureId "${featureId}": ${snapshot.docs.length}`);
+      // console.log(`🔎 Profiles matching featureId "${featureId}": ${snapshot.docs.length}`);
       
       // Filter in memory for orgId and isActive
       const items = snapshot.docs
         .map(doc => doc.data() as DashboardProfileConfig)
         .filter(p => (p.orgId === orgId || !p.orgId || p.orgId === 'default') && p.isActive !== false);
       
-      console.log(`✅ Final profiles after filtering: ${items.length}`);
+      // console.log(`✅ Final profiles after filtering: ${items.length}`);
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching profiles:', error);
@@ -308,7 +308,7 @@ class FirebaseConfigService {
   async getAllProfiles(forceRefresh: boolean = false): Promise<ConfigListResult<DashboardProfileConfig>> {
     // Check cache first
     if (!forceRefresh && cache.allProfiles && Date.now() - cache.allProfiles.timestamp < CACHE_TTL) {
-      console.log(`📦 Returning cached profiles (${cache.allProfiles.data.length} profiles)`);
+      // console.log(`📦 Returning cached profiles (${cache.allProfiles.data.length} profiles)`);
       return { success: true, items: cache.allProfiles.data, total: cache.allProfiles.data.length };
     }
 
@@ -321,7 +321,7 @@ class FirebaseConfigService {
       // Update cache
       cache.allProfiles = { data: items, timestamp: Date.now() };
       
-      console.log(`📦 Fetched ${items.length} profiles from Firebase (cached)`);
+      // console.log(`📦 Fetched ${items.length} profiles from Firebase (cached)`);
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching all profiles:', error);
@@ -368,7 +368,7 @@ class FirebaseConfigService {
       // Invalidate profiles cache
       cache.allProfiles = undefined;
       
-      console.log('✅ Profile saved to Firebase:', profile.profileId);
+      // console.log('✅ Profile saved to Firebase:', profile.profileId);
       return { success: true, data };
     } catch (error: any) {
       console.error('❌ Error saving profile to Firebase:', error?.message || error);
@@ -711,7 +711,7 @@ class FirebaseConfigService {
         return false;
       }
 
-      console.log('🔄 Checking Firebase connection to project:', firebaseConfig.projectId);
+      // console.log('🔄 Checking Firebase connection to project:', firebaseConfig.projectId);
       
       // Simple connection test - just try to read any collection
       // Don't use subscriptions for connection check to avoid "Target ID already exists" error
@@ -720,14 +720,14 @@ class FirebaseConfigService {
       );
       await getDocs(testQuery);
       
-      console.log('✅ Firebase connected to project:', firebaseConfig.projectId);
+      // console.log('✅ Firebase connected to project:', firebaseConfig.projectId);
       return true;
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
       
       // If it's "Target ID already exists", Firebase is actually connected
       if (errorMessage.includes('Target ID already exists')) {
-        console.log('✅ Firebase connected (subscription already active)');
+        // console.log('✅ Firebase connected (subscription already active)');
         return true;
       }
       
@@ -751,7 +751,7 @@ class FirebaseConfigService {
    */
   async testWriteAccess(): Promise<{ canRead: boolean; canWrite: boolean; error?: string }> {
     try {
-      console.log('🔄 Testing Firebase access...');
+      // console.log('🔄 Testing Firebase access...');
       
       // Quick test - just write directly to profiles collection which we know works
       const testDocRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, '_write_test_');
@@ -765,7 +765,7 @@ class FirebaseConfigService {
       // Clean up
       await deleteDoc(testDocRef);
       
-      console.log('✅ Firebase read/write access confirmed');
+      // console.log('✅ Firebase read/write access confirmed');
       return { canRead: true, canWrite: true };
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
