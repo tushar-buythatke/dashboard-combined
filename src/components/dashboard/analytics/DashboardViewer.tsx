@@ -498,7 +498,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Scroll Spy: Notify parent of active panel
     // Track if we've already set the initial active panel for this profile
     const initialPanelSetRef = useRef<string | null>(null);
-    
+
     useEffect(() => {
         if (!onPanelActive || !profile?.panels?.length) return;
 
@@ -537,7 +537,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // NOT on every profile.panels update (which happens when filterConfig changes)
             if (profile.panels.length > 0 && initialPanelSetRef.current !== profileId) {
                 const firstPanelId = profile.panels[0].panelId;
-                console.log('📍 Setting initial active panel:', firstPanelId);
+                // console.log('📍 Setting initial active panel:', firstPanelId);
                 onPanelActive(firstPanelId);
                 setActivePanelId(firstPanelId);
                 setActivePanelIndex(0);
@@ -564,6 +564,37 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         if (!hasStatusFilter && !hasCacheFilter) return graphData;
 
+        // Pre-calculate suffixes to avoid nested loops and repetitive string generation inside the map
+        const suffixes: { suffix: string; countSuffix: string; avgServerToUserSuffix: string; avgServerToCloudSuffix: string; avgCloudToUserSuffix: string; avgBytesOutSuffix: string; avgBytesInSuffix: string }[] = [];
+
+        const addSuffix = (suffix: string) => {
+            suffixes.push({
+                suffix,
+                countSuffix: `${suffix}_count`,
+                avgServerToUserSuffix: `${suffix}_avgServerToUser`,
+                avgServerToCloudSuffix: `${suffix}_avgServerToCloud`,
+                avgCloudToUserSuffix: `${suffix}_avgCloudToUser`,
+                avgBytesOutSuffix: `${suffix}_avgBytesOut`,
+                avgBytesInSuffix: `${suffix}_avgBytesIn`
+            });
+        };
+
+        if (hasStatusFilter && hasCacheFilter) {
+            statusCodes.forEach((status: any) => {
+                cacheStatuses.forEach((cache: any) => {
+                    addSuffix(`_status_${status}_cache_${cache}`);
+                });
+            });
+        } else if (hasStatusFilter) {
+            statusCodes.forEach((status: any) => {
+                addSuffix(`_status_${status}`);
+            });
+        } else if (hasCacheFilter) {
+            cacheStatuses.forEach((cache: any) => {
+                addSuffix(`_cache_${cache}`);
+            });
+        }
+
         return graphData.map(record => {
             const filteredRecord = { ...record };
 
@@ -578,72 +609,23 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 let filteredAvgBytesIn = 0;
                 let filterCount = 0;
 
-                if (hasStatusFilter && hasCacheFilter) {
-                    // Both filters: combine status AND cache
-                    statusCodes.forEach((status) => {
-                        cacheStatuses.forEach((cache) => {
-                            const combinedKey = `${eventKey}_status_${status}_cache_${cache}`;
-                            const countKey = `${combinedKey}_count`;
-                            const avgServerToUserKey = `${combinedKey}_avgServerToUser`;
-                            const avgServerToCloudKey = `${combinedKey}_avgServerToCloud`;
-                            const avgCloudToUserKey = `${combinedKey}_avgCloudToUser`;
-                            const avgBytesOutKey = `${combinedKey}_avgBytesOut`;
-                            const avgBytesInKey = `${combinedKey}_avgBytesIn`;
+                // Single loop over pre-calculated suffixes
+                for (let i = 0; i < suffixes.length; i++) {
+                    const { countSuffix, avgServerToUserSuffix, avgServerToCloudSuffix, avgCloudToUserSuffix, avgBytesOutSuffix, avgBytesInSuffix } = suffixes[i];
 
-                            const count = Number(record[countKey] || 0);
-                            if (count > 0) {
-                                filteredCount += count;
-                                filteredAvgServerToUser += Number(record[avgServerToUserKey] || 0) * count;
-                                filteredAvgServerToCloud += Number(record[avgServerToCloudKey] || 0) * count;
-                                filteredAvgCloudToUser += Number(record[avgCloudToUserKey] || 0) * count;
-                                filteredAvgBytesOut += Number(record[avgBytesOutKey] || 0) * count;
-                                filteredAvgBytesIn += Number(record[avgBytesInKey] || 0) * count;
-                                filterCount += count;
-                            }
-                        });
-                    });
-                } else if (hasStatusFilter) {
-                    statusCodes.forEach((status) => {
-                        const statusKey = `${eventKey}_status_${status}`;
-                        const countKey = `${statusKey}_count`;
-                        const avgServerToUserKey = `${statusKey}_avgServerToUser`;
-                        const avgServerToCloudKey = `${statusKey}_avgServerToCloud`;
-                        const avgCloudToUserKey = `${statusKey}_avgCloudToUser`;
-                        const avgBytesOutKey = `${statusKey}_avgBytesOut`;
-                        const avgBytesInKey = `${statusKey}_avgBytesIn`;
+                    // Construct keys using base eventKey and pre-calc suffixes
+                    const countKey = `${eventKey}${countSuffix}`;
+                    const count = Number(record[countKey] || 0);
 
-                        const count = Number(record[countKey] || 0);
-                        if (count > 0) {
-                            filteredCount += count;
-                            filteredAvgServerToUser += Number(record[avgServerToUserKey] || 0) * count;
-                            filteredAvgServerToCloud += Number(record[avgServerToCloudKey] || 0) * count;
-                            filteredAvgCloudToUser += Number(record[avgCloudToUserKey] || 0) * count;
-                            filteredAvgBytesOut += Number(record[avgBytesOutKey] || 0) * count;
-                            filteredAvgBytesIn += Number(record[avgBytesInKey] || 0) * count;
-                            filterCount += count;
-                        }
-                    });
-                } else if (hasCacheFilter) {
-                    cacheStatuses.forEach((cache) => {
-                        const cacheKey = `${eventKey}_cache_${cache}`;
-                        const countKey = `${cacheKey}_count`;
-                        const avgServerToUserKey = `${cacheKey}_avgServerToUser`;
-                        const avgServerToCloudKey = `${cacheKey}_avgServerToCloud`;
-                        const avgCloudToUserKey = `${cacheKey}_avgCloudToUser`;
-                        const avgBytesOutKey = `${cacheKey}_avgBytesOut`;
-                        const avgBytesInKey = `${cacheKey}_avgBytesIn`;
-
-                        const count = Number(record[countKey] || 0);
-                        if (count > 0) {
-                            filteredCount += count;
-                            filteredAvgServerToUser += Number(record[avgServerToUserKey] || 0) * count;
-                            filteredAvgServerToCloud += Number(record[avgServerToCloudKey] || 0) * count;
-                            filteredAvgCloudToUser += Number(record[avgCloudToUserKey] || 0) * count;
-                            filteredAvgBytesOut += Number(record[avgBytesOutKey] || 0) * count;
-                            filteredAvgBytesIn += Number(record[avgBytesInKey] || 0) * count;
-                            filterCount += count;
-                        }
-                    });
+                    if (count > 0) {
+                        filteredCount += count;
+                        filteredAvgServerToUser += Number(record[`${eventKey}${avgServerToUserSuffix}`] || 0) * count;
+                        filteredAvgServerToCloud += Number(record[`${eventKey}${avgServerToCloudSuffix}`] || 0) * count;
+                        filteredAvgCloudToUser += Number(record[`${eventKey}${avgCloudToUserSuffix}`] || 0) * count;
+                        filteredAvgBytesOut += Number(record[`${eventKey}${avgBytesOutSuffix}`] || 0) * count;
+                        filteredAvgBytesIn += Number(record[`${eventKey}${avgBytesInSuffix}`] || 0) * count;
+                        filterCount += count;
+                    }
                 }
 
                 // Calculate weighted averages - only update if we have filtered data
@@ -655,7 +637,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     filteredRecord[`${eventKeyInfo.eventKey}_avgBytesOut`] = filteredAvgBytesOut / filterCount;
                     filteredRecord[`${eventKeyInfo.eventKey}_avgBytesIn`] = filteredAvgBytesIn / filterCount;
                 }
-                // If no filtered data, keep original values (don't zero them out)
             });
 
             return filteredRecord;
@@ -1067,7 +1048,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         if (!profile?.panels || profile.panels.length === 0) return;
         const next: Record<string, boolean> = {};
         profile.panels.forEach(panel => {
-            next[panel.panelId] = false; // false = expanded (filters visible)
+            next[panel.panelId] = true; // true = collapsed (filters hidden by default, show graphs directly)
         });
         setPanelFiltersCollapsed(next);
     }, [profile?.panels]);
@@ -1263,7 +1244,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
     // Function to open expanded pie chart and sync with URL so browser
     // back/forward buttons can close/reopen it
-    const openExpandedPie = (type: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus', title: string, data: any[]) => {
+    const openExpandedPie = useCallback((type: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus', title: string, data: any[]) => {
         setExpandedPie({ type, title, data });
         setPieModalOpen(true);
         setSearchParams(prev => {
@@ -1271,7 +1252,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             next.set('expandedPie', type);
             return next;
         });
-    };
+    }, [setSearchParams]);
 
     // Keep modal open state in sync with the query param so that
     // browser back/forward navigations close or reopen the modal
@@ -1507,9 +1488,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Creates separate data series per event for proper bifurcation
     // Handles avgEvents by plotting avgDelay (time) instead of count
     // Handles API events by grouping by status/cacheStatus instead of eventId
-    const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[], isApiEvent: boolean = false, graphType?: string) => {
+    const processGraphData = useCallback((graphResponse: any, startDate: Date, endDate: Date, eventsList: EventConfig[], isApiEvent: boolean = false, graphType?: string, isHourlyOverride: boolean | null = null) => {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-        const isHourly = daysDiff <= 7;
+        // Use override if provided, otherwise fallback to 8-day auto-switch logic
+        const isHourly = isHourlyOverride !== null ? isHourlyOverride : daysDiff <= 8;
 
         // Create maps for event lookup
         const eventNameMap = new Map<string, string>();
@@ -1935,6 +1917,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Check if this is a special graph (percentage or funnel)
             const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel';
 
+            // Determine effective hourly override: use global override directly
+            // Previously forced 'deviation' charts to hourly, but this prevented 'Daily' view from working
+            const effectiveHourlyOverride = hourlyOverride;
+
+
             // For API events, send empty arrays for platform/pos/source (API groups by status/cacheStatus)
             const graphResponse = await apiService.getGraphData(
                 panelFilters.events, // Only eventIds are used for API events
@@ -1944,7 +1931,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 currentSourceStrFilter, // Pass sourceStr filter to API
                 panelDateRange.from,
                 panelDateRange.to,
-                hasApiEvents // Pass isApiEvent flag -> sets isApi: true in request body
+                hasApiEvents, // Pass isApiEvent flag -> sets isApi: true in request body
+                false, // preferV1
+                effectiveHourlyOverride // Pass hourly override to API
             );
 
             // Pie chart is optional - don't fail the whole refresh if it fails
@@ -1988,7 +1977,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Apply sourceStr filter (client-side) then process
             const filteredResponse = filterBySourceStr(graphResponse, currentSourceStrFilter);
             const isApiEventPanel = panelConfig?.isApiEvent || false;
-            const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel, panelConfig?.graphType);
+            
+            const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel, panelConfig?.graphType, effectiveHourlyOverride);
 
             // Use filtered pie data if sourceStr filter was applied, otherwise use original
             const finalPieData = currentSourceStrFilter.length > 0
@@ -2052,7 +2042,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         } finally {
             setPanelLoading(prev => ({ ...prev, [panelId]: false }));
         }
-    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr]);
+    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr, hourlyOverride, panelChartType]);
 
     // NOTE: Additional panels use LAZY LOADING - they load data ONLY when:
     // 1. User clicks on the panel in the sidebar (see ProfileSidebar onPanelClick)
@@ -2066,64 +2056,64 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         setAlertsLoading(true);
         try {
             // Get the currently active panel
-            const activePanel = activePanelIndex === 0 
+            const activePanel = activePanelIndex === 0
                 ? profile.panels[0]
                 : profile.panels[activePanelIndex];
-            
+
             if (!activePanel) {
                 setCriticalAlerts([]);
                 setAlertSummary({});
                 return;
             }
-            
+
             const panelAlertConfig = activePanel?.alertsConfig;
-            
+
             // If panel doesn't have alerts config or it's disabled, show no alerts
             if (!panelAlertConfig || panelAlertConfig.enabled === false) {
-                console.log(`📋 Panel ${activePanel.panelId} has no alert config or alerts disabled`);
+                // console.log(`📋 Panel ${activePanel.panelId} has no alert config or alerts disabled`);
                 setCriticalAlerts([]);
                 setAlertSummary({});
                 return;
             }
-            
+
             // Get event IDs from this panel's alert config
             const panelEventFilter = panelAlertConfig?.filterByEvents?.map((id: string | number) => {
                 const numId = typeof id === 'string' ? parseInt(id, 10) : id;
                 return isNaN(numId) ? null : numId;
             }).filter((id: number | null): id is number => id !== null) || [];
-            
+
             let eventIds: number[] = [];
-            
+
             if (panelEventFilter.length > 0) {
-                console.log(`📋 Panel ${activePanel.panelId} has ${panelEventFilter.length} alert event filters:`, panelEventFilter);
+                // console.log(`📋 Panel ${activePanel.panelId} has ${panelEventFilter.length} alert event filters:`, panelEventFilter);
                 eventIds = panelEventFilter;
             } else {
                 // If no specific events in panel config, use panel's regular events
                 const panelEvents = activePanel.events?.map((e: any) => Number(e.eventId)).filter((id: number) => !isNaN(id)) || [];
                 if (panelEvents.length > 0) {
-                    console.log(`📋 Panel ${activePanel.panelId} using ${panelEvents.length} panel events for alerts:`, panelEvents);
+                    // console.log(`📋 Panel ${activePanel.panelId} using ${panelEvents.length} panel events for alerts:`, panelEvents);
                     eventIds = panelEvents;
                 } else {
                     // Fallback to all events if panel has no events
                     eventIds = events.map(e => parseInt(e.eventId));
                 }
             }
-            
+
             // Use panel's alert config settings
-            const panelIsApi = typeof panelAlertConfig.isApi === 'number' 
-                ? panelAlertConfig.isApi 
+            const panelIsApi = typeof panelAlertConfig.isApi === 'number'
+                ? panelAlertConfig.isApi
                 : (panelAlertConfig.isApi === true ? 1 : 0);
-            const panelIsHourly = typeof panelAlertConfig.isHourly === 'boolean' 
-                ? panelAlertConfig.isHourly 
+            const panelIsHourly = typeof panelAlertConfig.isHourly === 'boolean'
+                ? panelAlertConfig.isHourly
                 : alertIsHourly;
-            
+
             // Get date range from panel's filterConfig if available
             const panelConfig = (activePanel as any).filterConfig;
-            const panelDateRange = panelConfig?.dateRange 
+            const panelDateRange = panelConfig?.dateRange
                 ? { from: new Date(panelConfig.dateRange.from), to: new Date(panelConfig.dateRange.to) }
                 : alertDateRange;
-            
-            console.log(`🚨 Loading alerts for panel ${activePanel.panelId} with ${eventIds.length} event IDs:`, eventIds);
+
+            // console.log(`🚨 Loading alerts for panel ${activePanel.panelId} with ${eventIds.length} event IDs:`, eventIds);
 
             const limit = expanded ? 20 : 10;
 
@@ -2146,7 +2136,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 [] // sourceStr - not currently filtered in UI
             );
 
-            console.log(`✅ Loaded ${data.alerts?.length || 0} critical alerts`);
+            // console.log(`✅ Loaded ${data.alerts?.length || 0} critical alerts`);
             setCriticalAlerts(data.alerts || []);
             setAlertSummary(data.summary || {});
             onAlertsUpdate?.(data.alerts || []);
@@ -2163,29 +2153,29 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Update alert filters when active panel changes
     useEffect(() => {
         if (!profile || events.length === 0) return;
-        
-        const activePanel = activePanelIndex === 0 
+
+        const activePanel = activePanelIndex === 0
             ? profile.panels[0]
             : profile.panels[activePanelIndex];
-        
+
         if (activePanel?.alertsConfig) {
             const alertsConfig = activePanel.alertsConfig;
             const panelConfig = (activePanel as any).filterConfig;
-            
+
             // Update event filters
             if (alertsConfig.filterByEvents && alertsConfig.filterByEvents.length > 0) {
                 const eventIds = alertsConfig.filterByEvents.map((id: string | number) => {
                     const numId = typeof id === 'string' ? parseInt(id, 10) : id;
                     return isNaN(numId) ? null : numId;
                 }).filter((id: number | null): id is number => id !== null);
-                
-                console.log(`🔔 Updating alert filters for panel ${activePanel.panelId}:`, eventIds);
+
+                // console.log(`🔔 Updating alert filters for panel ${activePanel.panelId}:`, eventIds);
                 setAlertFilters(prev => ({
                     ...prev,
                     events: eventIds
                 }));
             }
-            
+
             // Update API toggle
             if (typeof alertsConfig.isApi === 'number') {
                 setAlertIsApi(alertsConfig.isApi);
@@ -2194,12 +2184,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             } else {
                 setAlertIsApi(0);
             }
-            
+
             // Update hourly toggle
             if (typeof alertsConfig.isHourly === 'boolean') {
                 setAlertIsHourly(alertsConfig.isHourly);
             }
-            
+
             // Update date range
             if (panelConfig?.dateRange) {
                 setAlertDateRange({
@@ -2214,7 +2204,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     useEffect(() => {
         if (!profile || events.length === 0) return;
         // Immediate load when active panel changes
-        console.log(`🔄 Active panel changed to index ${activePanelIndex}, reloading alerts...`);
+        // console.log(`🔄 Active panel changed to index ${activePanelIndex}, reloading alerts...`);
         loadAlerts(alertsExpanded);
 
         const interval = setInterval(() => {
@@ -2499,7 +2489,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 // If Job IDs were saved in config and we have data, trigger auto-refresh
                 // This ensures Job ID filter is applied immediately on profile load
                 if (savedSourceStrs.length > 0 && graphData.length > 0) {
-                    console.log('🔄 Auto-applying Job ID filter from saved config:', savedSourceStrs);
+                    // console.log('🔄 Auto-applying Job ID filter from saved config:', savedSourceStrs);
                     // Trigger refresh for main panel with saved Job IDs
                     if (profile.panels[0]?.panelId) {
                         refreshPanelData(profile.panels[0].panelId);
@@ -2509,35 +2499,35 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
             // Initialize alert filters from active panel's alertsConfig when profile loads
             // This will be updated when active panel changes via useEffect
-            const activePanelForInit = activePanelIndex === 0 
+            const activePanelForInit = activePanelIndex === 0
                 ? profile.panels[0]
                 : (profile.panels[activePanelIndex] || profile.panels[0]);
-            
+
             if (activePanelForInit?.alertsConfig) {
                 const alertsConfig = activePanelForInit.alertsConfig;
                 const panelConfig = (activePanelForInit as any).filterConfig;
-                
+
                 // Set event filters from saved config
                 if (alertsConfig.filterByEvents && alertsConfig.filterByEvents.length > 0) {
                     const eventIds = alertsConfig.filterByEvents.map((id: string | number) => {
                         const numId = typeof id === 'string' ? parseInt(id, 10) : id;
                         return isNaN(numId) ? null : numId;
                     }).filter((id: number | null): id is number => id !== null);
-                    
-                    console.log('🔔 Initializing alert filters from panel config:', {
-                        panelId: activePanelForInit.panelId,
-                        events: eventIds,
-                        isApi: alertsConfig.isApi,
-                        isHourly: alertsConfig.isHourly,
-                        dateRange: panelConfig?.dateRange
-                    });
-                    
+
+                    // console.log('🔔 Initializing alert filters from panel config:', {
+                    // panelId: activePanelForInit.panelId,
+                    // events: eventIds,
+                    // isApi: alertsConfig.isApi,
+                    // isHourly: alertsConfig.isHourly,
+                    // dateRange: panelConfig?.dateRange
+                    // });
+
                     setAlertFilters(prev => ({
                         ...prev,
                         events: eventIds
                     }));
                 }
-                
+
                 // Set API toggle from saved config
                 if (typeof alertsConfig.isApi === 'number') {
                     setAlertIsApi(alertsConfig.isApi);
@@ -2546,12 +2536,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 } else {
                     setAlertIsApi(0);
                 }
-                
+
                 // Set hourly toggle from saved config
                 if (typeof alertsConfig.isHourly === 'boolean') {
                     setAlertIsHourly(alertsConfig.isHourly);
                 }
-                
+
                 // Set date range from panel's filterConfig if available
                 if (panelConfig?.dateRange) {
                     setAlertDateRange({
@@ -2578,6 +2568,32 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             }
         }
     }, [filters, dateRange]);
+
+    // Refresh data when hourly/daily toggle changes
+    const prevHourlyOverride = useRef<boolean | null>(null);
+    const prevPanelChartType = useRef<Record<string, 'default' | 'deviation'>>({});
+    
+    useEffect(() => {
+        // Trigger if hourlyOverride changed or panelChartType changed
+        const hourlyChanged = prevHourlyOverride.current !== hourlyOverride && prevHourlyOverride.current !== null;
+        const chartTypeChanged = JSON.stringify(prevPanelChartType.current) !== JSON.stringify(panelChartType);
+
+        if (hourlyChanged || chartTypeChanged) {
+            if (!loading && profile && events.length > 0 && initialLoadComplete.current) {
+                // Refresh main panel
+                if (profile.panels[0]?.panelId) {
+                    refreshPanelData(profile.panels[0].panelId);
+                }
+                // Refresh current active panel if different
+                const activePanelId = profile.panels[activePanelIndex]?.panelId;
+                if (activePanelId && activePanelId !== profile.panels[0]?.panelId) {
+                    refreshPanelData(activePanelId);
+                }
+            }
+        }
+        prevHourlyOverride.current = hourlyOverride;
+        prevPanelChartType.current = panelChartType;
+    }, [hourlyOverride, panelChartType, profile, loading, events.length, activePanelIndex, refreshPanelData]);
 
     // Removed auto-fetch on filter changes - data loads automatically when switching profiles
     // User must click Apply Changes to update data after changing filters
@@ -2631,7 +2647,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         // Auto-fetch panel data if not already loaded
         const panelData = panelsDataMap.get(panelId);
-        if (!panelData || panelData.graphData.length === 0 || panelData.loading) {
+        const isMainPanel = panelIndex === 0;
+        
+        // For main panel, check legacy graphData state; for others, check panelsDataMap
+        const hasData = isMainPanel 
+            ? graphData.length > 0 
+            : (panelData && panelData.graphData.length > 0);
+        
+        if (!hasData || (panelData && panelData.loading)) {
             // Only fetch if we have profile and events loaded
             if (profile && events.length > 0) {
                 refreshPanelData(panelId);
@@ -2644,7 +2667,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             setPendingRefresh(false);
             setPanelFilterChanges(prev => ({ ...prev, [panelId]: false }));
         }
-    }, [panelsDataMap, profile, events, refreshPanelData, onPanelActive]);
+    }, [panelsDataMap, profile, events, refreshPanelData, onPanelActive, graphData]);
 
     // Expose handleJumpToPanel via window for external access (used by AnalyticsLayout)
     useEffect(() => {
@@ -2781,7 +2804,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         }
     }, [profile, isMainPanelApi, events.length, panelsDataMap, rawGraphResponse]);
 
-    const handleFilterChange = (type: keyof FilterState, values: any) => {
+    const handleFilterChange = useCallback((type: keyof FilterState, values: any) => {
         // console.log('handleFilterChange called:', { type, values });
 
         // Special handling for boolean toggles
@@ -2849,8 +2872,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         if (!isStringFilter) {
             setFilters(prev => ({ ...prev, [type]: finalValues as number[] }));
         }
-        setPendingRefresh(true);
-    };
+    }, [profile, setFilters, setPanelFiltersState, setPanelFilterChanges, setPendingRefresh]);
+
 
     const totals = useMemo(() => {
         const totalCount = graphData.reduce((sum, d) => sum + (d.count || 0), 0);
@@ -3102,8 +3125,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl" />
                             {/* Top-right pink orb */}
                             <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl" />
-                            {/* Bottom gradient bar */}
-                            <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-purple-100/40 via-pink-50/20 to-transparent dark:from-purple-900/20 dark:via-pink-900/10" />
+                            {/* Removed bottom gradient bar - was causing partial pink coverage */}
                             {/* Center subtle mesh */}
                             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-radial from-indigo-200/10 via-transparent to-transparent dark:from-indigo-500/5 rounded-full blur-3xl" />
                         </>
@@ -3113,68 +3135,68 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 {/* ==================== CRITICAL ALERTS PANEL (Panel-specific) ==================== */}
                 {(() => {
                     // Get the currently active panel
-                    const activePanel = activePanelIndex === 0 
+                    const activePanel = activePanelIndex === 0
                         ? profile?.panels?.[0]
                         : profile?.panels?.[activePanelIndex];
-                    
+
                     // Only show critical alerts panel if the active panel has alerts config enabled
                     if (!activePanel || activePanel?.alertsConfig?.enabled === false) {
                         return null;
                     }
-                    
+
                     // Get alert config from active panel
                     const panelAlertConfig = activePanel.alertsConfig;
                     const panelConfig = (activePanel as any).filterConfig;
-                    
+
                     // Initialize alert filters from active panel's config
                     const panelEventFilter = panelAlertConfig?.filterByEvents?.map((id: string | number) => {
                         const numId = typeof id === 'string' ? parseInt(id, 10) : id;
                         return isNaN(numId) ? null : numId;
                     }).filter((id: number | null): id is number => id !== null) || [];
-                    
-                    const panelAlertIsApi = typeof panelAlertConfig?.isApi === 'number' 
-                        ? panelAlertConfig.isApi 
+
+                    const panelAlertIsApi = typeof panelAlertConfig?.isApi === 'number'
+                        ? panelAlertConfig.isApi
                         : (panelAlertConfig?.isApi === true ? 1 : 0);
-                    const panelAlertIsHourly = typeof panelAlertConfig?.isHourly === 'boolean' 
-                        ? panelAlertConfig.isHourly 
+                    const panelAlertIsHourly = typeof panelAlertConfig?.isHourly === 'boolean'
+                        ? panelAlertConfig.isHourly
                         : alertIsHourly;
-                    
-                    const panelAlertDateRange = panelConfig?.dateRange 
+
+                    const panelAlertDateRange = panelConfig?.dateRange
                         ? { from: new Date(panelConfig.dateRange.from), to: new Date(panelConfig.dateRange.to) }
                         : alertDateRange;
-                    
+
                     return (
                         <CriticalAlertsPanel
-                        criticalAlerts={criticalAlerts}
-                        alertSummary={alertSummary}
-                        alertsLoading={alertsLoading}
-                        alertsExpanded={alertsExpanded}
-                        alertsPanelCollapsed={alertsPanelCollapsed}
-                        alertFilters={{
-                            ...alertFilters,
-                            events: panelEventFilter.length > 0 ? panelEventFilter : alertFilters.events
-                        }}
-                        alertDateRange={panelAlertDateRange}
-                        alertsPage={alertsPage}
-                        alertIsApi={panelAlertIsApi}
-                        alertIsHourly={panelAlertIsHourly}
-                        events={events}
-                        siteDetails={siteDetails}
-                        onToggleCollapse={() => setAlertsPanelCollapsed(!alertsPanelCollapsed)}
-                        onToggleExpanded={() => setAlertsExpanded(!alertsExpanded)}
-                        onFilterChange={setAlertFilters}
-                        onDateRangeChange={setAlertDateRange}
-                        onIsApiChange={setAlertIsApi}
-                        onIsHourlyChange={setAlertIsHourly}
-                        onLoadAlerts={loadAlerts}
-                        onPageChange={setAlertsPage}
-                        eventToPanelMap={eventToPanelMap}
-                        onJumpToPanel={(panelId, panelName) => {
-                            if (handleJumpToPanel) {
-                                handleJumpToPanel(panelId, panelName);
-                            }
-                        }}
-                    />
+                            criticalAlerts={criticalAlerts}
+                            alertSummary={alertSummary}
+                            alertsLoading={alertsLoading}
+                            alertsExpanded={alertsExpanded}
+                            alertsPanelCollapsed={alertsPanelCollapsed}
+                            alertFilters={{
+                                ...alertFilters,
+                                events: panelEventFilter.length > 0 ? panelEventFilter : alertFilters.events
+                            }}
+                            alertDateRange={panelAlertDateRange}
+                            alertsPage={alertsPage}
+                            alertIsApi={panelAlertIsApi}
+                            alertIsHourly={panelAlertIsHourly}
+                            events={events}
+                            siteDetails={siteDetails}
+                            onToggleCollapse={() => setAlertsPanelCollapsed(!alertsPanelCollapsed)}
+                            onToggleExpanded={() => setAlertsExpanded(!alertsExpanded)}
+                            onFilterChange={setAlertFilters}
+                            onDateRangeChange={setAlertDateRange}
+                            onIsApiChange={setAlertIsApi}
+                            onIsHourlyChange={setAlertIsHourly}
+                            onLoadAlerts={loadAlerts}
+                            onPageChange={setAlertsPage}
+                            eventToPanelMap={eventToPanelMap}
+                            onJumpToPanel={(panelId, panelName) => {
+                                if (handleJumpToPanel) {
+                                    handleJumpToPanel(panelId, panelName);
+                                }
+                            }}
+                        />
                     );
                 })()}
 
@@ -3205,8 +3227,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl" />
                             {/* Top-right pink orb */}
                             <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl" />
-                            {/* Bottom gradient bar */}
-                            <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-purple-100/40 via-pink-50/20 to-transparent dark:from-purple-900/20 dark:via-pink-900/10" />
+                            {/* Removed bottom gradient bar - was causing partial pink coverage */}
                             {/* Center subtle mesh */}
                             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-radial from-indigo-200/10 via-transparent to-transparent dark:from-indigo-500/5 rounded-full blur-3xl" />
                         </>
