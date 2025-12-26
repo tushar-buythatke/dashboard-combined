@@ -349,7 +349,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         events: []
     });
     const [alertDateRange, setAlertDateRange] = useState<{ from: Date; to: Date }>({
-        from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days default
         to: new Date()
     });
 
@@ -1977,7 +1977,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Apply sourceStr filter (client-side) then process
             const filteredResponse = filterBySourceStr(graphResponse, currentSourceStrFilter);
             const isApiEventPanel = panelConfig?.isApiEvent || false;
-            
+
             const processedResult = processGraphData(filteredResponse, panelDateRange.from, panelDateRange.to, events, isApiEventPanel, panelConfig?.graphType, effectiveHourlyOverride);
 
             // Use filtered pie data if sourceStr filter was applied, otherwise use original
@@ -2099,35 +2099,49 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 }
             }
 
-            // Use panel's alert config settings
-            const panelIsApi = typeof panelAlertConfig.isApi === 'number'
-                ? panelAlertConfig.isApi
-                : (panelAlertConfig.isApi === true ? 1 : 0);
-            const panelIsHourly = typeof panelAlertConfig.isHourly === 'boolean'
-                ? panelAlertConfig.isHourly
-                : alertIsHourly;
+            // Use panel's alert config settings ONLY if we haven't manually interacted
+            // But since this function is driven by dependencies including alertFilters/alertDateRange,
+            // we should trust the state variables which are updated by the UI controls.
 
-            // Get date range from panel's filterConfig if available
-            const panelConfig = (activePanel as any).filterConfig;
-            const panelDateRange = panelConfig?.dateRange
-                ? { from: new Date(panelConfig.dateRange.from), to: new Date(panelConfig.dateRange.to) }
-                : alertDateRange;
+            // NOTE: The UI controls update 'alertIsApi' and 'alertDateRange' state.
+            // We should use those directly to respect user choice.
+
+            const effectiveDateRange = alertDateRange;
+            const effectiveIsApi = alertIsApi;
+            const effectiveIsHourly = alertIsHourly;
 
             // console.log(`🚨 Loading alerts for panel ${activePanel.panelId} with ${eventIds.length} event IDs:`, eventIds);
 
-            const limit = expanded ? 20 : 10;
+            const limit = 200; // Fetch all alerts upfront for accurate counts
 
             // Robust isHourly check: Force to false if range > 7 days
-            const diffInDays = (panelDateRange.to.getTime() - panelDateRange.from.getTime()) / (1000 * 60 * 60 * 24);
-            const effectiveIsHourly = diffInDays > 7 ? false : panelIsHourly;
+            const diffInDays = (effectiveDateRange.to.getTime() - effectiveDateRange.from.getTime()) / (1000 * 60 * 60 * 24);
+            const finalIsHourly = diffInDays > 7 ? false : effectiveIsHourly;
+
+            // Format dates with proper start/end times: 00:00:01 for start, 23:59:59 for end
+            const formatStartDate = (date: Date) => {
+                const pad = (n: number) => n.toString().padStart(2, '0');
+                const yyyy = date.getFullYear();
+                const mm = pad(date.getMonth() + 1);
+                const dd = pad(date.getDate());
+                return `${yyyy}-${mm}-${dd} 00:00:01`;
+            };
+
+            const formatEndDate = (date: Date) => {
+                const pad = (n: number) => n.toString().padStart(2, '0');
+                const yyyy = date.getFullYear();
+                const mm = pad(date.getMonth() + 1);
+                const dd = pad(date.getDate());
+                return `${yyyy}-${mm}-${dd} 23:59:59`;
+            };
 
             // Fetch alerts using the new unified API endpoint
             const data = await apiService.getAlerts(
                 eventIds,
-                panelDateRange.from.toISOString().split('T')[0], // YYYY-MM-DD
-                panelDateRange.to.toISOString().split('T')[0],   // YYYY-MM-DD
-                effectiveIsHourly,
-                panelIsApi,
+                formatStartDate(effectiveDateRange.from),
+                formatEndDate(effectiveDateRange.to),
+                finalIsHourly,
+                effectiveIsApi,
                 limit,
                 alertsPage,
                 alertFilters.platforms.length > 0 ? alertFilters.platforms.map(p => Number(p)) : [], // Convert to numbers if needed
@@ -2190,13 +2204,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 setAlertIsHourly(alertsConfig.isHourly);
             }
 
-            // Update date range
-            if (panelConfig?.dateRange) {
-                setAlertDateRange({
-                    from: new Date(panelConfig.dateRange.from),
-                    to: new Date(panelConfig.dateRange.to)
-                });
-            }
+            // NOTE: Removed config-based alertDateRange override
+            // Alerts should always use the default 8-day range, not panel config dates
         }
     }, [profile, activePanelIndex, events.length]);
 
@@ -2542,13 +2551,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     setAlertIsHourly(alertsConfig.isHourly);
                 }
 
-                // Set date range from panel's filterConfig if available
-                if (panelConfig?.dateRange) {
-                    setAlertDateRange({
-                        from: new Date(panelConfig.dateRange.from),
-                        to: new Date(panelConfig.dateRange.to)
-                    });
-                }
+                // NOTE: Removed config-based alertDateRange override
+                // Alerts should always use the default 8-day range
             }
         }
     }, [loading, profileId, profile, events.length, graphData.length, toast, uploadChildConfigIfNeeded, refreshPanelData]);
@@ -2572,7 +2576,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Refresh data when hourly/daily toggle changes
     const prevHourlyOverride = useRef<boolean | null>(null);
     const prevPanelChartType = useRef<Record<string, 'default' | 'deviation'>>({});
-    
+
     useEffect(() => {
         // Trigger if hourlyOverride changed or panelChartType changed
         const hourlyChanged = prevHourlyOverride.current !== hourlyOverride && prevHourlyOverride.current !== null;
@@ -2648,12 +2652,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         // Auto-fetch panel data if not already loaded
         const panelData = panelsDataMap.get(panelId);
         const isMainPanel = panelIndex === 0;
-        
+
         // For main panel, check legacy graphData state; for others, check panelsDataMap
-        const hasData = isMainPanel 
-            ? graphData.length > 0 
+        const hasData = isMainPanel
+            ? graphData.length > 0
             : (panelData && panelData.graphData.length > 0);
-        
+
         if (!hasData || (panelData && panelData.loading)) {
             // Only fetch if we have profile and events loaded
             if (profile && events.length > 0) {
@@ -3176,10 +3180,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                 ...alertFilters,
                                 events: panelEventFilter.length > 0 ? panelEventFilter : alertFilters.events
                             }}
-                            alertDateRange={panelAlertDateRange}
+                            alertDateRange={alertDateRange}
                             alertsPage={alertsPage}
-                            alertIsApi={panelAlertIsApi}
-                            alertIsHourly={panelAlertIsHourly}
+                            alertIsApi={alertIsApi}
+                            alertIsHourly={alertIsHourly}
                             events={events}
                             siteDetails={siteDetails}
                             onToggleCollapse={() => setAlertsPanelCollapsed(!alertsPanelCollapsed)}
