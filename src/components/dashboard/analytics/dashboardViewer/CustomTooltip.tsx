@@ -219,7 +219,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                 "relative overflow-hidden",
                 isPinned
                     ? "bg-transparent p-3 md:p-4"
-                    : "bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 p-3 backdrop-blur-md min-w-[280px] max-w-[400px]"
+                    : "bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 p-3 backdrop-blur-md min-w-[320px] max-w-[500px]"
             )}
             onMouseMoveCapture={stopEvent}
             onWheelCapture={stopEvent}
@@ -299,7 +299,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                         className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0 shadow-sm ring-1 ring-white dark:ring-gray-900 group-hover:scale-125 transition-transform"
                                         style={{ backgroundColor: item.color }}
                                     />
-                                    <span className="text-xs md:text-sm font-bold text-foreground truncate">{item.name}</span>
+                                    <span className="text-xs md:text-sm font-bold text-foreground break-words leading-tight">{item.name}</span>
                                 </div>
 
                                 {/* Metric Display (Timing or Count) */}
