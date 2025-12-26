@@ -3,8 +3,12 @@
  * Handles all CRUD operations for dashboard configurations in Firestore.
  * This service provides centralized configuration management that syncs
  * across all builds and deployments in real-time.
+ * 
+ * Now with dual-write support: writes go to custom DB first, then Firebase.
+ * Reads use DB as primary with Firebase as fallback.
  */
 
+import { dashboardDbService } from './dashboardDbService';
 import {
   db,
   collection,
@@ -46,11 +50,14 @@ interface CacheEntry<T> {
   timestamp: number;
 }
 
-const CACHE_TTL = 5000; // 5 seconds - just enough to prevent duplicate calls on same page load
+const CACHE_TTL = 60000; // 60 seconds - cache for faster repeated loads
+const CACHE_TTL_SHORT = 5000; // 5 seconds - for less frequently accessed data
 const cache: {
   allProfiles?: CacheEntry<DashboardProfileConfig[]>;
+  profilesByFeature: Map<string, CacheEntry<DashboardProfileConfig[]>>; // Per-feature profile cache
   features: Map<string, CacheEntry<FeatureConfig[]>>;
 } = {
+  profilesByFeature: new Map(),
   features: new Map()
 };
 
@@ -66,11 +73,11 @@ class FirebaseConfigService {
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.GLOBAL_CONFIG, 'global');
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         return { success: true, data: docSnap.data() as GlobalAppConfig };
       }
-      
+
       // Initialize with defaults if not exists
       await this.initializeGlobalConfig();
       return { success: true, data: DEFAULT_GLOBAL_CONFIG };
@@ -106,7 +113,7 @@ class FirebaseConfigService {
         updatedBy,
       };
       await updateDoc(docRef, updateData);
-      
+
       const updated = await this.getGlobalConfig();
       return updated;
     } catch (error) {
@@ -142,7 +149,7 @@ class FirebaseConfigService {
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.ORGANIZATIONS, orgId);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         return { success: true, data: docSnap.data() as OrganizationConfig };
       }
@@ -197,10 +204,10 @@ class FirebaseConfigService {
         .map(doc => doc.data() as FeatureConfig)
         .filter(f => f.isActive !== false)
         .sort((a, b) => (a.order || 0) - (b.order || 0));
-      
+
       // Update cache
       cache.features.set(cacheKey, { data: items, timestamp: Date.now() });
-      
+
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching features:', error);
@@ -215,7 +222,7 @@ class FirebaseConfigService {
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.FEATURES, featureId);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         return { success: true, data: docSnap.data() as FeatureConfig };
       }
@@ -250,9 +257,9 @@ class FirebaseConfigService {
   async deleteFeature(featureId: string): Promise<ConfigOperationResult<void>> {
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.FEATURES, featureId);
-      await updateDoc(docRef, { 
-        isActive: false, 
-        updatedAt: new Date().toISOString() 
+      await updateDoc(docRef, {
+        isActive: false,
+        updatedAt: new Date().toISOString()
       });
       return { success: true };
     } catch (error) {
@@ -265,38 +272,108 @@ class FirebaseConfigService {
 
   /**
    * Get all profiles for a feature
+   * DB-FIRST: Tries custom DB first, falls back to Firebase
+   * Uses per-feature caching for instant repeated loads
    */
   async getProfiles(featureId: string, orgId: string): Promise<ConfigListResult<DashboardProfileConfig>> {
-    try {
-      // console.log(`🔍 Fetching profiles for featureId: "${featureId}", orgId: "${orgId}"`);
-      
-      // First, let's get ALL profiles to see what's available
-      const allSnapshot = await getDocs(collection(db, FIREBASE_COLLECTIONS.PROFILES));
-      // console.log(`📦 Total profiles in Firebase: ${allSnapshot.docs.length}`);
-      
-      if (allSnapshot.docs.length > 0) {
-        // Log unique featureIds to help debug
-        const uniqueFeatureIds = [...new Set(allSnapshot.docs.map(d => d.data().featureId))];
-        // console.log(`📋 Available featureIds in Firebase:`, uniqueFeatureIds);
+    const featureIdNum = parseInt(featureId);
+    const cacheKey = `${featureId}_${orgId}`;
+
+    // ========== CHECK CACHE FIRST ==========
+    const cachedEntry = cache.profilesByFeature.get(cacheKey);
+    if (cachedEntry && (Date.now() - cachedEntry.timestamp) < CACHE_TTL) {
+      console.log(`⚡ CACHE HIT: Loaded ${cachedEntry.data.length} profiles for feature ${featureId} instantly`);
+      return { success: true, items: cachedEntry.data, total: cachedEntry.data.length };
+    }
+
+    // ========== TRY DB FIRST ==========
+    if (!isNaN(featureIdNum)) {
+      try {
+        const dbProfiles = await dashboardDbService.getProfiles(featureIdNum);
+
+        if (dbProfiles.length > 0) {
+          console.log(`✅ DB: Loaded ${dbProfiles.length} profiles for feature ${featureId}`);
+
+          // Convert DB profiles to DashboardProfileConfig format
+          const items: DashboardProfileConfig[] = await Promise.all(
+            dbProfiles.map(async (dbProfile) => {
+              // Fetch panels for this profile from DB
+              const dbPanels = await dashboardDbService.getPanels(dbProfile.id);
+              const panels = dbPanels.map(p => ({
+                ...p.json,
+                _dbPanelId: p.id, // Store DB panel ID for future reference
+              }));
+
+              return {
+                profileId: `db_${dbProfile.id}`, // Use db_ prefix to identify DB profiles
+                profileName: dbProfile.name,
+                featureId: String(dbProfile.featureId),
+                orgId: orgId || 'default',
+                isActive: dbProfile.status === 1,
+                isDefault: false,
+                version: 1,
+                createdAt: dbProfile.createdTime,
+                updatedAt: dbProfile.updateTime,
+                createdBy: 'system',
+                lastModifiedBy: 'system',
+                _dbProfileId: dbProfile.id, // Store DB profile ID
+                defaultSettings: {
+                  timeRange: {
+                    preset: 'last_7_days' as const,
+                    granularity: 'hourly' as const,
+                  },
+                  autoRefresh: 0,
+                },
+                filters: {
+                  platform: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+                  pos: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+                  source: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+                  event: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+                },
+                panels: panels as any[],
+                criticalAlerts: {
+                  enabled: true,
+                  position: 'top-right',
+                  refreshInterval: 60,
+                  maxAlerts: 5,
+                  filterByPOS: ['all'],
+                  filterByEvents: ['all'],
+                },
+              } as DashboardProfileConfig;
+            })
+          );
+
+          // Cache the results for faster subsequent loads
+          cache.profilesByFeature.set(cacheKey, { data: items, timestamp: Date.now() });
+          
+          return { success: true, items, total: items.length };
+        }
+      } catch (dbError) {
+        console.warn('⚠️ DB read failed, falling back to Firebase:', dbError);
       }
-      
+    }
+    // ========================================
+
+    // ========== FALLBACK TO FIREBASE ==========
+    try {
+      console.log(`🔄 Falling back to Firebase for feature ${featureId}`);
+
       // Simple query - filter by featureId only to avoid index requirements
       const q = query(
         collection(db, FIREBASE_COLLECTIONS.PROFILES),
         where('featureId', '==', featureId)
       );
       const snapshot = await getDocs(q);
-      // console.log(`🔎 Profiles matching featureId "${featureId}": ${snapshot.docs.length}`);
-      
+
       // Filter in memory for orgId and isActive
       const items = snapshot.docs
         .map(doc => doc.data() as DashboardProfileConfig)
         .filter(p => (p.orgId === orgId || !p.orgId || p.orgId === 'default') && p.isActive !== false);
-      
-      // console.log(`✅ Final profiles after filtering: ${items.length}`);
+
+      console.log(`✅ Firebase: Loaded ${items.length} profiles for feature ${featureId}`);
       return { success: true, items, total: items.length };
     } catch (error) {
-      console.error('Error fetching profiles:', error);
+      console.error('Error fetching profiles from Firebase:', error);
       return { success: false, items: [], total: 0, error: String(error) };
     }
   }
@@ -317,10 +394,10 @@ class FirebaseConfigService {
       const items = snapshot.docs
         .map(doc => doc.data() as DashboardProfileConfig)
         .filter(p => p.isActive !== false);
-      
+
       // Update cache
       cache.allProfiles = { data: items, timestamp: Date.now() };
-      
+
       // console.log(`📦 Fetched ${items.length} profiles from Firebase (cached)`);
       return { success: true, items, total: items.length };
     } catch (error) {
@@ -331,12 +408,99 @@ class FirebaseConfigService {
 
   /**
    * Get profile by ID
+   * Handles both DB profiles (db_XXX) and Firebase profiles
    */
   async getProfile(profileId: string): Promise<ConfigOperationResult<DashboardProfileConfig>> {
+    // ========== HANDLE DB PROFILES ==========
+    if (profileId.startsWith('db_')) {
+      try {
+        const dbId = parseInt(profileId.replace('db_', ''));
+        if (!isNaN(dbId)) {
+          // First get panels to figure out the featureId
+          const dbPanels = await dashboardDbService.getPanels(dbId);
+          if (dbPanels.length > 0) {
+            const firstPanel = dbPanels[0];
+            const panels = dbPanels.map(p => ({
+              ...p.json,
+              _dbPanelId: p.id,
+            }));
+
+            // Get featureId from panel config, not profileId
+            const panelJson = firstPanel.json as any;
+            const featureId = panelJson?.featureId ||
+              (panelJson?.events?.[0]?.feature) ||
+              firstPanel.profileId; // Last fallback
+
+            // Now fetch the profiles for this feature to get the profile name
+            let profileName = `Profile ${dbId}`;
+            try {
+              const featureIdNum = parseInt(String(featureId));
+              if (!isNaN(featureIdNum)) {
+                const dbProfiles = await dashboardDbService.getProfiles(featureIdNum);
+                const matchingProfile = dbProfiles.find(p => p.id === dbId);
+                if (matchingProfile) {
+                  profileName = matchingProfile.name;
+                  console.log(`✅ DB: Found profile name "${profileName}" for ID ${dbId}`);
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ Could not fetch profile name from DB:', e);
+            }
+
+            // Extract featureId from panel's filterConfig or events
+            const derivedFeatureId = panelJson?.filterConfig?.featureId ||
+              String(panelJson?.events?.[0]?.feature) ||
+              String(featureId);
+
+            // Construct profile from DB data
+            const profile: DashboardProfileConfig = {
+              profileId,
+              profileName,
+              featureId: derivedFeatureId,
+              orgId: 'default',
+              isActive: true,
+              isDefault: false,
+              version: 1,
+              createdAt: firstPanel.createdTime,
+              updatedAt: firstPanel.updateTime,
+              createdBy: 'system',
+              lastModifiedBy: 'system',
+              _dbProfileId: dbId,
+              defaultSettings: {
+                timeRange: { preset: 'last_7_days' as const, granularity: 'hourly' as const },
+                autoRefresh: 0,
+              },
+              filters: {
+                platform: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+                pos: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+                source: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+                event: { type: 'multi-select' as const, defaultValue: ['all'], options: ['all'] },
+              },
+              panels: panels as any[],
+              criticalAlerts: {
+                enabled: true,
+                position: 'top-right',
+                refreshInterval: 60,
+                maxAlerts: 5,
+                filterByPOS: ['all'],
+                filterByEvents: ['all'],
+              },
+            } as DashboardProfileConfig;
+
+            return { success: true, data: profile };
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ DB getProfile failed, trying Firebase:', error);
+      }
+    }
+    // ========================================
+
+    // ========== FIREBASE FALLBACK ==========
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, profileId);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         return { success: true, data: docSnap.data() as DashboardProfileConfig };
       }
@@ -349,11 +513,12 @@ class FirebaseConfigService {
 
   /**
    * Create or update profile
+   * DUAL-WRITE: Saves to custom DB first, then Firebase
    */
   async saveProfile(profile: DashboardProfileConfig, modifiedBy: string): Promise<ConfigOperationResult<DashboardProfileConfig>> {
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, profile.profileId);
-      
+
       const data: DashboardProfileConfig = {
         ...profile,
         updatedAt: new Date().toISOString(),
@@ -362,13 +527,48 @@ class FirebaseConfigService {
         createdAt: profile.createdAt || new Date().toISOString(),
         createdBy: profile.createdBy || modifiedBy,
       };
-      
+
+      // ========== DUAL-WRITE: DB FIRST ==========
+      const featureIdNum = parseInt(profile.featureId);
+      if (!isNaN(featureIdNum)) {
+        try {
+          // Get existing DB profile ID if this is an update
+          const existingDbId = (profile as any)._dbProfileId;
+
+          const dbProfileId = await dashboardDbService.saveProfile(
+            existingDbId,
+            profile.profileName,
+            featureIdNum
+          );
+
+          if (dbProfileId) {
+            // Store DB ID in the data for future reference
+            (data as any)._dbProfileId = dbProfileId;
+            console.log(`✅ DB: Profile synced with ID ${dbProfileId}`);
+
+            // Also save panels to DB if present
+            if (profile.panels && profile.panels.length > 0) {
+              const panelMapping = await dashboardDbService.savePanelsBulk(dbProfileId, profile.panels);
+              // Store panel DB IDs mapping
+              (data as any)._dbPanelIds = panelMapping;
+            }
+          } else {
+            console.warn('⚠️ DB profile save returned null, continuing with Firebase only');
+          }
+        } catch (dbError) {
+          // DB write failed - log but continue with Firebase
+          console.warn('⚠️ DB write failed (non-critical), continuing with Firebase:', dbError);
+        }
+      }
+      // ========================================
+
       await setDoc(docRef, data);
-      
+
       // Invalidate profiles cache
       cache.allProfiles = undefined;
-      
-      // console.log('✅ Profile saved to Firebase:', profile.profileId);
+      cache.profilesByFeature.clear(); // Clear per-feature cache too
+
+      console.log('✅ Profile saved to Firebase:', profile.profileId);
       return { success: true, data };
     } catch (error: any) {
       console.error('❌ Error saving profile to Firebase:', error?.message || error);
@@ -379,18 +579,37 @@ class FirebaseConfigService {
 
   /**
    * Delete profile (soft delete)
+   * DUAL-WRITE: Deletes from custom DB first, then Firebase
    */
-  async deleteProfile(profileId: string): Promise<ConfigOperationResult<void>> {
+  async deleteProfile(profileId: string, featureId?: string): Promise<ConfigOperationResult<void>> {
     try {
+      // ========== DUAL-WRITE: DB FIRST ==========
+      // Try to get profile first to get DB ID and featureId
+      const profileResult = await this.getProfile(profileId);
+      const profile = profileResult.data;
+      const dbProfileId = (profile as any)?._dbProfileId;
+      const featureIdNum = parseInt(featureId || profile?.featureId || '0');
+
+      if (dbProfileId && !isNaN(featureIdNum)) {
+        try {
+          await dashboardDbService.deleteProfile(dbProfileId, featureIdNum);
+          console.log(`✅ DB: Profile ${dbProfileId} deleted`);
+        } catch (dbError) {
+          console.warn('⚠️ DB delete failed (non-critical), continuing with Firebase:', dbError);
+        }
+      }
+      // ========================================
+
       const docRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, profileId);
-      await updateDoc(docRef, { 
-        isActive: false, 
-        updatedAt: new Date().toISOString() 
+      await updateDoc(docRef, {
+        isActive: false,
+        updatedAt: new Date().toISOString()
       });
-      
+
       // Invalidate profiles cache
       cache.allProfiles = undefined;
-      
+      cache.profilesByFeature.clear(); // Clear per-feature cache too
+
       return { success: true };
     } catch (error) {
       console.error('Error deleting profile:', error);
@@ -413,13 +632,13 @@ class FirebaseConfigService {
           });
         }
       }
-      
+
       // Set the new default
       await updateDoc(doc(db, FIREBASE_COLLECTIONS.PROFILES, profileId), {
         isDefault: true,
         updatedAt: new Date().toISOString(),
       });
-      
+
       return { success: true };
     } catch (error) {
       console.error('Error setting default profile:', error);
@@ -534,7 +753,7 @@ class FirebaseConfigService {
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.USER_PREFERENCES, userId);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         return { success: true, data: docSnap.data() as UserPreferencesConfig };
       }
@@ -569,8 +788,8 @@ class FirebaseConfigService {
    * Subscribe to profile changes for real-time updates
    */
   subscribeToProfiles(
-    featureId: string, 
-    orgId: string, 
+    featureId: string,
+    orgId: string,
     callback: (profiles: DashboardProfileConfig[]) => void
   ): UnsubscribeFunction {
     const q = query(
@@ -579,15 +798,15 @@ class FirebaseConfigService {
       where('orgId', '==', orgId),
       where('isActive', '==', true)
     );
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const profiles = snapshot.docs.map(doc => doc.data() as DashboardProfileConfig);
       callback(profiles);
     });
-    
+
     const listenerId = `profiles_${featureId}_${orgId}`;
     this.listeners.set(listenerId, unsubscribe);
-    
+
     return unsubscribe;
   }
 
@@ -596,15 +815,15 @@ class FirebaseConfigService {
    */
   subscribeToGlobalConfig(callback: (config: GlobalAppConfig) => void): UnsubscribeFunction {
     const docRef = doc(db, FIREBASE_COLLECTIONS.GLOBAL_CONFIG, 'global');
-    
+
     const unsubscribe = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         callback(snapshot.data() as GlobalAppConfig);
       }
     });
-    
+
     this.listeners.set('globalConfig', unsubscribe);
-    
+
     return unsubscribe;
   }
 
@@ -617,15 +836,15 @@ class FirebaseConfigService {
       where('orgId', '==', orgId),
       where('isActive', '==', true)
     );
-    
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const features = snapshot.docs.map(doc => doc.data() as FeatureConfig);
       callback(features);
     });
-    
+
     const listenerId = `features_${orgId}`;
     this.listeners.set(listenerId, unsubscribe);
-    
+
     return unsubscribe;
   }
 
@@ -643,8 +862,8 @@ class FirebaseConfigService {
    * Initialize default configuration for a new organization
    */
   async initializeOrganization(
-    orgId: string, 
-    orgName: string, 
+    orgId: string,
+    orgName: string,
     createdBy: string
   ): Promise<ConfigOperationResult<OrganizationConfig>> {
     try {
@@ -658,7 +877,7 @@ class FirebaseConfigService {
           defaultTheme: 'system',
         },
       };
-      
+
       return await this.saveOrganization(org);
     } catch (error) {
       console.error('Error initializing organization:', error);
@@ -670,8 +889,8 @@ class FirebaseConfigService {
    * Clone a profile to create a new one
    */
   async cloneProfile(
-    sourceProfileId: string, 
-    newProfileName: string, 
+    sourceProfileId: string,
+    newProfileName: string,
     createdBy: string
   ): Promise<ConfigOperationResult<DashboardProfileConfig>> {
     try {
@@ -679,7 +898,7 @@ class FirebaseConfigService {
       if (!source.success || !source.data) {
         return { success: false, error: 'Source profile not found' };
       }
-      
+
       const newProfile: DashboardProfileConfig = {
         ...source.data,
         profileId: `${source.data.featureId}_${Date.now()}`,
@@ -691,7 +910,7 @@ class FirebaseConfigService {
         createdBy,
         lastModifiedBy: createdBy,
       };
-      
+
       return await this.saveProfile(newProfile, createdBy);
     } catch (error) {
       console.error('Error cloning profile:', error);
@@ -712,27 +931,27 @@ class FirebaseConfigService {
       }
 
       // console.log('🔄 Checking Firebase connection to project:', firebaseConfig.projectId);
-      
+
       // Simple connection test - just try to read any collection
       // Don't use subscriptions for connection check to avoid "Target ID already exists" error
       const testQuery = query(
         collection(db, FIREBASE_COLLECTIONS.PROFILES),
       );
       await getDocs(testQuery);
-      
+
       // console.log('✅ Firebase connected to project:', firebaseConfig.projectId);
       return true;
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
-      
+
       // If it's "Target ID already exists", Firebase is actually connected
       if (errorMessage.includes('Target ID already exists')) {
         // console.log('✅ Firebase connected (subscription already active)');
         return true;
       }
-      
+
       console.error('❌ Firebase connection check failed:', errorMessage);
-      
+
       // Provide helpful error messages
       if (errorMessage.includes('offline')) {
         console.error('💡 Tip: Check if Firestore is enabled in Firebase Console');
@@ -741,7 +960,7 @@ class FirebaseConfigService {
         console.error('   3. Go to Firestore Database');
         console.error('   4. Make sure it\'s created and not in "locked" mode');
       }
-      
+
       return false;
     }
   }
@@ -752,25 +971,25 @@ class FirebaseConfigService {
   async testWriteAccess(): Promise<{ canRead: boolean; canWrite: boolean; error?: string }> {
     try {
       // console.log('🔄 Testing Firebase access...');
-      
+
       // Quick test - just write directly to profiles collection which we know works
       const testDocRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, '_write_test_');
-      
+
       // Write test document
-      await setDoc(testDocRef, { 
+      await setDoc(testDocRef, {
         timestamp: new Date().toISOString(),
-        test: true 
+        test: true
       });
-      
+
       // Clean up
       await deleteDoc(testDocRef);
-      
+
       // console.log('✅ Firebase read/write access confirmed');
       return { canRead: true, canWrite: true };
     } catch (error: any) {
       const errorMessage = error?.message || String(error);
       console.error('❌ Firebase access test failed:', errorMessage);
-      
+
       // Check if it's a permission error
       if (errorMessage.includes('permission') || errorMessage.includes('PERMISSION_DENIED')) {
         console.error('💡 Fix: Update Firestore Rules in Firebase Console:');
@@ -782,21 +1001,21 @@ class FirebaseConfigService {
         console.error('       }');
         console.error('     }');
         console.error('   }');
-        return { 
-          canRead: true, 
-          canWrite: false, 
-          error: 'Firestore security rules are blocking writes. Update rules in Firebase Console.' 
+        return {
+          canRead: true,
+          canWrite: false,
+          error: 'Firestore security rules are blocking writes. Update rules in Firebase Console.'
         };
       }
-      
+
       if (errorMessage.includes('offline')) {
-        return { 
-          canRead: false, 
-          canWrite: false, 
-          error: 'Cannot connect to Firestore. Check: 1) Firestore is enabled 2) Project ID is correct 3) Network/firewall allows Firebase' 
+        return {
+          canRead: false,
+          canWrite: false,
+          error: 'Cannot connect to Firestore. Check: 1) Firestore is enabled 2) Project ID is correct 3) Network/firewall allows Firebase'
         };
       }
-      
+
       return { canRead: false, canWrite: false, error: errorMessage };
     }
   }

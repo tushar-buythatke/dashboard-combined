@@ -73,6 +73,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const [combineModalOpen, setCombineModalOpen] = useState(false);
     const [combiningPanel, setCombiningPanel] = useState<ExtendedPanelConfig | null>(null);
     const [currentPanelIndex, setCurrentPanelIndex] = useState(0); // For single-panel edit mode
+    
+    // DB IDs for proper upsert behavior (UPDATE instead of INSERT)
+    const [dbProfileId, setDbProfileId] = useState<number | undefined>(undefined);
+    const [dbPanelIds, setDbPanelIds] = useState<Record<string, number>>({});
 
     // Tutorial state
     const [isTutorialOpen, setIsTutorialOpen] = useState(false);
@@ -417,6 +421,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 const profile = await mockService.getProfile(initialProfileId);
                 if (profile) {
                     setProfileName(profile.profileName);
+                    
+                    // Preserve DB IDs for proper upsert (UPDATE not INSERT)
+                    if ((profile as any)._dbProfileId) {
+                        setDbProfileId((profile as any)._dbProfileId);
+                    }
+                    if ((profile as any)._dbPanelIds) {
+                        setDbPanelIds((profile as any)._dbPanelIds);
+                    }
                     // Convert to extended format - load saved filterConfig if available
                     const extendedPanels: ExtendedPanelConfig[] = profile.panels.map(p => {
                         // Check if filterConfig was saved
@@ -430,6 +442,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         const basePanel: any = {
                             ...p,
                             type: panelType as 'separate' | 'combined' | 'alerts' | 'special',
+                            // Preserve _dbPanelId for proper DB upsert
+                            _dbPanelId: (p as any)._dbPanelId,
                             filters: savedConfig ? {
                                 events: savedConfig.events || [],
                                 platforms: savedConfig.platforms || [0],
@@ -961,6 +975,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     visualizations: p.visualizations,
                     // Store filter config in panel for persistence
                     filterConfig,
+                    // Preserve _dbPanelId for proper DB upsert (UPDATE not INSERT)
+                    _dbPanelId: (p as any)._dbPanelId,
                     // Store per-panel critical alert configuration
                     alertsConfig: p.criticalAlertConfig ? {
                         enabled: p.criticalAlertConfig.enabled,
@@ -1022,6 +1038,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 isHourly: alertsIsHourly,
             }
         };
+
+        // Add DB IDs for proper upsert behavior (UPDATE instead of INSERT)
+        if (dbProfileId) {
+            (profile as any)._dbProfileId = dbProfileId;
+        }
+        if (Object.keys(dbPanelIds).length > 0) {
+            (profile as any)._dbPanelIds = dbPanelIds;
+        }
 
         await mockService.saveProfile(profile);
         onSave?.();
@@ -1381,37 +1405,54 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         </button>
                                                                     </div>
                                                                 </div>
-                                                                <Label className="mb-3 font-semibold">Monitor Specific Events</Label>
-                                                                <MultiSelectDropdown
-                                                                    options={(() => {
-                                                                        // Filter events based on alertsIsApi: 0=REGULAR, 1=API, 2=PERCENT
-                                                                        const alertsIsApi = panel.criticalAlertConfig?.alertsIsApi ?? 0;
-                                                                        if (alertsIsApi === 1) {
-                                                                            // API events only
-                                                                            return availableEvents
-                                                                                .filter(e => e.isApiEvent === true)
-                                                                                .map(e => ({
-                                                                                    value: e.eventId,
-                                                                                    label: e.host && e.url ? `${e.host} - ${e.url}` : e.eventName
-                                                                                }));
-                                                                        } else {
-                                                                            // Regular events only (for REGULAR and PERCENT)
-                                                                            return availableEvents
-                                                                                .filter(e => e.isApiEvent !== true)
-                                                                                .map(e => ({
-                                                                                    value: e.eventId,
-                                                                                    label: e.eventName
-                                                                                }));
-                                                                        }
-                                                                    })()}
-                                                                    selected={(panel.criticalAlertConfig?.alertEventFilters || []).map(id => id.toString())}
-                                                                    onChange={(values: string[]) => {
-                                                                        updatePanelAlertEvents(panel.panelId, values.map(v => parseInt(v)));
-                                                                    }}
-                                                                    placeholder="Select events to monitor"
-                                                                />
+                                                                <Label className="mb-3 font-semibold">
+                                                                    {(panel.criticalAlertConfig?.alertsIsApi ?? 0) === 2 ? 'Panel ID' : 'Monitor Specific Events'}
+                                                                </Label>
+                                                                {(panel.criticalAlertConfig?.alertsIsApi ?? 0) === 2 ? (
+                                                                    // For PERCENT mode, show panel ID - auto-selected
+                                                                    <div className="flex items-center gap-3">
+                                                                        <div className="flex-1 h-10 px-4 flex items-center rounded-md border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-mono text-sm font-bold">
+                                                                            Panel: {(panel as any)._dbPanelId || 'Will be assigned on save'}
+                                                                        </div>
+                                                                        <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50 px-3 py-1.5 rounded-lg font-medium">
+                                                                            ✓ Auto-selected for PERCENT alerts
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    // Regular mode - show events dropdown
+                                                                    <MultiSelectDropdown
+                                                                        options={(() => {
+                                                                            // Filter events based on alertsIsApi: 0=REGULAR, 1=API, 2=PERCENT
+                                                                            const alertsIsApi = panel.criticalAlertConfig?.alertsIsApi ?? 0;
+                                                                            if (alertsIsApi === 1) {
+                                                                                // API events only
+                                                                                return availableEvents
+                                                                                    .filter(e => e.isApiEvent === true)
+                                                                                    .map(e => ({
+                                                                                        value: e.eventId,
+                                                                                        label: e.host && e.url ? `${e.host} - ${e.url}` : e.eventName
+                                                                                    }));
+                                                                            } else {
+                                                                                // Regular events only (for REGULAR)
+                                                                                return availableEvents
+                                                                                    .filter(e => e.isApiEvent !== true)
+                                                                                    .map(e => ({
+                                                                                        value: e.eventId,
+                                                                                        label: e.eventName
+                                                                                    }));
+                                                                            }
+                                                                        })()}
+                                                                        selected={(panel.criticalAlertConfig?.alertEventFilters || []).map(id => id.toString())}
+                                                                        onChange={(values: string[]) => {
+                                                                            updatePanelAlertEvents(panel.panelId, values.map(v => parseInt(v)));
+                                                                        }}
+                                                                        placeholder="Select events to monitor"
+                                                                    />
+                                                                )}
                                                                 <p className="text-xs text-muted-foreground mt-2">
-                                                                    Select specific events to monitor, or leave empty to monitor all events
+                                                                    {(panel.criticalAlertConfig?.alertsIsApi ?? 0) === 2 
+                                                                        ? 'Panel ID is used automatically for percentage/funnel critical alerts'
+                                                                        : 'Select specific events to monitor, or leave empty to monitor all events'}
                                                                 </p>
                                                             </div>
                                                         </>

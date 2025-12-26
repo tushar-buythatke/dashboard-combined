@@ -1,0 +1,366 @@
+/**
+ * Dashboard Database Service
+ * Handles all CRUD operations for dashboard profiles and panels
+ * using the custom MySQL database APIs.
+ * 
+ * This service works alongside Firebase, with DB as primary storage
+ * and Firebase as fallback for reads.
+ */
+
+import type { PanelConfig } from '@/types/analytics';
+
+// API Base URL for dashboard endpoints
+const DASHBOARD_API_BASE_URL = 'https://ext1.buyhatke.com/feature-tracking/dashboardConfig';
+
+// ============ Database Types ============
+
+export interface DbProfile {
+    id: number;
+    name: string;
+    featureId: number;
+    status: number;
+    createdTime: string;
+    updateTime: string;
+}
+
+export interface DbPanel {
+    id: number;
+    profileId: number;
+    json: PanelConfig;
+    status: number;
+    createdTime: string;
+    updateTime: string;
+}
+
+export interface DbApiResponse<T = unknown> {
+    status: number;
+    message: string;
+    data?: T;
+    err?: string;
+}
+
+// ============ Dashboard Database Service ============
+
+class DashboardDbService {
+
+    // ==================== PROFILES ====================
+
+    /**
+     * Get all profiles for a feature
+     * @param featureId - Feature ID (numeric)
+     * @returns Array of profiles or empty array on error
+     */
+    async getProfiles(featureId: number): Promise<DbProfile[]> {
+        try {
+            const response = await fetch(
+                `${DASHBOARD_API_BASE_URL}/profile?featureId=${featureId}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                console.error(`❌ DB getProfiles failed: ${response.status} ${response.statusText}`);
+                return [];
+            }
+
+            const result: DbApiResponse<{ profileList: Record<string, DbProfile> }> = await response.json();
+
+            if (result.status !== 1 || !result.data?.profileList) {
+                console.warn('⚠️ DB getProfiles returned no data:', result.message || result.err);
+                return [];
+            }
+
+            // Convert object to array
+            const profiles = Object.values(result.data.profileList);
+            console.log(`✅ DB: Loaded ${profiles.length} profiles for feature ${featureId}`);
+            return profiles;
+        } catch (error) {
+            console.error('❌ DB getProfiles error:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Create or update a profile
+     * @param profileId - Profile ID (0 or undefined for new profile)
+     * @param profileName - Profile name
+     * @param featureId - Feature ID
+     * @returns Created/updated profile ID or null on error
+     */
+    async saveProfile(
+        profileId: number | undefined,
+        profileName: string,
+        featureId: number
+    ): Promise<number | null> {
+        try {
+            const body = {
+                profileId: profileId || 0,
+                profileName,
+                featureId,
+            };
+
+            const response = await fetch(`${DASHBOARD_API_BASE_URL}/profile`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                console.error(`❌ DB saveProfile failed: ${response.status} ${response.statusText}`);
+                return null;
+            }
+
+            const result: DbApiResponse<{ profileId: number }> = await response.json();
+
+            if (result.status !== 1 || !result.data?.profileId) {
+                console.error('❌ DB saveProfile error:', result.message || result.err);
+                return null;
+            }
+
+            console.log(`✅ DB: Profile saved with ID ${result.data.profileId}`);
+            return result.data.profileId;
+        } catch (error) {
+            console.error('❌ DB saveProfile error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Soft delete a profile (sets status = -1)
+     * @param profileId - Profile ID to delete
+     * @param featureId - Feature ID for verification
+     * @returns true on success, false on error
+     */
+    async deleteProfile(profileId: number, featureId: number): Promise<boolean> {
+        try {
+            const body = {
+                profileId,
+                featureId,
+            };
+
+            const response = await fetch(`${DASHBOARD_API_BASE_URL}/deleteProfile`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                console.error(`❌ DB deleteProfile failed: ${response.status} ${response.statusText}`);
+                return false;
+            }
+
+            const result: DbApiResponse<{ profileId: number }> = await response.json();
+
+            if (result.status !== 1) {
+                console.error('❌ DB deleteProfile error:', result.message || result.err);
+                return false;
+            }
+
+            console.log(`✅ DB: Profile ${profileId} deleted`);
+            return true;
+        } catch (error) {
+            console.error('❌ DB deleteProfile error:', error);
+            return false;
+        }
+    }
+
+    // ==================== PANELS ====================
+
+    /**
+     * Get all panels for a profile
+     * @param profileId - Profile ID (numeric)
+     * @returns Array of panels or empty array on error
+     */
+    async getPanels(profileId: number): Promise<DbPanel[]> {
+        try {
+            const response = await fetch(
+                `${DASHBOARD_API_BASE_URL}/pannel?profileId=${profileId}`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                console.error(`❌ DB getPanels failed: ${response.status} ${response.statusText}`);
+                return [];
+            }
+
+            const result: DbApiResponse<{ pannelList: Record<string, DbPanel> }> = await response.json();
+
+            if (result.status !== 1 || !result.data?.pannelList) {
+                console.warn('⚠️ DB getPanels returned no data:', result.message || result.err);
+                return [];
+            }
+
+            // Convert object to array and parse JSON if needed
+            const panels = Object.values(result.data.pannelList).map(panel => ({
+                ...panel,
+                json: typeof panel.json === 'string' ? JSON.parse(panel.json) : panel.json,
+            }));
+
+            console.log(`✅ DB: Loaded ${panels.length} panels for profile ${profileId}`);
+            return panels;
+        } catch (error) {
+            console.error('❌ DB getPanels error:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Create or update a panel
+     * @param pannelId - Panel ID (0 or undefined for new panel)
+     * @param profileId - Profile ID this panel belongs to
+     * @param json - Panel configuration object
+     * @returns Created/updated panel ID or null on error
+     */
+    async savePanel(
+        pannelId: number | undefined,
+        profileId: number,
+        json: PanelConfig
+    ): Promise<number | null> {
+        try {
+            const body = {
+                pannelId: pannelId || 0,
+                profileId,
+                json,
+            };
+
+            const response = await fetch(`${DASHBOARD_API_BASE_URL}/pannel`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                console.error(`❌ DB savePanel failed: ${response.status} ${response.statusText}`);
+                return null;
+            }
+
+            const result: DbApiResponse<{ pannelId: number }> = await response.json();
+
+            if (result.status !== 1 || !result.data?.pannelId) {
+                console.error('❌ DB savePanel error:', result.message || result.err);
+                return null;
+            }
+
+            console.log(`✅ DB: Panel saved with ID ${result.data.pannelId}`);
+            return result.data.pannelId;
+        } catch (error) {
+            console.error('❌ DB savePanel error:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Soft delete a panel (sets status = -1)
+     * @param pannelId - Panel ID to delete
+     * @param profileId - Profile ID for verification
+     * @returns true on success, false on error
+     */
+    async deletePanel(pannelId: number, profileId: number): Promise<boolean> {
+        try {
+            const body = {
+                pannelId,
+                profileId,
+            };
+
+            const response = await fetch(`${DASHBOARD_API_BASE_URL}/deletePannel`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!response.ok) {
+                console.error(`❌ DB deletePanel failed: ${response.status} ${response.statusText}`);
+                return false;
+            }
+
+            const result: DbApiResponse<{ pannelId: number }> = await response.json();
+
+            if (result.status !== 1) {
+                console.error('❌ DB deletePanel error:', result.message || result.err);
+                return false;
+            }
+
+            console.log(`✅ DB: Panel ${pannelId} deleted`);
+            return true;
+        } catch (error) {
+            console.error('❌ DB deletePanel error:', error);
+            return false;
+        }
+    }
+
+    // ==================== BULK OPERATIONS ====================
+
+    /**
+     * Save all panels for a profile (for bulk sync)
+     * Saves each panel and returns mapping of panelId -> dbId
+     * @param profileId - Database profile ID
+     * @param panels - Array of panel configurations
+     * @returns Mapping of panel IDs to database IDs
+     */
+    async savePanelsBulk(
+        profileId: number,
+        panels: PanelConfig[]
+    ): Promise<Record<string, number>> {
+        const mapping: Record<string, number> = {};
+
+        for (const panel of panels) {
+            // Check if panel already has a dbId stored (for updates)
+            const existingDbId = (panel as any)._dbPanelId;
+
+            const dbId = await this.savePanel(existingDbId, profileId, panel);
+            if (dbId) {
+                mapping[panel.panelId] = dbId;
+            }
+        }
+
+        console.log(`✅ DB: Bulk saved ${Object.keys(mapping).length}/${panels.length} panels`);
+        return mapping;
+    }
+
+    /**
+     * Check if the database service is available
+     * @returns true if service is reachable
+     */
+    async checkConnection(): Promise<boolean> {
+        try {
+            // Try to fetch profiles for a non-existent feature just to check connectivity
+            const response = await fetch(
+                `${DASHBOARD_API_BASE_URL}/profile?featureId=0`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            return response.ok;
+        } catch (error) {
+            console.error('❌ DB connection check failed:', error);
+            return false;
+        }
+    }
+}
+
+// Export singleton instance
+export const dashboardDbService = new DashboardDbService();
+
+// Export class for testing
+export { DashboardDbService };
