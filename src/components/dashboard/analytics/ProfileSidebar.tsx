@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { InfoTooltip } from './components/InfoTooltip';
 import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
+import { apiService } from '@/services/apiService';
 import { Button } from '@/components/ui/button';
 import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Layers, BarChart3, TrendingUp, Sparkles, Search, LayoutDashboard, Shield, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,6 +64,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     activePanelId = null
 }: ProfileSidebarProps) {
     const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
+    const [alertCounts, setAlertCounts] = useState<Record<string, number>>({}); // Store alert counts by eventId
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [profileToDelete, setProfileToDelete] = useState<DashboardProfile | null>(null);
@@ -96,6 +98,71 @@ export const ProfileSidebar = memo(function ProfileSidebar({
         };
         loadProfiles();
     }, [featureId, refreshTrigger]);
+
+    // Fetch alert counts whenever profiles are loaded or refreshed
+    useEffect(() => {
+        const fetchAlerts = async () => {
+            // Separate event IDs by API/Regular based on panel's isApiEvent flag
+            const regularEventIds = new Set<number>();
+            const apiEventIds = new Set<number>();
+
+            profiles.forEach(p => {
+                p.panels.forEach(panel => {
+                    const isApiPanel = panel.filterConfig?.isApiEvent === true;
+                    const eventIds = panel.events?.map(e => Number(e.eventId)) ||
+                        panel.filterConfig?.events || [];
+
+                    eventIds.forEach((id: number) => {
+                        if (isApiPanel) {
+                            apiEventIds.add(id);
+                        } else {
+                            regularEventIds.add(id);
+                        }
+                    });
+                });
+            });
+
+            if (regularEventIds.size === 0 && apiEventIds.size === 0) return;
+
+            // Last 7 days for sidebar badges
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+
+            try {
+                // Fetch only for relevant event types
+                const promises: Promise<Record<string, number>>[] = [];
+
+                if (regularEventIds.size > 0) {
+                    promises.push(apiService.getAlertList(Array.from(regularEventIds), startDate, endDate, true, 0));
+                } else {
+                    promises.push(Promise.resolve({}));
+                }
+
+                if (apiEventIds.size > 0) {
+                    promises.push(apiService.getAlertList(Array.from(apiEventIds), startDate, endDate, true, 1));
+                } else {
+                    promises.push(Promise.resolve({}));
+                }
+
+                const [regularAlerts, apiAlerts] = await Promise.all(promises);
+
+                // Merge counts
+                const mergedCounts: Record<string, number> = { ...regularAlerts };
+                Object.keys(apiAlerts).forEach(key => {
+                    mergedCounts[key] = (mergedCounts[key] || 0) + (apiAlerts[key] || 0);
+                });
+
+                setAlertCounts(mergedCounts);
+            } catch (err) {
+                console.error("Failed to load sidebar alerts:", err);
+            }
+        };
+
+        if (profiles.length > 0) {
+            fetchAlerts();
+        }
+    }, [profiles, refreshTrigger]);
 
     const handleSelectProfile = (profileId: string) => {
         // If clicking the same profile again, deselect it (collapse panels)
@@ -379,6 +446,30 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                             <Activity className="w-2 h-2" /> API
                                                         </span>
                                                     )}
+                                                    {/* Profile-level alert badge - accumulated from all panels */}
+                                                    {(() => {
+                                                        // Calculate total alerts for this profile
+                                                        let totalAlerts = 0;
+                                                        profile.panels.forEach(panel => {
+                                                            const eventIds = panel.events?.map(e => Number(e.eventId)) ||
+                                                                panel.filterConfig?.events || [];
+                                                            eventIds.forEach((evtId: number) => {
+                                                                totalAlerts += (alertCounts[String(evtId)] || 0);
+                                                            });
+                                                        });
+                                                        if (totalAlerts > 0) {
+                                                            return (
+                                                                <span
+                                                                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 text-[9px] font-bold border border-red-200 dark:border-red-500/30 cursor-help"
+                                                                    title={`${totalAlerts} alerts across ${profile.panels.length} panels (Last 7 days)`}
+                                                                >
+                                                                    <AlertTriangle className="w-2.5 h-2.5" />
+                                                                    {totalAlerts}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                 </div>
                                             </div>
 
@@ -429,11 +520,10 @@ export const ProfileSidebar = memo(function ProfileSidebar({
 
                                                         if (relevantEventIds.length === 0) return 0;
 
-                                                        // Count alerts matching this panel's events
-                                                        return criticalAlerts.filter((alert: any) => {
-                                                            const alertEventId = Number(alert.eventId || alert.event_id || alert.eventID);
-                                                            return relevantEventIds.includes(alertEventId);
-                                                        }).length;
+                                                        // Count alerts matching this panel's events from alertCounts state
+                                                        return relevantEventIds.reduce((sum: number, evtId: number) => {
+                                                            return sum + (alertCounts[String(evtId)] || 0);
+                                                        }, 0);
                                                     })();
 
                                                     const isPanelActive = activePanelId && (panel.panelId === activePanelId || `panel-${panel.panelId}` === activePanelId);

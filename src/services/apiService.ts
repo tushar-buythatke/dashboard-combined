@@ -583,7 +583,7 @@ export class APIService {
         startTime: string,
         endTime: string,
         isHourly: boolean,
-        isApi: number,
+        isApi: number | boolean, // Accept boolean or number
         limit: number = 1000,
         page: number = 0,
         platforms: number[] = [],  // Optional filters
@@ -604,7 +604,7 @@ export class APIService {
             isHourly,
             limit,
             page,
-            isApi
+            isApi: typeof isApi === 'boolean' ? (isApi ? 1 : 0) : isApi
         };
 
         try {
@@ -629,6 +629,55 @@ export class APIService {
         } catch (error) {
             console.error("Error fetching alerts:", error);
             return { alerts: [], summary: {} };
+        }
+    }
+
+    /**
+     * Fetch list of alert counts per event
+     * Endpoint: /dashboard/alertList
+     */
+    async getAlertList(
+        eventIds: (number | string)[],
+        startDate: Date,
+        endDate: Date,
+        isHourly: boolean = true,
+        isApi: number | boolean = 0
+    ): Promise<Record<string, number>> {
+        // Convert all IDs to numbers and filter out invalid ones
+        const toNumbers = (arr: (number | string)[]) =>
+            arr.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
+                .filter(id => !isNaN(id) && id !== null);
+
+        const body = {
+            eventId: toNumbers(eventIds),
+            startTime: this.formatDate(startDate, false), // YYYY-MM-DD 00:00:01
+            endTime: this.formatDate(endDate, true), // YYYY-MM-DD 23:59:59
+            isHourly,
+            isApi: typeof isApi === 'boolean' ? (isApi ? 1 : 0) : isApi
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/alertList`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+                return {};
+            }
+
+            const result = await response.json();
+            // Expected response: { status: 1, data: { alertsList: { "29": 10 } } }
+            if (result.status === 1 && result.data && result.data.alertsList) {
+                return result.data.alertsList;
+            }
+            return {};
+        } catch (error) {
+            console.error("Error fetching alert list:", error);
+            return {};
         }
     }
 
@@ -1004,58 +1053,14 @@ export class APIService {
     }
 
     /**
-     * Fetch alert counts summary for multiple event IDs
-     * @returns Map of eventId -> alert count
+     * Get platform name by ID
      */
-    async getAlertList(
-        eventIds: (number | string)[],
-        startDate: Date,
-        endDate: Date,
-        isHourly: boolean = true,
-        isApi: number = 0
-    ): Promise<Record<string, number>> {
-        // Convert all IDs to numbers and filter out invalid ones
-        const toNumbers = (arr: (number | string)[]) =>
-            arr.map(id => typeof id === 'string' ? parseInt(id, 10) : id)
-                .filter(id => !isNaN(id) && id !== null);
-
-        const requestBody = {
-            eventId: toNumbers(eventIds),
-            startTime: this.formatDate(startDate, false).split(' ')[0], // YYYY-MM-DD
-            endTime: this.formatDate(endDate, true).split(' ')[0], // YYYY-MM-DD
-            isHourly,
-            isApi
-        };
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/alertList`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!response.ok) {
-                throw new Error(`AlertList API request failed: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-            if (result.status !== 1) {
-                throw new Error(result.message || 'Failed to fetch alert list');
-            }
-
-            // Return eventId -> count map from result.data.alertsList
-            return result.data?.alertsList || {};
-        } catch (error) {
-            console.error('Failed to fetch alert list:', error);
-            return {};
-        }
+    getPlatformName(platformId: number): string {
+        return PLATFORM_NAMES[platformId] || `Platform ${platformId}`;
     }
-
     /**
-     * Upload child config for percentage/funnel graphs
-     * Sends config array with child/parent relationships
+     * Upload child config for percentage / funnel graphs
+     * Sends config array with child / parent relationships
      */
     async uploadChildConfig(config: Array<{ child: string; parent: string[] }>): Promise<void> {
         try {
@@ -1085,10 +1090,11 @@ export class APIService {
      * Format date to YYYY-MM-DD HH:MM:SS
      * Start dates get 00:00:01, end dates get 23:59:59
      */
-    private formatDate(date: Date, isEndDate: boolean = false): string {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
+    private formatDate(date: Date | string, isEndDate: boolean = false): string {
+        const d = typeof date === 'string' ? new Date(date) : date;
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
         const time = isEndDate ? '23:59:59' : '00:00:01';
         return `${year}-${month}-${day} ${time}`;
     }
