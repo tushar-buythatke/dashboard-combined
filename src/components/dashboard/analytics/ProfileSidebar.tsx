@@ -363,8 +363,14 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                 <span className={cn(
                                                     "text-[12.5px] font-bold truncate w-full transition-colors",
                                                     isSelected ? "text-indigo-900 dark:text-indigo-50" : "text-slate-600 dark:text-slate-400 group-hover/btn:text-indigo-600"
-                                                )}>
-                                                    {profile.profileName}
+                                                )} title={profile.profileName.includes(' - /') ? profile.profileName.split(' - ')[0] : profile.profileName}>
+                                                    {(() => {
+                                                        const parts = profile.profileName.split(' - ');
+                                                        if (parts.length === 2 && parts[1].trim().startsWith('/')) {
+                                                            return parts[1].trim();
+                                                        }
+                                                        return profile.profileName;
+                                                    })()}
                                                 </span>
                                                 <div className="flex items-center gap-1.5 text-[9.5px] mt-0.5">
                                                     <span className="text-muted-foreground font-medium">{stats.panelCount} items</span>
@@ -411,25 +417,25 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                     // Get alert count for THIS specific panel based on its alertsConfig
                                                     const panelAlerts = (() => {
                                                         if (!criticalAlerts || criticalAlerts.length === 0) return 0;
-                                                        
+
                                                         // Check if this panel has alert config with specific event filter
                                                         const panelAlertConfig = (panel as any).alertsConfig;
                                                         const panelEventFilter = panelAlertConfig?.filterByEvents?.map((id: string) => parseInt(id)) || [];
-                                                        
+
                                                         // If no specific events selected in panel config, check panel's regular events
-                                                        const relevantEventIds = panelEventFilter.length > 0 
-                                                            ? panelEventFilter 
+                                                        const relevantEventIds = panelEventFilter.length > 0
+                                                            ? panelEventFilter
                                                             : (panel.events?.map((e: any) => Number(e.eventId)) || []);
-                                                        
+
                                                         if (relevantEventIds.length === 0) return 0;
-                                                        
+
                                                         // Count alerts matching this panel's events
                                                         return criticalAlerts.filter((alert: any) => {
                                                             const alertEventId = Number(alert.eventId || alert.event_id || alert.eventID);
                                                             return relevantEventIds.includes(alertEventId);
                                                         }).length;
                                                     })();
-                                                    
+
                                                     const isPanelActive = activePanelId && (panel.panelId === activePanelId || `panel-${panel.panelId}` === activePanelId);
 
                                                     return (
@@ -443,8 +449,8 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                             }}
                                                             className={cn(
                                                                 "w-full relative py-1.5 px-2 rounded-md flex items-center gap-2 group/panel transition-all border",
-                                                                isPanelActive 
-                                                                    ? "bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/60 dark:to-purple-900/60 text-indigo-900 dark:text-indigo-100 border-indigo-200 dark:border-indigo-500/30 font-semibold shadow-sm" 
+                                                                isPanelActive
+                                                                    ? "bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/60 dark:to-purple-900/60 text-indigo-900 dark:text-indigo-100 border-indigo-200 dark:border-indigo-500/30 font-semibold shadow-sm"
                                                                     : "bg-transparent hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:border-purple-100 dark:hover:border-purple-500/10 hover:shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
                                                             )}
                                                         >
@@ -468,8 +474,15 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                                     isPanelActive
                                                                         ? "text-indigo-900 dark:text-indigo-100"
                                                                         : "font-medium text-slate-500 dark:text-slate-400 group-hover/panel:text-purple-900 dark:group-hover/panel:text-purple-100"
-                                                                )}>
-                                                                    {panel.panelName || `Panel ${pIndex + 1}`}
+                                                                )} title={panel.panelName?.includes(' - /') ? panel.panelName.split(' - ')[0] : panel.panelName}>
+                                                                    {(() => {
+                                                                        const name = panel.panelName || `Panel ${pIndex + 1}`;
+                                                                        const parts = name.split(' - ');
+                                                                        if (parts.length === 2 && parts[1].trim().startsWith('/')) {
+                                                                            return parts[1].trim();
+                                                                        }
+                                                                        return name;
+                                                                    })()}
                                                                 </span>
                                                             </div>
 
