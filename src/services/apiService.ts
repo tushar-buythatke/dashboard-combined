@@ -444,10 +444,14 @@ export class APIService {
      * Returns sites parsed from the ALL_CONFIG_COUPON.json
      */
     private async getCouponConfigPosData(): Promise<SiteDetail[]> {
-        // Use Vite proxy to bypass CORS - proxied at /coupon-config in vite.config.ts
-        const COUPON_CONFIG_URL = '/coupon-config/ALL_CONFIG_COUPON.json';
+        // In development, use Vite proxy. In production, use CORS proxy.
+        const isDev = import.meta.env.DEV;
+        const DIRECT_URL = 'https://search-new.bitbns.com/extension/configs-coupons/prod/ALL_CONFIG_COUPON.json';
+        const COUPON_CONFIG_URL = isDev 
+            ? '/coupon-config/ALL_CONFIG_COUPON.json'  // Vite proxy
+            : `https://corsproxy.io/?${encodeURIComponent(DIRECT_URL)}`;  // CORS proxy for production
 
-        // console.log('📋 Fetching POS from coupon config...');
+        // console.log('📋 Fetching POS from coupon config...', { isDev, url: COUPON_CONFIG_URL });
 
         try {
             const response = await fetch(COUPON_CONFIG_URL);
