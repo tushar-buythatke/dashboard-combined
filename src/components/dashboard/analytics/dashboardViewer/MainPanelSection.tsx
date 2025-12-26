@@ -2048,7 +2048,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <div className="relative max-w-lg w-full">
                                             {/* Modal Container */}
                                             <div
-                                                className="relative z-10 w-full max-w-[420px] sm:max-w-[480px]"
+                                                className="relative z-10 w-full max-w-[520px] sm:max-w-[600px]"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
                                                 {/* Floating Close Button - Outside the card */}
@@ -2475,6 +2475,43 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             );
                                                         }
 
+                                                        // Calculate anomaly threshold (mean + 2*stdDev) for this event's timing
+                                                        const timingValues = (isMainPanelApi ? apiPerformanceSeries : graphData)
+                                                            .map((d: any) => d[dataKey])
+                                                            .filter((v: any) => typeof v === 'number' && !isNaN(v) && v > 0);
+                                                        const mean = timingValues.length > 0 ? timingValues.reduce((a: number, b: number) => a + b, 0) / timingValues.length : 0;
+                                                        const variance = timingValues.length > 0 ? timingValues.reduce((acc: number, val: number) => acc + Math.pow(val - mean, 2), 0) / timingValues.length : 0;
+                                                        const stdDev = Math.sqrt(variance);
+                                                        const anomalyThreshold = mean + 2 * stdDev;
+
+                                                        // Custom dot renderer for anomaly detection
+                                                        const renderAnomalyDot = (props: any) => {
+                                                            const { cx, cy, payload, dataKey: dk } = props;
+                                                            const value = payload?.[dk];
+                                                            if (apiMetricView !== 'timing-anomaly') return <g key={`no-anomaly-${cx}-${cy}`} />;
+                                                            if (typeof value !== 'number' || value <= anomalyThreshold) return <g key={`below-thresh-${cx}-${cy}`} />;
+                                                            // Render triangular warning indicator
+                                                            return (
+                                                                <g key={`anomaly-${cx}-${cy}`}>
+                                                                    <polygon
+                                                                        points={`${cx},${cy - 12} ${cx - 8},${cy + 4} ${cx + 8},${cy + 4}`}
+                                                                        fill="#ef4444"
+                                                                        stroke="#fff"
+                                                                        strokeWidth={2}
+                                                                        filter="drop-shadow(0 2px 4px rgba(239,68,68,0.4))"
+                                                                    />
+                                                                    <text
+                                                                        x={cx}
+                                                                        y={cy - 2}
+                                                                        textAnchor="middle"
+                                                                        fill="#fff"
+                                                                        fontSize={8}
+                                                                        fontWeight="bold"
+                                                                    >!</text>
+                                                                </g>
+                                                            );
+                                                        };
+
                                                         return (
                                                             <Area
                                                                 key={`api_${index}_${eventKey}_${apiMetricView}`}
@@ -2486,6 +2523,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 fill={color}
                                                                 fillOpacity={0.4}
                                                                 activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
+                                                                dot={apiMetricView === 'timing-anomaly' ? renderAnomalyDot : false}
                                                                 isAnimationActive={false}
                                                             />
                                                         );

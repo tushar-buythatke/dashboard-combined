@@ -669,13 +669,15 @@ export function CriticalAlertsPanel({
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    <span className="font-semibold text-foreground">POS {alert.pos}</span>
-                                                                    {siteDetail?.name && (
-                                                                        <span className="ml-1 text-muted-foreground">
-                                                                            · {siteDetail.name}
-                                                                        </span>
+                                                                <div className="flex items-center text-xs">
+                                                                    {siteDetail?.name ? (
+                                                                        <span className="font-bold text-foreground">{siteDetail.name}</span>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground">Others</span>
                                                                     )}
+                                                                    <span className="text-muted-foreground ml-2">·</span>
+                                                                    <span className="ml-1 font-semibold text-purple-600 dark:text-purple-400">POS</span>
+                                                                    <span className="ml-1 font-bold text-foreground">{alert.pos}</span>
                                                                 </div>
                                                             </div>
 
