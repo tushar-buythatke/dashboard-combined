@@ -1925,58 +1925,50 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Previously forced 'deviation' charts to hourly, but this prevented 'Daily' view from working
             const effectiveHourlyOverride = hourlyOverride;
 
+            // OPTIMIZED: Make all 3 API calls IN PARALLEL for up to 3x speedup
+            const eventIdsForSourceStr = eventIdsToFetch.map(id => typeof id === 'number' ? id : parseInt(id)).filter(id => !isNaN(id));
 
-            // For API events, send empty arrays for platform/pos/source (API groups by status/cacheStatus)
-            const graphResponse = await apiService.getGraphData(
-                panelFilters.events, // Only eventIds are used for API events
-                hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
-                hasApiEvents ? [] : panelFilters.pos, // Empty for API events
-                hasApiEvents ? [] : panelFilters.sources, // Empty for API events
-                currentSourceStrFilter, // Pass sourceStr filter to API
-                panelDateRange.from,
-                panelDateRange.to,
-                hasApiEvents, // Pass isApiEvent flag -> sets isApi: true in request body
-                false, // preferV1
-                effectiveHourlyOverride // Pass hourly override to API
-            );
-
-            // Pie chart is optional - don't fail the whole refresh if it fails
-            // For API panels, we DO want status/cache pies even in special graphs.
-            let pieResponse = null;
-            if (hasApiEvents || !isSpecialGraph) {
-                try {
-                    pieResponse = await apiService.getPieChartData(
+            const [graphResponse, pieResponse, sourceStrsFromApi] = await Promise.all([
+                // Graph data call
+                apiService.getGraphData(
+                    panelFilters.events,
+                    hasApiEvents ? [] : panelFilters.platforms,
+                    hasApiEvents ? [] : panelFilters.pos,
+                    hasApiEvents ? [] : panelFilters.sources,
+                    currentSourceStrFilter,
+                    panelDateRange.from,
+                    panelDateRange.to,
+                    hasApiEvents,
+                    false,
+                    effectiveHourlyOverride
+                ),
+                // Pie chart call (optional for special graphs)
+                (hasApiEvents || !isSpecialGraph)
+                    ? apiService.getPieChartData(
                         panelFilters.events,
-                        hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
-                        hasApiEvents ? [] : panelFilters.pos, // Empty for API events
-                        hasApiEvents ? [] : panelFilters.sources, // Empty for API events
-                        currentSourceStrFilter, // Pass sourceStr filter to API
+                        hasApiEvents ? [] : panelFilters.platforms,
+                        hasApiEvents ? [] : panelFilters.pos,
+                        hasApiEvents ? [] : panelFilters.sources,
+                        currentSourceStrFilter,
                         panelDateRange.from,
                         panelDateRange.to,
-                        hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
-                    );
-                } catch (pieErr) {
-                    console.warn(`⚠️ Pie chart data failed for panel ${panelId}, continuing without it:`, pieErr);
-                }
-            }
-            // Fetch available sourceStrs from dedicated API endpoint (parallel with graph data)
-            let sourceStrsFromApi: string[] = [];
-            try {
-                // Use event IDs from the panel to fetch available sourceStr options
-                const eventIdsForSourceStr = eventIdsToFetch.map(id => typeof id === 'number' ? id : parseInt(id)).filter(id => !isNaN(id));
-                if (eventIdsForSourceStr.length > 0) {
-                    sourceStrsFromApi = await apiService.fetchSourceStr(eventIdsForSourceStr);
-                }
-            } catch (sourceStrErr) {
-                // Fallback: extract from graph response
-                console.warn('📋 SourceStr API failed, falling back to extraction from graph data:', sourceStrErr);
-                sourceStrsFromApi = extractSourceStrs(graphResponse);
-            }
+                        hasApiEvents
+                    ).catch(pieErr => {
+                        console.warn(`⚠️ Pie chart data failed for panel ${panelId}, continuing without it:`, pieErr);
+                        return null;
+                    })
+                    : Promise.resolve(null),
+                // SourceStr call
+                eventIdsForSourceStr.length > 0
+                    ? apiService.fetchSourceStr(eventIdsForSourceStr).catch(sourceStrErr => {
+                        console.warn('📋 SourceStr API failed, will fallback to extraction from graph data:', sourceStrErr);
+                        return [];
+                    })
+                    : Promise.resolve([])
+            ]);
 
-            // If API returned no results, try extracting from graph response as fallback
-            if (sourceStrsFromApi.length === 0) {
-                sourceStrsFromApi = extractSourceStrs(graphResponse);
-            }
+            // Fallback: extract sourceStrs from graph response if API had no results
+            const finalSourceStrs = sourceStrsFromApi.length > 0 ? sourceStrsFromApi : extractSourceStrs(graphResponse);
 
             // Apply sourceStr filter (client-side) then process
             const filteredResponse = filterBySourceStr(graphResponse, currentSourceStrFilter);
@@ -2009,11 +2001,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
             // Update available sourceStrs for this panel (from API)
             if (profile.panels[0]?.panelId === panelId) {
-                setAvailableSourceStrs(sourceStrsFromApi);
+                setAvailableSourceStrs(finalSourceStrs);
             } else {
                 setPanelAvailableSourceStrs(prev => ({
                     ...prev,
-                    [panelId]: sourceStrsFromApi
+                    [panelId]: finalSourceStrs
                 }));
             }
 
@@ -2274,34 +2266,36 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 const hasApiEvents = panelConfig?.isApiEvent === true;
 
                 try {
-                    // For API events, send empty arrays for platform/pos/source
-                    const graphResponse = await apiService.getGraphData(
-                        panelFilters.events, // Only eventIds matter for API events
-                        hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
-                        hasApiEvents ? [] : panelFilters.pos, // Empty for API events
-                        hasApiEvents ? [] : panelFilters.sources, // Empty for API events
-                        hasApiEvents ? [] : panelFilters.sourceStr || [], // Empty for API events
-                        panelDateRange.from,
-                        panelDateRange.to,
-                        hasApiEvents // Pass isApiEvent flag -> sets isApi: true
-                    );
-
-                    // Pie chart is optional - don't fail the whole refresh if it fails
-                    let pieResponse = null;
-                    try {
-                        pieResponse = await apiService.getPieChartData(
+                    // OPTIMIZED: Fetch graph and pie chart data IN PARALLEL for 2x speedup
+                    const [graphResponse, pieResult] = await Promise.all([
+                        // Graph data call
+                        apiService.getGraphData(
                             panelFilters.events,
-                            hasApiEvents ? [] : panelFilters.platforms, // Empty for API events
-                            hasApiEvents ? [] : panelFilters.pos, // Empty for API events
-                            hasApiEvents ? [] : panelFilters.sources, // Empty for API events
-                            hasApiEvents ? [] : panelFilters.sourceStr || [], // Empty for API events
+                            hasApiEvents ? [] : panelFilters.platforms,
+                            hasApiEvents ? [] : panelFilters.pos,
+                            hasApiEvents ? [] : panelFilters.sources,
+                            hasApiEvents ? [] : panelFilters.sourceStr || [],
                             panelDateRange.from,
                             panelDateRange.to,
-                            hasApiEvents // Pass isApiEvent flag for pieChartApi endpoint
-                        );
-                    } catch (pieErr) {
-                        console.warn(`⚠️ Pie chart data failed for panel ${panel.panelId}, continuing without it:`, pieErr);
-                    }
+                            hasApiEvents
+                        ),
+                        // Pie chart call - wrapped to handle failures gracefully
+                        apiService.getPieChartData(
+                            panelFilters.events,
+                            hasApiEvents ? [] : panelFilters.platforms,
+                            hasApiEvents ? [] : panelFilters.pos,
+                            hasApiEvents ? [] : panelFilters.sources,
+                            hasApiEvents ? [] : panelFilters.sourceStr || [],
+                            panelDateRange.from,
+                            panelDateRange.to,
+                            hasApiEvents
+                        ).catch(pieErr => {
+                            console.warn(`⚠️ Pie chart data failed for panel ${panel.panelId}, continuing without it:`, pieErr);
+                            return null;
+                        })
+                    ]);
+
+                    const pieResponse = pieResult;
 
                     // Extract available sourceStrs from raw response
                     const graphSourceStrs = extractSourceStrs(graphResponse);
