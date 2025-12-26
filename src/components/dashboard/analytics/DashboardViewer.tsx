@@ -1065,16 +1065,20 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             return;
         }
 
-        // Build config array from all panels with percentage/funnel graphs
-        const config: Array<{ child: string; parent: string[] }> = [];
-
-        profile.panels.forEach((panel) => {
+        // Upload config for each panel that has percentage/funnel graphs
+        for (const panel of profile.panels) {
             const panelConfig = (panel as any).filterConfig;
+            const dbPanelId = (panel as any)?._dbPanelId;
+
+            // Skip panels without DB ID (not from custom database yet)
+            if (!dbPanelId) continue;
+
+            const childParentMappings: Array<{ child: string; parent: string[] }> = [];
 
             if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
                 const { parentEvents = [], childEvents = [] } = panelConfig.percentageConfig;
                 childEvents.forEach((childEventId: string) => {
-                    config.push({
+                    childParentMappings.push({
                         child: String(childEventId),
                         parent: parentEvents.map((id: string) => String(id))
                     });
@@ -1083,24 +1087,24 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 const { stages = [], multipleChildEvents = [] } = panelConfig.funnelConfig;
                 const stageEventIds = stages.map((s: any) => String(s.eventId));
                 multipleChildEvents.forEach((childEventId: string) => {
-                    config.push({
+                    childParentMappings.push({
                         child: String(childEventId),
                         parent: stageEventIds
                     });
                 });
             }
-        });
 
-        // Only upload if we have configs
-        if (config.length > 0) {
-            try {
-                await apiService.uploadChildConfig(config);
-                lastConfigUploadTime.current = now;
-                // Debug logging removed
-            } catch (error) {
-                console.error('Failed to upload child config:', error);
+            // Upload config for this panel if it has any mappings
+            if (childParentMappings.length > 0) {
+                try {
+                    await apiService.uploadChildConfig(dbPanelId, childParentMappings);
+                } catch (error) {
+                    console.error(`Failed to upload child config for panel ${dbPanelId}:`, error);
+                }
             }
         }
+
+        lastConfigUploadTime.current = now;
     }, [profile?.panels]);
 
     // Note: Auto-selection disabled for 8-Day Overlay
@@ -2135,6 +2139,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 return `${yyyy}-${mm}-${dd} 23:59:59`;
             };
 
+            // Get panel's DB ID for isApi=2 (percent/funnel) alerts
+            const dbPanelId = (activePanel as any)?._dbPanelId;
+
             // Fetch alerts using the new unified API endpoint
             const data = await apiService.getAlerts(
                 eventIds,
@@ -2147,7 +2154,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 alertFilters.platforms.length > 0 ? alertFilters.platforms.map(p => Number(p)) : [], // Convert to numbers if needed
                 alertFilters.pos.length > 0 ? alertFilters.pos : [],
                 alertFilters.sources.length > 0 ? alertFilters.sources.map(s => Number(s)) : [],
-                [] // sourceStr - not currently filtered in UI
+                [], // sourceStr - not currently filtered in UI
+                effectiveIsApi === 2 ? dbPanelId : undefined // Pass panelId for percent/funnel alerts
             );
 
             // console.log(`✅ Loaded ${data.alerts?.length || 0} critical alerts`);
@@ -3195,6 +3203,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             onLoadAlerts={loadAlerts}
                             onPageChange={setAlertsPage}
                             eventToPanelMap={eventToPanelMap}
+                            activePanelDbId={(activePanel as any)?._dbPanelId}
                             onJumpToPanel={(panelId, panelName) => {
                                 if (handleJumpToPanel) {
                                     handleJumpToPanel(panelId, panelName);

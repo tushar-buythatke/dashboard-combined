@@ -47,6 +47,7 @@ interface CriticalAlertsPanelProps {
     onPageChange: (page: number) => void;
     onJumpToPanel?: (panelId: string, panelName?: string) => void;
     eventToPanelMap?: Record<string, string>;
+    activePanelDbId?: number; // DB panel ID for isApi=2 (percent/funnel)
 }
 
 export function CriticalAlertsPanel({
@@ -71,7 +72,8 @@ export function CriticalAlertsPanel({
     onLoadAlerts,
     onPageChange,
     onJumpToPanel,
-    eventToPanelMap = {}
+    eventToPanelMap = {},
+    activePanelDbId
 }: CriticalAlertsPanelProps) {
     const { isAutosnipe } = useTheme();
 
@@ -331,19 +333,36 @@ export function CriticalAlertsPanel({
                                     />
                                 </div>
 
-                                {/* Event Filter - MultiSelect */}
+                                {/* Event Filter / Panel ID Filter */}
                                 <div className="space-y-1">
-                                    <Label className="text-xs text-muted-foreground">Event</Label>
-                                    <MultiSelectDropdown
-                                        options={events.map(e => ({ value: e.eventId, label: e.eventName }))}
-                                        selected={alertFilters.events.map(String)}
-                                        onChange={(values) => onFilterChange({
-                                            ...alertFilters,
-                                            events: values.map(v => parseInt(v))
-                                        })}
-                                        placeholder="All Events"
-                                        className="h-9"
-                                    />
+                                    <Label className="text-xs text-muted-foreground">
+                                        {alertIsApi === 2 ? 'Panel ID' : 'Event'}
+                                    </Label>
+                                    {alertIsApi === 2 ? (
+                                        // For PERCENT mode, show panel ID dropdown with current panel pre-selected
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1 h-9 px-3 flex items-center rounded-md border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-mono text-sm">
+                                                Panel: {activePanelDbId || 'Not available'}
+                                            </div>
+                                            {activePanelDbId && (
+                                                <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50 px-2 py-1 rounded">
+                                                    ✓ Auto-selected
+                                                </span>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        // Regular mode - show events dropdown
+                                        <MultiSelectDropdown
+                                            options={events.map(e => ({ value: e.eventId, label: e.eventName }))}
+                                            selected={alertFilters.events.map(String)}
+                                            onChange={(values) => onFilterChange({
+                                                ...alertFilters,
+                                                events: values.map(v => parseInt(v))
+                                            })}
+                                            placeholder="All Events"
+                                            className="h-9"
+                                        />
+                                    )}
                                 </div>
 
                                 {/* Event Type Toggle - isApi */}

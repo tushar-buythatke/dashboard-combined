@@ -29,6 +29,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mockService } from '@/services/mockData';
+import { firebaseConfigService } from '@/services/firebaseConfigService';
 import { getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground } from '@/components/ui/animated-background';
@@ -144,10 +145,17 @@ export function AnalyticsLayout() {
         const loadExistingProfiles = async () => {
             if (showNewConfigModal && newConfigMode === 'existing' && newConfigFeature) {
                 try {
-                    const profiles = await mockService.getProfiles(newConfigFeature);
-                    setExistingProfiles(profiles);
-                    if (profiles.length > 0 && !selectedExistingProfile) {
-                        setSelectedExistingProfile(profiles[0].profileId);
+                    // Use firebaseConfigService which has DB-first logic
+                    const result = await firebaseConfigService.getProfiles(newConfigFeature, 'default');
+                    if (result.success) {
+                        const profiles = result.items.map(p => ({
+                            ...p,
+                            lastModified: p.updatedAt || p.createdAt,
+                        })) as DashboardProfile[];
+                        setExistingProfiles(profiles);
+                        if (profiles.length > 0 && !selectedExistingProfile) {
+                            setSelectedExistingProfile(profiles[0].profileId);
+                        }
                     }
                 } catch (error) {
                     console.error('Failed to load existing profiles:', error);

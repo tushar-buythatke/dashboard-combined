@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback, memo } from 'react';
 import { InfoTooltip } from './components/InfoTooltip';
 import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
+import { firebaseConfigService } from '@/services/firebaseConfigService';
 import { apiService } from '@/services/apiService';
 import { Button } from '@/components/ui/button';
 import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Layers, BarChart3, TrendingUp, Sparkles, Search, LayoutDashboard, Shield, Activity } from 'lucide-react';
@@ -90,10 +91,18 @@ export const ProfileSidebar = memo(function ProfileSidebar({
 
     useEffect(() => {
         const loadProfiles = async () => {
-            const data = await mockService.getProfiles(featureId);
-            setProfiles(data);
-            if (!selectedProfileId && data.length > 0) {
-                onSelectProfile(data[0].profileId);
+            // Use firebaseConfigService which has DB-first logic
+            const result = await firebaseConfigService.getProfiles(featureId, 'default');
+            if (result.success) {
+                // Convert DashboardProfileConfig to DashboardProfile format
+                const data = result.items.map(p => ({
+                    ...p,
+                    lastModified: p.updatedAt || p.createdAt,
+                })) as DashboardProfile[];
+                setProfiles(data);
+                if (!selectedProfileId && data.length > 0) {
+                    onSelectProfile(data[0].profileId);
+                }
             }
         };
         loadProfiles();
@@ -183,23 +192,37 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     const handleDeleteConfirm = async () => {
         if (!profileToDelete || !isAdmin) return;
 
-        const success = await deleteProfile(profileToDelete.profileId);
-        if (success) {
-            // If we deleted the currently selected profile, select the first remaining one
-            if (selectedProfileId === profileToDelete.profileId) {
-                const remainingProfiles = profiles.filter(p => p.profileId !== profileToDelete.profileId);
-                if (remainingProfiles.length > 0) {
-                    onSelectProfile(remainingProfiles[0].profileId);
-                }
-            }
+        const profileId = profileToDelete.profileId;
 
-            // Refresh the profiles list
-            const data = await mockService.getProfiles(featureId);
-            setProfiles(data);
+        // OPTIMISTIC UI UPDATE: Remove profile from list immediately
+        setProfiles(prev => prev.filter(p => p.profileId !== profileId));
+
+        // If we deleted the currently selected profile, select the first remaining one
+        if (selectedProfileId === profileId) {
+            const remainingProfiles = profiles.filter(p => p.profileId !== profileId);
+            if (remainingProfiles.length > 0) {
+                onSelectProfile(remainingProfiles[0].profileId);
+            }
         }
 
+        // Close dialog immediately for snappy UX
         setDeleteDialogOpen(false);
         setProfileToDelete(null);
+
+        // Call API in background - if it fails, we could re-add but usually it succeeds
+        const success = await deleteProfile(profileId);
+        if (!success) {
+            // API failed - refresh the list to restore
+            console.error('Delete failed, refreshing profiles...');
+            const result = await firebaseConfigService.getProfiles(featureId, 'default');
+            if (result.success) {
+                const data = result.items.map(p => ({
+                    ...p,
+                    lastModified: p.updatedAt || p.createdAt,
+                })) as DashboardProfile[];
+                setProfiles(data);
+            }
+        }
     };
 
     // Get total alerts for the selected profile (filtered by profile's alert config event selection)

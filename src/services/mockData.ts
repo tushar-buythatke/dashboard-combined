@@ -283,9 +283,10 @@ class MockService {
     
     /**
      * Convert DashboardProfileConfig (Firebase) to DashboardProfile (local)
+     * IMPORTANT: Preserves _dbProfileId and _dbPanelIds for proper DB upsert
      */
     private convertFirebaseToLocal(config: DashboardProfileConfig): DashboardProfile {
-        return {
+        const result: DashboardProfile = {
             profileId: config.profileId,
             profileName: config.profileName,
             featureId: config.featureId,
@@ -299,13 +300,25 @@ class MockService {
             panels: config.panels,
             criticalAlerts: config.criticalAlerts,
         };
+
+        // Preserve DB IDs for proper upsert behavior
+        if ((config as any)._dbProfileId) {
+            (result as any)._dbProfileId = (config as any)._dbProfileId;
+        }
+        if ((config as any)._dbPanelIds) {
+            (result as any)._dbPanelIds = (config as any)._dbPanelIds;
+        }
+
+        return result;
     }
     
     /**
      * Convert DashboardProfile (local) to DashboardProfileConfig (Firebase)
+     * IMPORTANT: Preserves _dbProfileId and _dbPanelId for proper DB upsert
      */
     private convertLocalToFirebase(profile: DashboardProfile, orgId: string): DashboardProfileConfig {
-        return {
+        // Preserve _dbProfileId from the input profile
+        const result: DashboardProfileConfig = {
             profileId: profile.profileId,
             profileName: profile.profileName,
             featureId: profile.featureId,
@@ -322,6 +335,16 @@ class MockService {
             panels: profile.panels,
             criticalAlerts: profile.criticalAlerts,
         };
+
+        // Preserve DB IDs for proper upsert behavior
+        if ((profile as any)._dbProfileId) {
+            (result as any)._dbProfileId = (profile as any)._dbProfileId;
+        }
+        if ((profile as any)._dbPanelIds) {
+            (result as any)._dbPanelIds = (profile as any)._dbPanelIds;
+        }
+
+        return result;
     }
     
     /**

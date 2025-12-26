@@ -260,7 +260,8 @@ interface AlertAPIRequest {
     startTime: string;
     endTime: string;
     isHourly: boolean;
-    isApi?: number; // 0=Regular, 1=API, 2=Funnel/Percent
+    isApi?: number; // 0=Regular, 1=API, 2=Funnel/Percent (uses panelId)
+    panelId?: number; // DB panel ID for isApi=2 (percent/funnel alerts)
 }
 
 interface CriticalAlertDetails {
@@ -581,6 +582,7 @@ export class APIService {
 
     /**
      * Fetch critical alerts
+     * @param panelId - Optional DB panel ID for isApi=2 (percent/funnel) alerts
      */
     async getAlerts(
         eventIds: number[],
@@ -593,9 +595,12 @@ export class APIService {
         platforms: number[] = [],  // Optional filters
         pos: number[] = [],
         sources: number[] = [],
-        sourceStr: string[] = []
+        sourceStr: string[] = [],
+        panelId?: number // DB panel ID for isApi=2 (percent/funnel alerts)
     ): Promise<any> {
-        const body = {
+        const isApiVal = typeof isApi === 'boolean' ? (isApi ? 1 : 0) : isApi;
+        
+        const body: any = {
             filter: {
                 eventId: eventIds,
                 platform: platforms,
@@ -608,8 +613,14 @@ export class APIService {
             isHourly,
             limit,
             page,
-            isApi: typeof isApi === 'boolean' ? (isApi ? 1 : 0) : isApi
+            isApi: isApiVal
         };
+
+        // For isApi=2 (percent/funnel), add panelId if provided
+        if (isApiVal === 2 && panelId) {
+            body.panelId = panelId;
+            console.log('🎯 Alerts: Using panelId', panelId, 'for isApi=2');
+        }
 
         try {
             const response = await fetch(`${API_BASE_URL}/alert`, {
@@ -1007,8 +1018,9 @@ export class APIService {
         endDate: Date,
         limit: number = 10,
         page: number = 0,
-        isApi: number = 0, // 0 = Regular events, 1 = API events, 2 = Funnel/Percent
-        isHourly: boolean | null = null // null means calculate based on range
+        isApi: number = 0, // 0 = Regular events, 1 = API events, 2 = Funnel/Percent (uses panelId)
+        isHourly: boolean | null = null, // null means calculate based on range
+        panelId?: number // DB panel ID for isApi=2 (percent/funnel alerts)
     ): Promise<CriticalAlert[]> {
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         const finalIsHourly = isHourly !== null ? isHourly : (daysDiff <= 7);
@@ -1031,6 +1043,12 @@ export class APIService {
             isHourly: finalIsHourly,
             isApi // Add isApi field
         };
+
+        // For isApi=2 (percent/funnel), add panelId if provided
+        if (isApi === 2 && panelId) {
+            requestBody.panelId = panelId;
+            console.log('🎯 Critical Alerts: Using panelId', panelId, 'for isApi=2');
+        }
 
         console.log('Alert API Request:', requestBody);
 
@@ -1064,10 +1082,23 @@ export class APIService {
     }
     /**
      * Upload child config for percentage / funnel graphs
-     * Sends config array with child / parent relationships
+     * Sends config object with panelId as key and child/parent relationships as array
+     * Format: { config: { "panelId": [{ child: "eventId", parent: ["eventId1", "eventId2"] }] } }
+     * @param panelId - The DB panel ID (used as the config key)
+     * @param childParentMappings - Array of child/parent event ID mappings
      */
-    async uploadChildConfig(config: Array<{ child: string; parent: string[] }>): Promise<void> {
+    async uploadChildConfig(
+        panelId: number | string,
+        childParentMappings: Array<{ child: string; parent: string[] }>
+    ): Promise<void> {
         try {
+            // Format: { config: { "2": [{ child: "204", parent: ["84", "92"] }] } }
+            const config: Record<string, Array<{ child: string; parent: string[] }>> = {
+                [String(panelId)]: childParentMappings
+            };
+
+            console.log('📤 Uploading child config for panelId:', panelId, config);
+
             const response = await fetch(`${API_BASE_URL}/uploadChildConfig`, {
                 method: 'POST',
                 headers: {
@@ -1084,6 +1115,8 @@ export class APIService {
             if (result.status !== 1 && result.status !== 200) {
                 throw new Error(result.message || 'Failed to upload child config');
             }
+            
+            console.log('✅ Child config uploaded successfully for panelId:', panelId);
         } catch (error) {
             console.error('Failed to upload child config:', error);
             // Don't throw - this is a non-critical operation
