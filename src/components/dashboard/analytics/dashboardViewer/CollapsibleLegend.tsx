@@ -101,7 +101,7 @@ export const CollapsibleLegend = ({
     };
 
     return (
-        <div className="flex flex-wrap items-center gap-1.5 md:gap-2 px-2 md:px-4 py-2 md:py-2.5 bg-gray-50/80 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-5 py-3 md:py-3.5 bg-gray-50/80 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                 const isErrorEvent = event?.isErrorEvent === 1;
@@ -141,7 +141,7 @@ export const CollapsibleLegend = ({
                         key={`${index}_${eventKeyInfo.eventKey}`}
                         id={`legend-${eventKeyInfo.eventKey}`}
                         className={cn(
-                            "flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1 md:py-1.5 rounded-md bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all whitespace-nowrap",
+                            "flex items-center gap-2 md:gap-2.5 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all whitespace-nowrap",
                             isSelected
                                 ? "border-purple-500 ring-2 ring-purple-500/30"
                                 : "border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50"
@@ -149,38 +149,38 @@ export const CollapsibleLegend = ({
                         onClick={() => onEventClick?.(eventKeyInfo.eventKey)}
                     >
                         <div
-                            className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full shadow-inner flex-shrink-0"
+                            className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full shadow-inner flex-shrink-0"
                             style={{ backgroundColor: color }}
                         />
-                        <span className="text-[11px] md:text-xs font-medium text-gray-700 dark:text-gray-300 truncate max-w-[80px] md:max-w-[120px]">
+                        <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[140px] md:max-w-[200px]">
                             {eventKeyInfo.eventName}
                         </span>
                         {eventKeyInfo.isErrorEvent === 1 && (
-                            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError</span>
                         )}
                         {eventKeyInfo.isAvgEvent === 1 && (
-                            <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg</span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg</span>
                         )}
-                        <span className="text-[11px] md:text-xs font-semibold text-gray-900 dark:text-white">
+                        <span className="text-xs md:text-sm font-semibold text-gray-900 dark:text-white">
                             {stats.total.toLocaleString()}
                         </span>
 
                         {/* Show delay time for avg events */}
                         {stats.isAvgEvent && stats.avgDelay > 0 ? (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 flex items-center gap-0.5">
-                                <Clock className="w-2.5 h-2.5" />
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
                                 {formatDelay(stats.avgDelay, event?.feature)}
                             </span>
                         ) : (
                             <>
                                 {/* Show error indicator for error events */}
                                 {stats.isErrorEvent && (
-                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/90 text-white shadow-sm">
+                                    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-red-500/90 text-white shadow-sm">
                                         ERR
                                     </span>
                                 )}
                                 <span className={cn(
-                                    "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                                    "text-xs font-semibold px-2.5 py-1 rounded-full",
                                     rateColor
                                 )}>
                                     {stats.successRate.toFixed(0)}%
@@ -193,7 +193,7 @@ export const CollapsibleLegend = ({
             {eventKeys.length > maxVisibleItems && (
                 <button
                     onClick={onToggle}
-                    className="flex items-center gap-1 h-7 px-2 md:px-3 text-[11px] md:text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-md transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1.5 h-9 px-3 md:px-4 text-xs md:text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg transition-colors whitespace-nowrap"
                 >
                     {isExpanded ? (
                         <>

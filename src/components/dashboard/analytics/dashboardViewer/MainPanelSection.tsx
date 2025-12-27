@@ -259,15 +259,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
                             {/* Hourly/Daily Toggle in Filter Panel */}
                             <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">Data Resolution:</span>
-                                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                <span className="text-sm font-medium text-muted-foreground">Data Resolution:</span>
+                                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                     <button
                                         onClick={() => setHourlyOverride?.(true)}
                                         className={cn(
-                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                            "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
                                             isHourly
-                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50"
                                         )}
                                     >
                                         Hourly
@@ -275,10 +275,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <button
                                         onClick={() => setHourlyOverride?.(false)}
                                         className={cn(
-                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                            "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
                                             !isHourly
-                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50"
                                         )}
                                     >
                                         Daily
@@ -358,14 +358,14 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 </div>
 
                                                 {/* Graph Grouping Toggle */}
-                                                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                                                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                     <button
                                                         onClick={() => handleFilterChange('activePercentageGroupChildEvents', true)}
                                                         className={cn(
-                                                            "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                                             isGrouped
-                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
+                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
                                                         )}
                                                     >
                                                         SINGLE GRAPH
@@ -373,10 +373,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <button
                                                         onClick={() => handleFilterChange('activePercentageGroupChildEvents', false)}
                                                         className={cn(
-                                                            "px-3 py-1.5 text-xs font-bold rounded-md transition-all",
+                                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                                             !isGrouped
-                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
-                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
+                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
                                                         )}
                                                     >
                                                         SEPARATE GRAPHS
@@ -388,7 +388,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 {/* Parent Events (Denominator) */}
                                                 <div className="space-y-2">
                                                     <div className="flex items-center justify-between">
-                                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                                                             Parent Events (Denominator)
                                                         </label>
                                                     </div>
@@ -414,7 +414,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 {/* Child Events (Numerator) */}
                                                 <div className="space-y-2">
                                                     <div className="flex items-center justify-between">
-                                                        <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                                                             Child Events (Numerator)
                                                         </label>
                                                     </div>
@@ -444,7 +444,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             {!isMainPanelApi && (
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
+                                                        <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Platforms</Label>
                                                         <MultiSelectDropdown
                                                             options={platformOptions}
                                                             selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
@@ -453,7 +453,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
+                                                        <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">POS</Label>
                                                         <MultiSelectDropdown
                                                             options={posOptions}
                                                             selected={(currentFilters.pos || []).map((id: number) => id.toString())}
@@ -462,7 +462,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
+                                                        <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Sources</Label>
                                                         <MultiSelectDropdown
                                                             options={sourceOptions}
                                                             selected={(currentFilters.sources || []).map((id: number) => id.toString())}
@@ -501,7 +501,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                                 {/* Funnel Stages - Individual Dropdowns (e1, e2, e3...) with add/remove */}
                                                 <div className="space-y-3">
-                                                    <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                    <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                                                         Funnel Stages
                                                     </label>
                                                     {(activeStageIds.length > 0 ? activeStageIds : defaultStageIds).map((currentId: string, idx: number) => {
@@ -563,7 +563,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 {/* Final Stage (Multiple Events) - Multi-Select */}
                                                 {funnelConfig.multipleChildEvents && funnelConfig.multipleChildEvents.length > 0 && (
                                                     <div className="mt-4 space-y-2">
-                                                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                                                        <label className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                                                             Final Stage (Multiple Events)
                                                         </label>
                                                         <MultiSelectDropdown
@@ -588,7 +588,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             {!isMainPanelApi && (
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</Label>
+                                                        <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Platforms</Label>
                                                         <MultiSelectDropdown
                                                             options={platformOptions}
                                                             selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
@@ -597,7 +597,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</Label>
+                                                        <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">POS</Label>
                                                         <MultiSelectDropdown
                                                             options={posOptions}
                                                             selected={(currentFilters.pos || []).map((id: number) => id.toString())}
@@ -606,7 +606,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         />
                                                     </div>
                                                     <div className="space-y-1.5">
-                                                        <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</Label>
+                                                        <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Sources</Label>
                                                         <MultiSelectDropdown
                                                             options={sourceOptions}
                                                             selected={(currentFilters.sources || []).map((id: number) => id.toString())}
@@ -631,7 +631,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         {!isMainPanelApi && (
                                             <>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Platform</Label>
+                                                    <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Platform</Label>
                                                     <MultiSelectDropdown
                                                         options={platformOptions}
                                                         selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
@@ -640,7 +640,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">POS</Label>
+                                                    <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">POS</Label>
                                                     <MultiSelectDropdown
                                                         options={posOptions}
                                                         selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.pos || []) : []).map(id => id.toString())}
@@ -649,7 +649,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Source</Label>
+                                                    <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Source</Label>
                                                     <MultiSelectDropdown
                                                         options={sourceOptions}
                                                         selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.sources || []) : []).map(id => id.toString())}
@@ -660,7 +660,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </>
                                         )}
                                         <div className="space-y-2">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                                            <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">
                                                 {isMainPanelApi ? 'API Events (Host / URL)' : 'Event'}
                                             </Label>
                                             <MultiSelectDropdown
@@ -705,7 +705,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     </h4>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Status Codes</Label>
+                                            <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Status Codes</Label>
                                             {/* Show 2xx and 3xx individually, group only 4xx and 5xx */}
                                             {(() => {
                                                 const codes2xx = availableStatusCodes.filter(c => c.startsWith('2'));
@@ -775,7 +775,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             })()}
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Cache Status</Label>
+                                            <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Cache Status</Label>
                                             <MultiSelectDropdown
                                                 options={availableCacheStatuses.map(status => ({ label: status, value: status }))}
                                                 selected={
@@ -808,7 +808,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <div className="flex items-center gap-2">
                                         <Hash className="w-4 h-4 text-cyan-600" />
-                                        <Label className="text-xs uppercase tracking-wide text-cyan-700 dark:text-cyan-300 font-medium">
+                                        <Label className="text-sm uppercase tracking-wide text-cyan-700 dark:text-cyan-300 font-semibold">
                                             Job ID Filter
                                         </Label>
                                         <InfoTooltip
@@ -1244,7 +1244,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <div className="flex items-center gap-2 mb-2 px-2 bg-slate-50 dark:bg-slate-900/50 py-1.5 rounded-md border border-slate-100 dark:border-slate-800">
                                                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: eventColors[childEvent] || '#8884d8' }} />
                                                 <span className="font-semibold text-sm text-foreground">
-                                                    {eventNames[childEvent] || childEvent}
+                                                    {eventNames[String(childEvent)] || `Event ${childEvent}`}
                                                 </span>
                                             </div>
                                             <PercentageGraph
@@ -1517,6 +1517,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             dateRange={dateRange}
                                             eventKeys={filteredEventKeys}
                                             eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                            eventNames={eventNames}
                                             eventStats={eventStatsForBadges}
                                             selectedEventKey={overlaySelectedEventKey}
                                             onEventClick={handleOverlayEventClick}
@@ -1570,6 +1571,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             dateRange={dateRange}
                                             eventKeys={filteredEventKeys}
                                             eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                            eventNames={eventNames}
                                             eventStats={eventStatsForBadges}
                                             selectedEventKey={overlaySelectedEventKey}
                                             onEventClick={handleOverlayEventClick}
@@ -1635,14 +1637,14 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {/* Hourly/Daily Toggle */}
-                                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                 <button
                                                     onClick={() => setHourlyOverride?.(true)}
                                                     className={cn(
-                                                        "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                        "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                         isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
                                                     )}
                                                 >
                                                     Hourly
@@ -1650,10 +1652,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <button
                                                     onClick={() => setHourlyOverride?.(false)}
                                                     className={cn(
-                                                        "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                        "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                         !isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
                                                     )}
                                                 >
                                                     Daily
@@ -1662,7 +1664,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                className="h-9 text-sm font-semibold bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-4"
                                                 onClick={() => {
                                                     setPanelChartType(prev => {
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -1794,6 +1796,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 dateRange={dateRange}
                                                                 eventKeys={filteredEventKeys}
                                                                 eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                eventNames={eventNames}
                                                                 eventStats={filteredEventStats}
                                                                 selectedEventKey={overlaySelectedEventKey}
                                                                 onEventClick={handleOverlayEventClick}
@@ -2113,8 +2116,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                                            <Clock className="h-5 w-5 text-white" />
+                                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                            <Clock className="h-6 w-6 text-white" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <CardTitle className="text-base md:text-lg">Time Delay Trends</CardTitle>
@@ -2125,7 +2128,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isAvg Events</span>
+                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isAvg Events</span>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -2288,8 +2291,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 <CardHeader className="pb-2 px-3 md:px-6">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                                <Activity className="h-5 w-5 text-white" />
+                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                                <Activity className="h-6 w-6 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
@@ -2300,7 +2303,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">API Events</span>
+                                            <span className="text-xs font-semibold px-2.5 py-1 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">API Events</span>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -2320,15 +2323,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     )}
 
                                     {/* Tabs for different metrics */}
-                                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
                                         {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
                                             <button
                                                 key={tab}
                                                 onClick={() => setApiMetricView(tab as any)}
                                                 className={cn(
-                                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
+                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                                     apiMetricView === tab
-                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
                                                         : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                                                 )}
                                             >

@@ -249,9 +249,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             <div className="relative flex justify-center">
                                 <div className="px-6 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-600 rounded-full shadow-lg">
                                     <span className="text-white font-bold text-sm flex items-center gap-2">
-                                        <Layers className="w-4 h-4" />
+                                        <Layers className="w-5 h-5" />
                                         {panelConfig?.isApiEvent && (
-                                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-white/30 backdrop-blur-sm border border-white/50">
+                                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/30 backdrop-blur-sm border border-white/50">
                                                 API
                                             </span>
                                         )}
@@ -277,7 +277,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             <p className="text-sm text-muted-foreground flex items-center gap-2">
                                                 {panelConfig?.isApiEvent && (
                                                     <>
-                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
+                                                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
                                                             API
                                                         </span>
                                                         <span className="text-muted-foreground">•</span>
@@ -308,14 +308,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
-                                            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
+                                            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                                                 {isPanelLoading ? <Skeleton className="h-4 w-12" /> : pTotalCount.toLocaleString()} total
                                             </span>
                                             <InfoTooltip content="Sum of all events recorded for this panel and its filters." />
                                         </div>
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
-                                            <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
+                                            <span className="text-sm font-medium text-green-700 dark:text-green-300">
                                                 {isPanelLoading ? <Skeleton className="h-4 w-10" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}% success
                                             </span>
                                             <InfoTooltip content="Percentage of events that completed successfully in this panel." />
@@ -420,14 +420,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
                                                         />
                                                     </div>
-                                                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                         <button
                                                             onClick={() => setHourlyOverride?.(true)}
                                                             className={cn(
-                                                                "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                 pIsHourly
                                                                     ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                             )}
                                                         >
                                                             Hourly
@@ -435,10 +435,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         <button
                                                             onClick={() => setHourlyOverride?.(false)}
                                                             className={cn(
-                                                                "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                 !pIsHourly
                                                                     ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                             )}
                                                         >
                                                             Daily
@@ -1323,41 +1323,94 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                                         {panelConfig?.isApiEvent && apiEventKeyInfos.length > 0 && (
                                             <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl">
-                                                <CardHeader className="pb-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
-                                                                <button
-                                                                    key={tab}
-                                                                    onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
-                                                                    className={cn(
-                                                                        "px-2.5 py-1 text-xs font-medium rounded-lg transition-all",
-                                                                        panelMetricView === tab
-                                                                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                                                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                                                    )}
-                                                                >
-                                                                    {tab === 'timing' && '⏱️ Time (Avg)'}
-                                                                    {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
-                                                                    {tab === 'timing-anomaly' && '⚠️ Anomalies'}
-                                                                    {tab === 'bytes' && '📤 Bytes Out'}
-                                                                    {tab === 'bytes-in' && '📥 Bytes In'}
-                                                                    {tab === 'count' && '📈 Count'}
-                                                                </button>
-                                                            ))}
+                                                <CardHeader className="pb-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
+                                                    <div className="flex items-center justify-between flex-wrap gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                                                <Activity className="h-6 w-6 text-white" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
+                                                                <p className="text-sm text-muted-foreground mt-0.5 font-medium">
+                                                                    <span className="hidden md:inline">Response times, data transfer, and status code distribution</span>
+                                                                    <span className="md:hidden">API timing and status metrics</span>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-semibold px-2.5 py-1 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">API Events</span>
                                                         </div>
                                                     </div>
                                                 </CardHeader>
-                                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                                    <div className="h-[280px] md:h-[360px] w-full">
+                                                <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
+                                                    {/* Collapsible Legend */}
+                                                    {apiEventKeyInfos.length > 0 && (
+                                                        <CollapsibleLegend
+                                                            eventKeys={apiEventKeyInfos as any}
+                                                            events={events}
+                                                            isExpanded={panelLegendExpanded?.[`${panel.panelId}_api`] || false}
+                                                            onToggle={() => togglePanelLegend?.(`${panel.panelId}_api`)}
+                                                            maxVisibleItems={5}
+                                                            graphData={panelApiSeries}
+                                                        />
+                                                    )}
+
+                                                    {/* Tabs for different metrics */}
+                                                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
+                                                        {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
+                                                            <button
+                                                                key={tab}
+                                                                onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
+                                                                className={cn(
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                                    panelMetricView === tab
+                                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
+                                                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                                )}
+                                                            >
+                                                                {tab === 'timing' && '⏱️ Time (Avg)'}
+                                                                {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
+                                                                {tab === 'timing-anomaly' && '⚠️ Anomalies'}
+                                                                {tab === 'bytes' && '📤 Bytes Out (Avg)'}
+                                                                {tab === 'bytes-in' && '📥 Bytes In (Avg)'}
+                                                                {tab === 'count' && '📈 Request Count'}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Info box for anomaly detection */}
+                                                    {panelMetricView === 'timing-anomaly' && (
+                                                        <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                                            <div className="flex items-start gap-2">
+                                                                <span className="text-amber-600 dark:text-amber-400 text-lg">⚠️</span>
+                                                                <div className="flex-1">
+                                                                    <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mb-1">
+                                                                        Anomaly Detection Active
+                                                                    </p>
+                                                                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                                        Red dots highlight response times exceeding 2 standard deviations above the mean.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
                                                         {panelApiSeries.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
+                                                                <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
                                                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
+                                                                    <XAxis 
+                                                                        dataKey="date" 
+                                                                        tick={<CustomXAxisTick isHourly={pIsHourly} />} 
+                                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                                        tickLine={false} 
+                                                                        height={45} 
+                                                                        interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} 
+                                                                    />
                                                                     <YAxis
                                                                         tick={{ fill: '#3b82f6', fontSize: 11 }}
+                                                                        width={60}
                                                                         axisLine={false}
                                                                         tickLine={false}
                                                                         tickFormatter={(value) => {
@@ -1374,12 +1427,6 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
                                                                             if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
                                                                             return value;
-                                                                        }}
-                                                                        label={{
-                                                                            value: panelMetricView?.startsWith('timing') ? 'Time (ms)' : panelMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count',
-                                                                            angle: -90,
-                                                                            position: 'insideLeft',
-                                                                            style: { fill: '#3b82f6', fontSize: 10 }
                                                                         }}
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
@@ -1419,7 +1466,13 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 </AreaChart>
                                                             </ResponsiveContainer>
                                                         ) : (
-                                                            <div className="h-full flex items-center justify-center text-muted-foreground">No API performance data</div>
+                                                            <div className="h-full flex items-center justify-center text-muted-foreground">
+                                                                <div className="text-center">
+                                                                    <Activity className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                                                                    <p className="text-sm font-medium">No API performance data</p>
+                                                                    <p className="text-xs text-muted-foreground mt-1">Select events and apply filters to view metrics</p>
+                                                                </div>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </CardContent>
@@ -1651,41 +1704,94 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                                         {panelConfig?.isApiEvent && apiEventKeyInfos.length > 0 && (
                                             <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl">
-                                                <CardHeader className="pb-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
-                                                                <button
-                                                                    key={tab}
-                                                                    onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
-                                                                    className={cn(
-                                                                        "px-2.5 py-1 text-xs font-medium rounded-lg transition-all",
-                                                                        panelMetricView === tab
-                                                                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                                                                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                                                    )}
-                                                                >
-                                                                    {tab === 'timing' && '⏱️ Time (Avg)'}
-                                                                    {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
-                                                                    {tab === 'timing-anomaly' && '⚠️ Anomalies'}
-                                                                    {tab === 'bytes' && '📤 Bytes Out'}
-                                                                    {tab === 'bytes-in' && '📥 Bytes In'}
-                                                                    {tab === 'count' && '📈 Count'}
-                                                                </button>
-                                                            ))}
+                                                <CardHeader className="pb-2 bg-gradient-to-r from-blue-50/80 to-indigo-50/60 dark:from-blue-900/20 dark:to-indigo-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
+                                                    <div className="flex items-center justify-between flex-wrap gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                                                                <Activity className="h-6 w-6 text-white" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
+                                                                <p className="text-sm text-muted-foreground mt-0.5 font-medium">
+                                                                    <span className="hidden md:inline">Response times, data transfer, and status code distribution</span>
+                                                                    <span className="md:hidden">API timing and status metrics</span>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs font-semibold px-2.5 py-1 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">API Events</span>
                                                         </div>
                                                     </div>
                                                 </CardHeader>
-                                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                                    <div className="h-[280px] md:h-[360px] w-full">
+                                                <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
+                                                    {/* Collapsible Legend */}
+                                                    {apiEventKeyInfos.length > 0 && (
+                                                        <CollapsibleLegend
+                                                            eventKeys={apiEventKeyInfos as any}
+                                                            events={events}
+                                                            isExpanded={panelLegendExpanded?.[`${panel.panelId}_api_funnel`] || false}
+                                                            onToggle={() => togglePanelLegend?.(`${panel.panelId}_api_funnel`)}
+                                                            maxVisibleItems={5}
+                                                            graphData={panelApiSeries}
+                                                        />
+                                                    )}
+
+                                                    {/* Tabs for different metrics */}
+                                                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
+                                                        {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
+                                                            <button
+                                                                key={tab}
+                                                                onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
+                                                                className={cn(
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                                    panelMetricView === tab
+                                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
+                                                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                                )}
+                                                            >
+                                                                {tab === 'timing' && '⏱️ Time (Avg)'}
+                                                                {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
+                                                                {tab === 'timing-anomaly' && '⚠️ Anomalies'}
+                                                                {tab === 'bytes' && '📤 Bytes Out (Avg)'}
+                                                                {tab === 'bytes-in' && '📥 Bytes In (Avg)'}
+                                                                {tab === 'count' && '📈 Request Count'}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Info box for anomaly detection */}
+                                                    {panelMetricView === 'timing-anomaly' && (
+                                                        <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                                                            <div className="flex items-start gap-2">
+                                                                <span className="text-amber-600 dark:text-amber-400 text-lg">⚠️</span>
+                                                                <div className="flex-1">
+                                                                    <p className="text-xs text-amber-800 dark:text-amber-300 font-medium mb-1">
+                                                                        Anomaly Detection Active
+                                                                    </p>
+                                                                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                                                                        Red dots highlight response times exceeding 2 standard deviations above the mean.
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
                                                         {panelApiSeries.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
-                                                                <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
+                                                                <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
                                                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
+                                                                    <XAxis 
+                                                                        dataKey="date" 
+                                                                        tick={<CustomXAxisTick isHourly={pIsHourly} />} 
+                                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                                        tickLine={false} 
+                                                                        height={45} 
+                                                                        interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} 
+                                                                    />
                                                                     <YAxis
                                                                         tick={{ fill: '#3b82f6', fontSize: 11 }}
+                                                                        width={60}
                                                                         axisLine={false}
                                                                         tickLine={false}
                                                                         tickFormatter={(value) => {
@@ -1702,12 +1808,6 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
                                                                             if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
                                                                             return value;
-                                                                        }}
-                                                                        label={{
-                                                                            value: panelMetricView?.startsWith('timing') ? 'Time (ms)' : panelMetricView?.startsWith('bytes') ? 'Data (bytes)' : 'Count',
-                                                                            angle: -90,
-                                                                            position: 'insideLeft',
-                                                                            style: { fill: '#3b82f6', fontSize: 10 }
                                                                         }}
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
@@ -1747,7 +1847,13 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 </AreaChart>
                                                             </ResponsiveContainer>
                                                         ) : (
-                                                            <div className="h-full flex items-center justify-center text-muted-foreground">No API performance data</div>
+                                                            <div className="h-full flex items-center justify-center text-muted-foreground">
+                                                                <div className="text-center">
+                                                                    <Activity className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                                                                    <p className="text-sm font-medium">No API performance data</p>
+                                                                    <p className="text-xs text-muted-foreground mt-1">Select events and apply filters to view metrics</p>
+                                                                </div>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </CardContent>
@@ -1773,20 +1879,20 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
-                                                        <Activity className="w-4 h-4 text-purple-500" />
+                                                        <Activity className="w-5 h-5 text-purple-500" />
                                                         <CardTitle className="text-base font-semibold">Event Trends (Count)</CardTitle>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-muted-foreground">{pNormalEventKeys.length} events</span>
+                                                        <span className="text-sm text-muted-foreground font-medium">{pNormalEventKeys.length} events</span>
                                                         {/* Hourly/Daily Toggle */}
-                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                             <button
                                                                 onClick={() => setHourlyOverride?.(true)}
                                                                 className={cn(
-                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     pIsHourly
                                                                         ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                                 )}
                                                             >
                                                                 Hourly
@@ -1794,10 +1900,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             <button
                                                                 onClick={() => setHourlyOverride?.(false)}
                                                                 className={cn(
-                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     !pIsHourly
                                                                         ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                                 )}
                                                             >
                                                                 Daily
@@ -1806,7 +1912,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         <Button
                                                             variant="outline"
                                                             size="sm"
-                                                            className="h-7 text-xs bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                            className="h-9 text-sm font-semibold bg-white dark:bg-slate-800 border-purple-300 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
                                                             onClick={() => {
                                                                 setPanelChartType?.((prev: any) => {
                                                                     const current = prev?.[panel.panelId] ?? 'default';
@@ -2022,6 +2128,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         dateRange={currentPanelDateRange}
                                                         eventKeys={filteredEventKeys}
                                                         eventColors={eventColors}
+                                                        eventNames={eventNames}
                                                         eventStats={pEventStatsForBadges}
                                                         selectedEventKey={selectedEventKey}
                                                         onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
@@ -2086,6 +2193,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         dateRange={currentPanelDateRange}
                                                         eventKeys={filteredEventKeys}
                                                         eventColors={eventColors}
+                                                        eventNames={eventNames}
                                                         eventStats={pEventStatsForBadges}
                                                         selectedEventKey={selectedEventKey}
                                                         onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
@@ -2263,19 +2371,19 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
-                                                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                                                        <AlertTriangle className="w-5 h-5 text-red-500" />
                                                         <CardTitle className="text-base font-semibold">Error Event Trends (Combined)</CardTitle>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         {/* Hourly/Daily Toggle */}
-                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                             <button
                                                                 onClick={() => setHourlyOverride?.(true)}
                                                                 className={cn(
-                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     pIsHourly
                                                                         ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                                 )}
                                                             >
                                                                 Hourly
@@ -2283,16 +2391,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             <button
                                                                 onClick={() => setHourlyOverride?.(false)}
                                                                 className={cn(
-                                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     !pIsHourly
                                                                         ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                                 )}
                                                             >
                                                                 Daily
                                                             </button>
                                                         </div>
-                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
+                                                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
                                                     </div>
                                                 </div>
                                             </CardHeader>

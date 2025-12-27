@@ -435,7 +435,7 @@ export function PercentageGraph({
                     }
                 } else {
                     // Processed data - use existing key-based logic
-                    const baseName = eventNames[eventId] || `Event ${eventId}`;
+                    const baseName = eventNames[String(eventId)] || `Event ${eventId}`;
                     const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
 
                     // Check if this is an API event by looking for status/cache breakdown in the data
@@ -525,7 +525,7 @@ export function PercentageGraph({
                 } else {
                     // Processed data - use existing key-based logic
                     if (hasStatusFilter || hasCacheFilter) {
-                        const baseName = eventNames[eventId] || `Event ${eventId}`;
+                        const baseName = eventNames[String(eventId)] || `Event ${eventId}`;
                         const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
 
                         if (hasStatusFilter && hasCacheFilter) {
@@ -696,8 +696,8 @@ export function PercentageGraph({
         // Build pie data from aggregated counts
         return childEvents.map((eventId, index) => {
             const totalCount = totalCounts[eventId] || 0;
-            const name = eventNames[eventId] || `Event ${eventId}`;
-            const color = eventColors[eventId] || premiumColors[index % premiumColors.length];
+            const name = eventNames[String(eventId)] || `Event ${eventId}`;
+            const color = eventColors[String(eventId)] || premiumColors[index % premiumColors.length];
 
             return {
                 name,
@@ -775,7 +775,7 @@ export function PercentageGraph({
             // Parent = all status codes (not just 2xx)
             return 'All Status Codes';
         }
-        return parentEvents.map((id: string) => eventNames[id] || id).join(', ');
+        return parentEvents.map((id: string) => eventNames[String(id)] || `Event ${id}`).join(', ');
     };
 
     const getChildEventNames = () => {
@@ -789,7 +789,7 @@ export function PercentageGraph({
             }
             return parts.length > 0 ? parts.join(' | ') : 'All';
         }
-        return childEvents.map((id: string) => eventNames[id] || id).join(', ');
+        return childEvents.map((id: string) => eventNames[String(id)] || `Event ${id}`).join(', ');
     };
 
     // Handler for reliable click events
@@ -805,12 +805,12 @@ export function PercentageGraph({
                 <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-purple-50/80 to-violet-50/60 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-200/40 dark:border-purple-500/20">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg">
-                                <Percent className="h-5 w-5 text-white" />
+                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg">
+                                <Percent className="h-6 w-6 text-white" />
                             </div>
                             <div>
                                 <CardTitle className="text-base md:text-lg">Percentage Analysis</CardTitle>
-                                <p className="text-xs text-muted-foreground mt-0.5">
+                                <p className="text-sm text-muted-foreground mt-0.5 font-medium">
                                     Child/Parent Event Ratio • {isHourly ? 'Hourly' : 'Daily'} Breakdown
                                 </p>
                             </div>
@@ -818,11 +818,11 @@ export function PercentageGraph({
                         <div className="flex items-center gap-3">
                             {/* Day-wise / Hourly Toggle */}
                             {onToggleHourly && (
-                                <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-800/80 rounded-lg border border-purple-200 dark:border-purple-500/30 p-0.5">
+                                <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-purple-200 dark:border-purple-500/30 p-1 shadow-sm">
                                     <button
                                         onClick={() => onToggleHourly(false)}
                                         className={cn(
-                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             !isHourly
                                                 ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm"
                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -833,7 +833,7 @@ export function PercentageGraph({
                                     <button
                                         onClick={() => onToggleHourly(true)}
                                         className={cn(
-                                            "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             isHourly
                                                 ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm"
                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -848,9 +848,9 @@ export function PercentageGraph({
                                     variant="outline"
                                     size="sm"
                                     onClick={onToggleBackToFunnel}
-                                    className="text-xs font-medium bg-white/80 hover:bg-white border-purple-300 text-purple-700 hover:text-purple-800"
+                                    className="text-sm font-semibold bg-white/80 hover:bg-white border-purple-300 text-purple-700 hover:text-purple-800 h-10 px-4"
                                 >
-                                    <BarChart3 className="h-3 w-3 mr-1" />
+                                    <BarChart3 className="h-4 w-4 mr-1.5" />
                                     Back to Funnel
                                 </Button>
                             )}
@@ -869,8 +869,8 @@ export function PercentageGraph({
                                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                                     {overallStats.totalParent.toLocaleString()}
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1">Parent Events (Left)</div>
-                                <div className="text-xs text-muted-foreground truncate" title={getParentEventNames()}>
+                                <div className="text-sm text-muted-foreground mt-1 font-medium">Parent Events (Left)</div>
+                                <div className="text-sm text-muted-foreground truncate" title={getParentEventNames()}>
                                     {getParentEventNames()}
                                 </div>
                             </div>
@@ -878,8 +878,8 @@ export function PercentageGraph({
                                 <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                                     {overallStats.percentage.toFixed(2)}%
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1">Overall Ratio</div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-sm text-muted-foreground mt-1 font-medium">Overall Ratio</div>
+                                <div className="text-sm text-muted-foreground">
                                     Range: {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
                                 </div>
                             </div>
@@ -887,8 +887,8 @@ export function PercentageGraph({
                                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                                     {overallStats.totalChild.toLocaleString()}
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1">Child Events (Right)</div>
-                                <div className="text-xs text-muted-foreground truncate" title={getChildEventNames()}>
+                                <div className="text-sm text-muted-foreground mt-1 font-medium">Child Events (Right)</div>
+                                <div className="text-sm text-muted-foreground truncate" title={getChildEventNames()}>
                                     {getChildEventNames()}
                                 </div>
                             </div>
@@ -965,7 +965,7 @@ export function PercentageGraph({
                                             // Custom tooltip for "Same Parent/Child" mode (Dual Success/Fail lines)
                                             if (data.isSameParentChild) {
                                                 const eventId = childEvents[0];
-                                                const eventName = eventId ? (eventNames[eventId] || `Event ${eventId}`) : 'Event';
+                                                const eventName = eventId ? (eventNames[String(eventId)] || `Event ${eventId}`) : 'Event';
 
                                                 return (
                                                     <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
@@ -1036,8 +1036,8 @@ export function PercentageGraph({
                                                                     {filteredChildEntries.map(([key, count], idx) => {
                                                                         const displayLabel = isApiEventMode
                                                                             ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : key)
-                                                                            : (eventNames[key] || key);
+                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
+                                                                            : (eventNames[String(key)] || `Event ${key}`);
                                                                         // Use color from eventColors or fallback to premium colors
                                                                         const colors = ['#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#6366f1', '#ec4899'];
                                                                         const color = eventColors[key] || colors[idx % colors.length];
@@ -1063,8 +1063,8 @@ export function PercentageGraph({
                                                                     {filteredParentEntries.map(([key, count], idx) => {
                                                                         const displayLabel = isApiEventMode
                                                                             ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : key)
-                                                                            : (eventNames[key] || key);
+                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
+                                                                            : (eventNames[String(key)] || `Event ${key}`);
                                                                         const colors = ['#3b82f6', '#14b8a6', '#a855f7', '#f97316', '#22c55e'];
                                                                         const color = eventColors[key] || colors[idx % colors.length];
                                                                         return (
@@ -1168,7 +1168,7 @@ export function PercentageGraph({
                                         const displayName = isApiEventMode
                                             ? (childId.startsWith('status_') ? `Status ${childId.replace('status_', '')}` :
                                                 childId.startsWith('cache_') ? `Cache: ${childId.replace('cache_', '')}` : childId)
-                                            : (eventNames[childId] || childId);
+                                            : (eventNames[String(childId)] || `Event ${childId}`);
 
                                         // Apply line selection filtering
                                         const isLineSelected = selectedLineId === null || selectedLineId === childId;
@@ -1315,7 +1315,7 @@ export function PercentageGraph({
                                         const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
                                         const color = eventColors[eventId] || colors[originalIndex % colors.length];
 
-                                        const name = eventNames[eventId] || `Event ${eventId}`;
+                                        const name = eventNames[String(eventId)] || `Event ${eventId}`;
                                         const isSelected = selectedLineId === eventId;
                                         const avgStr = avg.toFixed(1);
 
@@ -1564,7 +1564,7 @@ export function PercentageGraph({
                                                                 const displayLabel = isApiEventMode
                                                                     ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
                                                                         (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
-                                                                    : (eventNames[key] || key);
+                                                                    : (eventNames[String(key)] || `Event ${key}`);
                                                                 return (
                                                                     <div
                                                                         key={key}
@@ -1633,7 +1633,7 @@ export function PercentageGraph({
                                                                 ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
                                                                     key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` :
                                                                         (key.match(/\d+/) ? `Status ${key.match(/\d+/)?.[0]}` : key))
-                                                                : (eventNames[key] || key);
+                                                                : (eventNames[String(key)] || `Event ${key}`);
                                                             const color = eventColors[key] || premiumColors[index % premiumColors.length];
                                                             return { key, count, displayLabel, color };
                                                         })

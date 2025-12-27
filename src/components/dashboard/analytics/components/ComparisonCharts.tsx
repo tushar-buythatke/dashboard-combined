@@ -23,6 +23,7 @@ interface ComparisonChartsProps {
     dateRange: { from: Date; to: Date };
     eventKeys: string[];
     eventColors: Record<string, string>;
+    eventNames?: Record<string, string>;
     eventStats?: Array<{ eventKey: string; eventId: string; total: number; successRate: number }>;
     selectedEventKey?: string | null;
     onEventClick?: (eventKey: string) => void;
@@ -32,7 +33,7 @@ interface ComparisonChartsProps {
  * 8-Day Overlay Comparison Chart
  * Shows up to 7 different days overlaid on the same graph for day-wise comparison
  */
-export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
+export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventNames = {}, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
 
     // Group data by day
@@ -200,23 +201,23 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
             <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-indigo-900/20 dark:to-purple-900/10 border-b border-indigo-200/40 dark:border-indigo-500/20">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-                            <Calendar className="h-5 w-5 text-white" />
+                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                            <Calendar className="h-6 w-6 text-white" />
                         </div>
                         <div>
                             <CardTitle className="text-base md:text-lg">8-Day Overlay Comparison</CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="text-sm text-muted-foreground mt-0.5 font-medium">
                                 Compare patterns across different days
                             </p>
                         </div>
                     </div>
                     <div className="hidden sm:flex items-center gap-2">
-                        <span className="text-[11px] text-muted-foreground">Highlight</span>
+                        <span className="text-sm text-muted-foreground font-medium">Highlight</span>
                         <Button
                             type="button"
                             variant={highlightRecentTwo ? 'default' : 'outline'}
                             size="sm"
-                            className="h-7 px-2 text-[11px] rounded-full"
+                            className="h-9 px-4 text-sm font-semibold rounded-lg"
                             onClick={() => setHighlightRecentTwo((prev) => !prev)}
                         >
                             {highlightRecentTwo ? 'Today + last 2' : 'Legend selected'}
@@ -266,15 +267,17 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                     <div
                                         key={stat.eventKey}
                                         onClick={() => onEventClick?.(stat.eventKey)}
-                                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer transition-all ${isSelected
+                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all ${isSelected
                                             ? 'bg-purple-100 dark:bg-purple-900/40 border-2 border-purple-500 shadow-md scale-105'
                                             : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-102'
                                             }`}
                                     >
-                                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: badgeColor }} />
-                                        <span className={`text-[11px] font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>{stat.eventKey}</span>
-                                        <span className={`text-[11px] font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
+                                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: badgeColor }} />
+                                        <span className={`text-sm font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                                            {eventNames[String(stat.eventId)] || stat.eventKey}
+                                        </span>
+                                        <span className={`text-sm font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
+                                        <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
                                             {stat.successRate.toFixed(0)}%
                                         </span>
                                     </div>
@@ -285,14 +288,14 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
             </CardHeader>
             <CardContent className="p-4 md:p-6 bg-gradient-to-br from-indigo-50/30 to-purple-50/20 dark:from-indigo-900/10 dark:to-purple-900/5">
                 {/* Smart summary chips */}
-                <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
+                <div className="mb-3 flex flex-wrap gap-2 text-sm">
                     {peakHourTime && peakHourValue != null && (
-                        <div className="px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200">
+                        <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
                             Peak hour today: {peakHourTime} ({Math.round(peakHourValue)})
                         </div>
                     )}
                     {todayVsAvgPct != null && (
-                        <div className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
+                        <div className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200 font-medium">
                             {todayVsAvgPct >= 0 ? '▲' : '▼'} Today vs 7-day avg: {todayVsAvgPct >= 0 ? '+' : ''}{todayVsAvgPct.toFixed(0)}%
                         </div>
                     )}
@@ -427,12 +430,12 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
             <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-cyan-50/80 to-blue-50/60 dark:from-cyan-900/20 dark:to-blue-900/10 border-b border-cyan-200/40 dark:border-cyan-500/20">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
-                            <Clock className="h-5 w-5 text-white" />
+                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+                            <Clock className="h-6 w-6 text-white" />
                         </div>
                         <div>
                             <CardTitle className="text-base md:text-lg">Hourly Deviation Analysis</CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="text-sm text-muted-foreground mt-0.5 font-medium">
                                 See hourly patterns with min/max deviation
                             </p>
                         </div>
@@ -503,7 +506,7 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
  * Average Line Overlay for Daily Data (>7 days)
  * Shows daily trends with average line to identify dips
  */
-export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
+export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eventNames = {}, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
 
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
@@ -570,12 +573,12 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
             <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-emerald-50/80 to-green-50/60 dark:from-emerald-900/20 dark:to-green-900/10 border-b border-emerald-200/40 dark:border-emerald-500/20">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg">
-                            <TrendingUp className="h-5 w-5 text-white" />
+                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg">
+                            <TrendingUp className="h-6 w-6 text-white" />
                         </div>
                         <div>
                             <CardTitle className="text-base md:text-lg">Daily Trends with Average Line</CardTitle>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="text-sm text-muted-foreground mt-0.5 font-medium">
                                 {daysDiff} days • Average: {overallAvg.toFixed(2)}
                             </p>
                         </div>
@@ -610,16 +613,16 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     key={stat.eventKey}
                                     onClick={() => onEventClick?.(stat.eventKey)}
                                     className={cn(
-                                        'px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all duration-200',
+                                        'px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all duration-200',
                                         'hover:scale-105 cursor-pointer',
                                         isSelected
                                             ? `${bgColor} ${borderColor} ${textColor} shadow-md`
                                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 opacity-60 hover:opacity-100'
                                     )}
                                 >
-                                    <span className="font-semibold">{stat.eventKey}</span>
+                                    <span className="font-semibold">{eventNames[String(stat.eventId)] || stat.eventKey}</span>
                                     <span className="ml-2 opacity-75">{stat.total.toLocaleString()}</span>
-                                    <span className="ml-1.5 text-[10px] opacity-60">({stat.successRate.toFixed(1)}%)</span>
+                                    <span className="ml-1.5 text-xs opacity-60">({stat.successRate.toFixed(1)}%)</span>
                                 </button>
                             );
                         })}
