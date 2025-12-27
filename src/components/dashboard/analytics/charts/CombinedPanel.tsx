@@ -7,7 +7,7 @@ interface CombinedPanelProps {
     data: AnalyticsDataResponse | null;
 }
 
-const COLORS = ['#4ECDC4', '#FF6B6B', '#FFE66D', '#1A535C', '#FF9F1C', '#2EC4B6'];
+const COLORS = ['#0D9488', '#DC2626', '#F59E0B', '#0F766E', '#EA580C', '#0891B2'];
 
 export function CombinedPanel({ panel, data }: CombinedPanelProps) {
     if (!data) return <div className="h-64 flex items-center justify-center">Loading data...</div>;

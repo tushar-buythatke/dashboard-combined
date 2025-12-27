@@ -330,8 +330,15 @@ export class APIService {
 
             // Transform to EventConfig format
             const colors = [
-                '#4ECDC4', '#FF6B6B', '#FFE66D', '#1A535C', '#FF9F1C',
-                '#2EC4B6', '#E71D36', '#95E1D3', '#F38181', '#FCE38A', '#EAFFD0'
+                '#0891B2', // Cyan - cool, calm
+                '#DC2626', // Red - warm accent
+                '#F59E0B', // Amber - warm mid-tone
+                '#0F766E', // Teal - cool deep
+                '#EA580C', // Orange - warm vibrant
+                '#10B981', // Emerald - cool fresh
+                '#EC4899', // Pink - warm accent
+                '#84CC16', // Lime - bright accent
+                '#06B6D4'  // Light cyan - cool highlight
             ];
 
             // Regular events from eventMap
