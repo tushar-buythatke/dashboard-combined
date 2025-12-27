@@ -298,6 +298,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const autoIsHourly = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
     const isHourly = hourlyOverride !== null ? hourlyOverride : autoIsHourly;
 
+    // Per-panel hourly override state (panelId -> boolean | null)
+    // This allows each additional panel to have its own independent hourly/daily toggle
+    const [panelHourlyOverride, setPanelHourlyOverride] = useState<Record<string, boolean | null>>({});
+
+    const setPanelHourlyOverrideForId = useCallback((panelId: string, value: boolean | null) => {
+        setPanelHourlyOverride(prev => ({
+            ...prev,
+            [panelId]: value
+        }));
+    }, []);
+
     // Expanded pie chart modal state
     const [expandedPie, setExpandedPie] = useState<ExpandedPieData | null>(null);
     const [pieModalOpen, setPieModalOpen] = useState(false);
@@ -1921,9 +1932,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Check if this is a special graph (percentage or funnel)
             const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel';
 
-            // Determine effective hourly override: use global override directly
+            // Determine effective hourly override: use per-panel override if available, otherwise global defaults
             // Previously forced 'deviation' charts to hourly, but this prevented 'Daily' view from working
-            const effectiveHourlyOverride = hourlyOverride;
+            const panelOverride = panelHourlyOverride[panelId];
+            const effectiveHourlyOverride = (panelOverride !== undefined && panelOverride !== null)
+                ? panelOverride
+                : hourlyOverride;
+
+
 
             // OPTIMIZED: Make all 3 API calls IN PARALLEL for up to 3x speedup
             const eventIdsForSourceStr = eventIdsToFetch.map(id => typeof id === 'number' ? id : parseInt(id)).filter(id => !isNaN(id));
@@ -2038,7 +2054,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         } finally {
             setPanelLoading(prev => ({ ...prev, [panelId]: false }));
         }
-    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr, hourlyOverride, panelChartType]);
+    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr, hourlyOverride, panelHourlyOverride, panelChartType]);
 
     // NOTE: Additional panels use LAZY LOADING - they load data ONLY when:
     // 1. User clicks on the panel in the sidebar (see ProfileSidebar onPanelClick)
@@ -2464,7 +2480,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         } finally {
             setDataLoading(false);
         }
-    }, [profile, panelFiltersState, panelDateRanges, dateRange, events, processGraphData, extractSourceStrs]);
+    }, [profile, panelFiltersState, panelDateRanges, dateRange, events, processGraphData, extractSourceStrs, hourlyOverride, panelHourlyOverride]);
 
     useEffect(() => {
         // Auto-load data on initial mount AND when switching profiles
@@ -2578,28 +2594,41 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Refresh data when hourly/daily toggle changes
     const prevHourlyOverride = useRef<boolean | null>(null);
     const prevPanelChartType = useRef<Record<string, 'default' | 'deviation'>>({});
+    const prevPanelHourlyOverride = useRef<Record<string, boolean | null>>({});
 
     useEffect(() => {
-        // Trigger if hourlyOverride changed or panelChartType changed
+        // Trigger if hourlyOverride changed or panelChartType changed or per-panel logic changed
         const hourlyChanged = prevHourlyOverride.current !== hourlyOverride && prevHourlyOverride.current !== null;
         const chartTypeChanged = JSON.stringify(prevPanelChartType.current) !== JSON.stringify(panelChartType);
+        const panelHourlyChanged = JSON.stringify(prevPanelHourlyOverride.current) !== JSON.stringify(panelHourlyOverride);
 
-        if (hourlyChanged || chartTypeChanged) {
+        if (hourlyChanged || chartTypeChanged || panelHourlyChanged) {
             if (!loading && profile && events.length > 0 && initialLoadComplete.current) {
-                // Refresh main panel
-                if (profile.panels[0]?.panelId) {
+                // Refresh main panel - only if global override changed
+                if (hourlyChanged && profile.panels[0]?.panelId) {
                     refreshPanelData(profile.panels[0].panelId);
                 }
-                // Refresh current active panel if different
+                
+                // Refresh current active panel - always if any state changed that affects it
+                // For panelHourlyChanged, we technically only need to refresh IF the active panel is the one that changed.
+                // But refreshing the active panel is safe and cheap enough.
                 const activePanelId = profile.panels[activePanelIndex]?.panelId;
-                if (activePanelId && activePanelId !== profile.panels[0]?.panelId) {
-                    refreshPanelData(activePanelId);
+                // If main panel is active, we already refreshed it above (if global changed).
+                // If it's an additional panel, we must refresh it to pick up new panelOverride or global changes.
+                if (activePanelId) {
+                    if (activePanelId !== profile.panels[0]?.panelId) {
+                        refreshPanelData(activePanelId);
+                    } else if (!hourlyChanged && (chartTypeChanged || panelHourlyChanged)) {
+                         // If main panel is active, and global hourly didn't change, but chartType/panelOverride did, refresh it
+                         refreshPanelData(activePanelId);
+                    }
                 }
             }
         }
         prevHourlyOverride.current = hourlyOverride;
         prevPanelChartType.current = panelChartType;
-    }, [hourlyOverride, panelChartType, profile, loading, events.length, activePanelIndex, refreshPanelData]);
+        prevPanelHourlyOverride.current = panelHourlyOverride;
+    }, [hourlyOverride, panelChartType, panelHourlyOverride, profile, loading, events.length, activePanelIndex, refreshPanelData]);
 
     // Removed auto-fetch on filter changes - data loads automatically when switching profiles
     // User must click Apply Changes to update data after changing filters
@@ -3362,8 +3391,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         HourlyStatsCard={HourlyStatsCard}
                         // NEW: Pass active panel index to render only that panel
                         activePanelIndex={activePanelIndex}
-                        hourlyOverride={hourlyOverride}
-                        setHourlyOverride={setHourlyOverride}
+                        setIsHourly={() => { }} // Not used for additional panels, they use panelHourlyOverride
+
+                        hourlyOverride={hourlyOverride} // Global override (legacy/main)
+                        setHourlyOverride={setHourlyOverride} // Global setter (legacy/main)
+                        panelHourlyOverride={panelHourlyOverride}
+                        setPanelHourlyOverrideForId={setPanelHourlyOverrideForId}
                     />
                 )}
 
