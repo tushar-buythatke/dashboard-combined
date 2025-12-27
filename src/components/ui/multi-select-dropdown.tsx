@@ -37,7 +37,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
     // Filter options based on search query (searches both label and value)
     const filteredOptions = React.useMemo(() => {
         if (!searchQuery.trim()) return options;
-        
+
         const query = searchQuery.toLowerCase().trim();
         return options.filter(option => {
             const labelMatch = option.label.toLowerCase().includes(query);
@@ -103,7 +103,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
                     aria-expanded={open}
                     disabled={disabled}
                     className={cn(
-                        'w-full justify-between min-h-[40px] h-auto',
+                        'w-full justify-between min-h-[44px] h-auto text-sm',
                         selected.length === 0 && 'text-muted-foreground',
                         className
                     )}
@@ -112,8 +112,8 @@ export function MultiSelectDropdown<T extends string | number = string>({
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
             </PopoverTrigger>
-            <PopoverContent 
-                className="w-full min-w-[250px] max-w-[400px] p-0" 
+            <PopoverContent
+                className="w-full min-w-[250px] max-w-[400px] p-0"
                 align="start"
                 side="bottom"
                 sideOffset={4}
@@ -213,8 +213,8 @@ export function MultiSelectDropdown<T extends string | number = string>({
                                         className="text-xs flex items-center gap-1"
                                     >
                                         {option?.label || String(value)}
-                                        <X 
-                                            className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                                        <X
+                                            className="h-3 w-3 cursor-pointer hover:text-destructive"
                                             onClick={(e) => removeItem(value, e)}
                                         />
                                     </Badge>

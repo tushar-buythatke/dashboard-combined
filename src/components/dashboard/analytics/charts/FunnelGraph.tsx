@@ -73,7 +73,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
             data.forEach((record) => {
                 if (hasStatusFilter || hasCacheFilter) {
-                    const baseName = eventNames[stage.eventId] || `Event ${stage.eventId}`;
+                    const baseName = eventNames[String(stage.eventId)] || `Event ${stage.eventId}`;
                     const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
 
                     if (hasStatusFilter) {
@@ -151,7 +151,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
             return {
                 eventId: stage.eventId,
-                eventName: stage.eventName || eventNames[stage.eventId] || stage.eventId,
+                eventName: stage.eventName || eventNames[String(stage.eventId)] || `Event ${stage.eventId}`,
                 count: stage.count,
                 avgDelay: stage.avgDelay,
                 percentage: (stage.count / baseCount) * 100,
@@ -173,7 +173,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
                 data.forEach((record) => {
                     if (hasStatusFilter || hasCacheFilter) {
-                        const baseName = eventNames[childEventId] || `Event ${childEventId}`;
+                        const baseName = eventNames[String(childEventId)] || `Event ${childEventId}`;
                         const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
 
                         if (hasStatusFilter) {
@@ -203,7 +203,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 // For funnel graphs, we always use count (number of occurrences)
                 return {
                     eventId: childEventId,
-                    eventName: eventNames[childEventId] || childEventId,
+                    eventName: eventNames[String(childEventId)] || `Event ${childEventId}`,
                     count,
                     percentage: (count / baseCount) * 100,
                     color: funnelPalette[idx % funnelPalette.length],
@@ -253,8 +253,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 <CardHeader className="pb-4 px-6 bg-gradient-to-r from-blue-50/80 to-cyan-50/60 dark:from-blue-900/20 dark:to-cyan-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-                                <Filter className="h-5 w-5 text-white" />
+                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                                <Filter className="h-6 w-6 text-white" />
                             </div>
                             <div>
                                 <CardTitle className="text-base md:text-lg">Conversion Funnel</CardTitle>
@@ -264,19 +264,19 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <TrendingDown className="h-4 w-4" />
-                                <span>Success rate tracking</span>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <TrendingDown className="h-5 w-5" />
+                                <span className="font-medium">Success rate tracking</span>
                             </div>
                             {onToggleHourly && (
-                                <div className="flex bg-white dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                <div className="flex bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onToggleHourly(false); }}
                                         className={cn(
-                                            "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             !isHourly
                                                 ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shadow-sm"
-                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
                                         DAILY
@@ -284,10 +284,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onToggleHourly(true); }}
                                         className={cn(
-                                            "px-2 py-1 text-[10px] font-bold rounded-md transition-all",
+                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             isHourly
                                                 ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shadow-sm"
-                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
                                         HOURLY
@@ -307,7 +307,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     className="absolute left-0 w-full flex items-center"
                                     style={{ bottom: `${level}%` }}
                                 >
-                                    <span className="absolute -left-9 text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                                    <span className="absolute -left-9 text-xs font-medium text-gray-500 dark:text-gray-400">
                                         {level}%
                                     </span>
                                     <div className="w-full border-t border-dashed border-gray-300 dark:border-gray-600/50" />
@@ -371,17 +371,17 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             >
                                                 {/* Percentage label INSIDE the bar */}
                                                 <div className="absolute inset-0 flex items-center justify-center">
-                                                    <span className="text-white font-bold text-xs sm:text-sm md:text-base drop-shadow-lg">
+                                                    <span className="text-white font-bold text-sm sm:text-base md:text-lg drop-shadow-lg">
                                                         {stage.percentage.toFixed(1)}%
                                                     </span>
                                                 </div>
 
                                                 {/* Count on hover */}
                                                 <div className={cn(
-                                                    "absolute inset-x-0 top-2 flex items-center justify-center text-white text-[9px] sm:text-[10px] font-semibold px-1 transition-opacity",
+                                                    "absolute inset-x-0 top-2 flex items-center justify-center text-white text-xs sm:text-sm font-semibold px-1 transition-opacity",
                                                     isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                                                 )}>
-                                                    <span className="drop-shadow-lg bg-black/20 px-1.5 py-0.5 rounded text-center">
+                                                    <span className="drop-shadow-lg bg-black/20 px-2 py-1 rounded text-center">
                                                         {stage.count.toLocaleString()}
                                                     </span>
                                                 </div>
@@ -421,7 +421,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                             {/* Show INDIVIDUAL percentage for each segment */}
                                                             {child.percentage > 10 && (
                                                                 <div className="absolute inset-0 flex items-center justify-center">
-                                                                    <span className="text-white font-bold text-[10px] sm:text-xs drop-shadow-lg">
+                                                                    <span className="text-white font-bold text-xs sm:text-sm drop-shadow-lg">
                                                                         {child.percentage.toFixed(1)}%
                                                                     </span>
                                                                 </div>
@@ -432,10 +432,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
                                                 {/* Count on hover - NO total percentage overlay */}
                                                 <div className={cn(
-                                                    "absolute inset-x-0 top-2 flex items-center justify-center text-white text-[9px] sm:text-[10px] font-semibold px-1 transition-opacity",
+                                                    "absolute inset-x-0 top-2 flex items-center justify-center text-white text-xs sm:text-sm font-semibold px-1 transition-opacity",
                                                     isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                                                 )}>
-                                                    <span className="drop-shadow-lg bg-black/30 px-1.5 py-0.5 rounded text-center">
+                                                    <span className="drop-shadow-lg bg-black/30 px-2 py-1 rounded text-center">
                                                         {stage.count.toLocaleString()}
                                                     </span>
                                                 </div>
@@ -447,7 +447,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     <div className="mt-3 text-center w-full px-1">
                                         <div
                                             className={cn(
-                                                "text-[10px] sm:text-xs font-semibold transition-colors mb-1 truncate max-w-full",
+                                                "text-xs sm:text-sm font-semibold transition-colors mb-1 truncate max-w-full",
                                                 isSelected
                                                     ? "text-indigo-600 dark:text-indigo-400"
                                                     : "text-gray-700 dark:text-gray-300"
@@ -456,7 +456,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                         >
                                             {index + 1}. {stage.eventName}
                                         </div>
-                                        <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
                                             {stage.count.toLocaleString()} users
                                         </div>
                                     </div>
@@ -472,25 +472,25 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
                                     {funnelData[0]?.count.toLocaleString() || 0}
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1 font-medium">Started</div>
+                                <div className="text-sm text-muted-foreground mt-1 font-medium">Started</div>
                             </div>
                             <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200/50 dark:border-emerald-500/30">
                                 <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                                     {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1 font-medium">Completed</div>
+                                <div className="text-sm text-muted-foreground mt-1 font-medium">Completed</div>
                             </div>
                             <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-500/30">
                                 <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">
                                     {funnelData[funnelData.length - 1]?.percentage.toFixed(1)}%
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-1 font-medium">Conversion Rate</div>
+                                <div className="text-sm text-muted-foreground mt-1 font-medium">Conversion Rate</div>
                             </div>
                             <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-200/50 dark:border-orange-500/30 relative z-20">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full text-xs font-medium bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800 relative z-30 cursor-pointer"
+                                    className="w-full text-sm font-semibold bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800 relative z-30 cursor-pointer h-10"
                                     onClick={(e) => {
                                         e.stopPropagation(); // Prevent card clicks
                                         if (onViewAsPercentage && stages.length > 0) {
@@ -505,10 +505,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                         }
                                     }}
                                 >
-                                    <BarChart3 className="h-3 w-3 mr-1" />
+                                    <BarChart3 className="h-4 w-4 mr-1.5" />
                                     View as %
                                 </Button>
-                                <div className="text-xs text-muted-foreground mt-1 font-medium">All Stages Analysis</div>
+                                <div className="text-sm text-muted-foreground mt-1 font-medium">All Stages Analysis</div>
                             </div>
                         </div>
 

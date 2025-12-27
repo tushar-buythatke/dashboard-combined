@@ -20,10 +20,10 @@ const buttonVariants = cva(
           'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-[1.02]',
       },
       size: {
-        default: 'h-10 px-5 py-2 has-[>svg]:px-4',
+        default: 'h-11 px-5 py-2.5 has-[>svg]:px-4',
         sm: 'h-9 rounded-md gap-1.5 px-4 has-[>svg]:px-3',
-        lg: 'h-12 rounded-lg px-8 text-base has-[>svg]:px-5',
-        icon: 'size-10 rounded-lg',
+        lg: 'h-14 rounded-lg px-8 text-base has-[>svg]:px-6',
+        icon: 'size-11 rounded-lg',
       },
     },
     defaultVariants: {

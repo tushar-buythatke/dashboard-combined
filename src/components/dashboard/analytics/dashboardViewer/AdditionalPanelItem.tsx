@@ -423,9 +423,9 @@ export const AdditionalPanelItem = React.memo(({
                 <div className="relative flex justify-center">
                     <div className="px-6 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-600 rounded-full shadow-lg">
                         <span className="text-white font-bold text-sm flex items-center gap-2">
-                            <Layers className="w-4 h-4" />
+                            <Layers className="w-5 h-5" />
                             {panelConfig?.isApiEvent && (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-white/30 backdrop-blur-sm border border-white/50">
+                                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/30 backdrop-blur-sm border border-white/50">
                                     API
                                 </span>
                             )}
@@ -482,14 +482,14 @@ export const AdditionalPanelItem = React.memo(({
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
-                                <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                            <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
+                                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                                     {isPanelLoading ? <Skeleton className="h-4 w-12" /> : pTotalCount.toLocaleString()} total
                                 </span>
                                 <InfoTooltip content="Sum of all events recorded for this panel and its filters." />
                             </div>
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
-                                <span className="text-xs font-medium text-green-700 dark:text-green-300">
+                            <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
+                                <span className="text-sm font-medium text-green-700 dark:text-green-300">
                                     {isPanelLoading ? <Skeleton className="h-4 w-10" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}% success
                                 </span>
                                 <InfoTooltip content="Percentage of events that completed successfully in this panel." />
@@ -591,14 +591,14 @@ export const AdditionalPanelItem = React.memo(({
                                                 className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
                                             />
                                         </div>
-                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                             <button
                                                 onClick={() => setHourlyOverride('hourly')}
                                                 className={cn(
-                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                     pIsHourly
                                                         ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                 )}
                                             >
                                                 Hourly
@@ -606,10 +606,10 @@ export const AdditionalPanelItem = React.memo(({
                                             <button
                                                 onClick={() => setHourlyOverride('daily')}
                                                 className={cn(
-                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                     !pIsHourly
                                                         ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                 )}
                                             >
                                                 Daily
@@ -853,9 +853,9 @@ export const AdditionalPanelItem = React.memo(({
                                                 key={tab}
                                                 onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
                                                 className={cn(
-                                                    "px-2.5 py-1 text-xs font-medium rounded-lg transition-all",
+                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                                     panelMetricView === tab
-                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
                                                         : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                                                 )}
                                             >
