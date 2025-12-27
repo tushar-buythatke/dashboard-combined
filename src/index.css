@@ -10,15 +10,15 @@
 /* PREMIUM MODERN THEME - ENHANCED VISUAL DESIGN */
 :root {
   font-family: 'Inter Variable', Inter, system-ui, -apple-system, sans-serif;
-  line-height: 1.65;
+  line-height: 1.55;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'ss02', 'liga', 'kern';
-  font-variation-settings: 'opsz' 32;
-  letter-spacing: -0.015em;
+  font-variation-settings: 'opsz' 18;
+  letter-spacing: -0.01em;
   zoom: 100%; /* Global magnification */
 
   /* Light mode as default - clean white/purple */
