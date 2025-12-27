@@ -1,7 +1,9 @@
 
 // MVP: Use env var if available, else fallback to hardcoded (safety net for dev)
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
+// MVP: Use env var if available, else fallback to hardcoded (safety net for dev)
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+const PROXY_URL = '/api/analyze';
 
 export interface AiInsightContext {
     panelName: string;
@@ -15,77 +17,90 @@ export const generatePanelInsights = async (
     context: AiInsightContext
 ): Promise<string[]> => {
     try {
-        // 1. Pre-process data to reduce token count and improve relevance
+        // 1. Pre-process data
         const simplifiedData = simplifyData(graphData, context.metricType);
 
-        // Limit data points if too large (e.g. max 40 points)
-        const limitedData = simplifiedData.length > 40 
-            ? simplifiedData.filter((_, i) => i % Math.ceil(simplifiedData.length / 40) === 0) 
+        // Limit data
+        const limitedData = simplifiedData.length > 40
+            ? simplifiedData.filter((_, i) => i % Math.ceil(simplifiedData.length / 40) === 0)
             : simplifiedData;
 
-        // 2. Construct Prompt (Updated for User Requirements)
-        const prompt = `
-        You are a witty senior data analyst. Analyze this JSON data for panel "${context.panelName}".
-        Context: ${context.period}.
-        Metric: ${context.metricType}.
-        Events involved: ${context.eventNames.join(', ')}.
+        // CHECK ENVIRONMENT: Use Proxy in PROD, Direct in DEV
+        if (import.meta.env.PROD) {
+            // --- PRODUCTION: CALL PROXY (KEY HIDDEN) ---
+            console.log("Using Vercel Proxy for AI Insights");
+            const response = await fetch(PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    data: limitedData,
+                    context: context
+                })
+            });
 
-        DATA:
-        ${JSON.stringify(limitedData)}
+            if (!response.ok) {
+                if (response.status === 429) throw new Error('Rate limit exceeded');
+                throw new Error(`Proxy Error: ${response.statusText}`);
+            }
 
-        Generate exactly **2 (TWO)** short, punchy insights.
-        
-        Rules:
-        1. **Strict Limit**: Return EXACTLY 2 strings. No more.
-        2. **Style**: Be analytical but add a *slight* witty or funny comparison where appropriate (e.g., "rocket ship", "snail pace", "flat as a pancake").
-        3. **Context**: Mention specific event names if relevant.
-        4. No markdown formatting. JSON Array ONLY. 
-        5. Example: ["Traffic spiked 40%—to the moon! 🚀", "Errors dropped to zero, smooth sailing."]
-        `;
+            const result = await response.json();
+            // Parse JSON from result if it's a string, or use directly
+            return result.insights || [];
 
-        // 3. Call Gemini API
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.7, // Higher temp for wit
-                    maxOutputTokens: 300,
-                }
-            })
-        });
+        } else {
+            // --- DEVELOPMENT: DIRECT CALL (KEY VISIBLE LOCALLY) ---
+            console.log("Using Direct API Call (Dev Mode)");
 
-        if (!response.ok) {
-            throw new Error(`AI Service Error: ${response.statusText}`);
-        }
+            const prompt = `
+            You are a witty senior data analyst. Analyze this JSON data for panel "${context.panelName}".
+            Context: ${context.period}.
+            Metric: ${context.metricType}.
+            Events involved: ${context.eventNames.join(', ')}.
 
-        const result = await response.json();
+            DATA:
+            ${JSON.stringify(limitedData)}
 
-        // 4. Parse Response
-        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) return ["No insights generated."];
+            Generate exactly **2 (TWO)** short, punchy insights.
+            
+            Rules:
+            1. **Strict Limit**: Return EXACTLY 2 strings. No more.
+            2. **Style**: Analytical + witty comparison.
+            3. **Formatting**: Wrap key numbers/words in **double asterisks** for bolding (e.g., "**40% spike**").
+            4. JSON Array ONLY. 
+            `;
 
-        // Clean up markdown code blocks if present ( ```json ... ``` )
-        const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 300,
+                    }
+                })
+            });
 
-        try {
-            const insights = JSON.parse(cleanText);
-            return Array.isArray(insights) ? insights : [cleanText];
-        } catch (e) {
-            console.warn("Failed to parse AI response as JSON, returning raw text split", e);
-            return cleanText.split('\n').filter((s: string) => s.length > 5);
+            if (!response.ok) {
+                if (response.status === 429) throw new Error('Rate limit exceeded');
+                throw new Error(`AI Service Error: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) return ["No insights generated."];
+
+            const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            try {
+                return JSON.parse(cleanedText);
+            } catch (e) {
+                return cleanedText.split('\n').filter((s: string) => s.length > 5);
+            }
         }
 
     } catch (error) {
-        console.error("Failed to generate AI insights:", error);
-        return ["Unable to generate insights at this time."];
+        console.error('AI Insight Generation Failed:', error);
+        throw error;
     }
 };
 

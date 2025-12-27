@@ -221,7 +221,17 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                                         <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">{i + 1}</span>
                                     </div>
                                     <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                                        {point}
+                                        {/* Rich Text Parsing for **Bold** */}
+                                        {point.split(/(\*\*.*?\*\*)/).map((part, index) => {
+                                            if (part.startsWith('**') && part.endsWith('**')) {
+                                                return (
+                                                    <span key={index} className="font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/40 px-1 rounded-sm">
+                                                        {part.slice(2, -2)}
+                                                    </span>
+                                                );
+                                            }
+                                            return <span key={index}>{part}</span>;
+                                        })}
                                     </p>
                                 </div>
                             ))}
