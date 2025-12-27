@@ -7,14 +7,14 @@ import { cn } from '@/lib/utils';
 
 // Pie chart colors - softer, lighter tones
 export const PIE_COLORS = [
-    '#a5b4fc', // indigo-300
-    '#6ee7b7', // emerald-300
-    '#fde68a', // amber-200
-    '#fecaca', // red-200
-    '#c4b5fd', // violet-300
-    '#67e8f9', // cyan-300
-    '#f9a8d4', // pink-300
-    '#5eead4', // teal-300
+    '#818cf8', // indigo-400 - deeper, more vibrant
+    '#34d399', // emerald-400 - richer green
+    '#fbbf24', // amber-400 - more golden
+    '#f87171', // red-400 - stronger, more confident
+    '#a78bfa', // violet-400 - more royal purple
+    '#22d3ee', // cyan-400 - more vivid blue
+    '#f472b6', // pink-400 - more saturated
+    '#2dd4bf', // teal-400 - richer aqua
 ];
 
 // Professional Pie Tooltip

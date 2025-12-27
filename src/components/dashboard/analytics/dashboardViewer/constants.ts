@@ -1,24 +1,47 @@
-// Event colors for the chart
+// ========== PREMIUM CHART COLOR PALETTE ==========
+// Harmonious, sophisticated colors for better visual appeal and accessibility
+
 export const EVENT_COLORS = [
-    '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
-    '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#3b82f6',
-    '#a855f7', '#7c3aed'
+    '#6366f1', // Rich Purple
+    '#3b82f6', // Vibrant Blue
+    '#10b981', // Emerald Green
+    '#f59e0b', // Amber
+    '#ec4899', // Pink
+    '#06b6d4', // Cyan
+    '#a855f7', // Deep Purple
+    '#14b8a6', // Teal
+    '#e11d48', // Rose
+    '#7c3aed', // Violet
+    '#f97316', // Orange
+    '#84cc16', // Lime
 ];
 
-// Distinct color palette for error events - various shades for better distinction
-// Vibrant, highly distinguishable error colors for easy identification
+// Premium error colors - sophisticated and vibrant for better distinction
 export const ERROR_COLORS = [
-    '#ef4444',
-    '#f97316',
-    '#f59e0b',
-    '#ec4899',
-    '#a855f7',
-    '#ec4899',
-    '#f43f5e',
-    '#fb923c',
+     '#dc2626', // Red 600 - Primary Error
+    '#ea580c', // Orange 600 - Warning
+    '#ca8a04', // Yellow 600 - Caution
+    '#c026d3', // Fuchsia 600 - Secondary Error
+    '#7c3aed', // Violet 600 - Tertiary Error
+    '#0891b2', // Cyan 600 - Info Error
+    '#be123c', // Rose 600 - Critical Error
+    '#c2410c', // Orange 700 - Severe Warning
 ];
 
-export const PIE_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6'];
+export const PIE_COLORS = [
+    '#6366f1', // Rich Purple
+    '#3b82f6', // Vibrant Blue
+    '#10b981', // Emerald Green
+    '#f59e0b', // Amber
+    '#ec4899', // Pink
+    '#06b6d4', // Cyan
+    '#a855f7', // Deep Purple
+    '#14b8a6', // Teal
+    '#e11d48', // Rose
+    '#7c3aed', // Violet
+    '#f97316', // Orange
+    '#84cc16', // Lime
+];
 
 // Utility function to combine duplicate entries (like multiple "Unknown") in pie chart data
 export const combinePieChartDuplicates = (data: any[] | Record<string, any>): any[] => {

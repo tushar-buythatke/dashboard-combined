@@ -668,16 +668,16 @@ export function PercentageGraph({
 
         // Premium color palette - vibrant and visually appealing
         const premiumColors = [
-            '#8b5cf6', // Violet 500
-            '#06b6d4', // Cyan 500
-            '#f43f5e', // Rose 500
-            '#10b981', // Emerald 500
-            '#f59e0b', // Amber 500
-            '#6366f1', // Indigo 500
-            '#ec4899', // Pink 500
-            '#14b8a6', // Teal 500
-            '#a855f7', // Purple 500
-            '#f97316', // Orange 500
+            '#7c3aed', // Deeper Violet - more royal
+            '#0891b2', // Richer Cyan - more jewel-like
+            '#e11d48', // Deeper Rose - more sophisticated
+            '#059669', // Richer Emerald - more precious
+            '#d97706', // Deeper Amber - more golden
+            '#4f46e5', // Richer Indigo - more intense
+            '#db2777', // Deeper Pink - more vibrant
+            '#0d9488', // Richer Teal - more oceanic
+            '#9333ea', // Deeper Purple - more luxurious
+            '#ea580c', // Richer Orange - more sunset-like
         ];
 
         // Aggregate childBreakdown across all time points

@@ -7,15 +7,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* CLEAN MODERN THEME - WHITE & PURPLE (Like Ads Dashboard) */
+/* PREMIUM MODERN THEME - ENHANCED VISUAL DESIGN */
 :root {
-  font-family: Inter, system-ui, -apple-system, sans-serif;
-  line-height: 1.6;
+  font-family: 'Inter Variable', Inter, system-ui, -apple-system, sans-serif;
+  line-height: 1.65;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'ss02', 'liga', 'kern';
+  font-variation-settings: 'opsz' 32;
+  letter-spacing: -0.015em;
   zoom: 100%; /* Global magnification */
 
   /* Light mode as default - clean white/purple */
@@ -38,31 +41,37 @@
   --border: 240 5.9% 90%;
   --input: 240 5.9% 90%;
   --ring: 262.1 83.3% 57.8%;
-  --chart-1: 220 70% 50%;
-  --chart-2: 160 60% 45%;
-  --chart-3: 30 80% 55%;
-  --chart-4: 280 65% 60%;
-  --chart-5: 340 75% 55%;
-  --chart-6: 0.7 0.21 35;
-  --chart-7: 0.66 0.24 20;
-  --chart-8: 0.63 0.24 0.5;
-  --chart-9: 0.64 0.21 300;
-  --chart-alerts-set: 280 70% 50%;
-  --chart-alerts-removed: 60 90% 50%;
-  --chart-feed-updates: 210 70% 50%;
-  --chart-feed-received: 200 60% 55%;
-  --chart-price-updates: 175 60% 45%;
-  --chart-push-success: 150 70% 45%;
-  --chart-email-success: 122 45% 60%;
-  --chart-push-errors: 35 90% 55%;
-  --chart-email-errors: 0 80% 55%;
-  --chart-error-android: 20 85% 55%;
-  --chart-error-chrome: 260 70% 55%;
-  --chart-error-email: 350 80% 55%;
-  --chart-delay: 50 70% 50%;
-  --chart-analytics-android: #4ade80;
-  --chart-analytics-chrome: #a78bfa;
-  --chart-analytics-email: #f472b6;
+  /* ========== PREMIUM CHART COLOR PALETTE ========== */
+  /* Main chart colors - harmonious and visually pleasing */
+  --chart-1: 262 83% 58%;    /* Rich Purple */
+  --chart-2: 217 91% 60%;    /* Vibrant Blue */
+  --chart-3: 158 64% 52%;    /* Emerald Green */
+  --chart-4: 330 81% 60%;    /* Pink */
+  --chart-5: 38 92% 50%;     /* Amber */
+  --chart-6: 188 94% 43%;    /* Cyan */
+  --chart-7: 271 81% 55%;    /* Deep Purple */
+  --chart-8: 174 84% 39%;    /* Teal */
+  --chart-9: 346 77% 49%;    /* Rose */
+
+  /* Status-based colors */
+  --chart-alerts-set: 158 64% 52%;      /* Success Green */
+  --chart-alerts-removed: 0 84% 60%;    /* Error Red */
+  --chart-feed-updates: 217 91% 60%;    /* Primary Blue */
+  --chart-feed-received: 188 94% 43%;   /* Cyan */
+  --chart-price-updates: 38 92% 50%;    /* Amber */
+  --chart-push-success: 158 64% 52%;    /* Success Green */
+  --chart-email-success: 174 84% 39%;   /* Teal */
+  --chart-push-errors: 0 84% 60%;       /* Error Red */
+  --chart-email-errors: 0 62% 50%;      /* Dark Red */
+  --chart-error-android: 20 85% 55%;    /* Orange Red */
+  --chart-error-chrome: 262 70% 50%;    /* Purple */
+  --chart-error-email: 330 81% 60%;     /* Pink */
+  --chart-delay: 38 92% 50%;            /* Amber */
+
+  /* Analytics platform colors */
+  --chart-analytics-android: 158 64% 52%;  /* Emerald */
+  --chart-analytics-chrome: 262 83% 58%;   /* Purple */
+  --chart-analytics-email: 330 81% 60%;    /* Pink */
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 240 10% 3.9%;
   --sidebar-primary: 262.1 83.3% 57.8%;
@@ -78,7 +87,7 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* ========== HORIZON UI PREMIUM COLOR PALETTE ========== */
+  /* ========== ENHANCED PREMIUM COLOR PALETTE ========== */
   --horizon-primary: 237 81% 58%;
   /* #6366F1 Indigo */
   --horizon-secondary: 271 81% 55%;
@@ -91,10 +100,24 @@
   /* #06B6D4 Cyan */
   --horizon-accent-emerald: 158 64% 52%;
   /* #10B981 Emerald */
+  --horizon-accent-violet: 263 70% 50%;
+  /* #8B5CF6 Violet */
+  --horizon-accent-rose: 346 77% 49.8%;
+  /* #E11D48 Rose */
+  --horizon-accent-amber: 38 92% 50%;
+  /* #F59E0B Amber */
+  --horizon-accent-teal: 174 84% 39%;
+  /* #0D9488 Teal */
   --horizon-glow: 263 70% 50%;
   /* Purple glow */
 
-  /* Modern shadow system */
+  /* ========== PREMIUM VISUAL EFFECTS ========== */
+  --premium-gradient: linear-gradient(135deg, hsl(262, 83%, 58%) 0%, hsl(271, 81%, 55%) 50%, hsl(330, 81%, 60%) 100%);
+  --glass-bg: rgba(255, 255, 255, 0.25);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --backdrop-filter: blur(16px) saturate(180%);
+
+  /* ========== ENHANCED PREMIUM SHADOW SYSTEM ========== */
   --shadow-2xs: 0 1px 2px -1px rgba(0, 0, 0, 0.08);
   --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
@@ -103,13 +126,16 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.06);
   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.18);
+  --shadow-3xl: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
 
   /* Premium Horizon UI shadows */
-  --shadow-premium: 0 8px 30px rgb(0 0 0 / 0.05);
-  --shadow-card-hover: 0 20px 40px rgb(0 0 0 / 0.08);
-  --shadow-glow-indigo: 0 0 30px rgba(99, 102, 241, 0.25);
-  --shadow-glow-purple: 0 0 30px rgba(168, 85, 247, 0.25);
-  --shadow-glow-pink: 0 0 30px rgba(236, 72, 153, 0.25);
+  --shadow-premium: 0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 20px 40px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.06);
+  --shadow-glow-indigo: 0 0 30px rgba(99, 102, 241, 0.25), 0 0 60px rgba(99, 102, 241, 0.1);
+  --shadow-glow-purple: 0 0 30px rgba(168, 85, 247, 0.25), 0 0 60px rgba(168, 85, 247, 0.1);
+  --shadow-glow-pink: 0 0 30px rgba(236, 72, 153, 0.25), 0 0 60px rgba(236, 72, 153, 0.1);
+  --shadow-glow-cyan: 0 0 30px rgba(6, 182, 212, 0.25), 0 0 60px rgba(6, 182, 212, 0.1);
+  --shadow-glow-emerald: 0 0 30px rgba(16, 185, 129, 0.25), 0 0 60px rgba(16, 185, 129, 0.1);
 
   /* Glow effects */
   --glow-primary: 0 0 30px rgba(147, 51, 234, 0.2);
@@ -250,12 +276,12 @@
 
   --glow-primary: 0 0 20px rgba(34, 197, 94, 0.5);
 
-  /* Chart Colors overridden for Green Theme */
-  --chart-1: 142 70% 50%;
-  --chart-2: 120 60% 45%;
-  --chart-3: 160 80% 55%;
-  --chart-4: 100 65% 60%;
-  --chart-5: 80 75% 55%;
+  /* Premium Chart Colors for Matrix Green Theme */
+  --chart-1: 142 70% 50%;    /* Neon Green */
+  --chart-2: 160 60% 45%;    /* Emerald */
+  --chart-3: 174 84% 39%;    /* Teal */
+  --chart-4: 188 94% 43%;    /* Cyan */
+  --chart-5: 158 64% 52%;    /* Forest Green */
 }
 
 @theme inline {
@@ -452,6 +478,115 @@
 
   .glow-hover-purple:hover {
     box-shadow: var(--shadow-glow-purple);
+  }
+
+  /* ========== ENHANCED PREMIUM VISUAL EFFECTS ========== */
+
+  /* Ultra Premium Glass Card */
+  .glass-ultra {
+    background: var(--glass-bg);
+    backdrop-filter: var(--backdrop-filter);
+    -webkit-backdrop-filter: var(--backdrop-filter);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-premium);
+    @apply rounded-3xl transition-all duration-500 ease-out;
+  }
+
+  .glass-ultra:hover {
+    background: rgba(255, 255, 255, 0.35);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  /* Premium Gradient Backgrounds */
+  .bg-premium-gradient {
+    background: var(--premium-gradient);
+  }
+
+  .bg-mesh-gradient {
+    background:
+      radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 40% 40%, rgba(120, 119, 198, 0.1) 0%, transparent 50%);
+  }
+
+  /* Enhanced Stat Cards */
+  .stat-premium {
+    @apply bg-white/90 dark:bg-slate-900/90;
+    @apply backdrop-blur-xl border border-white/20 dark:border-white/10;
+    @apply rounded-3xl p-6;
+    box-shadow: var(--shadow-premium);
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .stat-premium:hover {
+    @apply -translate-y-2 scale-105;
+    box-shadow: var(--shadow-card-hover);
+    background: rgba(255, 255, 255, 0.95);
+  }
+
+  /* Premium Button Effects */
+  .btn-premium {
+    @apply relative overflow-hidden rounded-2xl px-6 py-3 font-medium;
+    background: var(--premium-gradient);
+    box-shadow: var(--shadow-glow-purple);
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .btn-premium::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.05) 100%);
+  }
+
+  .btn-premium:hover::before {
+    @apply opacity-100;
+  }
+
+  .btn-premium:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 40px rgba(168, 85, 247, 0.4), 0 0 80px rgba(168, 85, 247, 0.2);
+  }
+
+  /* Enhanced Typography */
+  .text-premium {
+    @apply bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent;
+    @apply font-semibold tracking-tight;
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+  }
+
+  /* Premium Border Effects */
+  .border-premium {
+    position: relative;
+  }
+
+  .border-premium::before {
+    content: '';
+    @apply absolute inset-0 rounded-2xl p-0.5;
+    background: var(--premium-gradient);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: xor;
+    @apply opacity-80;
+  }
+
+  /* Animated Background Patterns */
+  .bg-animated-dots {
+    background-image:
+      radial-gradient(circle, hsl(var(--primary) / 0.2) 1px, transparent 1px),
+      radial-gradient(circle, hsl(var(--accent) / 0.1) 1px, transparent 1px);
+    background-size: 50px 50px, 30px 30px;
+    background-position: 0 0, 25px 25px;
+    animation: dots-float 20s ease-in-out infinite;
+  }
+
+  /* Enhanced Focus States */
+  .focus-premium:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.3), var(--shadow-glow-purple);
   }
 
   /* Shimmer effect */
@@ -656,6 +791,22 @@
   }
 }
 
+/* ========== OPTIMIZED ANIMATIONS (PERFORMANCE FRIENDLY) ========== */
+
+/* Keep only essential animations to prevent jank on low RAM devices */
+@keyframes card-lift {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: var(--shadow-premium);
+  }
+  100% {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+/* ========== OPTIMIZED UTILITY CLASSES ========== */
+
 /* Dot pattern background utility */
 .bg-dot-pattern {
   background-image: radial-gradient(circle, hsl(var(--primary) / 0.15) 1px, transparent 1px);
@@ -664,6 +815,28 @@
 
 .dark .bg-dot-pattern {
   background-image: radial-gradient(circle, hsl(var(--primary) / 0.08) 1px, transparent 1px);
+}
+
+/* Performance-friendly Animation Utilities */
+.animate-card-lift {
+  animation: card-lift 0.4s ease-out forwards;
+}
+
+/* Enhanced Interactive States (optimized for performance) */
+.hover-scale {
+  @apply transition-transform duration-200 ease-out;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-rotate {
+  @apply transition-transform duration-200 ease-out;
+}
+
+.hover-rotate:hover {
+  transform: rotate(1deg);
 }
 
 /* Grid pattern background */
@@ -679,30 +852,48 @@
   animation: float 3s ease-in-out infinite;
 }
 
+/* ========== PREMIUM SCROLLBAR & SELECTION ========== */
+
 /* Modern scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 12px;
+  height: 12px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 4px;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 4px;
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: linear-gradient(135deg, hsl(var(--primary) / 1.2), hsl(var(--accent) / 1.2));
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* Selection color */
+::-webkit-scrollbar-corner {
+  background: hsl(var(--muted) / 0.3);
+}
+
+/* Enhanced Selection */
 ::selection {
-  background: hsl(var(--primary) / 0.3);
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(var(--accent) / 0.4));
   color: hsl(var(--foreground));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Focus ring enhancement */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
 }
 
 /* Smooth transitions for theme changes */
