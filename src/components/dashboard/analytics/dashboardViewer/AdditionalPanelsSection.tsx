@@ -1,4 +1,6 @@
 import React, { Fragment, useMemo } from 'react';
+import { AiInsightsBadge } from '../components/AiInsightsBadge';
+import type { FilterState } from './types';
 import { InfoTooltip } from '../components/InfoTooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -1889,6 +1891,18 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-sm text-muted-foreground font-medium">{pNormalEventKeys.length} events</span>
+                                                        
+                                                        {filteredGraphData.length > 0 && (
+                                                            <AiInsightsBadge 
+                                                                panelId={panel.panelId}
+                                                                panelName="Event Trends (Count)"
+                                                                data={filteredGraphData}
+                                                                metricType="count"
+                                                                isHourly={pIsHourly}
+                                                                eventKeys={pNormalEventKeys}
+                                                            />
+                                                        )}
+
                                                         {/* Hourly/Daily Toggle */}
                                                         <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                             <button

@@ -22,6 +22,7 @@ import {
     XCircle,
     Zap,
 } from 'lucide-react';
+import { AiInsightsBadge } from '../components/AiInsightsBadge';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1636,6 +1637,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
+                                            {graphData.length > 0 && profile?.panels?.[0] && (
+                                                <AiInsightsBadge 
+                                                    panelId={profile.panels[0].panelId}
+                                                    panelName="Main Panel"
+                                                    data={graphData}
+                                                    metricType="count"
+                                                    isHourly={isHourly}
+                                                    eventKeys={eventKeys}
+                                                />
+                                            )}
                                             {/* Hourly/Daily Toggle */}
                                             <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                 <button
