@@ -5,7 +5,7 @@ import { getFeatureColor, apiService } from '@/services/apiService';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BarChart3, ArrowRight, Sparkles, Zap, Loader2 } from 'lucide-react';
+import { BarChart3, ArrowRight, Zap, Loader2 } from 'lucide-react';
 
 interface FeatureSelectorProps {
     onSelectFeature: (featureId: string) => void;
@@ -180,50 +180,53 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                                 key={feature.id}
                                 onMouseEnter={() => setHoveredCard(feature.id)}
                                 onMouseLeave={() => setHoveredCard(null)}
-                                className="transform transition-transform duration-150 hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98]"
+                                className={`transform transition-transform duration-200 ease-out active:scale-[0.98] ${
+                                    hasAlerts 
+                                        ? hoveredCard === feature.id
+                                            ? 'scale-[1.04] -translate-y-2' 
+                                            : 'hover:scale-[1.03] hover:-translate-y-1.5'
+                                        : 'hover:scale-[1.02] hover:-translate-y-1'
+                                }`}
+                                style={{ willChange: 'transform' }}
                             >
                                 <div
                                     onClick={() => onSelectFeature(feature.id)}
                                     className="cursor-pointer h-full"
                                 >
-                                    <Card className={`group relative overflow-hidden rounded-2xl transition-all duration-200 h-full backdrop-blur-xl ${hasAlerts ?
-                                        'border-2 border-red-400/70 dark:border-red-500/60 bg-gradient-to-br from-red-50/90 via-white/95 to-orange-50/80 dark:from-red-900/20 dark:via-slate-900/90 dark:to-orange-900/15 shadow-[0_8px_30px_rgba(239,68,68,0.20)] hover:shadow-[0_20px_50px_rgba(239,68,68,0.35)]' :
+                                    <Card className={`group relative overflow-hidden rounded-2xl transition-all duration-200 h-full ${hasAlerts ?
                                         hoveredCard === feature.id ?
-                                            'border-2 border-purple-400 dark:border-purple-400 bg-gradient-to-br from-purple-50/95 via-white/95 to-pink-50/90 dark:from-purple-900/35 dark:via-slate-900/90 dark:to-pink-900/25 shadow-[0_20px_50px_rgba(147,51,234,0.30)]' :
-                                            'border border-purple-200/70 dark:border-purple-500/40 bg-gradient-to-br from-white/80 via-white/90 to-purple-50/60 dark:from-slate-900/80 dark:via-slate-900/90 dark:to-purple-900/15 shadow-[0_4px_20px_rgba(147,51,234,0.10)] hover:shadow-[0_15px_40px_rgba(147,51,234,0.22)]'
+                                            'border-2 border-red-500/90 dark:border-red-400/80 bg-gradient-to-br from-red-50/90 via-white/95 to-orange-50/80 dark:from-red-900/20 dark:via-slate-900/90 dark:to-orange-900/15 shadow-[0_12px_40px_rgba(239,68,68,0.35)] shadow-red-500/30' :
+                                            'border-2 border-red-400/70 dark:border-red-500/60 bg-gradient-to-br from-red-50/90 via-white/95 to-orange-50/80 dark:from-red-900/20 dark:via-slate-900/90 dark:to-orange-900/15 shadow-[0_8px_30px_rgba(239,68,68,0.25)] shadow-red-500/20' :
+                                        hoveredCard === feature.id ?
+                                            'border-2 border-purple-400 dark:border-purple-400 bg-gradient-to-br from-purple-50/95 via-white/95 to-pink-50/90 dark:from-purple-900/35 dark:via-slate-900/90 dark:to-pink-900/25 shadow-lg' :
+                                            'border border-purple-200/70 dark:border-purple-500/40 bg-gradient-to-br from-white/80 via-white/90 to-purple-50/60 dark:from-slate-900/80 dark:via-slate-900/90 dark:to-purple-900/15 shadow-sm hover:shadow-md'
                                         }`}>
 
-                                        {/* Shine Effect - Top Edge */}
-                                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/80 to-transparent opacity-60" />
-
-                                        {/* === ENHANCED ALERT INDICATOR === */}
+                                        {/* === ALERT INDICATOR === */}
                                         {hasAlerts && (
                                             <>
                                                 {/* Pulsing Dot */}
                                                 <div className="absolute top-2.5 right-2.5 z-20">
                                                     <span className="relative flex h-3 w-3">
                                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 shadow-lg shadow-red-500/50"></span>
+                                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                                     </span>
                                                 </div>
-                                                {/* Alert Count Badge - Enhanced */}
+                                                {/* Alert Count Badge */}
                                                 <div className="absolute top-2 left-2 z-20">
-                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-md shadow-lg shadow-red-500/30 border border-red-400/50">
+                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-md border border-red-400/50">
                                                         {alertCounts[feature.id]} Alerts
                                                     </span>
                                                 </div>
                                             </>
                                         )}
 
-                                        {/* Gradient overlay on hover */}
-                                        <div className={`absolute inset-0 bg-gradient-to-br from-purple-500/5 via-transparent to-indigo-500/5 transition-opacity duration-200 ${hoveredCard === feature.id ? 'opacity-100' : 'opacity-0'}`} />
-
                                         <CardHeader className="text-center relative z-10 px-3 py-4 lg:px-4 lg:py-5">
-                                            {/* === ENHANCED ICON CONTAINER === */}
+                                            {/* === ICON CONTAINER === */}
                                             <div className="flex justify-center mb-3">
-                                                <div className={`h-12 w-12 lg:h-14 lg:w-14 rounded-xl flex items-center justify-center shadow-xl transition-all duration-200 group-hover:scale-110 group-hover:rotate-3 ${hasAlerts ?
-                                                    'bg-gradient-to-br from-red-100 to-orange-100 dark:from-red-500/25 dark:to-orange-500/25 border border-red-300/80 dark:border-red-500/40 shadow-red-500/25' :
-                                                    'bg-gradient-to-br from-purple-100 via-violet-100 to-fuchsia-100 dark:from-purple-500/25 dark:via-violet-500/25 dark:to-fuchsia-500/25 border border-purple-300/80 dark:border-purple-500/40 shadow-purple-500/25 group-hover:shadow-purple-500/40'
+                                                <div className={`h-12 w-12 lg:h-14 lg:w-14 rounded-xl flex items-center justify-center transition-all duration-200 group-hover:scale-110 group-hover:rotate-3 ${hasAlerts ?
+                                                    'bg-gradient-to-br from-red-100 to-orange-100 dark:from-red-500/25 dark:to-orange-500/25 border border-red-300/80 dark:border-red-500/40' :
+                                                    'bg-gradient-to-br from-purple-100 via-violet-100 to-fuchsia-100 dark:from-purple-500/25 dark:via-violet-500/25 dark:to-fuchsia-500/25 border border-purple-300/80 dark:border-purple-500/40'
                                                     }`}>
                                                     {getIcon(feature.id)}
                                                 </div>
@@ -236,8 +239,8 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
 
                                         <CardContent className="flex justify-center pb-3 lg:pb-4 pt-0 relative z-10">
                                             <Button variant="outline" size="sm" className={`gap-1.5 text-[10px] lg:text-xs h-7 px-3.5 rounded-full font-semibold transition-all duration-200 ${hasAlerts ?
-                                                'border-red-300/80 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-gradient-to-r hover:from-red-500 hover:to-orange-500 hover:text-white hover:border-transparent hover:shadow-lg hover:shadow-red-500/25' :
-                                                'border-purple-300/80 dark:border-purple-500/50 text-purple-700 dark:text-purple-300 hover:bg-gradient-to-r hover:from-purple-500 hover:to-indigo-500 hover:text-white hover:border-transparent hover:shadow-lg hover:shadow-purple-500/25'
+                                                'border-red-300/80 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white hover:border-transparent' :
+                                                'border-purple-300/80 dark:border-purple-500/50 text-purple-700 dark:text-purple-300 hover:bg-purple-500 hover:text-white hover:border-transparent'
                                                 }`}>
                                                 View
                                                 <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
