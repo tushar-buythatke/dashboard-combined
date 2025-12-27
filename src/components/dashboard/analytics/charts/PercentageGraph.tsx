@@ -1004,12 +1004,17 @@ export function PercentageGraph({
                                                 );
                                             }
 
-                                            const filteredChildEntries = isApiEventMode
+                                            // Sort child entries by value descending (highest first)
+                                            const filteredChildEntries = (isApiEventMode
                                                 ? childEntries.filter(([key]) => shouldKeepApiEntry(key))
-                                                : childEntries;
-                                            const filteredParentEntries = isApiEventMode
+                                                : childEntries
+                                            ).sort((a, b) => Number(b[1]) - Number(a[1]));
+                                            
+                                            // Sort parent entries by value descending (highest first)
+                                            const filteredParentEntries = (isApiEventMode
                                                 ? parentEntries.filter(([key]) => shouldKeepApiEntry(key))
-                                                : parentEntries;
+                                                : parentEntries
+                                            ).sort((a, b) => Number(b[1]) - Number(a[1]));
 
                                             return (
                                                 <div className="bg-white dark:bg-white p-4 rounded-xl shadow-xl border-2 border-gray-100 min-w-[220px]" style={{ backgroundColor: 'white' }}>
@@ -1043,9 +1048,9 @@ export function PercentageGraph({
                                                                         const color = eventColors[key] || colors[idx % colors.length];
                                                                         return (
                                                                             <div key={key} className="flex items-center justify-between gap-3">
-                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[150px]" title={displayLabel}>
+                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
                                                                                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                                                                    {displayLabel.length > 18 ? displayLabel.substring(0, 18) + '...' : displayLabel}
+                                                                                    {displayLabel}
                                                                                 </span>
                                                                                 <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
                                                                             </div>
@@ -1069,9 +1074,9 @@ export function PercentageGraph({
                                                                         const color = eventColors[key] || colors[idx % colors.length];
                                                                         return (
                                                                             <div key={key} className="flex items-center justify-between gap-3">
-                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[150px]" title={displayLabel}>
+                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
                                                                                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                                                                    {displayLabel.length > 18 ? displayLabel.substring(0, 18) + '...' : displayLabel}
+                                                                                    {displayLabel}
                                                                                 </span>
                                                                                 <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
                                                                             </div>
@@ -1209,8 +1214,8 @@ export function PercentageGraph({
                                     />
                                 )}
 
-                                {/* Combined percentage line - hide for avgDelay metrics */}
-                                {showCombinedPercentage && !(chartData.length > 0 && chartData[0].isAvgMetric) && (
+                                {/* Combined percentage line - show when All is selected, hide when single event is selected */}
+                                {showCombinedPercentage && selectedLineId === null && (
                                     <Area
                                         type="monotone"
                                         dataKey="percentage"
@@ -1268,28 +1273,28 @@ export function PercentageGraph({
                                     <button
                                         onClick={() => setSelectedLineId(selectedLineId === 'success' ? null : 'success')}
                                         className={cn(
-                                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
+                                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 border-2",
                                             selectedLineId === 'success'
-                                                ? "text-white shadow-md"
-                                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                                ? "shadow-md border-green-400"
+                                                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700"
                                         )}
-                                        style={selectedLineId === 'success' ? { backgroundColor: '#22c55e' } : {}}
+                                        style={selectedLineId === 'success' ? { backgroundColor: 'rgba(34, 197, 94, 0.15)', color: '#16a34a' } : {}}
                                     >
-                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#22c55e' }} />
-                                        {selectedLineId === 'success' ? 'AC_process_success' : 'Success %'}
+                                        <span className="h-2.5 w-2.5 rounded-full shadow-sm" style={{ backgroundColor: '#22c55e' }} />
+                                        <span className="font-semibold">{selectedLineId === 'success' ? 'AC_process_success' : 'Success %'}</span>
                                     </button>
                                     <button
                                         onClick={() => setSelectedLineId(selectedLineId === 'fail' ? null : 'fail')}
                                         className={cn(
-                                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
+                                            "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 border-2",
                                             selectedLineId === 'fail'
-                                                ? "text-white shadow-md"
-                                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                                ? "shadow-md border-red-400"
+                                                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700"
                                         )}
-                                        style={selectedLineId === 'fail' ? { backgroundColor: '#ef4444' } : {}}
+                                        style={selectedLineId === 'fail' ? { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#dc2626' } : {}}
                                     >
-                                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }} />
-                                        {selectedLineId === 'fail' ? 'AC_process_failed' : 'Fail %'}
+                                        <span className="h-2.5 w-2.5 rounded-full shadow-sm" style={{ backgroundColor: '#ef4444' }} />
+                                        <span className="font-semibold">{selectedLineId === 'fail' ? 'AC_process_failed' : 'Fail %'}</span>
                                     </button>
                                     {/* Anomaly indicator */}
                                     {chartData.some(d => d.hasAnomaly) && (
@@ -1299,7 +1304,7 @@ export function PercentageGraph({
                                     )}
                                 </>
                             ) : (
-                                /* Regular child events mode - sorted by average percentage descending */
+                                /* Regular child events mode - sorted by average value descending */
                                 (() => {
                                     // Calculate averages and sort by descending order
                                     const eventsWithAvg = visibleLegendEvents.map((eventId) => {
@@ -1324,20 +1329,24 @@ export function PercentageGraph({
                                                 key={eventId}
                                                 onClick={() => setSelectedLineId(isSelected ? null : eventId)}
                                                 className={cn(
-                                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5",
+                                                    "px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 border-2",
                                                     isSelected
-                                                        ? "text-white shadow-lg ring-2 ring-white/40"
-                                                        : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:shadow-md border border-slate-200 dark:border-slate-700"
+                                                        ? "shadow-md"
+                                                        : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:shadow-md border-slate-200 dark:border-slate-700"
                                                 )}
-                                                style={isSelected ? { backgroundColor: color } : {}}
+                                                style={isSelected ? {
+                                                    backgroundColor: `${color}20`,
+                                                    color: color,
+                                                    borderColor: color
+                                                } : {}}
                                                 title={`${name}: ${avgStr}% avg`}
                                             >
                                                 <span
-                                                    className="h-2.5 w-2.5 rounded-full"
+                                                    className="h-2.5 w-2.5 rounded-full shadow-sm flex-shrink-0"
                                                     style={{ backgroundColor: color }}
                                                 />
-                                                {name.length > 18 ? `${name.substring(0, 18)}...` : name}
-                                                <span className={cn("text-[10px] ml-0.5", isSelected ? "opacity-90" : "opacity-70")}>({avgStr}%)</span>
+                                                <span className="font-semibold truncate max-w-[200px]" title={name}>{name}</span>
+                                                <span className={cn("text-[10px] ml-0.5 flex-shrink-0", isSelected ? "opacity-90" : "opacity-70")}>({avgStr}%)</span>
                                             </button>
                                         );
                                     });
