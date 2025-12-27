@@ -93,6 +93,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     activePanelIndex,
     hourlyOverride,
     setHourlyOverride,
+    panelHourlyOverride,
+    setPanelHourlyOverrideForId,
 }: any) {
     const eventColors = useMemo(() => {
         const map: Record<string, string> = {};
@@ -231,7 +233,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                 }
 
                 const isRangeShortEnoughForHourly = Math.ceil((currentPanelDateRange.to.getTime() - currentPanelDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
-                const pIsHourly = hourlyOverride !== null ? hourlyOverride : isRangeShortEnoughForHourly;
+                // Use per-panel override if available, otherwise fall back to global override (legacy/main) or auto logic
+                const pIsHourly = (panelHourlyOverride && panelHourlyOverride[panel.panelId] !== undefined && panelHourlyOverride[panel.panelId] !== null)
+                    ? panelHourlyOverride[panel.panelId]
+                    : (hourlyOverride !== null ? hourlyOverride : isRangeShortEnoughForHourly);
 
                 return (
                     <div
@@ -422,7 +427,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                     <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                         <button
-                                                            onClick={() => setHourlyOverride?.(true)}
+                                                            onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, true)}
                                                             className={cn(
                                                                 "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                 pIsHourly
@@ -433,7 +438,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             Hourly
                                                         </button>
                                                         <button
-                                                            onClick={() => setHourlyOverride?.(false)}
+                                                            onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, false)}
                                                             className={cn(
                                                                 "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                 !pIsHourly
@@ -1291,8 +1296,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
                                             isHourly={pIsHourly}
                                             onToggleHourly={(newIsHourly: boolean) => {
-                                                // Update hourly override state using the prop setter
-                                                setHourlyOverride?.(newIsHourly);
+                                                // Update hourly override state using the per-panel setter
+                                                setPanelHourlyOverrideForId?.(panel.panelId, newIsHourly);
                                             }}
                                             onToggleBackToFunnel={(panel as any)?.previousGraphType === 'funnel' ? () => {
                                                 // Toggle back to funnel graph
@@ -1887,7 +1892,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         {/* Hourly/Daily Toggle */}
                                                         <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                             <button
-                                                                onClick={() => setHourlyOverride?.(true)}
+                                                                onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, true)}
                                                                 className={cn(
                                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     pIsHourly
@@ -1898,7 +1903,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 Hourly
                                                             </button>
                                                             <button
-                                                                onClick={() => setHourlyOverride?.(false)}
+                                                                onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, false)}
                                                                 className={cn(
                                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     !pIsHourly
@@ -2378,7 +2383,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         {/* Hourly/Daily Toggle */}
                                                         <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                             <button
-                                                                onClick={() => setHourlyOverride?.(true)}
+                                                                onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, true)}
                                                                 className={cn(
                                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     pIsHourly
@@ -2389,7 +2394,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 Hourly
                                                             </button>
                                                             <button
-                                                                onClick={() => setHourlyOverride?.(false)}
+                                                                onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, false)}
                                                                 className={cn(
                                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     !pIsHourly
