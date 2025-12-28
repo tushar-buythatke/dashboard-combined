@@ -212,7 +212,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     }), [availableStatusCodes]);
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 mobile-no-scroll">
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
                 className="rounded-2xl overflow-hidden group transition-all duration-300 relative"
@@ -1638,7 +1638,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {graphData.length > 0 && profile?.panels?.[0] && (
-                                                <AiInsightsBadge 
+                                                <AiInsightsBadge
                                                     panelId={profile.panels[0].panelId}
                                                     panelName="Main Panel"
                                                     data={graphData}

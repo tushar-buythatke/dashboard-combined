@@ -104,21 +104,21 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent
                 showCloseButton={false}
-                className="w-full sm:max-w-full md:w-[96vw] lg:w-[94vw] max-w-7xl max-h-[92vh] overflow-hidden p-0 bg-white dark:bg-slate-900"
+                className="w-full max-w-[96vw] sm:max-w-full md:w-[96vw] lg:w-[94vw] sm:max-w-7xl max-h-[90vh] overflow-hidden p-0 bg-white dark:bg-slate-900"
             >
                 {/* Premium Header with Close Button */}
-                <div className="relative px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
-                    <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                            {pieData.type === 'platform' && <Activity className="h-6 w-6 text-white" />}
-                            {pieData.type === 'pos' && <Target className="h-6 w-6 text-white" />}
-                            {pieData.type === 'source' && <Zap className="h-6 w-6 text-white" />}
-                            {pieData.type === 'status' && <Activity className="h-6 w-6 text-white" />}
-                            {pieData.type === 'cacheStatus' && <Zap className="h-6 w-6 text-white" />}
+                <div className="relative px-4 sm:px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            {pieData.type === 'platform' && <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
+                            {pieData.type === 'pos' && <Target className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
+                            {pieData.type === 'source' && <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
+                            {pieData.type === 'status' && <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
+                            {pieData.type === 'cacheStatus' && <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
                         </div>
-                        <div className="flex-1">
-                            <h2 className="text-xl font-bold">{pieData.title} Distribution</h2>
-                            <p className="text-purple-100 text-sm">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-lg sm:text-xl font-bold truncate">{pieData.title} Distribution</h2>
+                            <p className="text-purple-100 text-xs sm:text-sm truncate">
                                 {sortedData.length} categories • {isCount ? `${Math.round(total).toLocaleString()} total entries` : `${formatValue(total)} total`} {isCount ? '' : 'ms'}
                             </p>
                             <div className="mt-2">
@@ -131,15 +131,16 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                             variant="ghost"
                             size="icon"
                             onClick={onClose}
-                            className="ml-auto h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                            className="ml-auto h-10 w-10 sm:h-8 sm:w-8 rounded-full bg-white/10 hover:bg-white/20 text-white touch-manipulation flex-shrink-0"
+                            aria-label="Close modal"
                         >
-                            <X className="h-4 w-4" />
+                            <X className="h-5 w-5 sm:h-4 sm:w-4" />
                         </Button>
                     </div>
                 </div>
 
-                {/* Main Content */}
-                <div className="p-6 md:p-8">
+                {/* Main Content - Scrollable */}
+                <div className="p-4 sm:p-6 md:p-8 max-h-[calc(90vh-100px)] overflow-y-auto">
                     {/* From md and up, use a 12-column grid so chart and
                         breakdown can share space without clipping */}
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
@@ -198,7 +199,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                 <p className="text-xs text-muted-foreground">Sorted by highest value</p>
                             </div>
 
-                            <div className="max-h-[420px] overflow-y-auto">
+                            <div className="max-h-[300px] sm:max-h-[420px] overflow-y-auto">
                                 <div className="space-y-0">
                                     {displayData.map((item: any, index: number) => {
                                         const percentage = total > 0 ? ((item.value / total) * 100) : 0;

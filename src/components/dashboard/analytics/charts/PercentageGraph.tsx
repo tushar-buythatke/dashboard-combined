@@ -1482,13 +1482,13 @@ export function PercentageGraph({
             <Dialog open={!!selectedPoint} onOpenChange={(open) => !open && setSelectedPoint(null)}>
                 <DialogContent
                     showCloseButton={false}
-                    className="w-full sm:max-w-2xl max-h-[90vh] overflow-hidden p-0 bg-white"
+                    className="w-full max-w-[95vw] sm:max-w-xl md:max-w-2xl max-h-[85vh] sm:max-h-[90vh] overflow-hidden p-0 bg-white"
                     style={{ backgroundColor: 'white' }}
                 >
                     {selectedPoint && (
                         <>
                             {/* Premium Header */}
-                            <div className="relative px-6 py-5 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
+                            <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
                                 <div className="flex items-center gap-4">
                                     <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                                         <BarChart3 className="h-6 w-6 text-white" />
@@ -1503,15 +1503,16 @@ export function PercentageGraph({
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => setSelectedPoint(null)}
-                                        className="ml-auto h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                                        className="ml-auto h-10 w-10 sm:h-8 sm:w-8 rounded-full bg-white/10 hover:bg-white/20 text-white touch-manipulation"
+                                        aria-label="Close dialog"
                                     >
-                                        <X className="h-4 w-4" />
+                                        <X className="h-5 w-5 sm:h-4 sm:w-4" />
                                     </Button>
                                 </div>
                             </div>
 
                             {/* Main Content */}
-                            <div className="p-6 md:p-8" style={{ backgroundColor: 'white' }}>
+                            <div className="p-4 sm:p-6 md:p-8 max-h-[calc(85vh-80px)] sm:max-h-[calc(90vh-80px)] overflow-y-auto" style={{ backgroundColor: 'white' }}>
                                 {/* Key Metric - Percentage */}
                                 <div className="mb-6 p-6 bg-purple-100 rounded-2xl border-2 border-purple-300 shadow-lg text-center" style={{ backgroundColor: '#f3e8ff' }}>
                                     <div className="text-5xl font-bold text-purple-600 mb-2">
@@ -1523,7 +1524,7 @@ export function PercentageGraph({
                                 </div>
 
                                 {/* Counts Grid - Parent Left, Child Right */}
-                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                                     <div className="bg-white dark:bg-white rounded-xl border border-blue-200/50 p-5 shadow-lg" style={{ backgroundColor: 'white' }}>
                                         <div className="flex items-center gap-3 mb-2">
                                             <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -1683,9 +1684,10 @@ export function PercentageGraph({
 
                                 {/* Footer Info */}
                                 <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground text-center sm:text-left">
                                         <span>Time: {selectedPoint.time}</span>
-                                        <span>Click outside to close</span>
+                                        <span className="hidden sm:inline">Click outside to close</span>
+                                        <span className="sm:hidden">Tap outside or ✕ to close</span>
                                     </div>
                                 </div>
                             </div>
