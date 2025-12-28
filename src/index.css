@@ -19,7 +19,8 @@
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'ss02', 'liga', 'kern';
   font-variation-settings: 'opsz' 18;
   letter-spacing: -0.01em;
-  zoom: 100%; /* Global magnification */
+  zoom: 100%;
+  /* Global magnification */
 
   /* Light mode as default - clean white/purple */
   --background: 0 0% 98%;
@@ -43,35 +44,60 @@
   --ring: 262.1 83.3% 57.8%;
   /* ========== PREMIUM CHART COLOR PALETTE ========== */
   /* Main chart colors - harmonious and visually pleasing */
-  --chart-1: 262 83% 58%;    /* Rich Purple */
-  --chart-2: 217 91% 60%;    /* Vibrant Blue */
-  --chart-3: 158 64% 52%;    /* Emerald Green */
-  --chart-4: 330 81% 60%;    /* Pink */
-  --chart-5: 38 92% 50%;     /* Amber */
-  --chart-6: 188 94% 43%;    /* Cyan */
-  --chart-7: 271 81% 55%;    /* Deep Purple */
-  --chart-8: 174 84% 39%;    /* Teal */
-  --chart-9: 346 77% 49%;    /* Rose */
+  --chart-1: 262 83% 58%;
+  /* Rich Purple */
+  --chart-2: 217 91% 60%;
+  /* Vibrant Blue */
+  --chart-3: 158 64% 52%;
+  /* Emerald Green */
+  --chart-4: 330 81% 60%;
+  /* Pink */
+  --chart-5: 38 92% 50%;
+  /* Amber */
+  --chart-6: 188 94% 43%;
+  /* Cyan */
+  --chart-7: 271 81% 55%;
+  /* Deep Purple */
+  --chart-8: 174 84% 39%;
+  /* Teal */
+  --chart-9: 346 77% 49%;
+  /* Rose */
 
   /* Status-based colors */
-  --chart-alerts-set: 158 64% 52%;      /* Success Green */
-  --chart-alerts-removed: 0 84% 60%;    /* Error Red */
-  --chart-feed-updates: 217 91% 60%;    /* Primary Blue */
-  --chart-feed-received: 188 94% 43%;   /* Cyan */
-  --chart-price-updates: 38 92% 50%;    /* Amber */
-  --chart-push-success: 158 64% 52%;    /* Success Green */
-  --chart-email-success: 174 84% 39%;   /* Teal */
-  --chart-push-errors: 0 84% 60%;       /* Error Red */
-  --chart-email-errors: 0 62% 50%;      /* Dark Red */
-  --chart-error-android: 20 85% 55%;    /* Orange Red */
-  --chart-error-chrome: 262 70% 50%;    /* Purple */
-  --chart-error-email: 330 81% 60%;     /* Pink */
-  --chart-delay: 38 92% 50%;            /* Amber */
+  --chart-alerts-set: 158 64% 52%;
+  /* Success Green */
+  --chart-alerts-removed: 0 84% 60%;
+  /* Error Red */
+  --chart-feed-updates: 217 91% 60%;
+  /* Primary Blue */
+  --chart-feed-received: 188 94% 43%;
+  /* Cyan */
+  --chart-price-updates: 38 92% 50%;
+  /* Amber */
+  --chart-push-success: 158 64% 52%;
+  /* Success Green */
+  --chart-email-success: 174 84% 39%;
+  /* Teal */
+  --chart-push-errors: 0 84% 60%;
+  /* Error Red */
+  --chart-email-errors: 0 62% 50%;
+  /* Dark Red */
+  --chart-error-android: 20 85% 55%;
+  /* Orange Red */
+  --chart-error-chrome: 262 70% 50%;
+  /* Purple */
+  --chart-error-email: 330 81% 60%;
+  /* Pink */
+  --chart-delay: 38 92% 50%;
+  /* Amber */
 
   /* Analytics platform colors */
-  --chart-analytics-android: 158 64% 52%;  /* Emerald */
-  --chart-analytics-chrome: 262 83% 58%;   /* Purple */
-  --chart-analytics-email: 330 81% 60%;    /* Pink */
+  --chart-analytics-android: 158 64% 52%;
+  /* Emerald */
+  --chart-analytics-chrome: 262 83% 58%;
+  /* Purple */
+  --chart-analytics-email: 330 81% 60%;
+  /* Pink */
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 240 10% 3.9%;
   --sidebar-primary: 262.1 83.3% 57.8%;
@@ -277,11 +303,16 @@
   --glow-primary: 0 0 20px rgba(34, 197, 94, 0.5);
 
   /* Premium Chart Colors for Matrix Green Theme */
-  --chart-1: 142 70% 50%;    /* Neon Green */
-  --chart-2: 160 60% 45%;    /* Emerald */
-  --chart-3: 174 84% 39%;    /* Teal */
-  --chart-4: 188 94% 43%;    /* Cyan */
-  --chart-5: 158 64% 52%;    /* Forest Green */
+  --chart-1: 142 70% 50%;
+  /* Neon Green */
+  --chart-2: 160 60% 45%;
+  /* Emerald */
+  --chart-3: 174 84% 39%;
+  /* Teal */
+  --chart-4: 188 94% 43%;
+  /* Cyan */
+  --chart-5: 158 64% 52%;
+  /* Forest Green */
 }
 
 @theme inline {
@@ -649,6 +680,7 @@
   0% {
     background-position: 200% center;
   }
+
   100% {
     background-position: -200% center;
   }
@@ -808,6 +840,7 @@
     transform: translateY(0) scale(1);
     box-shadow: var(--shadow-premium);
   }
+
   100% {
     transform: translateY(-4px) scale(1.01);
     box-shadow: var(--shadow-card-hover);
@@ -956,5 +989,29 @@ iframe {
 
   .safe-area-inset-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+}
+
+/* ========== MOBILE-SPECIFIC UTILITIES ========== */
+@layer utilities {
+
+  /* Mobile touch targets - ensures minimum 44x44px hit area for accessibility */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Mobile safe padding - responsive padding that adapts to screen size */
+  .mobile-safe-padding {
+    @apply px-4 sm:px-6 md:px-8;
+  }
+
+  /* Prevent horizontal scrolling on mobile */
+  .mobile-no-scroll {
+    @apply overflow-x-hidden;
+  }
+
+  /* Touch manipulation for better mobile interactions */
+  .touch-manipulation {
+    touch-action: manipulation;
   }
 }
