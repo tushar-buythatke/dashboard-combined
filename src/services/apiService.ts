@@ -456,8 +456,8 @@ export class APIService {
         const isDev = import.meta.env.DEV;
         const DIRECT_URL = 'https://search-new.bitbns.com/extension/configs-coupons/prod/ALL_CONFIG_COUPON.json';
         const COUPON_CONFIG_URL = isDev 
-            ? '/coupon-config/ALL_CONFIG_COUPON.json'  // Vite proxy
-            : `https://corsproxy.io/?${encodeURIComponent(DIRECT_URL)}`;  // CORS proxy for production
+            ? '/coupon-config'  // Vite proxy (defaults to ALL_CONFIG_COUPON.json)
+            : '/api/coupon-config';  // Same-origin serverless proxy on Vercel
 
         // console.log('📋 Fetching POS from coupon config...', { isDev, url: COUPON_CONFIG_URL });
 
