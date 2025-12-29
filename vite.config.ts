@@ -16,8 +16,18 @@ export default defineConfig({
       '/coupon-config': {
         target: 'https://search-new.bitbns.com',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/coupon-config/, '/extension/configs-coupons/prod'),
         secure: true,
+        headers: {
+          referer: 'https://search-new.bitbns.com/',
+          origin: 'https://search-new.bitbns.com',
+          'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+        },
+        rewrite: (p) => {
+          if (/^\/coupon-config\/?$/.test(p)) {
+            return '/extension/configs-coupons/prod/ALL_CONFIG_COUPON.json'
+          }
+          return p.replace(/^\/coupon-config/, '/extension/configs-coupons/prod')
+        },
       },
     },
   },
