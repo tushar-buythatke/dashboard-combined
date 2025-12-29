@@ -530,8 +530,6 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                 {profile.panels.map((panel, pIndex) => {
                                                     // Get alert count for THIS specific panel based on its alertsConfig
                                                     const panelAlerts = (() => {
-                                                        if (!criticalAlerts || criticalAlerts.length === 0) return 0;
-
                                                         // Check if this panel has alert config with specific event filter
                                                         const panelAlertConfig = (panel as any).alertsConfig;
                                                         const panelEventFilter = panelAlertConfig?.filterByEvents?.map((id: string) => parseInt(id)) || [];
