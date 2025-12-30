@@ -260,7 +260,7 @@ class MockService {
             this.profiles = INITIAL_PROFILES;
             this.saveProfilesToStorage();
         }
-        
+
         // Check Firebase connection
         this.initializeFirebase();
     }
@@ -280,7 +280,7 @@ class MockService {
     private saveProfilesToStorage() {
         localStorage.setItem('dashboard_profiles', JSON.stringify(this.profiles));
     }
-    
+
     /**
      * Convert DashboardProfileConfig (Firebase) to DashboardProfile (local)
      * IMPORTANT: Preserves _dbProfileId and _dbPanelIds for proper DB upsert
@@ -311,7 +311,7 @@ class MockService {
 
         return result;
     }
-    
+
     /**
      * Convert DashboardProfile (local) to DashboardProfileConfig (Firebase)
      * IMPORTANT: Preserves _dbProfileId and _dbPanelId for proper DB upsert
@@ -346,7 +346,7 @@ class MockService {
 
         return result;
     }
-    
+
     /**
      * Convert FeatureConfig (Firebase) to Feature (local)
      */
@@ -362,19 +362,22 @@ class MockService {
         // Mock login logic
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
 
-        if (password === '123456') {
-            if (username === 'admin') {
-                return {
-                    success: true,
-                    user: { id: 'u1', username: 'admin', role: 0, token: 'mock_token_admin' }
-                };
-            } else if (username === 'user') {
-                return {
-                    success: true,
-                    user: { id: 'u2', username: 'user', role: 1, token: 'mock_token_user' }
-                };
-            }
+        // Admin user - full access (role: 0)
+        if (username === 'admin' && password === 'admin-hai-ye@buyhatke') {
+            return {
+                success: true,
+                user: { id: 'u1', username: 'admin', role: 0, token: 'mock_token_admin' }
+            };
         }
+
+        // Viewer user - read-only access (role: 2)
+        if (username === 'user' && password === '123456') {
+            return {
+                success: true,
+                user: { id: 'u2', username: 'user', role: 2, token: 'mock_token_viewer' }
+            };
+        }
+
         return { success: false, user: null as any, message: 'Invalid credentials' };
     }
 
@@ -391,22 +394,22 @@ class MockService {
                 console.warn('⚠️ Firebase features fetch failed, trying API fallback');
             }
         }
-        
+
         // Try API next
         try {
             // Fetch features from API for the specified organization
             const apiFeatures: FeatureInfo[] = await apiService.getFeaturesList(organizationId);
-            
+
             // Update the dynamic feature data for use elsewhere
             updateFeatureData(apiFeatures);
-            
+
             // Transform to Feature format
             const features: Feature[] = apiFeatures.map(f => ({
                 id: f.id.toString(), // Use numeric ID as string
                 name: f.name,
                 description: `${f.name} analytics and tracking`
             }));
-            
+
             // console.log('✅ Loaded features from API:', features);
             return features;
         } catch (error) {
@@ -423,14 +426,14 @@ class MockService {
             const result = await firebaseConfigService.getAllProfiles();
             if (result.success && result.items.length > 0) {
                 // console.log(`📦 Total profiles in Firebase: ${result.items.length}`);
-                
+
                 // Try to match by featureId (could be numeric string like "1" or name like "price_alert")
                 const matchingProfiles = result.items.filter(p => {
                     // Match by exact featureId
                     if (p.featureId === featureId) return true;
                     return false;
                 });
-                
+
                 if (matchingProfiles.length > 0) {
                     // console.log(`✅ Loaded ${matchingProfiles.length} profiles from Firebase for featureId: ${featureId}`);
                     this.firebaseInitialized = true;
@@ -439,13 +442,13 @@ class MockService {
                     return await this.ensureApisProfile(featureId, orgId, localProfiles);
                 } else {
                     // console.log(`⚠️ No profiles match featureId "${featureId}". Available featureIds:`, 
-                        // [...new Set(result.items.map(p => p.featureId))]);
+                    // [...new Set(result.items.map(p => p.featureId))]);
                 }
             }
         } catch (error) {
             console.warn('⚠️ Firebase profiles fetch failed, using localStorage fallback', error);
         }
-        
+
         // Fallback to localStorage
         const localProfiles = this.profiles.filter(p => p.featureId === featureId && p.isActive);
         return await this.ensureApisProfile(featureId, orgId, localProfiles);
@@ -465,7 +468,7 @@ class MockService {
         } catch (error) {
             console.warn('⚠️ Firebase profile fetch failed, using localStorage fallback');
         }
-        
+
         // Fallback to localStorage
         return this.profiles.find(p => p.profileId === profileId);
     }
@@ -486,12 +489,12 @@ class MockService {
                 console.warn('⚠️ Firebase save failed, saving to localStorage only');
             }
         }
-        
+
         // Fallback to localStorage
         this.updateLocalProfile(profile);
         return profile;
     }
-    
+
     private updateLocalProfile(profile: DashboardProfile) {
         const index = this.profiles.findIndex(p => p.profileId === profile.profileId);
         if (index >= 0) {
@@ -514,7 +517,7 @@ class MockService {
                 console.warn('⚠️ Firebase delete failed');
             }
         }
-        
+
         // Also delete from localStorage
         const index = this.profiles.findIndex(p => p.profileId === profileId);
         if (index >= 0) {
@@ -524,24 +527,24 @@ class MockService {
         }
         return false;
     }
-    
+
     /**
      * Sync local profiles to Firebase (admin utility)
      */
     async syncToFirebase(orgId: string, username: string): Promise<{ synced: number; failed: number; error?: string }> {
         // Force sync directly - don't rely on initialization state
         // We already know Firebase is configured since we're on the admin panel
-        
+
         let synced = 0;
         let failed = 0;
-        
+
         if (this.profiles.length === 0) {
             console.warn('⚠️ No local profiles to sync');
             return { synced: 0, failed: 0, error: 'No local profiles found' };
         }
-        
+
         // console.log(`🔄 Starting sync of ${this.profiles.length} profiles to Firebase...`);
-        
+
         for (const profile of this.profiles) {
             try {
                 // console.log(`📤 Syncing profile: ${profile.profileName} (${profile.profileId})`);
@@ -559,13 +562,13 @@ class MockService {
                 console.error(`❌ Exception syncing ${profile.profileName}:`, error?.message || error);
             }
         }
-        
+
         // Update initialization state since sync worked
         if (synced > 0) {
             this.firebaseInitialized = true;
             this.useFirebase = true;
         }
-        
+
         // console.log(`🔄 Sync complete: ${synced} synced, ${failed} failed`);
         return { synced, failed };
     }

@@ -6,6 +6,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import type { EventConfig } from '@/types/analytics';
 
 interface PercentageGraphProps {
     data: any[];
@@ -22,6 +23,7 @@ interface PercentageGraphProps {
     isHourly?: boolean;
     onToggleHourly?: (isHourly: boolean) => void;
     onToggleBackToFunnel?: () => void;
+    events?: EventConfig[]; // Event configurations to detect isAvgEvent type
 }
 
 /**
@@ -41,6 +43,7 @@ export function PercentageGraph({
     isHourly = true,
     onToggleHourly,
     onToggleBackToFunnel,
+    events = [],
 }: PercentageGraphProps) {
     const debug = false;
     if (debug) {
@@ -63,6 +66,66 @@ export function PercentageGraph({
     const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
     // Line selection state: null = show all, 'all' = show all (explicit), or specific line ID
     const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+
+    // Detect isAvgEvent type from child events: 0=count, 1=time(ms), 2=rupees
+    const isAvgEventType = useMemo(() => {
+        if (!events || events.length === 0) return 0;
+        // Check child events first
+        for (const childEventId of childEvents) {
+            const eventConfig = events.find(e => String(e.eventId) === String(childEventId));
+            if (eventConfig?.isAvgEvent && eventConfig.isAvgEvent >= 1) {
+                return eventConfig.isAvgEvent;
+            }
+        }
+        // Check parent events as fallback
+        for (const parentEventId of parentEvents) {
+            const eventConfig = events.find(e => String(e.eventId) === String(parentEventId));
+            if (eventConfig?.isAvgEvent && eventConfig.isAvgEvent >= 1) {
+                return eventConfig.isAvgEvent;
+            }
+        }
+        return 0;
+    }, [events, childEvents, parentEvents]);
+
+    // Format value based on isAvgEventType
+    const formatValue = (value: number, forAxis = false) => {
+        if (!value || value <= 0) return forAxis ? '0' : '0';
+
+        if (isAvgEventType === 2) {
+            // isAvgEvent 2 = Rupees
+            if (forAxis) {
+                if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
+                if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+                if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
+                return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+            }
+            return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+        } else if (isAvgEventType === 1) {
+            // isAvgEvent 1 = Time in ms
+            if (value >= 60000) {
+                // More than a minute - show in minutes
+                return forAxis ? `${(value / 60000).toFixed(1)}m` : `${(value / 60000).toFixed(2)} min`;
+            } else if (value >= 1000) {
+                // More than a second - show in seconds
+                return forAxis ? `${(value / 1000).toFixed(1)}s` : `${(value / 1000).toFixed(2)} sec`;
+            }
+            return forAxis ? `${value.toFixed(0)}ms` : `${value.toFixed(2)} ms`;
+        }
+        // Default: count
+        if (forAxis) {
+            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+            if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+        }
+        return value.toLocaleString();
+    };
+
+    // Get Y-axis label based on isAvgEventType
+    const getYAxisLabel = () => {
+        if (isAvgEventType === 2) return 'Amount (₹)';
+        if (isAvgEventType === 1) return 'Delay (ms)';
+        return 'Percentage (%)';
+    };
+
 
     const chartData = useMemo(() => {
         if (!data || data.length === 0) return [];
@@ -926,9 +989,10 @@ export function PercentageGraph({
                                 />
                                 <YAxis
                                     tick={{ fontSize: 11, fill: '#6b7280' }}
-                                    label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
-                                    domain={yAxisConfig.domain}
-                                    ticks={yAxisConfig.ticks as any}
+                                    label={{ value: getYAxisLabel(), angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                                    domain={isAvgEventType >= 1 ? ['auto', 'auto'] : yAxisConfig.domain}
+                                    ticks={isAvgEventType >= 1 ? undefined : (yAxisConfig.ticks as any)}
+                                    tickFormatter={isAvgEventType >= 1 ? (value: number) => formatValue(value, true) : undefined}
                                 />
                                 <ReferenceLine
                                     y={overallStats.percentage}
@@ -1009,7 +1073,7 @@ export function PercentageGraph({
                                                 ? childEntries.filter(([key]) => shouldKeepApiEntry(key))
                                                 : childEntries
                                             ).sort((a, b) => Number(b[1]) - Number(a[1]));
-                                            
+
                                             // Sort parent entries by value descending (highest first)
                                             const filteredParentEntries = (isApiEventMode
                                                 ? parentEntries.filter(([key]) => shouldKeepApiEntry(key))
@@ -1025,12 +1089,12 @@ export function PercentageGraph({
                                                             <span className="font-bold text-purple-600 text-sm">{data.percentage.toFixed(2)}%</span>
                                                         </div>
                                                         <div className="flex items-center justify-between gap-4">
-                                                            <span className="text-gray-500">{isAvgDelay ? 'Child Avg' : 'Child'}:</span>
-                                                            <span className="font-bold text-gray-900">{isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}</span>
+                                                            <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Child Amount' : 'Child Delay') : isAvgDelay ? 'Child Avg' : 'Child'}:</span>
+                                                            <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.childCount) : isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}</span>
                                                         </div>
                                                         <div className="flex items-center justify-between gap-4">
-                                                            <span className="text-gray-500">{isAvgDelay ? 'Parent Avg' : 'Parent'}:</span>
-                                                            <span className="font-bold text-gray-900">{isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}</span>
+                                                            <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Parent Amount' : 'Parent Delay') : isAvgDelay ? 'Parent Avg' : 'Parent'}:</span>
+                                                            <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.parentCount) : isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}</span>
                                                         </div>
                                                         {filteredChildEntries.length > 0 && (
                                                             <div className="mt-3 pt-2 border-t border-gray-100">
@@ -1052,7 +1116,7 @@ export function PercentageGraph({
                                                                                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                                                                                     {displayLabel}
                                                                                 </span>
-                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
+                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
                                                                             </div>
                                                                         );
                                                                     })}
@@ -1078,7 +1142,7 @@ export function PercentageGraph({
                                                                                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                                                                                     {displayLabel}
                                                                                 </span>
-                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
+                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
                                                                             </div>
                                                                         );
                                                                     })}

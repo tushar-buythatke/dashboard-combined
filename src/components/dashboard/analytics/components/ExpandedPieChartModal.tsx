@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Activity, Target, Zap, X } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { cn } from '@/lib/utils';
+import { formatIsAvgValue, getIsAvgLabel, getIsAvgTotalLabel } from '@/lib/formatters';
 
 // Pie chart colors - softer, lighter tones
 export const PIE_COLORS = [
@@ -18,7 +19,7 @@ export const PIE_COLORS = [
 ];
 
 // Professional Pie Tooltip
-export const PieTooltip = ({ active, payload, totalValue }: any) => {
+export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0 }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         const percentage = ((data.value / totalValue) * 100).toFixed(1);
@@ -37,7 +38,7 @@ export const PieTooltip = ({ active, payload, totalValue }: any) => {
                     <div className="flex justify-between items-center">
                         <span className="text-xs text-slate-600 dark:text-slate-400">Value</span>
                         <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {data.value.toLocaleString()}
+                            {formatIsAvgValue(data.value, isAvgEventType)}
                         </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -63,27 +64,36 @@ interface ExpandedPieChartModalProps {
     open: boolean;
     onClose: () => void;
     pieData: ExpandedPieData | null;
+    isAvgEventType?: number; // 0=count, 1=time(ms), 2=rupees
 }
 
-export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieChartModalProps) {
+export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType = 0 }: ExpandedPieChartModalProps) {
     if (!pieData || !pieData.data?.length) return null;
 
     const metricType = pieData.data.find((d: any) => d?.metricType)?.metricType || 'count';
-    const isCount = metricType === 'count';
-    const metricLabel = isCount
-        ? 'Count'
-        : metricType === 'avgDelay'
-            ? 'Avg Delay (ms)'
-            : metricType === 'medianDelay'
-                ? 'Median Delay (ms)'
-                : metricType === 'modeDelay'
-                    ? 'Mode Delay (ms)'
-                    : 'Value';
+    const isCount = metricType === 'count' && isAvgEventType === 0;
+
+    // Get label based on isAvgEventType or metricType
+    const getMetricLabel = () => {
+        if (isAvgEventType === 2) return 'Amount (₹)';
+        if (isAvgEventType === 1) return 'Avg Delay (ms)';
+        if (isCount) return 'Count';
+        if (metricType === 'avgDelay') return isAvgEventType === 2 ? 'Avg Amount (₹)' : 'Avg Delay (ms)';
+        if (metricType === 'medianDelay') return 'Median Delay (ms)';
+        if (metricType === 'modeDelay') return 'Mode Delay (ms)';
+        return 'Value';
+    };
 
     const formatValue = (v: any) => {
         const n = Number(v);
         if (!Number.isFinite(n)) return '0';
-        return isCount ? n.toLocaleString() : n.toFixed(2);
+        return formatIsAvgValue(n, isAvgEventType);
+    };
+
+    const formatTotalLabel = () => {
+        if (isAvgEventType === 2) return 'Total (₹)';
+        if (isAvgEventType === 1) return 'Total (ms)';
+        return 'Total Entries';
     };
 
     const total = pieData.data.reduce((acc: number, item: any) => acc + item.value, 0);
@@ -119,11 +129,11 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                         <div className="flex-1 min-w-0">
                             <h2 className="text-lg sm:text-xl font-bold truncate">{pieData.title} Distribution</h2>
                             <p className="text-purple-100 text-xs sm:text-sm truncate">
-                                {sortedData.length} categories • {isCount ? `${Math.round(total).toLocaleString()} total entries` : `${formatValue(total)} total`} {isCount ? '' : 'ms'}
+                                {sortedData.length} categories • {formatValue(total)} total
                             </p>
                             <div className="mt-2">
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white/15 text-white">
-                                    {metricLabel}
+                                    {getMetricLabel()}
                                 </span>
                             </div>
                         </div>
@@ -174,7 +184,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                                 />
                                             ))}
                                         </Pie>
-                                        <Tooltip content={<PieTooltip totalValue={total} />} />
+                                        <Tooltip content={<PieTooltip totalValue={total} isAvgEventType={isAvgEventType} />} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
@@ -186,74 +196,74 @@ export function ExpandedPieChartModal({ open, onClose, pieData }: ExpandedPieCha
                                     <div className="text-xs text-muted-foreground">Categories</div>
                                 </div>
                                 <div className="text-center p-3 bg-gradient-to-br from-pink-50 to-fuchsia-50 dark:from-pink-500/10 dark:to-fuchsia-500/10 rounded-xl">
-                                    <div className="text-2xl font-bold text-pink-600 dark:text-pink-400">{isCount ? Math.round(total).toLocaleString() : formatValue(total)}</div>
-                                    <div className="text-xs text-muted-foreground">{isCount ? 'Total Entries' : 'Total (ms)'}</div>
+                                    <div className="text-2xl font-bold text-pink-600 dark:text-pink-400">{formatValue(total)}</div>
+                                    <div className="text-xs text-muted-foreground">{formatTotalLabel()}</div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Enhanced Data Table */}
                         <div className="md:col-span-5 lg:col-span-5 bg-white dark:bg-slate-800/50 rounded-2xl border border-purple-200/50 dark:border-purple-500/30 overflow-hidden shadow-lg shadow-purple-500/10">
-                            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 border-b border-purple-200/50 dark:border-purple-500/30">
-                                <h3 className="font-semibold text-foreground">Detailed Breakdown</h3>
-                                <p className="text-xs text-muted-foreground">Sorted by highest value</p>
-                            </div>
+                        <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 border-b border-purple-200/50 dark:border-purple-500/30">
+                            <h3 className="font-semibold text-foreground">Detailed Breakdown</h3>
+                            <p className="text-xs text-muted-foreground">Sorted by highest value</p>
+                        </div>
 
-                            <div className="max-h-[300px] sm:max-h-[420px] overflow-y-auto">
-                                <div className="space-y-0">
-                                    {displayData.map((item: any, index: number) => {
-                                        const percentage = total > 0 ? ((item.value / total) * 100) : 0;
+                        <div className="max-h-[300px] sm:max-h-[420px] overflow-y-auto">
+                            <div className="space-y-0">
+                                {displayData.map((item: any, index: number) => {
+                                    const percentage = total > 0 ? ((item.value / total) * 100) : 0;
 
-                                        return (
-                                            <div
-                                                key={item.name}
-                                                className="flex items-center gap-4 p-4 border-b border-gray-100 dark:border-gray-700/50 hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-pink-50/50 dark:hover:from-purple-500/5 dark:hover:to-pink-500/5 transition-all duration-200"
-                                            >
-                                                {/* Color + Name */}
-                                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                    <div
-                                                        className={cn(
-                                                            "w-3 h-3 rounded-full flex-shrink-0 border-2 border-white dark:border-gray-800",
-                                                            item.isOther && "opacity-70"
-                                                        )}
-                                                        style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
-                                                    />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="font-medium text-sm text-foreground truncate">
-                                                            {item.name}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Progress Bar */}
-                                                <div className="hidden sm:flex flex-1 items-center">
-                                                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                                        <div
-                                                            className="h-2 rounded-full"
-                                                            style={{
-                                                                width: `${Math.max(percentage, total > 0 ? 2 : 0)}%`,
-                                                                background: PIE_COLORS[index % PIE_COLORS.length]
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                {/* Values */}
-                                                <div className="text-right flex-shrink-0 min-w-[88px] sm:min-w-[104px]">
-                                                    <div className="font-semibold text-sm text-foreground">{isCount ? Math.round(Number(item.value || 0)).toLocaleString() : `${formatValue(item.value)}ms`}</div>
-                                                    <div className="text-xs font-medium text-purple-600 dark:text-purple-400">
-                                                        {percentage.toFixed(1)}%
+                                    return (
+                                        <div
+                                            key={item.name}
+                                            className="flex items-center gap-4 p-4 border-b border-gray-100 dark:border-gray-700/50 hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-pink-50/50 dark:hover:from-purple-500/5 dark:hover:to-pink-500/5 transition-all duration-200"
+                                        >
+                                            {/* Color + Name */}
+                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                <div
+                                                    className={cn(
+                                                        "w-3 h-3 rounded-full flex-shrink-0 border-2 border-white dark:border-gray-800",
+                                                        item.isOther && "opacity-70"
+                                                    )}
+                                                    style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-medium text-sm text-foreground truncate">
+                                                        {item.name}
                                                     </div>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
+
+                                            {/* Progress Bar */}
+                                            <div className="hidden sm:flex flex-1 items-center">
+                                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                                    <div
+                                                        className="h-2 rounded-full"
+                                                        style={{
+                                                            width: `${Math.max(percentage, total > 0 ? 2 : 0)}%`,
+                                                            background: PIE_COLORS[index % PIE_COLORS.length]
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Values */}
+                                            <div className="text-right flex-shrink-0 min-w-[88px] sm:min-w-[104px]">
+                                                <div className="font-semibold text-sm text-foreground">{formatValue(item.value)}</div>
+                                                <div className="text-xs font-medium text-purple-600 dark:text-purple-400">
+                                                    {percentage.toFixed(1)}%
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
                 </div>
-            </DialogContent>
+            </div>
+        </DialogContent>
         </Dialog>
     );
 }

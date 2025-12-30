@@ -1325,6 +1325,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     setProfile?.(updatedProfile);
                                                 }
                                             } : undefined}
+                                            events={events}
                                         />
 
 

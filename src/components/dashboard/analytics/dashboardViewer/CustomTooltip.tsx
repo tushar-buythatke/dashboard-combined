@@ -7,6 +7,7 @@ import {
     ChevronDown,
     ChevronUp,
     Clock,
+    DollarSign,
     TrendingDown,
     TrendingUp,
     XCircle
@@ -53,7 +54,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         eventKeyToInfo.set(ek.eventKey, ek);
     });
 
-    const formatMetric = (value: number, metricType: 'timing' | 'delay' | 'bytes' | 'count', featureId?: number) => {
+    const formatMetric = (value: number, metricType: 'timing' | 'delay' | 'bytes' | 'count' | 'money', featureId?: number) => {
         if (!value || value <= 0) return metricType === 'count' ? '0' : null;
 
         if (metricType === 'bytes') {
@@ -78,6 +79,13 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
             if (value >= 3600) return `${Math.round(value / 3600)}h`;
             if (value >= 60) return `${Math.round(value / 60)}m`;
             return `${Math.round(value)}s`;
+        }
+
+        if (metricType === 'money') {
+            if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
+            if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+            if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
+            return `₹${value.toLocaleString('en-IN')}`;
         }
 
         return value.toLocaleString();
@@ -148,10 +156,21 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         }
 
         // Determine metric type for formatting
-        let metricType: 'timing' | 'delay' | 'bytes' | 'count' = 'count';
-        if (isTimingKey) metricType = 'timing';
-        else if (isDelayKey) metricType = 'delay';
-        else if (isBytesKey) metricType = 'bytes';
+        let metricType: 'timing' | 'delay' | 'bytes' | 'count' | 'money' = 'count';
+
+        // Check for specific isAvgEvent types from config
+        if (ekInfo?.isAvgEvent === 2) {
+            metricType = 'money';
+        } else if (ekInfo?.isAvgEvent === 1 && !isTimingKey) {
+            // isAvgEvent 1 is delay/time (unless it's specifically a timing key)
+            metricType = 'delay';
+        } else if (isTimingKey) {
+            metricType = 'timing';
+        } else if (isDelayKey) {
+            metricType = 'delay';
+        } else if (isBytesKey) {
+            metricType = 'bytes';
+        }
 
         return {
             name: displayName,
@@ -195,8 +214,13 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         : 0;
 
     // Determine metric type for whole tooltip header
-    let headerMetricType: 'timing' | 'delay' | 'bytes' | 'count' = 'count';
-    if (someTimingEvents) headerMetricType = 'timing';
+    let headerMetricType: 'timing' | 'delay' | 'bytes' | 'count' | 'money' = 'count';
+
+    // Check if any items are money type
+    const someMoneyEvents = eventDataItems.some((item: any) => item.metricType === 'money');
+
+    if (someMoneyEvents) headerMetricType = 'money';
+    else if (someTimingEvents) headerMetricType = 'timing';
     else if (someAvgEvents && !someBytesEvents) headerMetricType = 'delay';
     else if (someBytesEvents) headerMetricType = 'bytes';
 
@@ -242,7 +266,11 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                             {someBytesEvents ? (
                                 <Activity className="h-4 w-4 md:h-5 md:w-5 text-white" />
                             ) : someAvgEvents ? (
-                                <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                                headerMetricType === 'money' ? (
+                                    <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                                ) : (
+                                    <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                                )
                             ) : (
                                 <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
                             )}
