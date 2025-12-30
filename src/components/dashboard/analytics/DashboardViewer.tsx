@@ -1682,7 +1682,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
             const existing = timeMap.get(dateKey)!;
             const eventConfig = eventConfigMap.get(eventId);
-            const isAvgEvent = eventConfig?.isAvgEvent === 1;
+            // Check for any isAvgEvent type (1=time, 2=rupees, 3=count)
+            const isAvgEvent = (eventConfig?.isAvgEvent || 0) >= 1;
 
             // Add overall totals
             existing.count += record.count || 0;
@@ -2608,7 +2609,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 if (hourlyChanged && profile.panels[0]?.panelId) {
                     refreshPanelData(profile.panels[0].panelId);
                 }
-                
+
                 // Refresh current active panel - always if any state changed that affects it
                 // For panelHourlyChanged, we technically only need to refresh IF the active panel is the one that changed.
                 // But refreshing the active panel is safe and cheap enough.
@@ -2619,8 +2620,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     if (activePanelId !== profile.panels[0]?.panelId) {
                         refreshPanelData(activePanelId);
                     } else if (!hourlyChanged && (chartTypeChanged || panelHourlyChanged)) {
-                         // If main panel is active, and global hourly didn't change, but chartType/panelOverride did, refresh it
-                         refreshPanelData(activePanelId);
+                        // If main panel is active, and global hourly didn't change, but chartType/panelOverride did, refresh it
+                        refreshPanelData(activePanelId);
                     }
                 }
             }
@@ -3014,6 +3015,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const avgEventKeys = eventKeys.filter(ek => (ek.isAvgEvent || 0) >= 1);
     const errorEventKeys = eventKeys.filter(ek => ek.isErrorEvent === 1 && (!ek.isAvgEvent || ek.isAvgEvent === 0));
     const normalEventKeys = eventKeys.filter(ek => (!ek.isAvgEvent || ek.isAvgEvent === 0) && (!ek.isErrorEvent || ek.isErrorEvent === 0));
+
+    // Compute global avgEventType for pie chart modals (0=count, 1=time, 2=rupees, 3=avg count)
+    const globalAvgEventType = avgEventKeys.length > 0
+        ? (avgEventKeys[0].isAvgEvent || 0)
+        : 0;
 
     // Check if first panel is a special graph (percentage or funnel)
     const firstPanel = profile?.panels?.[0];
@@ -3411,6 +3417,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         });
                     }}
                     pieData={expandedPie}
+                    isAvgEventType={globalAvgEventType}
                 />
             </div>
         </>

@@ -27,7 +27,7 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         // Check for existing session
-        const storedUser = localStorage.getItem('analytics_user');
+        const storedUser = localStorage.getItem('analytics_user_v2');
         if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
@@ -40,7 +40,7 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
             const response = await mockService.login(username, password);
             if (response.success && response.user) {
                 setUser(response.user);
-                localStorage.setItem('analytics_user', JSON.stringify(response.user));
+                localStorage.setItem('analytics_user_v2', JSON.stringify(response.user));
                 return { success: true };
             } else {
                 return { success: false, message: response.message || 'Login failed' };
@@ -54,7 +54,7 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
 
     const logout = () => {
         setUser(null);
-        localStorage.removeItem('analytics_user');
+        localStorage.removeItem('analytics_user_v2');
     };
 
     const value = {

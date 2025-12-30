@@ -1,7 +1,16 @@
 import { PIE_COLORS } from './constants';
+import { formatIsAvgValue, getIsAvgLabel } from '@/lib/formatters';
+
+interface PieTooltipProps {
+    active?: boolean;
+    payload?: any[];
+    totalValue?: number;
+    category?: string;
+    isAvgEventType?: number; // 0=count, 1=time(ms), 2=rupees
+}
 
 // Custom Pie Chart Tooltip
-export const PieTooltip = ({ active, payload, totalValue }: any) => {
+export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0 }: PieTooltipProps) => {
     if (!active || !payload || !payload.length) return null;
 
     const data = payload[0]?.payload;
@@ -9,23 +18,36 @@ export const PieTooltip = ({ active, payload, totalValue }: any) => {
 
     const metricType = data.metricType || 'count';
     const isCount = metricType === 'count';
-    const metricLabel = isCount
-        ? 'Count'
-        : metricType === 'avgDelay'
-            ? 'Avg Delay (ms)'
-            : metricType === 'medianDelay'
-                ? 'Median Delay (ms)'
-                : metricType === 'modeDelay'
-                    ? 'Mode Delay (ms)'
-                    : 'Value';
+
+    // Determine the metric label based on isAvgEventType or metricType
+    const getMetricLabel = () => {
+        if (isAvgEventType === 2) return 'Amount (₹)';
+        if (isAvgEventType === 1) return 'Avg Delay (ms)';
+        if (isCount) return 'Count';
+        if (metricType === 'avgDelay') return isAvgEventType === 2 ? 'Avg Amount (₹)' : 'Avg Delay (ms)';
+        if (metricType === 'medianDelay') return 'Median Delay (ms)';
+        if (metricType === 'modeDelay') return 'Mode Delay (ms)';
+        return 'Value';
+    };
 
     const formatValue = (v: any) => {
         const n = Number(v);
         if (!Number.isFinite(n)) return '0';
-        return isCount ? n.toLocaleString() : `${n.toFixed(2)}ms`;
+
+        // Use isAvgEventType for formatting
+        if (isAvgEventType === 2) {
+            return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+        }
+        if (isAvgEventType === 1 || metricType === 'avgDelay' || metricType === 'medianDelay' || metricType === 'modeDelay') {
+            if (n >= 60000) return `${(n / 60000).toFixed(2)} min`;
+            if (n >= 1000) return `${(n / 1000).toFixed(2)} sec`;
+            return `${n.toFixed(2)} ms`;
+        }
+        return n.toLocaleString();
     };
 
-    const percentage = totalValue > 0 ? ((data.value / totalValue) * 100).toFixed(1) : '0';
+    const safeTotal = totalValue ?? 0;
+    const percentage = safeTotal > 0 ? ((data.value / safeTotal) * 100).toFixed(1) : '0';
 
     return (
         <div
@@ -42,7 +64,7 @@ export const PieTooltip = ({ active, payload, totalValue }: any) => {
             </div>
             <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">{metricLabel}</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-400">{getMetricLabel()}</span>
                     <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                         {formatValue(data.value)}
                     </span>

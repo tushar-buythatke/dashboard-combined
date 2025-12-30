@@ -11,6 +11,7 @@ import {
     ChevronDown,
     ChevronUp,
     Clock,
+    DollarSign,
     Filter,
     Flame,
     Hash,
@@ -201,6 +202,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
         (events || []).forEach((e: any) => { map[String(e.eventId)] = e.eventName; });
         return map;
     }, [events]);
+
+    // Compute the main panel's avgEventType from events (0=count, 1=time, 2=rupees, 3=avg count)
+    const mainPanelAvgEventType = useMemo(() => {
+        // Check avgEventKeys first
+        for (const ek of avgEventKeys) {
+            const event = events.find((e: any) => String(e.eventId) === ek.eventId);
+            if (event?.isAvgEvent && event.isAvgEvent >= 1) {
+                return event.isAvgEvent;
+            }
+        }
+        // Fallback to checking all events
+        for (const event of events || []) {
+            if (event.isAvgEvent && event.isAvgEvent >= 1) {
+                return event.isAvgEvent;
+            }
+        }
+        return 0;
+    }, [avgEventKeys, events]);
 
     // Memoize status code groupings for filter UI
     const statusCodeGroups = useMemo(() => ({
@@ -1233,7 +1252,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         }
                                     }}
                                     onToggleBackToFunnel={handleToggleBackToFunnel}
-
+                                    events={events}
                                 />
                             );
                         } else {
@@ -1260,6 +1279,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     cacheStatus: activeCacheStatus
                                                 }}
                                                 isHourly={isHourly}
+                                                events={events}
                                                 showCombinedPercentage={false}
                                                 onToggleHourly={(newValue) => {
                                                     if (setHourlyOverride) {
@@ -1267,7 +1287,6 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     }
                                                 }}
                                                 onToggleBackToFunnel={index === 0 ? handleToggleBackToFunnel : undefined}
-
                                             />
                                         </div>
                                     ))}
@@ -2128,18 +2147,47 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
                                         <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                                            <Clock className="h-6 w-6 text-white" />
+                                            {(() => {
+                                                const firstAvgEvent = avgEventKeys[0];
+                                                const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                return avgEventType === 2 ? <DollarSign className="h-6 w-6 text-white" /> : <Clock className="h-6 w-6 text-white" />;
+                                            })()}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg">Time Delay Trends</CardTitle>
+                                            <CardTitle className="text-base md:text-lg">
+                                                {(() => {
+                                                    const firstAvgEvent = avgEventKeys[0];
+                                                    const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                    if (avgEventType === 2) return 'Cost Trends';
+                                                    if (avgEventType === 3) return 'Count Trends';
+                                                    return 'Time Delay Trends';
+                                                })()}
+                                            </CardTitle>
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                <span className="hidden md:inline">Average delay per event • Price Alerts in minutes, others in seconds</span>
-                                                <span className="md:hidden">Delay tracking for isAvg events</span>
+                                                {(() => {
+                                                    const firstAvgEvent = avgEventKeys[0];
+                                                    const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                    if (avgEventType === 2) return <span className="hidden md:inline">Average amount per event • Currency in Rupees (₹)</span>;
+                                                    if (avgEventType === 3) return <span className="hidden md:inline">Average count per event</span>;
+                                                    return (
+                                                        <>
+                                                            <span className="hidden md:inline">Average delay per event • Price Alerts in minutes, others in seconds</span>
+                                                            <span className="md:hidden">Delay tracking for isAvg events</span>
+                                                        </>
+                                                    );
+                                                })()}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isAvg Events</span>
+                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                                            {(() => {
+                                                const firstAvgEvent = avgEventKeys[0];
+                                                const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                if (avgEventType === 2) return 'isAvg₹ Events';
+                                                return 'isAvg Events';
+                                            })()}
+                                        </span>
                                     </div>
                                 </div>
                             </CardHeader>
@@ -2813,6 +2861,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 content={<PieTooltip
                                                                     totalValue={statusData.reduce((acc: number, item: any) => acc + item.value, 0)}
                                                                     category="Status Code"
+                                                                    isAvgEventType={mainPanelAvgEventType}
                                                                 />}
                                                             />
                                                             <Legend
@@ -2885,6 +2934,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 content={<PieTooltip
                                                                     totalValue={cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0)}
                                                                     category="Cache Status"
+                                                                    isAvgEventType={mainPanelAvgEventType}
                                                                 />}
                                                             />
                                                             <Legend
@@ -2986,6 +3036,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             content={<PieTooltip
                                                                 totalValue={platformData.reduce((acc: number, item: any) => acc + item.value, 0)}
                                                                 category="Platform"
+                                                                isAvgEventType={mainPanelAvgEventType}
                                                             />}
                                                         />
                                                         <Legend
@@ -3058,6 +3109,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             content={<PieTooltip
                                                                 totalValue={posData.reduce((acc: number, item: any) => acc + item.value, 0)}
                                                                 category="POS"
+                                                                isAvgEventType={mainPanelAvgEventType}
                                                             />}
                                                         />
                                                         <Legend
@@ -3130,6 +3182,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             content={<PieTooltip
                                                                 totalValue={sourceData.reduce((acc: number, item: any) => acc + item.value, 0)}
                                                                 category="Source"
+                                                                isAvgEventType={mainPanelAvgEventType}
                                                             />}
                                                         />
                                                         <Legend

@@ -47,7 +47,7 @@ export const CollapsibleLegend = ({
         const eventKey = eventKeyInfo.eventKey;
         const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
         const isErrorEvent = event?.isErrorEvent === 1;
-        const isAvgEvent = event?.isAvgEvent === 1;
+        const isAvgEventType = event?.isAvgEvent || 0; // 0=count, 1=time, 2=rupees, 3=avg count
 
         let total = 0;
         let success = 0;
@@ -58,7 +58,7 @@ export const CollapsibleLegend = ({
             total += item[`${eventKey}_count`] || 0;
             success += item[`${eventKey}_success`] || 0;
             // For avg events, calculate average delay
-            if (isAvgEvent && item[`${eventKey}_avgDelay`]) {
+            if (isAvgEventType >= 1 && item[`${eventKey}_avgDelay`]) {
                 avgDelay += item[`${eventKey}_avgDelay`];
                 delayCount++;
             }
@@ -78,25 +78,35 @@ export const CollapsibleLegend = ({
             successRate,
             errorRate,
             isErrorEvent,
-            isAvgEvent,
+            isAvgEventType,
             avgDelay: meanDelay
         };
         return acc;
-    }, {} as Record<string, { total: number; successCount: number; errorCount: number; successRate: number; errorRate: number; isErrorEvent: boolean; isAvgEvent: boolean; avgDelay: number }>);
+    }, {} as Record<string, { total: number; successCount: number; errorCount: number; successRate: number; errorRate: number; isErrorEvent: boolean; isAvgEventType: number; avgDelay: number }>);
 
-    // Format delay time based on feature
-    // Price Alert (feature 1) = value is already in MINUTES
-    // Auto-Coupon, Spend (others) = value is already in SECONDS
-    const formatDelay = (delayValue: number, featureId?: number) => {
-        if (!delayValue || delayValue <= 0) return '0';
+    // Format delay time or amount based on isAvgEventType
+    // isAvgEventType 1 = time (ms/s/m/h)
+    // isAvgEventType 2 = rupees
+    const formatDelayOrAmount = (value: number, isAvgEventType: number, featureId?: number) => {
+        if (!value || value <= 0) return '0';
+
+        // Rupees (isAvgEventType 2)
+        if (isAvgEventType === 2) {
+            if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;
+            if (value >= 100000) return `₹${(value / 100000).toFixed(1)}L`;
+            if (value >= 1000) return `₹${(value / 1000).toFixed(1)}K`;
+            return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+        }
+
+        // Time-based delay (isAvgEventType 1 or legacy)
         if (featureId === 1) {
             // Price Alert - value is in minutes
-            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}h`;
-            return `${delayValue.toFixed(1)}m`;
+            if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+            return `${value.toFixed(1)}m`;
         } else {
             // Auto-Coupon, Spend - value is in seconds
-            if (delayValue >= 60) return `${(delayValue / 60).toFixed(1)}m`;
-            return `${delayValue.toFixed(1)}s`;
+            if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+            return `${value.toFixed(1)}s`;
         }
     };
 
@@ -158,18 +168,30 @@ export const CollapsibleLegend = ({
                         {eventKeyInfo.isErrorEvent === 1 && (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError</span>
                         )}
-                        {eventKeyInfo.isAvgEvent === 1 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg</span>
+                        {(eventKeyInfo.isAvgEvent === 1 || eventKeyInfo.isAvgEvent === 2) && (
+                            <span className={cn(
+                                "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                                eventKeyInfo.isAvgEvent === 2
+                                    ? "bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400"
+                                    : "bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
+                            )}>
+                                {eventKeyInfo.isAvgEvent === 2 ? 'isAvg₹' : 'isAvg'}
+                            </span>
                         )}
                         <span className="text-xs md:text-sm font-semibold text-gray-900 dark:text-white">
                             {stats.total.toLocaleString()}
                         </span>
 
-                        {/* Show delay time for avg events */}
-                        {stats.isAvgEvent && stats.avgDelay > 0 ? (
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {formatDelay(stats.avgDelay, event?.feature)}
+                        {/* Show delay time or rupees for avg events */}
+                        {stats.isAvgEventType >= 1 && stats.avgDelay > 0 ? (
+                            <span className={cn(
+                                "text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1",
+                                stats.isAvgEventType === 2
+                                    ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
+                                    : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
+                            )}>
+                                {stats.isAvgEventType === 2 ? null : <Clock className="w-3 h-3" />}
+                                {formatDelayOrAmount(stats.avgDelay, stats.isAvgEventType, event?.feature)}
                             </span>
                         ) : (
                             <>

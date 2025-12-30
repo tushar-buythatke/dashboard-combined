@@ -426,8 +426,8 @@ export function AnalyticsLayout() {
                             }}>
                                 Cancel
                             </Button>
-                            <Button 
-                                onClick={handleCreateNewConfig} 
+                            <Button
+                                onClick={handleCreateNewConfig}
                                 disabled={
                                     (newConfigMode === 'new' && !newConfigName.trim()) ||
                                     (newConfigMode === 'existing' && !selectedExistingProfile)
@@ -611,9 +611,9 @@ export function AnalyticsLayout() {
                         ) : selectedProfileId ? (
                             <DashboardViewer
                                 profileId={selectedProfileId}
-                                onEditProfile={(_profile: DashboardProfile) => {
+                                onEditProfile={isAdmin ? (_profile: DashboardProfile) => {
                                     setIsCreatingProfile(true);
-                                }}
+                                } : undefined}
                                 onAlertsUpdate={setCriticalAlertsData}
                                 onPanelActive={setActivePanelId}
                             />
@@ -718,8 +718,8 @@ export function AnalyticsLayout() {
                         }}>
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handleCreateNewConfig} 
+                        <Button
+                            onClick={handleCreateNewConfig}
                             disabled={
                                 (newConfigMode === 'new' && !newConfigName.trim()) ||
                                 (newConfigMode === 'existing' && !selectedExistingProfile)

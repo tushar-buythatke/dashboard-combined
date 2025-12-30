@@ -1,4 +1,4 @@
-export type UserRole = 0 | 1; // 0 = Admin, 1 = Viewer
+export type UserRole = 0 | 1 | 2; // 0 = Admin, 1 = User, 2 = Viewer (read-only)
 
 export interface User {
     id: string;
