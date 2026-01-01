@@ -36,15 +36,25 @@ export function MultiSelectDropdown<T extends string | number = string>({
 
     // Filter options based on search query (searches both label and value)
     const filteredOptions = React.useMemo(() => {
-        if (!searchQuery.trim()) return options;
+        let optionsToFilter = options;
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase().trim();
+            optionsToFilter = options.filter(option => {
+                const labelMatch = option.label.toLowerCase().includes(query);
+                const valueMatch = String(option.value).toLowerCase().includes(query);
+                return labelMatch || valueMatch;
+            });
+        }
 
-        const query = searchQuery.toLowerCase().trim();
-        return options.filter(option => {
-            const labelMatch = option.label.toLowerCase().includes(query);
-            const valueMatch = String(option.value).toLowerCase().includes(query);
-            return labelMatch || valueMatch;
+        // Sort: Selected items first
+        return [...optionsToFilter].sort((a, b) => {
+            const aSelected = selected.includes(a.value);
+            const bSelected = selected.includes(b.value);
+            if (aSelected && !bSelected) return -1;
+            if (!aSelected && bSelected) return 1;
+            return 0;
         });
-    }, [options, searchQuery]);
+    }, [options, searchQuery, selected]);
 
     const handleSelectAll = () => {
         const allValues = filteredOptions.map(o => o.value);

@@ -11,7 +11,7 @@ interface PanelPreviewProps {
         pos: number[];
         sources: number[];
     };
-    graphType: 'line' | 'bar' | 'percentage' | 'funnel';
+    graphType: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow';
     dateRange?: { from: Date; to: Date };
 }
 
@@ -38,15 +38,15 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                     return;
                 }
 
-            const analyticsData = await apiService.getGraphData(
-                eventIdsToFetch,
-                filters.platforms.length > 0 ? filters.platforms : [0],
-                filters.pos.length > 0 ? filters.pos : [2],
-                filters.sources.length > 0 ? filters.sources : [],
-                [], // sourceStrs
-                startDate,
-                endDate
-            );                const records = analyticsData.data || [];
+                const analyticsData = await apiService.getGraphData(
+                    eventIdsToFetch,
+                    filters.platforms.length > 0 ? filters.platforms : [0],
+                    filters.pos.length > 0 ? filters.pos : [2],
+                    filters.sources.length > 0 ? filters.sources : [],
+                    [], // sourceStrs
+                    startDate,
+                    endDate
+                ); const records = analyticsData.data || [];
 
                 // Group by timestamp
                 const groupedByTime: Record<string, any> = {};
@@ -58,11 +58,11 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                     });
 
                     if (!groupedByTime[timeKey]) {
-                        groupedByTime[timeKey] = { 
-                            timestamp: timeKey, 
-                            count: 0, 
-                            successCount: 0, 
-                            failCount: 0 
+                        groupedByTime[timeKey] = {
+                            timestamp: timeKey,
+                            count: 0,
+                            successCount: 0,
+                            failCount: 0
                         };
                     }
 
@@ -96,7 +96,7 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
             <div className="border rounded-lg p-8 text-center text-muted-foreground bg-muted/20">
                 <p className="text-sm">No data available for selected filters</p>
                 <p className="text-xs mt-2 opacity-60">
-                    Events: {filters.events.join(', ')} | Platform: {filters.platforms.join(', ')} | 
+                    Events: {filters.events.join(', ')} | Platform: {filters.platforms.join(', ')} |
                     POS: {filters.pos.join(', ')} | Source: {filters.sources.join(', ')}
                 </p>
             </div>
@@ -110,28 +110,28 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                     <BarChart data={data}>
                         <defs>
                             <linearGradient id="countGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8}/>
-                                <stop offset="100%" stopColor="#6366f1" stopOpacity={0.3}/>
+                                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
+                                <stop offset="100%" stopColor="#6366f1" stopOpacity={0.3} />
                             </linearGradient>
                             <linearGradient id="successGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8}/>
-                                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.3}/>
+                                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
+                                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.3} />
                             </linearGradient>
                             <linearGradient id="failGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8}/>
-                                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3}/>
+                                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
+                                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} />
                         <XAxis dataKey="timestamp" tick={{ fontSize: 11, fill: '#6b7280' }} />
                         <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} />
-                        <Tooltip 
-                            contentStyle={{ 
-                                backgroundColor: 'rgba(255,255,255,0.95)', 
-                                borderRadius: '8px', 
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: 'rgba(255,255,255,0.95)',
+                                borderRadius: '8px',
                                 border: 'none',
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-                            }} 
+                            }}
                         />
                         <Legend />
                         <Bar dataKey="count" name="Total" fill="url(#countGrad)" radius={[4, 4, 0, 0]} />
@@ -142,28 +142,28 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                     <AreaChart data={data}>
                         <defs>
                             <linearGradient id="areaCount" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="areaSuccess" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="areaFail" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                             </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} />
                         <XAxis dataKey="timestamp" tick={{ fontSize: 11, fill: '#6b7280' }} />
                         <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} />
-                        <Tooltip 
-                            contentStyle={{ 
-                                backgroundColor: 'rgba(255,255,255,0.95)', 
-                                borderRadius: '8px', 
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: 'rgba(255,255,255,0.95)',
+                                borderRadius: '8px',
                                 border: 'none',
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
-                            }} 
+                            }}
                         />
                         <Legend />
                         <Area type="monotone" dataKey="count" name="Total" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#areaCount)" />

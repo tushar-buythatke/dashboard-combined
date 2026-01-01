@@ -1,4 +1,4 @@
-import React, { Fragment, useMemo } from 'react';
+import React, { Fragment, useMemo, useState } from 'react';
 import { AiInsightsBadge } from '../components/AiInsightsBadge';
 import type { FilterState } from './types';
 import { InfoTooltip } from '../components/InfoTooltip';
@@ -35,9 +35,13 @@ import { AnimatedNumber } from './AnimatedNumber';
 import { CollapsibleLegend } from './CollapsibleLegend';
 import { CustomTooltip } from './CustomTooltip';
 import { PieTooltip } from './PieTooltip';
+import { ChartExpandedView } from '../components/ChartExpandedView';
 import { combinePieChartDuplicates, ERROR_COLORS, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './constants';
 import { PercentageGraph } from '../charts/PercentageGraph';
 import { FunnelGraph } from '../charts/FunnelGraph';
+import { UserFlowVisualization } from '../charts/UserFlowVisualization';
+import { ChartZoomControls } from '../components/ChartZoomControls';
+import { useChartZoom } from '@/hooks/useChartZoom';
 
 import { DayWiseComparisonChart } from '../components/ComparisonCharts';
 
@@ -98,6 +102,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     panelHourlyOverride,
     setPanelHourlyOverrideForId,
 }: any) {
+    const [expandedChart, setExpandedChart] = useState<{ title: string; render: (zoom: number) => React.ReactNode } | null>(null);
+    
+    // Zoom state for Event Trends charts in additional panels
+    const eventTrendsZoom = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
+    // Zoom state for Time Delay charts in additional panels
+    const timeDelayZoom = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
+    // Zoom state for Error Event Trends charts in additional panels
+    const errorTrendsZoom = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
+
+
     const eventColors = useMemo(() => {
         const map: Record<string, string> = {};
         (events || []).forEach((e: any) => {
@@ -193,6 +207,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
     return (
         <>
+            <ChartExpandedView
+                isOpen={!!expandedChart}
+                onClose={() => setExpandedChart(null)}
+                title={expandedChart?.title || 'Chart Analysis'}
+            >
+                {expandedChart?.render || (() => null)}
+            </ChartExpandedView>
+
             {profile.panels.slice(1).filter((_: any, idx: number) => {
                 // SINGLE PANEL ARCHITECTURE: Only render the panel that matches activePanelIndex
                 // activePanelIndex 0 = main panel, 1+ = additional panels (so idx 0 in slice = activePanelIndex 1)
@@ -299,7 +321,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 ? "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
                                                                 : panelGraphType === 'funnel'
                                                                     ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-                                                                    : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
+                                                                    : panelGraphType === 'user_flow'
+                                                                        ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300"
+                                                                        : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
                                                     )}
                                                 >
                                                     {panelGraphType === 'bar'
@@ -308,7 +332,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             ? 'Percentage Analysis'
                                                             : panelGraphType === 'funnel'
                                                                 ? 'Funnel Analysis'
-                                                                : 'Line Chart'}
+                                                                : panelGraphType === 'user_flow'
+                                                                    ? 'User Flow'
+                                                                    : 'Line Chart'}
                                                 </span>
                                             </p>
                                         </div>
@@ -453,6 +479,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                 </div>
                                             </div>
+
+
 
                                             {panelGraphType === 'percentage' && panelConfig?.percentageConfig ? (
                                                 <div className="space-y-4">
@@ -970,7 +998,13 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     updatePanelFilter?.(panel.panelId, 'events', numericValues);
                                                                 }}
                                                                 placeholder={panelConfig?.isApiEvent ? "Select API events" : "Select events"}
+                                                                disabled={panelGraphType === 'user_flow'}
                                                             />
+                                                            {panelGraphType === 'user_flow' && (
+                                                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                                                    Events configured in flow stages below
+                                                                </p>
+                                                            )}
                                                             {panelConfig?.isApiEvent && (currentPanelFilters.events || []).length > 0 && (() => {
                                                                 const selectedEvent = (events || []).find((e: any) => e.eventId === currentPanelFilters.events[0]?.toString());
                                                                 return selectedEvent?.callUrl ? (
@@ -1326,6 +1360,27 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 }
                                             } : undefined}
                                             events={events}
+                                            onExpand={() => {
+                                                setExpandedChart?.({
+                                                    title: `${panel.panelName} - Percentage Analysis`,
+                                                    render: (z) => (
+                                                        <div style={{ width: '100%', height: '100%' }}>
+                                                            <PercentageGraph
+                                                                data={percentageGraphData}
+                                                                dateRange={currentPanelDateRange}
+                                                                parentEvents={activeParentEvents}
+                                                                childEvents={activeChildEvents}
+                                                                eventColors={eventColors}
+                                                                eventNames={eventNames}
+                                                                filters={mergedFilters}
+                                                                showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
+                                                                isHourly={pIsHourly}
+                                                                events={events}
+                                                            />
+                                                        </div>
+                                                    )
+                                                });
+                                            }}
                                         />
 
 
@@ -1871,10 +1926,113 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 );
                             }
 
+                            if (panelGraphType === 'user_flow' && panelConfig?.userFlowConfig) {
+                                return (
+                                    <div className="space-y-6">
+                                        <Card className="border border-cyan-200/60 dark:border-cyan-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                            <CardHeader className="pb-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+                                                            <Activity className="h-6 w-6 text-white" />
+                                                        </div>
+                                                        <div>
+                                                            <CardTitle className="text-lg font-bold">User Flow Analysis</CardTitle>
+                                                            <p className="text-sm text-muted-foreground mt-1">
+                                                                {panelConfig.userFlowConfig.stages?.length || 0} stages configured
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-gray-500 hover:text-cyan-600"
+                                                        title="See full page expansion"
+                                                        onClick={() => {
+                                                            setExpandedChart?.({
+                                                                title: `${panel.panelName} - User Flow Analysis`,
+                                                                render: (z) => (
+                                                                    <div style={{ width: '100%', height: '100%' }}>
+                                                                        <UserFlowVisualization
+                                                                            data={panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []}
+                                                                            eventNames={eventNames}
+                                                                            config={{
+                                                                                stages: panelConfig.userFlowConfig.stages || [],
+                                                                                showDropOffs: panelConfig.userFlowConfig.showDropOffs ?? true
+                                                                            }}
+                                                                            height={800}
+                                                                            availableEvents={events as any[]}
+                                                                            isEditable={true}
+                                                                            onConfigChange={(newConfig) => {
+                                                                                if (profile && setProfile) {
+                                                                                    setProfile((prev: any) => ({
+                                                                                        ...prev,
+                                                                                        panels: prev.panels.map((p: any) => 
+                                                                                            p.panelId === panel.panelId ? {
+                                                                                                ...p,
+                                                                                                filterConfig: {
+                                                                                                    ...p.filterConfig,
+                                                                                                    userFlowConfig: {
+                                                                                                        ...p.filterConfig?.userFlowConfig,
+                                                                                                        ...newConfig
+                                                                                                    }
+                                                                                                }
+                                                                                            } : p
+                                                                                        )
+                                                                                    }));
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                )
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Maximize2 className="h-5 w-5" />
+                                                    </Button>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <UserFlowVisualization
+                                                    data={panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []}
+                                                    eventNames={eventNames}
+                                                    config={{
+                                                        stages: panelConfig.userFlowConfig.stages || [],
+                                                        showDropOffs: panelConfig.userFlowConfig.showDropOffs ?? true
+                                                    }}
+                                                    height={500}
+                                                    availableEvents={events as any[]}
+                                                    isEditable={true}
+                                                    onConfigChange={(newConfig) => {
+                                                        if (profile && setProfile) {
+                                                            setProfile((prev: any) => ({
+                                                                ...prev,
+                                                                panels: prev.panels.map((p: any) => 
+                                                                    p.panelId === panel.panelId ? {
+                                                                        ...p,
+                                                                        filterConfig: {
+                                                                            ...p.filterConfig,
+                                                                            userFlowConfig: {
+                                                                                ...p.filterConfig?.userFlowConfig,
+                                                                                ...newConfig
+                                                                            }
+                                                                        }
+                                                                    } : p
+                                                                )
+                                                            }));
+                                                        }
+                                                    }}
+                                                />
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                );
+                            }
+
                             return null;
                         })()}
 
-                        {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (() => {
+                        {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && panelGraphType !== 'user_flow' && (() => {
                             const pAvgEventKeys = pEventKeys.filter((ek: any) => ek.isAvgEvent >= 1);
                             // FIXED: Added parentheses for correct operator precedence
                             const pErrorEventKeys = pEventKeys.filter((ek: any) => ek.isErrorEvent === 1 && (!ek.isAvgEvent || ek.isAvgEvent === 0));
@@ -1951,6 +2109,32 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 return currentType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
                                                             })()}
                                                         </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-gray-500 hover:text-purple-600"
+                                                            title="See full page expansion"
+                                                            onClick={() => {
+                                                                setExpandedChart?.({
+                                                                    title: `${panel.panelName} - Event Trends`,
+                                                                    render: (z) => (
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                                <XAxis dataKey="date" />
+                                                                                <YAxis />
+                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} />
+                                                                                {pNormalEventKeys.map((ek: any, i: number) => (
+                                                                                    <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
+                                                                                ))}
+                                                                            </AreaChart>
+                                                                        </ResponsiveContainer>
+                                                                    )
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Maximize2 className="h-5 w-5" />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </CardHeader>
@@ -1965,7 +2149,20 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px]">
+                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden">
+                                                    {/* Zoom Controls for Event Trends */}
+                                                    <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        <ChartZoomControls
+                                                            zoomLevel={eventTrendsZoom.zoomLevel}
+                                                            onZoomIn={eventTrendsZoom.zoomIn}
+                                                            onZoomOut={eventTrendsZoom.zoomOut}
+                                                            onReset={eventTrendsZoom.resetZoom}
+                                                        />
+                                                    </div>
+                                                    <div
+                                                        className="h-full transition-all duration-200"
+                                                        style={{ width: `${Math.max(100, eventTrendsZoom.zoomLevel * 100)}%`, minWidth: '100%' }}
+                                                    >
                                                     {filteredGraphData.length > 0 ? (
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <AreaChart
@@ -2031,6 +2228,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     ) : (
                                                         <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
                                                     )}
+                                                    </div>
                                                 </div>
 
                                                 {(() => {
@@ -2231,7 +2429,35 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         <Clock className="w-4 h-4 text-amber-500" />
                                                         <CardTitle className="text-base font-semibold">Time Delay Trends (Combined)</CardTitle>
                                                     </div>
-                                                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">isAvg Events</span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-gray-500 hover:text-amber-600"
+                                                            title="See full page expansion"
+                                                            onClick={() => {
+                                                                setExpandedChart?.({
+                                                                    title: `${panel.panelName} - Time Delay Trends`,
+                                                                    render: (z) => (
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                                <XAxis dataKey="date" />
+                                                                                <YAxis />
+                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} />
+                                                                                {pAvgEventKeys.map((ek: any, i: number) => (
+                                                                                    <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_avgDelay`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
+                                                                                ))}
+                                                                            </AreaChart>
+                                                                        </ResponsiveContainer>
+                                                                    )
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Maximize2 className="h-5 w-5" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                             </CardHeader>
                                             <CardContent className="space-y-4">
@@ -2245,7 +2471,20 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px]">
+                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden">
+                                                    {/* Zoom Controls for Time Delay Trends */}
+                                                    <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        <ChartZoomControls
+                                                            zoomLevel={timeDelayZoom.zoomLevel}
+                                                            onZoomIn={timeDelayZoom.zoomIn}
+                                                            onZoomOut={timeDelayZoom.zoomOut}
+                                                            onReset={timeDelayZoom.resetZoom}
+                                                        />
+                                                    </div>
+                                                    <div
+                                                        className="h-full transition-all duration-200"
+                                                        style={{ width: `${Math.max(100, timeDelayZoom.zoomLevel * 100)}%`, minWidth: '100%' }}
+                                                    >
                                                     {filteredGraphData.length > 0 ? (
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <AreaChart
@@ -2324,6 +2563,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     ) : (
                                                         <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
                                                     )}
+                                                    </div>
                                                 </div>
 
                                                 {(() => {
@@ -2421,6 +2661,32 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             </button>
                                                         </div>
                                                         <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError Events</span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-gray-500 hover:text-red-600"
+                                                            title="See full page expansion"
+                                                            onClick={() => {
+                                                                setExpandedChart?.({
+                                                                    title: `${panel.panelName} - Error Event Trends`,
+                                                                    render: (z) => (
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
+                                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                                <XAxis dataKey="date" />
+                                                                                <YAxis />
+                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} />
+                                                                                {pErrorEventKeys.map((ek: any, i: number) => (
+                                                                                    <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={ERROR_COLORS[i % ERROR_COLORS.length]} fill={ERROR_COLORS[i % ERROR_COLORS.length]} fillOpacity={0.3} />
+                                                                                ))}
+                                                                            </AreaChart>
+                                                                        </ResponsiveContainer>
+                                                                    )
+                                                                });
+                                                            }}
+                                                        >
+                                                            <Maximize2 className="h-5 w-5" />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </CardHeader>
@@ -2435,7 +2701,20 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px]">
+                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden">
+                                                    {/* Zoom Controls for Error Event Trends */}
+                                                    <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                        <ChartZoomControls
+                                                            zoomLevel={errorTrendsZoom.zoomLevel}
+                                                            onZoomIn={errorTrendsZoom.zoomIn}
+                                                            onZoomOut={errorTrendsZoom.zoomOut}
+                                                            onReset={errorTrendsZoom.resetZoom}
+                                                        />
+                                                    </div>
+                                                    <div
+                                                        className="h-full transition-all duration-200"
+                                                        style={{ width: `${Math.max(100, errorTrendsZoom.zoomLevel * 100)}%`, minWidth: '100%' }}
+                                                    >
                                                     {filteredGraphData.length > 0 ? (
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <AreaChart
@@ -2502,6 +2781,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     ) : (
                                                         <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
                                                     )}
+                                                    </div>
                                                 </div>
 
                                                 {(() => {
