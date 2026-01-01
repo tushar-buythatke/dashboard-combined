@@ -20,6 +20,7 @@ import {
     Info,
     LayoutDashboard,
     Maximize2,
+    Mic,
     MoreHorizontal,
     Percent,
     RefreshCw,
@@ -29,6 +30,7 @@ import {
     Target,
     X,
     XCircle,
+    Sparkles,
     Zap,
 } from 'lucide-react';
 import { AiInsightsBadge } from '../components/AiInsightsBadge';
@@ -39,6 +41,7 @@ import { Label } from '@/components/ui/label';
 import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { getPOSName } from '@/lib/posMapping';
 
@@ -138,6 +141,16 @@ type MainPanelSectionProps = {
     HourlyStatsCard: React.ComponentType<any>;
     events: any[];
     toast: (args: any) => void;
+    isRecording?: boolean;
+    toggleRecording?: () => void;
+    voiceTooltip?: string;
+    isParsingVoice?: boolean;
+    voiceStatus?: string;
+    manualTranscript?: string;
+    setManualTranscript?: (text: string) => void;
+    handleVoiceTranscript?: (text: string) => void;
+    isAdmin?: boolean;
+    setVoiceStatus?: (status: any) => void;
 };
 
 export const MainPanelSection = React.memo(function MainPanelSection({
@@ -203,6 +216,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     HourlyStatsCard,
     events,
     toast,
+    isRecording = false,
+    toggleRecording = () => { },
+    voiceTooltip = 'Voice Search',
+    isParsingVoice = false,
+    voiceStatus = 'idle',
+    manualTranscript = '',
+    setManualTranscript = () => { },
+    handleVoiceTranscript = () => { },
+    isAdmin = false,
+    setVoiceStatus = () => { },
 }: MainPanelSectionProps) {
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const [expandedChart, setExpandedChart] = useState<{ title: string; render: (zoom: number) => React.ReactNode } | null>(null);
@@ -287,17 +310,183 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 </span>
                             )}
                         </CardTitle>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setFiltersCollapsed(!filtersCollapsed);
-                            }}
-                            className="h-8 w-8 p-0"
-                        >
-                            {filtersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            {/* Voice Command Button - Admin Only & Non-API Only */}
+                            {isAdmin && !isMainPanelApi && (
+                                <Popover onOpenChange={(open) => {
+                                    if (open) {
+                                        if (!isRecording) {
+                                            setTimeout(() => toggleRecording(), 100);
+                                        }
+                                    } else {
+                                        setManualTranscript('');
+                                        setVoiceStatus?.('idle');
+                                    }
+                                }}>
+                                    <UiTooltip>
+                                        <TooltipTrigger asChild>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className={cn(
+                                                        "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-300 shadow-sm relative overflow-hidden group/mic ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg",
+                                                        isRecording && "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-md shadow-red-500/20"
+                                                    )}
+                                                >
+                                                    {isRecording ? (
+                                                        <>
+                                                            <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
+                                                            <div className="relative flex items-center gap-1.5">
+                                                                <div className="flex gap-0.5 items-center h-3">
+                                                                    <div className="w-0.5 h-full bg-red-500 animate-[bounce_1s_infinite_0ms]" />
+                                                                    <div className="w-0.5 h-full bg-red-500 animate-[bounce_1s_infinite_200ms]" />
+                                                                </div>
+                                                                <span className="font-bold text-xs animate-pulse">Listening...</span>
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Mic className={cn(
+                                                                "h-4 w-4 text-indigo-500 group-hover/mic:scale-110 transition-transform",
+                                                                isParsingVoice && "animate-spin"
+                                                            )} />
+                                                            <span className="font-bold text-xs tracking-wide">
+                                                                {isParsingVoice ? 'AI Analyzing...' : 'Voice AI'}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            </PopoverTrigger>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="bg-slate-900 text-white border-slate-800 p-2 shadow-xl">
+                                            <div className="flex flex-col gap-1">
+                                                <p className="font-bold text-xs uppercase tracking-wider opacity-60">Status</p>
+                                                <p className="flex items-center gap-2">
+                                                    {voiceStatus === 'idle' && <span className="w-2 h-2 rounded-full bg-slate-400" />}
+                                                    {voiceStatus === 'listening' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+                                                    {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-purple-400" />}
+                                                    {voiceStatus === 'applying' && <Zap className="h-3 w-3 text-amber-400 animate-bounce" />}
+                                                    {voiceStatus === 'done' && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                                                    {voiceStatus === 'error' && <XCircle className="h-3 w-3 text-red-400" />}
+                                                    <span className="capitalize font-medium text-xs">
+                                                        {voiceStatus === 'idle' && 'Ready to listen'}
+                                                        {voiceStatus === 'listening' && 'Listening to your command...'}
+                                                        {voiceStatus === 'parsing' && 'AI is understanding...'}
+                                                        {voiceStatus === 'applying' && 'Applying filters...'}
+                                                        {voiceStatus === 'done' && 'Filters applied!'}
+                                                        {voiceStatus === 'error' && 'Something went wrong'}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                        </TooltipContent>
+                                    </UiTooltip>
+
+                                    <PopoverContent
+                                        className="w-[calc(100vw-2rem)] sm:w-80 p-4 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                                                    <Sparkles className="h-4 w-4" />
+                                                    AI Voice Assistant
+                                                </h4>
+                                                <Badge variant="outline" className="text-[10px] uppercase font-bold text-indigo-500 border-indigo-200">
+                                                    Beta
+                                                </Badge>
+                                            </div>
+
+                                            <div className="relative">
+                                                <textarea
+                                                    placeholder="Type your command or use voice..."
+                                                    className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-y font-medium text-slate-700 dark:text-slate-200"
+                                                    value={manualTranscript}
+                                                    onChange={(e) => setManualTranscript(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === ' ') {
+                                                            e.stopPropagation();
+                                                        }
+                                                    }}
+                                                />
+                                                {manualTranscript.toLowerCase().includes('auto send') && (
+                                                    <div className="absolute right-3 top-3">
+                                                        <Badge variant="outline" className="bg-indigo-500 text-white border-none animate-pulse text-[10px] px-1.5 py-0 h-4">
+                                                            AUTO SEND DETECTED
+                                                        </Badge>
+                                                    </div>
+                                                )}
+                                                {isRecording && (
+                                                    <div className="absolute right-3 bottom-3">
+                                                        <div className="flex gap-1">
+                                                            <div className="w-1 h-3 bg-red-400 animate-pulse" />
+                                                            <div className="w-1 h-3 bg-red-400 animate-pulse delay-75" />
+                                                            <div className="w-1 h-3 bg-red-400 animate-pulse delay-150" />
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant={isRecording ? "destructive" : "outline"}
+                                                    size="sm"
+                                                    onClick={() => toggleRecording()}
+                                                    className="flex-1 gap-2 rounded-xl font-bold"
+                                                >
+                                                    {isRecording ? (
+                                                        <>
+                                                            <XCircle className="h-4 w-4" /> Stop
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Mic className="h-4 w-4" /> Speak
+                                                        </>
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    variant="default"
+                                                    size="sm"
+                                                    disabled={!manualTranscript.trim() || isParsingVoice || isRecording}
+                                                    onClick={() => handleVoiceTranscript(manualTranscript)}
+                                                    className="flex-1 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20"
+                                                >
+                                                    {voiceStatus === 'parsing' ? (
+                                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                                    ) : voiceStatus === 'done' ? (
+                                                        <Zap className="h-4 w-4 text-yellow-300" />
+                                                    ) : (
+                                                        <Zap className="h-4 w-4" />
+                                                    )}
+                                                    {voiceStatus === 'done' ? 'Project SUCCESS!' : 'Send'}
+                                                </Button>
+                                            </div>
+
+                                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                                    <Info className="h-3 w-3" /> TRY SAYING
+                                                </p>
+                                                <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 italic font-medium">
+                                                    "Show Flipkart data for the last 3 days <strong>AUTO SEND</strong>"
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setFiltersCollapsed(!filtersCollapsed);
+                                }}
+                                className="h-8 w-8 p-0"
+                            >
+                                {filtersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                            </Button>
+                        </div>
                     </div>
                 </CardHeader>
                 {!filtersCollapsed && (
@@ -962,6 +1151,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         Filters changed! Click to update data.
                                     </span>
                                 )}
+
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -1547,9 +1737,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     // User Flow Graph - EXCLUSIVE RENDERING
                     if (graphType === 'user_flow') {
                         const userFlowConfig = filterConfig?.userFlowConfig;
-                        
+
                         // Merge filter state with config
-                         return (
+                        return (
                             <Card className="border border-violet-200/60 dark:border-violet-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 mt-4">
                                 <CardHeader className="pb-2 bg-gradient-to-r from-violet-50/80 to-fuchsia-50/60 dark:from-violet-900/20 dark:to-fuchsia-900/10 border-b border-violet-200/40 dark:border-violet-500/20">
                                     <div className="flex items-center justify-between">
@@ -1566,7 +1756,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-6">
-                                    <UserFlowVisualization 
+                                    <UserFlowVisualization
                                         data={rawGraphResponse?.data || []}
                                         eventNames={eventNames}
                                         config={{
@@ -1577,10 +1767,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         availableEvents={events as any[]}
                                         isEditable={true}
                                         onConfigChange={(newConfig) => {
-                                             if (profile && setProfile && profile.panels && profile.panels.length > 0) {
+                                            if (profile && setProfile && profile.panels && profile.panels.length > 0) {
                                                 const updatedProfile = {
                                                     ...profile,
-                                                    panels: profile.panels.map((panel, index) => 
+                                                    panels: profile.panels.map((panel, index) =>
                                                         index === 0 ? {
                                                             ...panel,
                                                             filterConfig: {
@@ -1594,7 +1784,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     )
                                                 };
                                                 setProfile(updatedProfile);
-                                             }
+                                            }
                                         }}
                                     />
                                 </CardContent>
@@ -1872,7 +2062,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 onReset={resetZoom}
                                             />
                                         </div>
-                                        <div 
+                                        <div
                                             className="w-full h-full origin-top-left transition-all duration-100 ease-out overflow-x-auto overflow-y-hidden"
                                             onWheel={handleWheel}
                                         >
@@ -1950,16 +2140,18 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {graphData.length > 0 && profile?.panels?.[0] && (
+                                            {/* AI Insights Button - Admin Only */}
+                                            {isAdmin && (
                                                 <AiInsightsBadge
-                                                    panelId={profile.panels[0].panelId}
-                                                    panelName="Main Panel"
+                                                    panelId="main-panel"
+                                                    panelName={profile?.panels?.[0]?.panelName || 'Main Panel'}
                                                     data={graphData}
-                                                    metricType="count"
+                                                    metricType={isMainPanelApi ? 'percentage' : (mainPanelAvgEventType >= 1 ? 'timing' : 'count')}
                                                     isHourly={isHourly}
                                                     eventKeys={eventKeys}
                                                 />
                                             )}
+
                                             <Button
                                                 variant="outline"
                                                 size="sm"
@@ -2011,50 +2203,50 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 </button>
                                             </div>
                                             <Button
-                                                 variant="ghost"
-                                                 size="icon"
-                                                 className="h-7 w-7 text-gray-500 hover:text-indigo-600"
-                                                 onClick={() => {
-                                                     // Determine current chart type and render correct expanded view
-                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                                     
-                                                     let chartTitle = 'Event Trends';
-                                                     let renderFn = (z: number) => null;
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 text-gray-500 hover:text-indigo-600"
+                                                onClick={() => {
+                                                    // Determine current chart type and render correct expanded view
+                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
 
-                                                     // Logic mostly duplicates render below, but simplified for expand view
-                                                      // NOTE: In a real refactor, we would extract the "chart switch" logic to a component
-                                                      // For now, we will just pass the standard Line/Bar chart as that is 90% of use cases
-                                                      // To support Overlay mode in Expand, we'd need more logic here.
-                                                      
-                                                      setExpandedChart({
-                                                          title: 'Expanded Analysis',
-                                                          render: (z) => (
-                                                             /* Re-use the main chart rendering logic or a simplified version */
-                                                              <ResponsiveContainer width="100%" height="100%">
-                                                                    {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
-                                                                         <BarChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
-                                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                                             <XAxis dataKey="date" />
-                                                                             <YAxis />
-                                                                             <Tooltip />
-                                                                             <Bar dataKey="count" fill="#8884d8" />
-                                                                         </BarChart>
-                                                                    ) : (
-                                                                         <AreaChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
-                                                                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                                              <XAxis dataKey="date" />
-                                                                              <YAxis />
-                                                                              <Tooltip />
-                                                                              {normalEventKeys.map((ek, i) => (
-                                                                                <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
-                                                                              ))}
-                                                                         </AreaChart>
-                                                                    )}
-                                                              </ResponsiveContainer>
-                                                          )
-                                                      });
-                                                 }}
+                                                    let chartTitle = 'Event Trends';
+                                                    let renderFn = (z: number) => null;
+
+                                                    // Logic mostly duplicates render below, but simplified for expand view
+                                                    // NOTE: In a real refactor, we would extract the "chart switch" logic to a component
+                                                    // For now, we will just pass the standard Line/Bar chart as that is 90% of use cases
+                                                    // To support Overlay mode in Expand, we'd need more logic here.
+
+                                                    setExpandedChart({
+                                                        title: 'Expanded Analysis',
+                                                        render: (z) => (
+                                                            /* Re-use the main chart rendering logic or a simplified version */
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
+                                                                    <BarChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                        <XAxis dataKey="date" />
+                                                                        <YAxis />
+                                                                        <Tooltip />
+                                                                        <Bar dataKey="count" fill="#8884d8" />
+                                                                    </BarChart>
+                                                                ) : (
+                                                                    <AreaChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                        <XAxis dataKey="date" />
+                                                                        <YAxis />
+                                                                        <Tooltip />
+                                                                        {normalEventKeys.map((ek, i) => (
+                                                                            <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
+                                                                        ))}
+                                                                    </AreaChart>
+                                                                )}
+                                                            </ResponsiveContainer>
+                                                        )
+                                                    });
+                                                }}
                                             >
                                                 <Maximize2 className="h-5 w-5" />
                                             </Button>
@@ -2108,320 +2300,320 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 onReset={resetZoom}
                                             />
                                         </div>
-                                        <div 
+                                        <div
                                             className="h-full transition-all duration-200"
                                             style={{ width: `${Math.max(100, zoomLevel * 100)}%`, minWidth: '100%' }}
                                         >
-                                        {graphData.length > 0 ? (
-                                            <>
-                                                {/* Show deviation chart for days < 7 when toggled */}
-                                                {(() => {
-                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                            {graphData.length > 0 ? (
+                                                <>
+                                                    {/* Show deviation chart for days < 7 when toggled */}
+                                                    {(() => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
 
-                                                    // Calculate event stats for badges
-                                                    const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
-                                                        const eventKey = eventKeyInfo.eventKey;
-                                                        let total = 0;
-                                                        let success = 0;
+                                                        // Calculate event stats for badges
+                                                        const eventStatsForBadges = normalEventKeys.map(eventKeyInfo => {
+                                                            const eventKey = eventKeyInfo.eventKey;
+                                                            let total = 0;
+                                                            let success = 0;
 
-                                                        graphData.forEach((item: any) => {
-                                                            total += item[`${eventKey}_count`] || 0;
-                                                            success += item[`${eventKey}_success`] || 0;
+                                                            graphData.forEach((item: any) => {
+                                                                total += item[`${eventKey}_count`] || 0;
+                                                                success += item[`${eventKey}_success`] || 0;
+                                                            });
+
+                                                            const successRate = total > 0 ? (success / total) * 100 : 0;
+
+                                                            return {
+                                                                eventKey,
+                                                                eventId: eventKeyInfo.eventId,
+                                                                total,
+                                                                successRate
+                                                            };
                                                         });
 
-                                                        const successRate = total > 0 ? (success / total) * 100 : 0;
+                                                        if (isHourly && mainChartType === 'deviation') {
+                                                            // Filter to show only selected event or all events
+                                                            const filteredEventKeys = overlaySelectedEventKey
+                                                                ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                                                : normalEventKeys.map(e => e.eventKey);
 
-                                                        return {
-                                                            eventKey,
-                                                            eventId: eventKeyInfo.eventId,
-                                                            total,
-                                                            successRate
-                                                        };
-                                                    });
+                                                            const filteredEventStats = overlaySelectedEventKey
+                                                                ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
+                                                                : eventStatsForBadges;
 
-                                                    if (isHourly && mainChartType === 'deviation') {
-                                                        // Filter to show only selected event or all events
-                                                        const filteredEventKeys = overlaySelectedEventKey
-                                                            ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
-                                                            : normalEventKeys.map(e => e.eventKey);
-
-                                                        const filteredEventStats = overlaySelectedEventKey
-                                                            ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
-                                                            : eventStatsForBadges;
-
-                                                        return (
-                                                            <DayWiseComparisonChart
-                                                                data={graphData}
-                                                                dateRange={dateRange}
-                                                                eventKeys={filteredEventKeys}
-                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                                eventStats={filteredEventStats}
-                                                                selectedEventKey={overlaySelectedEventKey}
-                                                                onEventClick={handleOverlayEventClick}
-                                                            />
-                                                        );
-                                                    }
-
-                                                    // For daily overlay mode, show daily average chart with line + avg
-                                                    if (!isHourly && mainChartType === 'deviation') {
-                                                        // Filter to show only selected event or all events
-                                                        const filteredEventKeys = overlaySelectedEventKey
-                                                            ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
-                                                            : normalEventKeys.map(e => e.eventKey);
-
-                                                        const filteredEventStats = overlaySelectedEventKey
-                                                            ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
-                                                            : eventStatsForBadges;
-
-                                                        return (
-                                                            <DailyAverageChart
-                                                                data={graphData}
-                                                                dateRange={dateRange}
-                                                                eventKeys={filteredEventKeys}
-                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                                eventNames={eventNames}
-                                                                eventStats={filteredEventStats}
-                                                                selectedEventKey={overlaySelectedEventKey}
-                                                                onEventClick={handleOverlayEventClick}
-                                                            />
-                                                        );
-                                                    }
-
-                                                    // Default chart rendering
-                                                    return (
-                                                        <ResponsiveContainer width="100%" height="100%">
-                                                            {/* Check if profile has bar chart type */}
-                                                            {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
-                                                                <BarChart
+                                                            return (
+                                                                <DayWiseComparisonChart
                                                                     data={graphData}
-                                                                    margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
-                                                                    barCategoryGap="15%"
-                                                                    onClick={(chartState: any) => {
-                                                                        if (chartState && chartState.activeIndex !== undefined) {
-                                                                            const index = parseInt(chartState.activeIndex);
-                                                                            const dataPoint = graphData[index];
-                                                                            if (dataPoint) {
-                                                                                setPinnedTooltip({
-                                                                                    dataPoint,
-                                                                                    label: chartState.activeLabel || dataPoint.date || ''
-                                                                                });
+                                                                    dateRange={dateRange}
+                                                                    eventKeys={filteredEventKeys}
+                                                                    eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                    eventStats={filteredEventStats}
+                                                                    selectedEventKey={overlaySelectedEventKey}
+                                                                    onEventClick={handleOverlayEventClick}
+                                                                />
+                                                            );
+                                                        }
+
+                                                        // For daily overlay mode, show daily average chart with line + avg
+                                                        if (!isHourly && mainChartType === 'deviation') {
+                                                            // Filter to show only selected event or all events
+                                                            const filteredEventKeys = overlaySelectedEventKey
+                                                                ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                                                : normalEventKeys.map(e => e.eventKey);
+
+                                                            const filteredEventStats = overlaySelectedEventKey
+                                                                ? eventStatsForBadges.filter(s => s.eventKey === overlaySelectedEventKey)
+                                                                : eventStatsForBadges;
+
+                                                            return (
+                                                                <DailyAverageChart
+                                                                    data={graphData}
+                                                                    dateRange={dateRange}
+                                                                    eventKeys={filteredEventKeys}
+                                                                    eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                    eventNames={eventNames}
+                                                                    eventStats={filteredEventStats}
+                                                                    selectedEventKey={overlaySelectedEventKey}
+                                                                    onEventClick={handleOverlayEventClick}
+                                                                />
+                                                            );
+                                                        }
+
+                                                        // Default chart rendering
+                                                        return (
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                {/* Check if profile has bar chart type */}
+                                                                {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
+                                                                    <BarChart
+                                                                        data={graphData}
+                                                                        margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
+                                                                        barCategoryGap="15%"
+                                                                        onClick={(chartState: any) => {
+                                                                            if (chartState && chartState.activeIndex !== undefined) {
+                                                                                const index = parseInt(chartState.activeIndex);
+                                                                                const dataPoint = graphData[index];
+                                                                                if (dataPoint) {
+                                                                                    setPinnedTooltip({
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    });
+                                                                                }
                                                                             }
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <defs>
-                                                                        {/* Dynamic gradients for normal events */}
-                                                                        {normalEventKeys.map((eventKeyInfo, index) => {
-                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                            return (
-                                                                                <linearGradient key={`barGrad_${index}_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="0%" stopColor={color} stopOpacity={1} />
-                                                                                    <stop offset="100%" stopColor={color} stopOpacity={0.7} />
-                                                                                </linearGradient>
-                                                                            );
-                                                                        })}
-                                                                    </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis
-                                                                        dataKey="date"
-                                                                        tick={<CustomXAxisTick />}
-                                                                        axisLine={{ stroke: '#e5e7eb' }}
-                                                                        tickLine={false}
-                                                                        height={45}
-                                                                        interval={Math.floor(graphData.length / 8)}
-                                                                    />
-                                                                    {/* Left Y-axis for Count */}
-                                                                    <YAxis
-                                                                        yAxisId="left"
-                                                                        tick={{ fill: '#6b7280', fontSize: 11 }}
-                                                                        axisLine={false}
-                                                                        tickLine={false}
-                                                                        tickFormatter={(value) => {
-                                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                                            return value;
                                                                         }}
-                                                                        dx={-10}
-                                                                        label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
-                                                                    />
-                                                                    <Tooltip
-                                                                        content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
-                                                                        cursor={{ fill: 'rgba(168, 85, 247, 0.1)' }}
-                                                                    />
-                                                                    {/* Dynamic bars for normal (count) events only */}
-                                                                    {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo, index) => {
-                                                                        const eventKey = eventKeyInfo.eventKey;
-                                                                        const countKey = `${eventKey}_count`;
-                                                                        const resolvedCountKey = (graphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
-                                                                            ? countKey
-                                                                            : eventKey;
-                                                                        return (
-                                                                            <Bar
-                                                                                key={`bar_${index}_${eventKey}`}
-                                                                                dataKey={resolvedCountKey}
-                                                                                name={eventKeyInfo.eventName}
-                                                                                yAxisId="left"
-                                                                                fill={`url(#barColor_${eventKey})`}
-                                                                                radius={[3, 3, 0, 0]}
-                                                                                maxBarSize={40}
-                                                                                opacity={selectedEventKey && selectedEventKey !== eventKey ? 0.4 : 1}
-                                                                                cursor="pointer"
-                                                                                isAnimationActive={false}
-                                                                                animationDuration={0}
-                                                                            />
-                                                                        );
-                                                                    }) : (
-                                                                        /* Fallback to overall totals when no event keys */
-                                                                        <Bar
-                                                                            dataKey="count"
-                                                                            name="Total"
-                                                                            yAxisId="left"
-                                                                            fill="#6366f1"
-                                                                            radius={[3, 3, 0, 0]}
-                                                                            maxBarSize={40}
-                                                                            isAnimationActive={false}
-                                                                            animationDuration={0}
+                                                                    >
+                                                                        <defs>
+                                                                            {/* Dynamic gradients for normal events */}
+                                                                            {normalEventKeys.map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                return (
+                                                                                    <linearGradient key={`barGrad_${index}_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                        <stop offset="0%" stopColor={color} stopOpacity={1} />
+                                                                                        <stop offset="100%" stopColor={color} stopOpacity={0.7} />
+                                                                                    </linearGradient>
+                                                                                );
+                                                                            })}
+                                                                        </defs>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <XAxis
+                                                                            dataKey="date"
+                                                                            tick={<CustomXAxisTick />}
+                                                                            axisLine={{ stroke: '#e5e7eb' }}
+                                                                            tickLine={false}
+                                                                            height={45}
+                                                                            interval={Math.floor(graphData.length / 8)}
                                                                         />
-                                                                    )}
-                                                                </BarChart>
-                                                            ) : (
-                                                                <AreaChart
-                                                                    data={graphData}
-                                                                    margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
-                                                                    onClick={(chartState: any) => {
-                                                                        if (chartState && chartState.activeIndex !== undefined) {
-                                                                            const index = parseInt(chartState.activeIndex);
-                                                                            const dataPoint = graphData[index];
-                                                                            if (dataPoint) {
-                                                                                setPinnedTooltip({
-                                                                                    dataPoint,
-                                                                                    label: chartState.activeLabel || dataPoint.date || ''
-                                                                                });
-                                                                            }
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <defs>
-                                                                        {/* Dynamic gradients for each event */}
-                                                                        {eventKeys.map((eventKeyInfo, index) => {
-                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                            return (
-                                                                                <linearGradient key={`areaGrad_${index}_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                                                                                </linearGradient>
-                                                                            );
-                                                                        })}
-                                                                        {/* Glow filters for lines */}
-                                                                        <filter id="glow">
-                                                                            <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                                                                            <feMerge>
-                                                                                <feMergeNode in="coloredBlur" />
-                                                                                <feMergeNode in="SourceGraphic" />
-                                                                            </feMerge>
-                                                                        </filter>
-                                                                    </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis
-                                                                        dataKey="date"
-                                                                        tick={<CustomXAxisTick isHourly={isHourly} />}
-                                                                        axisLine={{ stroke: '#e5e7eb' }}
-                                                                        tickLine={false}
-                                                                        height={45}
-                                                                        interval={Math.floor(graphData.length / 8)}
-                                                                    />
-                                                                    {/* Left Y-axis for Count */}
-                                                                    <YAxis
-                                                                        yAxisId="left"
-                                                                        tick={{ fill: '#6b7280', fontSize: 11 }}
-                                                                        axisLine={false}
-                                                                        tickLine={false}
-                                                                        tickFormatter={(value) => {
-                                                                            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                                            if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                                            return value;
-                                                                        }}
-                                                                        dx={-10}
-                                                                        label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
-                                                                    />
-                                                                    <Tooltip
-                                                                        content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
-                                                                        cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
-                                                                    />
-                                                                    {/* Dynamic areas for normal (count) events only */}
-                                                                    {normalEventKeys.length > 0 ? normalEventKeys
-                                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
-                                                                        .map((eventKeyInfo, index) => {
-                                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                        {/* Left Y-axis for Count */}
+                                                                        <YAxis
+                                                                            yAxisId="left"
+                                                                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                                                                            axisLine={false}
+                                                                            tickLine={false}
+                                                                            tickFormatter={(value) => {
+                                                                                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                                                                                return value;
+                                                                            }}
+                                                                            dx={-10}
+                                                                            label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
+                                                                        />
+                                                                        <Tooltip
+                                                                            content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
+                                                                            cursor={{ fill: 'rgba(168, 85, 247, 0.1)' }}
+                                                                        />
+                                                                        {/* Dynamic bars for normal (count) events only */}
+                                                                        {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo, index) => {
                                                                             const eventKey = eventKeyInfo.eventKey;
                                                                             const countKey = `${eventKey}_count`;
                                                                             const resolvedCountKey = (graphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
                                                                                 ? countKey
                                                                                 : eventKey;
                                                                             return (
-                                                                                <Area
-                                                                                    key={`area_${index}_${eventKey}`}
-                                                                                    type="monotone"
+                                                                                <Bar
+                                                                                    key={`bar_${index}_${eventKey}`}
                                                                                     dataKey={resolvedCountKey}
                                                                                     name={eventKeyInfo.eventName}
                                                                                     yAxisId="left"
-                                                                                    stroke={color}
-                                                                                    strokeWidth={2.5}
-                                                                                    fillOpacity={1}
-                                                                                    fill={`url(#areaColor_${eventKey})`}
-                                                                                    dot={false}
-                                                                                    activeDot={{
-                                                                                        r: 8,
-                                                                                        fill: color,
-                                                                                        stroke: '#fff',
-                                                                                        strokeWidth: 3,
-                                                                                        filter: 'url(#glow)',
-                                                                                        cursor: 'pointer',
-                                                                                    }}
-                                                                                    isAnimationActive={false} connectNulls={true}
+                                                                                    fill={`url(#barColor_${eventKey})`}
+                                                                                    radius={[3, 3, 0, 0]}
+                                                                                    maxBarSize={40}
+                                                                                    opacity={selectedEventKey && selectedEventKey !== eventKey ? 0.4 : 1}
+                                                                                    cursor="pointer"
+                                                                                    isAnimationActive={false}
                                                                                     animationDuration={0}
                                                                                 />
                                                                             );
                                                                         }) : (
-                                                                        /* Fallback to overall totals when no event keys */
-                                                                        <Area
-                                                                            type="monotone"
-                                                                            dataKey="count"
-                                                                            name="Total"
-                                                                            yAxisId="left"
-                                                                            stroke="#6366f1"
-                                                                            strokeWidth={2.5}
-                                                                            fillOpacity={0.3}
-                                                                            fill="#6366f1"
-                                                                            dot={false}
-                                                                            activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                                                                            isAnimationActive={false} connectNulls={true}
-                                                                            animationDuration={0}
+                                                                            /* Fallback to overall totals when no event keys */
+                                                                            <Bar
+                                                                                dataKey="count"
+                                                                                name="Total"
+                                                                                yAxisId="left"
+                                                                                fill="#6366f1"
+                                                                                radius={[3, 3, 0, 0]}
+                                                                                maxBarSize={40}
+                                                                                isAnimationActive={false}
+                                                                                animationDuration={0}
+                                                                            />
+                                                                        )}
+                                                                    </BarChart>
+                                                                ) : (
+                                                                    <AreaChart
+                                                                        data={graphData}
+                                                                        margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
+                                                                        onClick={(chartState: any) => {
+                                                                            if (chartState && chartState.activeIndex !== undefined) {
+                                                                                const index = parseInt(chartState.activeIndex);
+                                                                                const dataPoint = graphData[index];
+                                                                                if (dataPoint) {
+                                                                                    setPinnedTooltip({
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    });
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <defs>
+                                                                            {/* Dynamic gradients for each event */}
+                                                                            {eventKeys.map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                return (
+                                                                                    <linearGradient key={`areaGrad_${index}_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                        <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                        <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                                                                                    </linearGradient>
+                                                                                );
+                                                                            })}
+                                                                            {/* Glow filters for lines */}
+                                                                            <filter id="glow">
+                                                                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                                                                                <feMerge>
+                                                                                    <feMergeNode in="coloredBlur" />
+                                                                                    <feMergeNode in="SourceGraphic" />
+                                                                                </feMerge>
+                                                                            </filter>
+                                                                        </defs>
+                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <XAxis
+                                                                            dataKey="date"
+                                                                            tick={<CustomXAxisTick isHourly={isHourly} />}
+                                                                            axisLine={{ stroke: '#e5e7eb' }}
+                                                                            tickLine={false}
+                                                                            height={45}
+                                                                            interval={Math.floor(graphData.length / 8)}
                                                                         />
-                                                                    )}
-                                                                </AreaChart>
-                                                            )}
-                                                        </ResponsiveContainer>
-                                                    );
-                                                })()}
-                                            </>
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                                <div>
-                                                    <BarChart3 className={`h-12 w-12 mb-3 opacity-30 ${dataLoading ? 'animate-spin' : ''}`} />
+                                                                        {/* Left Y-axis for Count */}
+                                                                        <YAxis
+                                                                            yAxisId="left"
+                                                                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                                                                            axisLine={false}
+                                                                            tickLine={false}
+                                                                            tickFormatter={(value) => {
+                                                                                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+                                                                                return value;
+                                                                            }}
+                                                                            dx={-10}
+                                                                            label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
+                                                                        />
+                                                                        <Tooltip
+                                                                            content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
+                                                                            cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                                        />
+                                                                        {/* Dynamic areas for normal (count) events only */}
+                                                                        {normalEventKeys.length > 0 ? normalEventKeys
+                                                                            .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                                            .map((eventKeyInfo, index) => {
+                                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                                const eventKey = eventKeyInfo.eventKey;
+                                                                                const countKey = `${eventKey}_count`;
+                                                                                const resolvedCountKey = (graphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
+                                                                                    ? countKey
+                                                                                    : eventKey;
+                                                                                return (
+                                                                                    <Area
+                                                                                        key={`area_${index}_${eventKey}`}
+                                                                                        type="monotone"
+                                                                                        dataKey={resolvedCountKey}
+                                                                                        name={eventKeyInfo.eventName}
+                                                                                        yAxisId="left"
+                                                                                        stroke={color}
+                                                                                        strokeWidth={2.5}
+                                                                                        fillOpacity={1}
+                                                                                        fill={`url(#areaColor_${eventKey})`}
+                                                                                        dot={false}
+                                                                                        activeDot={{
+                                                                                            r: 8,
+                                                                                            fill: color,
+                                                                                            stroke: '#fff',
+                                                                                            strokeWidth: 3,
+                                                                                            filter: 'url(#glow)',
+                                                                                            cursor: 'pointer',
+                                                                                        }}
+                                                                                        isAnimationActive={false} connectNulls={true}
+                                                                                        animationDuration={0}
+                                                                                    />
+                                                                                );
+                                                                            }) : (
+                                                                            /* Fallback to overall totals when no event keys */
+                                                                            <Area
+                                                                                type="monotone"
+                                                                                dataKey="count"
+                                                                                name="Total"
+                                                                                yAxisId="left"
+                                                                                stroke="#6366f1"
+                                                                                strokeWidth={2.5}
+                                                                                fillOpacity={0.3}
+                                                                                fill="#6366f1"
+                                                                                dot={false}
+                                                                                activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                                                                                isAnimationActive={false} connectNulls={true}
+                                                                                animationDuration={0}
+                                                                            />
+                                                                        )}
+                                                                    </AreaChart>
+                                                                )}
+                                                            </ResponsiveContainer>
+                                                        );
+                                                    })()}
+                                                </>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                    <div>
+                                                        <BarChart3 className={`h-12 w-12 mb-3 opacity-30 ${dataLoading ? 'animate-spin' : ''}`} />
+                                                    </div>
+                                                    <p className="text-sm">
+                                                        {dataLoading ? 'Loading chart data...' : 'No data available for selected filters'}
+                                                    </p>
+                                                    {!dataLoading && (
+                                                        <p className="text-xs mt-1 opacity-60">Try adjusting your filter selections</p>
+                                                    )}
                                                 </div>
-                                                <p className="text-sm">
-                                                    {dataLoading ? 'Loading chart data...' : 'No data available for selected filters'}
-                                                </p>
-                                                {!dataLoading && (
-                                                    <p className="text-xs mt-1 opacity-60">Try adjusting your filter selections</p>
-                                                )}
-                                            </div>
-                                        )}
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>
@@ -2628,135 +2820,135 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     />
                                 </div>
 
-                                <div 
+                                <div
                                     className="h-[300px] sm:h-[350px] md:h-[400px] w-full cursor-pointer overflow-x-auto overflow-y-hidden relative group"
                                 >
-                                    <div 
+                                    <div
                                         className="h-full transition-all duration-200"
                                         style={{ width: `${Math.max(100, zoomLevel * 100)}%`, minWidth: '100%' }}
                                     >
-                                    {graphData.length > 0 ? (
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <AreaChart
-                                                data={graphData}
-                                                margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
-                                            >
-                                                <defs>
-                                                    {/* Dynamic gradients for avg events */}
-                                                    {avgEventKeys.map((eventKeyInfo, index) => {
-                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                        return (
-                                                            <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                                <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                                                            </linearGradient>
-                                                        );
-                                                    })}
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                <XAxis
-                                                    dataKey="date"
-                                                    tick={<CustomXAxisTick isHourly={isHourly} />}
-                                                    axisLine={{ stroke: '#e5e7eb' }}
-                                                    tickLine={false}
-                                                    height={45}
-                                                    interval={Math.floor(graphData.length / 8)}
-                                                />
-                                                {/* Y-axis for Time Delay */}
-                                                <YAxis
-                                                    tick={{ fill: '#f59e0b', fontSize: 11 }}
-                                                    axisLine={false}
-                                                    tickLine={false}
-                                                    tickFormatter={(value) => {
-                                                        if (!value || value <= 0) return '0';
-                                                        // Get the first avg event to determine type
-                                                        const firstAvgEvent = avgEventKeys[0];
-                                                        const avgEventType = firstAvgEvent?.isAvgEvent || 0;
-
-                                                        if (avgEventType === 2) {
-                                                            // isAvgEvent 2 = Rupees
-                                                            return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-                                                        } else if (avgEventType === 3) {
-                                                            // isAvgEvent 3 = Count
-                                                            return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString();
-                                                        } else if (avgEventType === 1) {
-                                                            // isAvgEvent 1 = Time (minutes/seconds)
-                                                            const hasPriceAlert = avgEventKeys.some(ek => {
-                                                                const ev = events.find(e => String(e.eventId) === ek.eventId);
-                                                                return ev?.feature === 1;
-                                                            });
-                                                            if (hasPriceAlert) {
-                                                                // Price alerts - value is already in MINUTES
-                                                                if (value >= 60) return `${(value / 60).toFixed(1)}h`;
-                                                                return `${value.toFixed(1)}m`;
-                                                            } else {
-                                                                // Others - value is already in SECONDS
-                                                                if (value >= 60) return `${(value / 60).toFixed(1)}m`;
-                                                                return `${value.toFixed(1)}s`;
-                                                            }
-                                                        }
-                                                        return value.toLocaleString();
-                                                    }}
-                                                    dx={-10}
-                                                    label={{
-                                                        value: (() => {
+                                        {graphData.length > 0 ? (
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <AreaChart
+                                                    data={graphData}
+                                                    margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
+                                                >
+                                                    <defs>
+                                                        {/* Dynamic gradients for avg events */}
+                                                        {avgEventKeys.map((eventKeyInfo, index) => {
+                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                            return (
+                                                                <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                </linearGradient>
+                                                            );
+                                                        })}
+                                                    </defs>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                    <XAxis
+                                                        dataKey="date"
+                                                        tick={<CustomXAxisTick isHourly={isHourly} />}
+                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                        tickLine={false}
+                                                        height={45}
+                                                        interval={Math.floor(graphData.length / 8)}
+                                                    />
+                                                    {/* Y-axis for Time Delay */}
+                                                    <YAxis
+                                                        tick={{ fill: '#f59e0b', fontSize: 11 }}
+                                                        axisLine={false}
+                                                        tickLine={false}
+                                                        tickFormatter={(value) => {
+                                                            if (!value || value <= 0) return '0';
+                                                            // Get the first avg event to determine type
                                                             const firstAvgEvent = avgEventKeys[0];
                                                             const avgEventType = firstAvgEvent?.isAvgEvent || 0;
-                                                            if (avgEventType === 2) return 'Amount (₹)';
-                                                            if (avgEventType === 3) return 'Count';
-                                                            if (avgEventType === 1) return 'Delay';
-                                                            return 'Value';
-                                                        })(),
-                                                        angle: -90,
-                                                        position: 'insideLeft',
-                                                        style: { fill: '#f59e0b', fontSize: 10 }
-                                                    }}
-                                                />
-                                                <Tooltip
-                                                    content={<CustomTooltip events={events} eventKeys={avgEventKeys} />}
-                                                    cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }}
-                                                />
-                                                {/* Dynamic areas for avg (time) events */}
-                                                {avgEventKeys
-                                                    .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
-                                                    .map((eventKeyInfo, index) => {
-                                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                        const eventKey = eventKeyInfo.eventKey;
-                                                        return (
-                                                            <Area
-                                                                key={`time_${index}_${eventKey}`}
-                                                                type="monotone"
-                                                                dataKey={`${eventKey}_avgDelay`}
-                                                                name={eventKeyInfo.eventName}
-                                                                stroke={color}
-                                                                strokeWidth={2.5}
-                                                                fillOpacity={1}
-                                                                fill={`url(#timeColor_${eventKey})`}
-                                                                dot={false}
-                                                                activeDot={{
-                                                                    r: 8,
-                                                                    fill: color,
-                                                                    stroke: '#fff',
-                                                                    strokeWidth: 3,
-                                                                    cursor: 'pointer',
-                                                                }}
-                                                                isAnimationActive={false} connectNulls={true}
-                                                                animationDuration={0}
-                                                            />
-                                                        );
-                                                    })}
-                                            </AreaChart>
-                                        </ResponsiveContainer>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                            <Clock className="h-12 w-12 mb-3 opacity-30" />
-                                            <p className="text-sm">
-                                                {dataLoading ? 'Loading delay data...' : 'No delay data available'}
-                                            </p>
-                                        </div>
-                                    )}
+
+                                                            if (avgEventType === 2) {
+                                                                // isAvgEvent 2 = Rupees
+                                                                return `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+                                                            } else if (avgEventType === 3) {
+                                                                // isAvgEvent 3 = Count
+                                                                return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString();
+                                                            } else if (avgEventType === 1) {
+                                                                // isAvgEvent 1 = Time (minutes/seconds)
+                                                                const hasPriceAlert = avgEventKeys.some(ek => {
+                                                                    const ev = events.find(e => String(e.eventId) === ek.eventId);
+                                                                    return ev?.feature === 1;
+                                                                });
+                                                                if (hasPriceAlert) {
+                                                                    // Price alerts - value is already in MINUTES
+                                                                    if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                                    return `${value.toFixed(1)}m`;
+                                                                } else {
+                                                                    // Others - value is already in SECONDS
+                                                                    if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                                    return `${value.toFixed(1)}s`;
+                                                                }
+                                                            }
+                                                            return value.toLocaleString();
+                                                        }}
+                                                        dx={-10}
+                                                        label={{
+                                                            value: (() => {
+                                                                const firstAvgEvent = avgEventKeys[0];
+                                                                const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                                if (avgEventType === 2) return 'Amount (₹)';
+                                                                if (avgEventType === 3) return 'Count';
+                                                                if (avgEventType === 1) return 'Delay';
+                                                                return 'Value';
+                                                            })(),
+                                                            angle: -90,
+                                                            position: 'insideLeft',
+                                                            style: { fill: '#f59e0b', fontSize: 10 }
+                                                        }}
+                                                    />
+                                                    <Tooltip
+                                                        content={<CustomTooltip events={events} eventKeys={avgEventKeys} />}
+                                                        cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                    />
+                                                    {/* Dynamic areas for avg (time) events */}
+                                                    {avgEventKeys
+                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                        .map((eventKeyInfo, index) => {
+                                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                            const eventKey = eventKeyInfo.eventKey;
+                                                            return (
+                                                                <Area
+                                                                    key={`time_${index}_${eventKey}`}
+                                                                    type="monotone"
+                                                                    dataKey={`${eventKey}_avgDelay`}
+                                                                    name={eventKeyInfo.eventName}
+                                                                    stroke={color}
+                                                                    strokeWidth={2.5}
+                                                                    fillOpacity={1}
+                                                                    fill={`url(#timeColor_${eventKey})`}
+                                                                    dot={false}
+                                                                    activeDot={{
+                                                                        r: 8,
+                                                                        fill: color,
+                                                                        stroke: '#fff',
+                                                                        strokeWidth: 3,
+                                                                        cursor: 'pointer',
+                                                                    }}
+                                                                    isAnimationActive={false} connectNulls={true}
+                                                                    animationDuration={0}
+                                                                />
+                                                            );
+                                                        })}
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                <Clock className="h-12 w-12 mb-3 opacity-30" />
+                                                <p className="text-sm">
+                                                    {dataLoading ? 'Loading delay data...' : 'No delay data available'}
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </CardContent>

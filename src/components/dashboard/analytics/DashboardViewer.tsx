@@ -62,6 +62,11 @@ import { MainPanelSection } from './dashboardViewer/MainPanelSection';
 import { HourlyStatsCard } from './dashboardViewer/HourlyStatsCard';
 import type { DashboardViewerProps, DateRangeState, EventKeyInfo, FilterState, PanelData } from './dashboardViewer/types';
 import { combinePieChartDuplicates, ERROR_COLORS, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './dashboardViewer/constants';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
+import { parseTranscriptToFilters } from '@/services/aiService';
+import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
+
+export type VoiceStatus = 'idle' | 'listening' | 'parsing' | 'applying' | 'done' | 'error';
 
 
 
@@ -434,6 +439,226 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const [pendingRefresh, setPendingRefresh] = useState<boolean>(false);
     const initialLoadComplete = useRef<boolean>(false);
     const lastAutoLoadedProfileId = useRef<string | null>(null);
+
+    // Voice Recognition
+    const { user } = useAnalyticsAuth();
+    const isAdmin = user?.role === 0;
+
+    const { isRecording, transcript, isSupported: isVoiceSupported, toggleRecording, tooltip: voiceTooltip } = useVoiceRecognition();
+    const [isParsingVoice, setIsParsingVoice] = useState(false);
+    const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('idle');
+    const [manualTranscript, setManualTranscript] = useState('');
+
+    const lastAutoSentTranscript = useRef<string>('');
+
+    // Sync manual transcript with recognition
+    useEffect(() => {
+        if (transcript) {
+            const currentTranscript = transcript.toLowerCase();
+            setManualTranscript(transcript);
+
+            // Auto-send logic: detect keyword "auto send" at the end
+            if (currentTranscript.endsWith('auto send') && transcript !== lastAutoSentTranscript.current) {
+                lastAutoSentTranscript.current = transcript;
+                const cleanText = transcript.slice(0, -9).trim();
+                if (cleanText) {
+                    handleVoiceTranscript(cleanText);
+                }
+            }
+        }
+    }, [transcript]);
+
+    // Update status based on recording
+    useEffect(() => {
+        if (isRecording) {
+            setVoiceStatus('listening');
+        } else if (!isRecording) {
+            // Only reset if we were previously listening
+            setVoiceStatus(prev => prev === 'listening' ? 'idle' : prev);
+        }
+    }, [isRecording]);
+
+    // Handle voice transcript automatically when it changes - REMOVED AUTO-CALL for manual control
+    /*
+    useEffect(() => {
+        if (transcript) {
+            handleVoiceTranscript(transcript);
+        }
+    }, [transcript]);
+    */
+
+    const handleVoiceTranscript = async (text: string) => {
+        if (!text) return;
+        setVoiceStatus('parsing');
+        setIsParsingVoice(true);
+        try {
+            const options = {
+                platforms: PLATFORMS,
+                pos: siteDetails.map(s => ({ id: s.id, name: s.name })),
+                sources: SOURCES,
+                events: events.map(e => ({ id: Number(e.eventId), name: e.eventName }))
+            };
+
+            const result = await parseTranscriptToFilters(text, options, new Date().toISOString());
+
+            if (result.explanation) {
+                setVoiceStatus('applying');
+                toast({
+                    title: "AI Analysis Complete",
+                    description: result.explanation,
+                });
+            }
+
+            // Apply filters if present
+            const panelToUpdate = profile?.panels?.[activePanelIndex];
+            if (!panelToUpdate) return;
+            const targetPanelId = panelToUpdate.panelId;
+
+            let updatedPanel = JSON.parse(JSON.stringify(panelToUpdate)); // Deep clone for modifications
+            let hasPanelConfigChange = false;
+
+            // Handle Graph Type and Structure Changes
+            if (result.graphType && result.graphType !== panelToUpdate.filterConfig?.graphType) {
+                updatedPanel.filterConfig.graphType = result.graphType;
+                hasPanelConfigChange = true;
+            }
+
+            if (result.percentageConfig) {
+                updatedPanel.filterConfig.percentageConfig = {
+                    ...updatedPanel.filterConfig.percentageConfig,
+                    parentEvents: result.percentageConfig.parentEvents.map(String),
+                    childEvents: result.percentageConfig.childEvents.map(String)
+                };
+                hasPanelConfigChange = true;
+            }
+
+            if (result.funnelConfig) {
+                updatedPanel.filterConfig.funnelConfig = {
+                    ...updatedPanel.filterConfig.funnelConfig,
+                    stages: result.funnelConfig.stages.map(s => ({ eventId: String(s.eventId) })),
+                    multipleChildEvents: result.funnelConfig.multipleChildEvents.map(String)
+                };
+                hasPanelConfigChange = true;
+            }
+
+            if (result.userFlowConfig) {
+                updatedPanel.filterConfig.userFlowConfig = {
+                    ...updatedPanel.filterConfig.userFlowConfig,
+                    stages: result.userFlowConfig.stages.map((s, idx) => ({
+                        id: `stage-${Date.now()}-${idx}`,
+                        label: s.label,
+                        eventIds: s.eventIds.map(String)
+                    }))
+                };
+                hasPanelConfigChange = true;
+            }
+
+            if (hasPanelConfigChange) {
+                setProfile(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        panels: prev.panels.map(p => p.panelId === targetPanelId ? updatedPanel : p)
+                    };
+                });
+            }
+
+            const currentFilters = panelFiltersState[targetPanelId] || {
+                platforms: [],
+                pos: [],
+                sources: [],
+                events: []
+            };
+
+            // Extract filters - AI may return them nested in a 'filters' object or at root level
+            const aiFilters = result.filters || result;
+
+            // Helper function to extract IDs from filter arrays
+            // AI may return [{id: 111, name: "Myntra"}] or just [111]
+            const extractIds = (arr: any[] | undefined): number[] => {
+                if (!arr || !Array.isArray(arr)) return [];
+                return arr.map(item => {
+                    // If it's an object with an id property, extract the id
+                    if (typeof item === 'object' && item !== null && 'id' in item) {
+                        return Number(item.id);
+                    }
+                    // Otherwise, assume it's already a number
+                    return Number(item);
+                }).filter(id => !isNaN(id));
+            };
+
+            const mergedFilters: FilterState = {
+                ...currentFilters,
+                // Default to empty (All) for these categories if AI doesn't mention them
+                platforms: extractIds(aiFilters.platforms),
+                pos: extractIds(aiFilters.pos),
+                sources: extractIds(aiFilters.sources),
+                events: extractIds(aiFilters.events).length > 0 ? extractIds(aiFilters.events) : currentFilters.events,
+                // Setting to currentFilters.events if not mentioned, 
+                // but if AI asks for a specific graph, it will override this anyway.
+
+                // Reset overrides if structure changed
+                ...(hasPanelConfigChange && {
+                    activeStages: undefined,
+                    activePercentageEvents: undefined,
+                    activePercentageChildEvents: undefined,
+                    activeFunnelChildEvents: undefined
+                })
+            };
+
+            setPanelFiltersState(prev => ({
+                ...prev,
+                [targetPanelId]: mergedFilters
+            }));
+
+            // Clear the transcript and show success
+            setManualTranscript('');
+            setVoiceStatus('done');
+            toast({
+                title: "Voice AI: SUCCESS!",
+                description: result.explanation || "Filters applied successfully.",
+            });
+
+            let targetDateRange: DateRangeState | undefined = undefined;
+            const aiDateRange = aiFilters.dateRange || result.dateRange;
+            if (aiDateRange) {
+                targetDateRange = {
+                    from: new Date(aiDateRange.from),
+                    to: new Date(aiDateRange.to)
+                };
+                if (activePanelIndex === 0) {
+                    setDateRange(targetDateRange);
+                }
+                setPanelDateRanges(prev => ({ ...prev, [targetPanelId]: targetDateRange! }));
+            }
+
+            // Trigger data refresh for the specific panel targeted with merged filters AND direct date range override
+            setPendingRefresh(false);
+            // Pass the updatedPanel directly to refreshPanelData to avoid waiting for state sync
+            refreshPanelData(targetPanelId, mergedFilters, targetDateRange, hasPanelConfigChange ? updatedPanel : undefined);
+            setPanelFilterChanges(prev => ({
+                ...prev,
+                [targetPanelId]: false
+            }));
+
+            setVoiceStatus('done');
+
+            // Reset status after a delay
+            setTimeout(() => setVoiceStatus('idle'), 3000);
+
+        } catch (err) {
+            console.error("Failed to parse voice command:", err);
+            setVoiceStatus('error');
+            toast({
+                title: "Voice Error",
+                description: "Failed to understand the command. Please try again.",
+                variant: "destructive"
+            });
+            setTimeout(() => setVoiceStatus('idle'), 3000);
+        } finally {
+            setIsParsingVoice(false);
+        }
+    };
 
     // Track last time we sent uploadChildConfig (to send once per hour)
     const lastConfigUploadTime = useRef<number>(0);
@@ -1887,17 +2112,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
 
     // Function to refresh a single panel's data
-    const refreshPanelData = useCallback(async (panelId: string) => {
+    const refreshPanelData = useCallback(async (panelId: string, overrideFilters?: FilterState, overrideDateRange?: DateRangeState, overridePanel?: any) => {
         if (!profile || events.length === 0) return;
 
-        const panel = profile.panels.find(p => p.panelId === panelId);
+        const panel = overridePanel || profile.panels.find(p => p.panelId === panelId);
         if (!panel) return;
 
         setPanelLoading(prev => ({ ...prev, [panelId]: true }));
 
         try {
             const panelConfig = (panel as any).filterConfig;
-            const userPanelFilters = panelFiltersState[panelId];
+            const userPanelFilters = overrideFilters || panelFiltersState[panelId];
             const existingPanelData = panelsDataMap.get(panelId);
 
 
@@ -1950,7 +2175,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 pos: currentPanelFilters.pos || [],
                 sources: currentPanelFilters.sources || []
             };
-            const panelDateRange = panelDateRanges[panelId] || dateRange;
+            const panelDateRange = overrideDateRange || panelDateRanges[panelId] || dateRange;
 
             // Get current sourceStr filter for this panel (client-side filter)
             const currentSourceStrFilter = profile.panels[0]?.panelId === panelId
@@ -2296,8 +2521,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
                 // Each panel uses its own filter state if available
                 let eventIdsToFetch = userPanelFilters?.events?.length > 0
-                        ? userPanelFilters.events
-                        : (panelConfig?.events || []);
+                    ? userPanelFilters.events
+                    : (panelConfig?.events || []);
 
                 // For special graphs, extract ALL required event IDs even on initial load
                 if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
@@ -3431,8 +3656,18 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             HourlyStatsCard={HourlyStatsCard}
                             events={events}
                             toast={toast}
+                            isRecording={isRecording}
+                            toggleRecording={toggleRecording}
+                            voiceTooltip={voiceTooltip}
+                            isParsingVoice={isParsingVoice}
+                            handleVoiceTranscript={handleVoiceTranscript}
+                            voiceStatus={voiceStatus}
+                            manualTranscript={manualTranscript}
+                            setManualTranscript={setManualTranscript}
+                            isAdmin={isAdmin}
+                            setVoiceStatus={setVoiceStatus}
                         />
-                        
+
 
                     </div>
                 )}
@@ -3483,9 +3718,19 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         setHourlyOverride={setHourlyOverride} // Global setter (legacy/main)
                         panelHourlyOverride={panelHourlyOverride}
                         setPanelHourlyOverrideForId={setPanelHourlyOverrideForId}
-                        panelZoomLevels={panelZoomLevels}
                         handlePanelZoom={handlePanelZoom}
                         handlePanelWheel={handlePanelWheel}
+
+                        isRecording={isRecording}
+                        toggleRecording={toggleRecording}
+                        voiceTooltip={voiceTooltip}
+                        isParsingVoice={isParsingVoice}
+                        handleVoiceTranscript={handleVoiceTranscript}
+                        voiceStatus={voiceStatus}
+                        manualTranscript={manualTranscript}
+                        setManualTranscript={setManualTranscript}
+                        isAdmin={isAdmin}
+                        setVoiceStatus={setVoiceStatus}
                     />
                 )}
 

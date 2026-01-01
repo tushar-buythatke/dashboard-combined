@@ -33,13 +33,13 @@ interface UserFlowVisualizationProps {
 // Custom Node Component (Refined for High Contrast & Consistency)
 const CustomNode = (props: any) => {
     const { x, y, width, height, index, payload } = props;
-    if (!payload || !payload.name) return null;
+    if (!payload || !payload.name) return <g />;
 
     const color = payload.color || '#8b5cf6';
     const displayValue = Math.round(payload.displayValue || payload.value).toLocaleString();
 
     return (
-        <Layer key={`node-${index}`}>
+        <Layer>
             <Rectangle
                 x={x}
                 y={y}
@@ -51,7 +51,7 @@ const CustomNode = (props: any) => {
                 ry={4}
                 className="transition-all duration-300 hover:fill-opacity-100 cursor-pointer filter drop-shadow-md hover:drop-shadow-lg"
             />
-            
+
             {/* Event Name Label - Always dark and visible above */}
             <text
                 x={x + width / 2}
@@ -82,7 +82,7 @@ const CustomLink = (props: any) => {
     const gradientId = `gradient-link-${index}`;
     const color = payload?.color || '#8b5cf6';
 
-    if (!payload) return null;
+    if (!payload) return <g />;
 
     const d = `
         M${sourceX},${sourceY + linkWidth / 2}
@@ -97,7 +97,7 @@ const CustomLink = (props: any) => {
     `;
 
     return (
-        <Layer key={`link-${index}`}>
+        <Layer>
             <defs>
                 <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor={color} stopOpacity={0.4} />
@@ -105,7 +105,7 @@ const CustomLink = (props: any) => {
                     <stop offset="100%" stopColor={color} stopOpacity={0.05} />
                 </linearGradient>
             </defs>
-            
+
             {/* Hover Buffer: Invisible wider path for easier interaction on thin lines */}
             <path
                 d={d}
@@ -158,7 +158,7 @@ export function UserFlowVisualization({
 
     // Event Color Mapping (Premium Palette)
     const EVENT_PALETTE = [
-        '#6366f1', '#ec4899', '#f97316', '#10b981', '#3b82f6', 
+        '#6366f1', '#ec4899', '#f97316', '#10b981', '#3b82f6',
         '#8b5cf6', '#f59e0b', '#06b6d4', '#d946ef', '#14b8a6'
     ];
 
@@ -186,7 +186,7 @@ export function UserFlowVisualization({
             if (!nodesMap.has(name)) {
                 nodesMap.set(name, nodes.length);
                 const color = getEventColor(name);
-                nodes.push({ name, value: 0, color }); 
+                nodes.push({ name, value: 0, color });
             }
             return nodesMap.get(name)!;
         };
@@ -433,7 +433,7 @@ export function UserFlowVisualization({
                 {sankeyData.nodes.length > 0 && sankeyData.links.length > 0 ? (
                     <div className="relative border-t border-slate-100 dark:border-slate-800">
                         {/* Stage Identification Header for Sankey Area */}
-                        <div 
+                        <div
                             className="sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 pointer-events-none"
                             style={{ width: `${Math.max(100, zoomLevel * 100)}%` }}
                         >
@@ -449,16 +449,16 @@ export function UserFlowVisualization({
 
                         {/* Sankey Scrollable Area */}
                         <ScrollArea className="w-full">
-                            <div 
-                                className="min-h-[900px] py-10" 
+                            <div
+                                className="min-h-[600px] md:min-h-[900px] py-10"
                                 style={{ width: `${Math.max(100, zoomLevel * 100)}%` }}
                             >
-                                <ResponsiveContainer width="100%" height={900}>
+                                <ResponsiveContainer width="100%" height={typeof window !== 'undefined' && window.innerWidth < 768 ? 600 : 900}>
                                     <Sankey
                                         data={sankeyData}
                                         node={<CustomNode />}
                                         link={<CustomLink />}
-                                        nodePadding={100} // Increased padding for ultra-clean spacing
+                                        nodePadding={typeof window !== 'undefined' && window.innerWidth < 768 ? 40 : 100} // Increased padding for ultra-clean spacing
                                         margin={{ left: 100, right: 100, top: 40, bottom: 40 }}
                                         iterations={128} // Max iterations for perfect layout
                                     >
