@@ -34,11 +34,46 @@ export const POS_MAPPING: Record<number, POSInfo> = {
 };
 
 /**
- * Get POS name by ID
+ * Get human-readable name for a POS ID
+ * Handles: numeric IDs, "Pos XXXXX" strings, and name strings
  */
-export function getPOSName(posId: number | string): string {
-    const id = typeof posId === 'string' ? parseInt(posId) : posId;
-    return POS_MAPPING[id]?.name || `POS ${id}`;
+export function getPOSName(id: number | string): string {
+    if (id === null || id === undefined) {
+        return 'Unknown POS';
+    }
+    
+    const idStr = String(id).trim();
+    
+    // CRITICAL: Check if it's in format "Pos 25850" - extract the number!
+    const posMatch = idStr.match(/^pos\s+(\d+)$/i);
+    if (posMatch) {
+        const extractedId = parseInt(posMatch[1]);
+        if (POS_MAPPING[extractedId]) {
+            return POS_MAPPING[extractedId].name;
+        }
+    }
+    
+    // Try numeric lookup
+    const numericId = typeof id === 'number' ? id : parseInt(idStr);
+    if (!isNaN(numericId) && POS_MAPPING[numericId]) {
+        return POS_MAPPING[numericId].name;
+    }
+    
+    // Try string name lookup (case-insensitive)
+    const lowerStr = idStr.toLowerCase();
+    const found = Object.values(POS_MAPPING).find(
+        pos => pos.name.toLowerCase() === lowerStr
+    );
+    if (found) {
+        return found.name;
+    }
+    
+    // Capitalize valid strings
+    if (isNaN(Number(idStr)) && idStr.length > 0) {
+        return idStr.charAt(0).toUpperCase() + idStr.slice(1);
+    }
+    
+    return `POS ${id}`;
 }
 
 /**

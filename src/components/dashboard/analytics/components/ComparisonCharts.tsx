@@ -2,8 +2,10 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ReferenceArea } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, Clock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Calendar, Clock, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ChartZoomControls } from './ChartZoomControls';
+import { useChartZoom } from '@/hooks/useChartZoom';
 
 // Color palette for different days
 const DAY_COLORS = [
@@ -27,14 +29,20 @@ interface ComparisonChartsProps {
     eventStats?: Array<{ eventKey: string; eventId: string; total: number; successRate: number }>;
     selectedEventKey?: string | null;
     onEventClick?: (eventKey: string) => void;
+    headless?: boolean;
+    onExpand?: () => void;
 }
+
 
 /**
  * 8-Day Overlay Comparison Chart
  * Shows up to 7 different days overlaid on the same graph for day-wise comparison
  */
-export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventNames = {}, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
+export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventNames = {}, eventStats, selectedEventKey, onEventClick, headless, onExpand }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
+
+    // Zoom functionality
+    const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom();
 
     // Group data by day
     const groupedByDay: Record<string, any[]> = {};
@@ -196,6 +204,117 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
         }
     }
 
+    const Content = (
+        <div className="h-[450px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis
+                        dataKey="time"
+                        tick={{ fontSize: 11 }}
+                        interval={2}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip
+                        contentStyle={{
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            border: '1px solid #ddd',
+                            borderRadius: '8px'
+                        }}
+                        // Sort by value descending - highest first
+                        itemSorter={(item: any) => {
+                            const value = item?.value;
+                            return typeof value === 'number' ? -value : 0;
+                        }}
+                    />
+
+                    <Legend
+                        wrapperStyle={{ fontSize: '11px' }}
+                        onClick={(o: any) => {
+                            const dataKey = typeof o?.dataKey === 'string' ? o.dataKey : null;
+                            if (!dataKey) return;
+                            const matched = daySeriesAsc.find(series => series.label === dataKey);
+                            if (matched) {
+                                // When user clicks legend, switch to single-day focus mode
+                                setHighlightRecentTwo(false);
+                                setSelectedDayKey(matched.dayKey);
+                            }
+                        }}
+                    />
+
+                    {/* Render a line for each day - legend newest first */}
+                    {daySeriesDesc.map(({ dayKey, label, color }) => {
+                        const recentThreeKeys = daySeriesAsc.slice(-3).map(ds => ds.dayKey);
+                        const isRecent = recentThreeKeys.includes(dayKey);
+
+                        const isSelected = highlightRecentTwo
+                            ? isRecent
+                            : selectedDayKey
+                                ? selectedDayKey === dayKey
+                                : dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
+
+                        // Check if this is today (the most recent/last day)
+                        const isToday = dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
+
+                        const strokeColor = isSelected ? color : '#9CA3AF';
+                        const strokeOpacity = isSelected ? (highlightRecentTwo ? 0.9 : 1) : 0.2;
+                        const strokeWidth = isSelected ? (isToday ? 3.5 : (highlightRecentTwo ? 2 : 2.5)) : 1.25;
+
+                        return (
+                            <Line
+                                key={dayKey}
+                                type="monotone"
+                                dataKey={label}
+                                name={label}
+                                stroke={strokeColor}
+                                strokeOpacity={strokeOpacity}
+                                strokeWidth={strokeWidth}
+                                dot={false}
+                                connectNulls={false}
+                                activeDot={{
+                                    r: isSelected ? 5 : 3,
+                                    strokeWidth: 2,
+                                    stroke: '#fff',
+                                }}
+                                isAnimationActive={false}
+                            />
+                        );
+                    })}
+                </LineChart>
+            </ResponsiveContainer>
+        </div>
+    );
+
+    if (headless) {
+        return (
+            <div className="w-full h-full relative">
+                 {/* Smart summary chips embedded in headless mode if needed, or kept clean */}
+                 <div className="mb-3 flex flex-wrap gap-2 text-sm px-2">
+                    {peakHourTime && peakHourValue != null && (
+                        <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
+                            Peak: {peakHourTime} ({Math.round(peakHourValue)})
+                        </div>
+                    )}
+                    {todayVsAvgPct != null && (
+                        <div className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200 font-medium">
+                            {todayVsAvgPct >= 0 ? '▲' : '▼'} vs 7d: {todayVsAvgPct >= 0 ? '+' : ''}{todayVsAvgPct.toFixed(0)}%
+                        </div>
+                    )}
+                     <Button
+                        type="button"
+                        variant={highlightRecentTwo ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 px-3 text-xs font-semibold rounded-lg ml-auto"
+                        onClick={() => setHighlightRecentTwo((prev) => !prev)}
+                    >
+                        {highlightRecentTwo ? 'Today + 2' : 'Selected'}
+                    </Button>
+                </div>
+                {Content}
+            </div>
+        );
+    }
+
     return (
         <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-lg rounded-2xl">
             <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-indigo-50/80 to-purple-50/60 dark:from-indigo-900/20 dark:to-purple-900/10 border-b border-indigo-200/40 dark:border-indigo-500/20">
@@ -211,21 +330,42 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                             </p>
                         </div>
                     </div>
-                    <div className="hidden sm:flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground font-medium">Highlight</span>
-                        <Button
-                            type="button"
-                            variant={highlightRecentTwo ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-9 px-4 text-sm font-semibold rounded-lg"
-                            onClick={() => setHighlightRecentTwo((prev) => !prev)}
-                        >
-                            {highlightRecentTwo ? 'Today + last 2' : 'Legend selected'}
-                        </Button>
+                    <div className="hidden sm:flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground font-medium">Highlight</span>
+                            <Button
+                                type="button"
+                                variant={highlightRecentTwo ? 'default' : 'outline'}
+                                size="sm"
+                                className="h-9 px-4 text-sm font-semibold rounded-lg"
+                                onClick={() => setHighlightRecentTwo((prev) => !prev)}
+                            >
+                                {highlightRecentTwo ? 'Today + last 2' : 'Legend selected'}
+                            </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <ChartZoomControls
+                                zoomLevel={zoomLevel}
+                                onZoomIn={zoomIn}
+                                onZoomOut={zoomOut}
+                                onReset={resetZoom}
+                            />
+                            {onExpand && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
+                                    onClick={onExpand}
+                                    title="Expand to full screen"
+                                >
+                                    <Maximize2 className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
                 {/* Event Stats Badges */}
-                {eventStats && eventStats.length > 0 && (
+                {!headless && eventStats && eventStats.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                         {eventStats
                             .slice()
@@ -288,7 +428,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
             </CardHeader>
             <CardContent className="p-4 md:p-6 bg-gradient-to-br from-indigo-50/30 to-purple-50/20 dark:from-indigo-900/10 dark:to-purple-900/5">
                 {/* Smart summary chips */}
-                <div className="mb-3 flex flex-wrap gap-2 text-sm">
+                <div className="mb-3 flex flex-wrap gap-2 text-sm relative">
                     {peakHourTime && peakHourValue != null && (
                         <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
                             Peak hour today: {peakHourTime} ({Math.round(peakHourValue)})
@@ -302,83 +442,13 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                     {/* Volatility chip intentionally removed for now */}
                 </div>
 
-                <div className="h-[450px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis
-                                dataKey="time"
-                                tick={{ fontSize: 11 }}
-                                interval={2}
-                            />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    border: '1px solid #ddd',
-                                    borderRadius: '8px'
-                                }}
-                                // Sort by value descending - highest first
-                                itemSorter={(item: any) => {
-                                    const value = item?.value;
-                                    return typeof value === 'number' ? -value : 0;
-                                }}
-                            />
-
-                            <Legend
-                                wrapperStyle={{ fontSize: '11px' }}
-                                onClick={(o: any) => {
-                                    const dataKey = typeof o?.dataKey === 'string' ? o.dataKey : null;
-                                    if (!dataKey) return;
-                                    const matched = daySeriesAsc.find(series => series.label === dataKey);
-                                    if (matched) {
-                                        // When user clicks legend, switch to single-day focus mode
-                                        setHighlightRecentTwo(false);
-                                        setSelectedDayKey(matched.dayKey);
-                                    }
-                                }}
-                            />
-
-                            {/* Render a line for each day - legend newest first */}
-                            {daySeriesDesc.map(({ dayKey, label, color }) => {
-                                const recentThreeKeys = daySeriesAsc.slice(-3).map(ds => ds.dayKey);
-                                const isRecent = recentThreeKeys.includes(dayKey);
-
-                                const isSelected = highlightRecentTwo
-                                    ? isRecent
-                                    : selectedDayKey
-                                        ? selectedDayKey === dayKey
-                                        : dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
-
-                                // Check if this is today (the most recent/last day)
-                                const isToday = dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
-
-                                const strokeColor = isSelected ? color : '#9CA3AF';
-                                const strokeOpacity = isSelected ? (highlightRecentTwo ? 0.9 : 1) : 0.2;
-                                const strokeWidth = isSelected ? (isToday ? 3.5 : (highlightRecentTwo ? 2 : 2.5)) : 1.25;
-
-                                return (
-                                    <Line
-                                        key={dayKey}
-                                        type="monotone"
-                                        dataKey={label}
-                                        name={label}
-                                        stroke={strokeColor}
-                                        strokeOpacity={strokeOpacity}
-                                        strokeWidth={strokeWidth}
-                                        dot={false}
-                                        connectNulls={false}
-                                        activeDot={{
-                                            r: isSelected ? 5 : 3,
-                                            strokeWidth: 2,
-                                            stroke: '#fff',
-                                        }}
-                                        isAnimationActive={false}
-                                    />
-                                );
-                            })}
-                        </LineChart>
-                    </ResponsiveContainer>
+                <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
+                    <div 
+                        className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
+                        style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
+                    >
+                        {Content}
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -391,6 +461,9 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
  */
 export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
+
+    // Zoom functionality
+    const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom();
 
     // Calculate hourly averages and deviations
     const hourlyStats: Record<number, { values: number[]; avg: number; min: number; max: number }> = {};
@@ -440,10 +513,20 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                             </p>
                         </div>
                     </div>
+                    <ChartZoomControls
+                        zoomLevel={zoomLevel}
+                        onZoomIn={zoomIn}
+                        onZoomOut={zoomOut}
+                        onReset={resetZoom}
+                    />
                 </div>
             </CardHeader>
             <CardContent className="p-4 md:p-6">
-                <div className="h-[400px] w-full">
+                <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
+                    <div 
+                        className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
+                        style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
+                    >
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                             <defs>
@@ -496,6 +579,7 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                             />
                         </LineChart>
                     </ResponsiveContainer>
+                    </div>
                 </div>
             </CardContent>
         </Card>
@@ -508,6 +592,9 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
  */
 export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eventNames = {}, eventStats, selectedEventKey, onEventClick }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
+
+    // Zoom functionality
+    const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom();
 
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -583,6 +670,12 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                             </p>
                         </div>
                     </div>
+                    <ChartZoomControls
+                        zoomLevel={zoomLevel}
+                        onZoomIn={zoomIn}
+                        onZoomOut={zoomOut}
+                        onReset={resetZoom}
+                    />
                 </div>
                 {/* Event badges for selection */}
                 {sortedEventStats && sortedEventStats.length > 0 && (
@@ -630,7 +723,11 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                 )}
             </CardHeader>
             <CardContent className="p-4 md:p-6">
-                <div className="h-[400px] w-full">
+                <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
+                    <div 
+                        className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
+                        style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
+                    >
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
                             <defs>
@@ -685,6 +782,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                             />
                         </LineChart>
                     </ResponsiveContainer>
+                    </div>
                 </div>
             </CardContent>
         </Card>

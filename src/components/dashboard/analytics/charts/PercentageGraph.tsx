@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ReferenceLine, ComposedChart, Scatter, PieChart, Pie, Cell } from 'recharts';
-import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle } from 'lucide-react';
+import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle, Maximize2 } from 'lucide-react';
+import { useChartZoom } from '@/hooks/useChartZoom';
+import { ChartZoomControls } from '../components/ChartZoomControls';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { EventConfig } from '@/types/analytics';
@@ -24,6 +26,7 @@ interface PercentageGraphProps {
     onToggleHourly?: (isHourly: boolean) => void;
     onToggleBackToFunnel?: () => void;
     events?: EventConfig[]; // Event configurations to detect isAvgEvent type
+    onExpand?: () => void; // Callback for expansion button
 }
 
 /**
@@ -44,7 +47,9 @@ export function PercentageGraph({
     onToggleHourly,
     onToggleBackToFunnel,
     events = [],
+    onExpand,
 }: PercentageGraphProps) {
+    const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const debug = false;
     if (debug) {
         console.log('=== PercentageGraph Debug ===');
@@ -917,6 +922,17 @@ export function PercentageGraph({
                                     Back to Funnel
                                 </Button>
                             )}
+                            {onExpand && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-gray-500 hover:text-purple-600"
+                                    title="See full page expansion"
+                                    onClick={onExpand}
+                                >
+                                    <Maximize2 className="h-5 w-5" />
+                                </Button>
+                            )}
                             <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-3 py-1">
                                 <span className="text-lg font-bold">{overallStats.percentage.toFixed(2)}%</span>
                             </Badge>
@@ -959,7 +975,15 @@ export function PercentageGraph({
                     )}
 
                     {/* Line Chart */}
-                    <div className={chartData.length > 0 && chartData[0].isAvgMetric ? "h-[420px] mt-2" : "h-[420px] mt-4"}>
+                    <div className={cn("relative group", chartData.length > 0 && chartData[0].isAvgMetric ? "h-[420px] mt-2" : "h-[420px] mt-4")}>
+                        <div className="absolute top-2 right-12 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+{/* Zoom controls removed for PercentageGraph to avoid obstruction and duplication */}
+                        </div>
+                        <div 
+                            className="w-full h-full origin-center transition-transform duration-100 ease-out"
+                            style={{ transform: `scale(${zoomLevel})` }}
+                            onWheel={handleWheel}
+                        >
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart
                                 data={chartData}
@@ -1312,6 +1336,7 @@ export function PercentageGraph({
                                 )}
                             </ComposedChart>
                         </ResponsiveContainer>
+                        </div>
                     </div>
 
 

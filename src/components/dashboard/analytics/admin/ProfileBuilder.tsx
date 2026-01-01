@@ -16,7 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { PanelCombineModal } from './PanelCombineModal';
 import { PanelPreview } from './PanelPreview';
-import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle, RefreshCw, Activity, ChevronLeft, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { Save, Trash2, Plus, Combine, Layers, BarChart3, LineChart, CalendarIcon, Bell, AlertTriangle, RefreshCw, Activity, ChevronLeft, ChevronRight, LayoutDashboard, GitBranch } from 'lucide-react';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
@@ -42,7 +42,11 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
         sources: number[];     // Numeric source IDs
         sourceStr: string[];   // Job IDs (client-side filter)
     };
-    graphType: 'line' | 'bar' | 'percentage' | 'funnel';
+    graphType: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow';
+    userFlowConfig?: {
+        stages: { id: string; label: string; eventIds: string[] }[];
+        showDropOffs: boolean;
+    };
     dateRange: {
         from: Date;
         to: Date;
@@ -458,7 +462,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 sources: [],    // All sources
                                 sourceStr: []   // No job filter by default
                             },
-                            graphType: (savedConfig?.graphType || 'line') as 'line' | 'bar' | 'percentage' | 'funnel',
+                            graphType: (savedConfig?.graphType || 'line') as 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow',
                             dateRange: savedConfig?.dateRange ? {
                                 from: new Date(savedConfig.dateRange.from),
                                 to: new Date(savedConfig.dateRange.to)
@@ -487,6 +491,11 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         // Restore funnelConfig if it exists
                         if (savedConfig?.funnelConfig) {
                             basePanel.funnelConfig = savedConfig.funnelConfig;
+                        }
+
+                        // Restore userFlowConfig if it exists
+                        if (savedConfig?.userFlowConfig) {
+                            basePanel.userFlowConfig = savedConfig.userFlowConfig;
                         }
 
                         // Load per-panel critical alert configuration
@@ -704,7 +713,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         }));
     };
 
-    const updatePanelGraphType = (panelId: string, graphType: 'line' | 'bar' | 'percentage' | 'funnel') => {
+    const updatePanelGraphType = (panelId: string, graphType: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow') => {
         setPanels(panels.map(p => {
             if (p.panelId === panelId) {
                 const updated = { ...p, graphType };
@@ -723,6 +732,13 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     (updated as any).funnelConfig = {
                         stages: [{ eventId: '', eventName: '' }],
                         multipleChildEvents: []
+                    };
+                }
+
+                if (graphType === 'user_flow' && !(p as any).userFlowConfig) {
+                    (updated as any).userFlowConfig = {
+                         stages: [],
+                         showDropOffs: true
                     };
                 }
 
@@ -938,7 +954,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             .map(p => {
                 const isPercentageGraph = p.graphType === 'percentage';
                 const isFunnelGraph = p.graphType === 'funnel';
-                const panelType = (isPercentageGraph || isFunnelGraph) ? 'special' : p.type;
+                const isUserFlowGraph = p.graphType === 'user_flow';
+                const panelType = (isPercentageGraph || isFunnelGraph || isUserFlowGraph) ? 'special' : p.type;
 
                 const filterConfig: any = {
                     events: p.filters.events,
@@ -966,13 +983,26 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     filterConfig.funnelConfig = (p as any).funnelConfig;
                 }
 
+                // Save userFlowConfig for user flow graphs
+                if (isUserFlowGraph && (p as any).userFlowConfig) {
+                    filterConfig.userFlowConfig = (p as any).userFlowConfig;
+                }
+
+                // For special graphs (percentage, funnel, user_flow), disable lineGraph
+                const visualizations = (isPercentageGraph || isFunnelGraph || isUserFlowGraph)
+                    ? {
+                        ...p.visualizations,
+                        lineGraph: { ...p.visualizations.lineGraph, enabled: false }
+                    }
+                    : p.visualizations;
+
                 return {
                     panelId: p.panelId,
                     panelName: p.panelName,
                     type: panelType,
                     position: p.position,
                     events: p.events,
-                    visualizations: p.visualizations,
+                    visualizations,
                     // Store filter config in panel for persistence
                     filterConfig,
                     // Preserve _dbPanelId for proper DB upsert (UPDATE not INSERT)
@@ -1496,7 +1526,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                 disabled={
                                                                     availableEvents.filter(e => e.isApiEvent === true).length === 0 ||
                                                                     panel.graphType === 'percentage' ||
-                                                                    panel.graphType === 'funnel'
+                                                                    panel.graphType === 'funnel' ||
+                                                              	panel.graphType === 'user_flow'
                                                                 }
                                                             />
                                                         </div>
@@ -1521,18 +1552,18 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         selected={panel.filters.events.map(id => id.toString())}
                                                                         onChange={(values) => updatePanelFilter(panel.panelId, 'events', values)}
                                                                         placeholder={
-                                                                            panel.graphType === 'percentage' || panel.graphType === 'funnel'
+                                                                            panel.graphType === 'percentage' || panel.graphType === 'funnel' || panel.graphType === 'user_flow'
                                                                                 ? "Disabled for special graphs"
                                                                                 : panel.isApiEvent
                                                                                     ? "Select API events"
                                                                                     : "Select events"
                                                                         }
-                                                                        disabled={panel.graphType === 'percentage' || panel.graphType === 'funnel'}
-                                                                        className={panel.graphType === 'percentage' || panel.graphType === 'funnel' ? 'opacity-50 cursor-not-allowed' : ''}
+                                                                        disabled={panel.graphType === 'percentage' || panel.graphType === 'funnel' || panel.graphType === 'user_flow'}
+                                                                        className={panel.graphType === 'percentage' || panel.graphType === 'funnel' || panel.graphType === 'user_flow' ? 'opacity-50 cursor-not-allowed' : ''}
                                                                     />
-                                                                    {panel.graphType === 'percentage' || panel.graphType === 'funnel' ? (
+                                                                    {panel.graphType === 'percentage' || panel.graphType === 'funnel' || panel.graphType === 'user_flow' ? (
                                                                         <p className="text-xs text-amber-600 dark:text-amber-400">
-                                                                            Events configured in graph settings below
+                                                                            {panel.graphType === 'user_flow' ? 'Events configured in flow stages below' : 'Events configured in graph settings below'}
                                                                         </p>
                                                                     ) : panel.isApiEvent && panel.filters.events.length > 0 ? (
                                                                         <p className="text-xs text-muted-foreground">
@@ -1683,7 +1714,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                             </Label>
                                                             <RadioGroup
                                                                 value={panel.graphType}
-                                                                onValueChange={(val) => updatePanelGraphType(panel.panelId, val as 'line' | 'bar' | 'percentage' | 'funnel')}
+                                                                onValueChange={(val) => updatePanelGraphType(panel.panelId, val as 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow')}
                                                                 className="flex flex-col gap-3"
                                                             >
                                                                 <div className="flex items-center space-x-2" id="line-radio-item">
@@ -1712,6 +1743,13 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     <Label htmlFor={`${panel.panelId}-funnel`} className="flex items-center gap-2 cursor-pointer">
                                                                         <span className="h-4 w-4">▼</span>
                                                                         Funnel Graph
+                                                                    </Label>
+                                                                </div>
+                                                                <div className="flex items-center space-x-2" id="userflow-radio-item">
+                                                                    <RadioGroupItem value="user_flow" id={`${panel.panelId}-user_flow`} />
+                                                                    <Label htmlFor={`${panel.panelId}-user_flow`} className="flex items-center gap-2 cursor-pointer">
+                                                                        <GitBranch className="h-4 w-4" />
+                                                                        User Flow
                                                                     </Label>
                                                                 </div>
                                                             </RadioGroup>
@@ -2079,6 +2117,132 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                             className="h-9"
                                                                         />
                                                                         <p className="text-xs text-muted-foreground mt-1">These events will be shown with different colors in the final bar</p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : panel.graphType === 'user_flow' ? (
+                                                            /* User Flow Graph Configuration */
+                                                            <div className="space-y-3 col-span-2">
+                                                                <div className="p-4 bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-900/20 dark:to-fuchsia-900/20 rounded-lg border-2 border-violet-300 dark:border-violet-500/50">
+                                                                    <Label className="text-sm font-semibold text-violet-700 dark:text-violet-300 mb-3 block">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <GitBranch className="h-4 w-4" />
+                                                                            User Flow Configuration
+                                                                        </div>
+                                                                    </Label>
+                                                                    <p className="text-xs text-muted-foreground mb-4">
+                                                                        Define flow stages. Each stage can contain multiple events (e.g., "Login" stage = "login_success" + "login_attempt").
+                                                                    </p>
+
+                                                                    <div className="space-y-4">
+                                                                        {((panel as any).userFlowConfig?.stages || []).map((stage: any, index: number) => (
+                                                                            <div key={stage.id || index} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-violet-200 dark:border-violet-500/30 shadow-sm relative group">
+                                                                                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                        <Button
+                                                                                            variant="ghost"
+                                                                                            size="icon"
+                                                                                            className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                                                            onClick={() => {
+                                                                                                setPanels(prev => prev.map(p => {
+                                                                                                    if (p.panelId === panel.panelId) {
+                                                                                                        const stages = [...((p as any).userFlowConfig?.stages || [])];
+                                                                                                        stages.splice(index, 1);
+                                                                                                        return { ...p, userFlowConfig: { ...(p as any).userFlowConfig, stages } };
+                                                                                                    }
+                                                                                                    return p;
+                                                                                                }));
+                                                                                            }}
+                                                                                        >
+                                                                                            <Trash2 className="h-3 w-3" />
+                                                                                        </Button>
+                                                                                 </div>
+                                                                                 
+                                                                                 <div className="flex items-center gap-2 mb-2">
+                                                                                     <div className="flex items-center justify-center bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 h-5 w-5 rounded-full text-[10px] font-bold">
+                                                                                         {index + 1}
+                                                                                     </div>
+                                                                                     <Input 
+                                                                                        className="h-7 text-xs font-semibold border-transparent hover:border-violet-200 focus:border-violet-400 px-1 w-[200px]" 
+                                                                                        value={stage.label || ''} 
+                                                                                        placeholder={`Stage ${index + 1} Label`}
+                                                                                        onChange={(e) => {
+                                                                                            setPanels(prev => prev.map(p => {
+                                                                                                if (p.panelId === panel.panelId) {
+                                                                                                    const stages = [...((p as any).userFlowConfig?.stages || [])];
+                                                                                                    stages[index] = { ...stages[index], label: e.target.value };
+                                                                                                    return { ...p, userFlowConfig: { ...(p as any).userFlowConfig, stages } };
+                                                                                                }
+                                                                                                return p;
+                                                                                            }));
+                                                                                        }}
+                                                                                     />
+                                                                                 </div>
+
+                                                                                <div className="pl-7">
+                                                                                    <MultiSelectDropdown
+                                                                                        options={availableEvents
+                                                                                            .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                                            .map(e => ({
+                                                                                                value: e.eventId,
+                                                                                                label: e.isApiEvent && e.host && e.url
+                                                                                                    ? `${e.host} - ${e.url}`
+                                                                                                    : e.eventName
+                                                                                            }))}
+                                                                                        selected={stage.eventIds || []}
+                                                                                        onChange={(values) => {
+                                                                                             setPanels(prev => prev.map(p =>
+                                                                                                p.panelId === panel.panelId
+                                                                                                    ? { 
+                                                                                                        ...p, 
+                                                                                                        userFlowConfig: { 
+                                                                                                            ...(p as any).userFlowConfig, 
+                                                                                                            stages: ((p as any).userFlowConfig?.stages || []).map((s: any, i: number) => 
+                                                                                                                i === index ? { ...s, eventIds: values } : s
+                                                                                                            )
+                                                                                                        } 
+                                                                                                    }
+                                                                                                    : p
+                                                                                             ));
+                                                                                        }}
+                                                                                        placeholder="Select events for this stage"
+                                                                                        className="h-8 text-xs"
+                                                                                    />
+                                                                                    <div className="mt-1 flex flex-wrap gap-1">
+                                                                                         {(stage.eventIds || []).map((eid: string) => {
+                                                                                             const ev = availableEvents.find(e => e.eventId === eid);
+                                                                                             return ev ? (
+                                                                                                <span key={eid} className="text-[10px] px-1.5 py-0.5 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 rounded border border-violet-100 dark:border-violet-800">
+                                                                                                    {ev.eventName}
+                                                                                                </span>
+                                                                                             ) : null;
+                                                                                         })}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))}
+
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                setPanels(prev => prev.map(p => {
+                                                                                    if (p.panelId === panel.panelId) {
+                                                                                        const stages = [...((p as any).userFlowConfig?.stages || [])];
+                                                                                        stages.push({ 
+                                                                                            id: `stage-${Date.now()}`, 
+                                                                                            label: `Stage ${stages.length + 1}`,
+                                                                                            eventIds: [] 
+                                                                                        });
+                                                                                        return { ...p, userFlowConfig: { ...(p as any).userFlowConfig, stages } };
+                                                                                    }
+                                                                                    return p;
+                                                                                }));
+                                                                            }}
+                                                                            className="w-full h-8 text-xs border-dashed border-violet-300 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                                                        >
+                                                                            <Plus className="h-3 w-3 mr-1" />
+                                                                            Add Flow Stage
+                                                                        </Button>
                                                                     </div>
                                                                 </div>
                                                             </div>

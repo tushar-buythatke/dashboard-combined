@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useChartKeyboardNav } from '@/hooks/useAccessibility';
+import { ChartErrorBoundary } from './components/ChartErrorBoundary';
 import { InfoTooltip } from './components/InfoTooltip';
 import { useSearchParams } from 'react-router-dom';
 // Removed framer-motion for snappy performance
@@ -31,6 +33,7 @@ import { CriticalAlertsPanel } from './components/CriticalAlertsPanel';
 import { DayWiseComparisonChart, HourlyDeviationChart, DailyAverageChart } from './components/ComparisonCharts';
 import { PercentageGraph } from './charts/PercentageGraph';
 import { FunnelGraph } from './charts/FunnelGraph';
+import { UserFlowVisualization } from './charts/UserFlowVisualization';
 import {
     ResponsiveContainer,
     AreaChart,
@@ -416,6 +419,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Pinned tooltips for panel charts - keyed by panelId
     const [panelPinnedTooltips, setPanelPinnedTooltips] = useState<Record<string, { dataPoint: any; label: string } | null>>({});
 
+    // Zoom state for all panel graphs
+    const [panelZoomLevels, setPanelZoomLevels] = useState<Record<string, number>>({});
+
     // Toast for panel navigation notifications
     const { toast } = useToast();
 
@@ -431,6 +437,26 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
     // Track last time we sent uploadChildConfig (to send once per hour)
     const lastConfigUploadTime = useRef<number>(0);
+
+    // Zoom handlers for panel graphs
+    const handlePanelZoom = (panelId: string, action: 'in' | 'out' | 'reset') => {
+        setPanelZoomLevels(prev => {
+            const current = prev[panelId] || 1;
+            if (action === 'in') return { ...prev, [panelId]: Math.min(current + 0.2, 5) };
+            if (action === 'out') return { ...prev, [panelId]: Math.max(current - 0.2, 0.5) };
+            return { ...prev, [panelId]: 1 };
+        });
+    };
+
+    const handlePanelWheel = (panelId: string, e: React.WheelEvent) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.2 : 0.2;
+        setPanelZoomLevels(prev => ({
+            ...prev,
+            [panelId]: Math.max(0.5, Math.min(5, (prev[panelId] || 1) + delta))
+        }));
+    };
 
     // Filter panel collapse state - collapsed by default (main dashboard only)
     const [filtersCollapsed, setFiltersCollapsed] = useState<boolean>(true); // Default to collapsed for cleaner UI
@@ -924,7 +950,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
         const firstPanel = profile?.panels?.[0];
         const firstPanelFilterConfig = (firstPanel as any)?.filterConfig;
-        const isFirstPanelSpecialGraphLocal = firstPanelFilterConfig?.graphType === 'percentage' || firstPanelFilterConfig?.graphType === 'funnel';
+        const isFirstPanelSpecialGraphLocal = firstPanelFilterConfig?.graphType === 'percentage' || firstPanelFilterConfig?.graphType === 'funnel' || firstPanelFilterConfig?.graphType === 'user_flow';
 
         const mainPanelId = profile.panels[0].panelId;
         const mainPanelFilters = panelFiltersState[mainPanelId] || {};
@@ -1885,24 +1911,35 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 sources: panelConfig?.sources || []
             };
 
-            // For special graphs (percentage/funnel), extract ALL required event IDs
-            let eventIdsToFetch = currentPanelFilters.events;
+            let eventIdsToFetch = currentPanelFilters.events || [];
+
             if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
                 const { parentEvents = [], childEvents = [] } = panelConfig.percentageConfig;
-                // Use activePercentageEvents/activePercentageChildEvents if available from filters
-                const activeParents = userPanelFilters?.activePercentageEvents || parentEvents;
-                const activeChildren = userPanelFilters?.activePercentageChildEvents || childEvents;
+                const activeParents = currentPanelFilters.activePercentageEvents || parentEvents;
+                const activeChildren = currentPanelFilters.activePercentageChildEvents || childEvents;
                 eventIdsToFetch = [...new Set([...activeParents.map((id: string) => parseInt(id)), ...activeChildren.map((id: string) => parseInt(id))])];
-
             } else if (panelConfig?.graphType === 'funnel' && panelConfig?.funnelConfig) {
                 const { stages = [], multipleChildEvents = [] } = panelConfig.funnelConfig;
-                // Use activeStages/activeFunnelChildEvents if available from filters
-                const activeStageIds = userPanelFilters?.activeStages || stages.map((s: any) => s.eventId);
-                const activeChildIds = userPanelFilters?.activeFunnelChildEvents || multipleChildEvents;
-                const stageEventIds = activeStageIds.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
-                const childEventIds = activeChildIds.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
-                eventIdsToFetch = [...new Set([...stageEventIds, ...childEventIds])];
-
+                const activeStageIds = currentPanelFilters.activeStages || stages.map((s: any) => s.eventId);
+                const activeChildIds = currentPanelFilters.activeFunnelChildEvents || multipleChildEvents;
+                const stageIds = activeStageIds.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+                const childIds = activeChildIds.map((id: any) => parseInt(id)).filter((id: number) => !isNaN(id));
+                eventIdsToFetch = [...new Set([...stageIds, ...childIds])];
+            } else if (panelConfig?.graphType === 'user_flow' && panelConfig?.userFlowConfig) {
+                const stages = panelConfig.userFlowConfig.stages || [];
+                // Extract unique event IDs from all stages for visualization
+                const stageEventIds = new Set<number>();
+                stages.forEach((stage: any) => {
+                    if (stage.eventIds && Array.isArray(stage.eventIds)) {
+                        stage.eventIds.forEach((id: string | number) => {
+                            const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+                            if (!isNaN(numId)) stageEventIds.add(numId);
+                        });
+                    }
+                });
+                if (stageEventIds.size > 0) {
+                    eventIdsToFetch = Array.from(stageEventIds);
+                }
             }
 
             // Now use currentPanelFilters - empty arrays mean "all" (sent to API as [])
@@ -1930,8 +1967,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // IMPORTANT: use panelConfig.isApiEvent (authoritative) instead of panel.events, which may not carry isApiEvent flags.
             const hasApiEvents = panelConfig?.isApiEvent === true;
 
-            // Check if this is a special graph (percentage or funnel)
-            const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel';
+            // Check if this is a special graph (percentage, funnel, or user_flow)
+            const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel' || panelConfig?.graphType === 'user_flow';
 
             // Determine effective hourly override: use per-panel override if available, otherwise global defaults
             // Previously forced 'deviation' charts to hourly, but this prevented 'Daily' view from working
@@ -2258,10 +2295,41 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 const panelDateRange = panelDateRanges[panel.panelId] || dateRange;
 
                 // Each panel uses its own filter state if available
-                const panelFilters: FilterState = {
-                    events: userPanelFilters?.events?.length > 0
+                let eventIdsToFetch = userPanelFilters?.events?.length > 0
                         ? userPanelFilters.events
-                        : (panelConfig?.events || []),
+                        : (panelConfig?.events || []);
+
+                // For special graphs, extract ALL required event IDs even on initial load
+                if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
+                    const { parentEvents = [], childEvents = [] } = panelConfig.percentageConfig;
+                    const activeParents = userPanelFilters?.activePercentageEvents || parentEvents;
+                    const activeChildren = userPanelFilters?.activePercentageChildEvents || childEvents;
+                    eventIdsToFetch = [...new Set([...activeParents.map((id: string) => parseInt(id)), ...activeChildren.map((id: string) => parseInt(id))])];
+                } else if (panelConfig?.graphType === 'funnel' && panelConfig?.funnelConfig) {
+                    const { stages = [], multipleChildEvents = [] } = panelConfig.funnelConfig;
+                    const activeStageIds = userPanelFilters?.activeStages || stages.map((s: any) => s.eventId);
+                    const activeChildIds = userPanelFilters?.activeFunnelChildEvents || multipleChildEvents;
+                    const stageIds = activeStageIds.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
+                    const childIds = activeChildIds.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id));
+                    eventIdsToFetch = [...new Set([...stageIds, ...childIds])];
+                } else if (panelConfig?.graphType === 'user_flow' && panelConfig?.userFlowConfig) {
+                    const stages = panelConfig.userFlowConfig.stages || [];
+                    const stageEventIds = new Set<number>();
+                    stages.forEach((stage: any) => {
+                        if (stage.eventIds && Array.isArray(stage.eventIds)) {
+                            stage.eventIds.forEach((id: string | number) => {
+                                const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+                                if (!isNaN(numId)) stageEventIds.add(numId);
+                            });
+                        }
+                    });
+                    if (stageEventIds.size > 0) {
+                        eventIdsToFetch = Array.from(stageEventIds);
+                    }
+                }
+
+                const panelFilters: FilterState = {
+                    events: eventIdsToFetch,
                     platforms: userPanelFilters?.platforms?.length > 0
                         ? userPanelFilters.platforms
                         : (panelConfig?.platforms || []),
@@ -2957,6 +3025,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             });
     }, [events, isMainPanelApi]);
 
+    const eventNames = useMemo(() => {
+        const names: Record<string, string> = {};
+        eventOptions.forEach(opt => {
+            names[String(opt.value)] = opt.label;
+        });
+        return names;
+    }, [eventOptions]);
+
     const platformOptions = useMemo(() => PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name })), []);
     const posOptions = useMemo(() => siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` })), [siteDetails]);
     const sourceOptions = useMemo(() => SOURCES.map(s => ({ value: s.id.toString(), label: s.name })), []);
@@ -3024,7 +3100,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Check if first panel is a special graph (percentage or funnel)
     const firstPanel = profile?.panels?.[0];
     const firstPanelFilterConfig = (firstPanel as any)?.filterConfig;
-    const isFirstPanelSpecialGraph = firstPanelFilterConfig?.graphType === 'percentage' || firstPanelFilterConfig?.graphType === 'funnel';
+    const isFirstPanelSpecialGraph = firstPanelFilterConfig?.graphType === 'percentage' || firstPanelFilterConfig?.graphType === 'funnel' || firstPanelFilterConfig?.graphType === 'user_flow';
 
     // Format delay value based on event feature (prepared for future use)
     // Price Alert (feature 1) = value is already in MINUTES
@@ -3291,6 +3367,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 {activePanelIndex === 0 && (
                     <div ref={el => { if (profile.panels[0]) panelRefs.current[profile.panels[0].panelId] = el; }}>
                         <MainPanelSection
+
+
                             profile={profile}
                             setProfile={setProfile}
                             panelsDataMap={panelsDataMap}
@@ -3354,6 +3432,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             events={events}
                             toast={toast}
                         />
+                        
+
                     </div>
                 )}
                 {/* Additional Panels (if profile has more than one panel) */}
@@ -3403,6 +3483,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         setHourlyOverride={setHourlyOverride} // Global setter (legacy/main)
                         panelHourlyOverride={panelHourlyOverride}
                         setPanelHourlyOverrideForId={setPanelHourlyOverrideForId}
+                        panelZoomLevels={panelZoomLevels}
+                        handlePanelZoom={handlePanelZoom}
+                        handlePanelWheel={handlePanelWheel}
                     />
                 )}
 

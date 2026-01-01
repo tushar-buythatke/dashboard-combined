@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Filter, TrendingDown, X, BarChart3, TrendingUp, Users } from 'lucide-react';
+import { useChartZoom } from '@/hooks/useChartZoom';
+import { ChartZoomControls } from '../components/ChartZoomControls';
 import { cn } from '@/lib/utils';
 
 interface FunnelGraphProps {
@@ -46,6 +48,7 @@ interface FunnelStageData {
 }
 
 export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage, isAvgDelayMode = false, isHourly = false, onToggleHourly }: FunnelGraphProps) {
+    const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
     // Stage highlighting state: null = show all, or specific stage eventId
     const [highlightedStageId, setHighlightedStageId] = useState<string | null>(null);
@@ -297,8 +300,20 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-6 md:p-8">
-                    <div className="relative h-[450px] flex items-end justify-center gap-6 md:gap-8 pl-12 pr-8 md:pl-14 md:pr-12">
+                <CardContent className="p-6 md:p-8 relative">
+                    <div className="absolute top-2 right-2 z-50">
+                        <ChartZoomControls
+                            zoomLevel={zoomLevel}
+                            onZoomIn={zoomIn}
+                            onZoomOut={zoomOut}
+                            onReset={resetZoom}
+                        />
+                    </div>
+                    <div 
+                        className="relative h-[450px] flex items-end justify-center gap-6 md:gap-8 pl-12 pr-8 md:pl-14 md:pr-12 origin-center transition-transform duration-100 ease-out"
+                        style={{ transform: `scale(${zoomLevel})` }}
+                        onWheel={handleWheel}
+                    >
                         {/* Grid Lines - representing 0%, 25%, 50%, 75%, 100% */}
                         <div className="absolute inset-x-0 bottom-0 h-full pointer-events-none" style={{ left: '3rem', right: '2rem' }}>
                             {[0, 25, 50, 75, 100].map((level) => (
@@ -345,11 +360,24 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                         <span className="text-gray-500">Percentage:</span>
                                                         <span className="font-bold text-emerald-600 dark:text-emerald-400">{stage.percentage.toFixed(2)}%</span>
                                                     </div>
-                                                    {stage.dropoffPercentage > 0 && (
-                                                        <div className="flex items-center justify-between gap-4">
-                                                            <span className="text-gray-500">Drop-off:</span>
-                                                            <span className="font-bold text-red-600 dark:text-red-400">-{stage.dropoffPercentage.toFixed(2)}%</span>
-                                                        </div>
+                                                    {index > 0 && (
+                                                        <>
+                                                            <div className="flex items-center justify-between gap-4">
+                                                                <span className="text-gray-500">Drop-off:</span>
+                                                                <span className={cn(
+                                                                    "font-bold",
+                                                                    stage.dropoffPercentage > 30 ? "text-red-600 dark:text-red-400" :
+                                                                    stage.dropoffPercentage > 15 ? "text-orange-600 dark:text-orange-400" :
+                                                                    "text-yellow-600 dark:text-yellow-400"
+                                                                )}>-{stage.dropoffPercentage.toFixed(2)}%</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between gap-4">
+                                                                <span className="text-gray-500">From previous:</span>
+                                                                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                                                                    {funnelData[index - 1]?.count.toLocaleString() || 0}
+                                                                </span>
+                                                            </div>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -358,33 +386,36 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     {/* Bar container - aligned to bottom (0%) */}
                                     <div className="flex-1 flex items-end w-full relative">
                                         {!isFinalMultiple ? (
-                                            /* Regular single-event bar */
+                                            /* Regular single-event bar with dual metrics */
                                             <div
                                                 className={cn(
                                                     "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-hidden",
-                                                    "bg-gradient-to-t from-indigo-400/90 to-indigo-500/90",
-                                                    "hover:from-indigo-500/90 hover:to-indigo-600/90",
-                                                    "border-2 border-indigo-500/30 dark:border-indigo-400/30",
+                                                    // Color code based on drop-off percentage
+                                                    stage.dropoffPercentage > 30
+                                                        ? "bg-gradient-to-t from-red-400/90 to-red-500/90 hover:from-red-500/90 hover:to-red-600/90 border-2 border-red-500/30"
+                                                        : stage.dropoffPercentage > 15
+                                                        ? "bg-gradient-to-t from-orange-400/90 to-orange-500/90 hover:from-orange-500/90 hover:to-orange-600/90 border-2 border-orange-500/30"
+                                                        : "bg-gradient-to-t from-indigo-400/90 to-indigo-500/90 hover:from-indigo-500/90 hover:to-indigo-600/90 border-2 border-indigo-500/30",
                                                     isSelected && "ring-4 ring-indigo-300/50 dark:ring-indigo-400/50 scale-105"
                                                 )}
                                                 style={{ height: `${heightPct}%` }}
                                             >
-                                                {/* Percentage label INSIDE the bar */}
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <span className="text-white font-bold text-sm sm:text-base md:text-lg drop-shadow-lg">
+                                                {/* DUAL METRICS: Percentage + Count always visible */}
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                                                    <span className="text-white font-bold text-base sm:text-lg md:text-xl drop-shadow-lg">
                                                         {stage.percentage.toFixed(1)}%
                                                     </span>
-                                                </div>
-
-                                                {/* Count on hover */}
-                                                <div className={cn(
-                                                    "absolute inset-x-0 top-2 flex items-center justify-center text-white text-xs sm:text-sm font-semibold px-1 transition-opacity",
-                                                    isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                                                )}>
-                                                    <span className="drop-shadow-lg bg-black/20 px-2 py-1 rounded text-center">
+                                                    <span className="text-white/90 font-semibold text-xs sm:text-sm drop-shadow-lg">
                                                         {stage.count.toLocaleString()}
                                                     </span>
                                                 </div>
+
+                                                {/* High drop-off indicator */}
+                                                {stage.dropoffPercentage > 20 && (
+                                                    <div className="absolute top-1 right-1 bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5">
+                                                        <span className="text-white text-[10px] font-bold">-{stage.dropoffPercentage.toFixed(0)}%</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             /* Final stage with multiple events - stacked segments showing INDIVIDUAL percentages */

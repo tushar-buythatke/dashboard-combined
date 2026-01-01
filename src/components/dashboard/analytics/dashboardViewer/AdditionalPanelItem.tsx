@@ -34,6 +34,7 @@ import { PieTooltip } from './PieTooltip';
 import { EVENT_COLORS, PIE_COLORS, ERROR_COLORS, combinePieChartDuplicates, shouldShowPieChart } from './constants';
 import { PercentageGraph } from '../charts/PercentageGraph';
 import { FunnelGraph } from '../charts/FunnelGraph';
+import { UserFlowVisualization } from '../charts/UserFlowVisualization';
 import { DayWiseComparisonChart } from '../components/ComparisonCharts';
 import {
     Area,
@@ -231,6 +232,7 @@ export const AdditionalPanelItem = React.memo(({
     const pPieData = panelData?.pieChartData;
 
     const panelGraphType = panelConfig?.graphType || 'line';
+    const isUserFlowGraph = panelGraphType === 'user_flow';
 
     const filteredGraphData = useMemo(() => applyApiFiltering(
         rawPanelGraphData,
@@ -475,7 +477,9 @@ export const AdditionalPanelItem = React.memo(({
                                                 ? 'Percentage Analysis'
                                                 : panelGraphType === 'funnel'
                                                     ? 'Funnel Analysis'
-                                                    : 'Line Chart'}
+                                                    : panelGraphType === 'user_flow'
+                                                        ? 'User Flow'
+                                                        : 'Line Chart'}
                                     </span>
                                 </p>
                             </div>

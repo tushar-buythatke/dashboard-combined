@@ -74,7 +74,13 @@ export interface FunnelGraphConfig {
     multipleChildEvents: string[]; // Last stage can have multiple events
 }
 
-export type SpecialGraphType = PercentageGraphConfig | FunnelGraphConfig;
+export interface UserFlowGraphConfig {
+    type: 'user_flow';
+    stages: { id: string; label: string; eventIds: string[] }[];
+    showDropOffs: boolean;
+}
+
+export type SpecialGraphType = PercentageGraphConfig | FunnelGraphConfig | UserFlowGraphConfig;
 
 export interface VisualizationConfig {
     lineGraph: {
@@ -112,10 +118,15 @@ export interface PanelConfig {
         pos: number[];
         sources: number[];
         sourceStr?: string[]; // Job IDs (client-side filter)
-        graphType: 'line' | 'bar' | 'percentage' | 'funnel'; // Add new graph types
+        graphType: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow'; // Add new graph types
         dailyDeviationCurve?: boolean; // For <7 days: show 7-day overlay comparison
         isApiEvent?: boolean; // Toggle for API events vs regular events
         showHourlyStats?: boolean; // Enable hourly/daily toggle for this panel
+        
+        // Graph-specific configurations maintained in filter state
+        userFlowConfig?: UserFlowGraphConfig;
+        percentageConfig?: PercentageGraphConfig;
+        funnelConfig?: FunnelGraphConfig;
     };
     // Per-panel critical alerts configuration
     alertsConfig?: CriticalAlertsConfig;

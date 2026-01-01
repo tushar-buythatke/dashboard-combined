@@ -23,6 +23,7 @@ export interface FilterState {
     apiStatusCodes?: string[];
     apiCacheStatus?: string[];
     activePercentageGroupChildEvents?: boolean; // Toggle: true = Single Graph, false = Separate Graphs
+    activeIncludeEvents?: string[]; // For User Flow graph sequence
 }
 
 export interface DateRangeState {

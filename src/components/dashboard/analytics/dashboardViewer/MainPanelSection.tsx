@@ -7,6 +7,7 @@ import {
     ArrowDownRight,
     ArrowUpRight,
     BarChart3,
+    Calendar as CalendarIcon,
     CheckCircle2,
     ChevronDown,
     ChevronUp,
@@ -14,10 +15,17 @@ import {
     DollarSign,
     Filter,
     Flame,
+    GitBranch,
     Hash,
+    Info,
+    LayoutDashboard,
     Maximize2,
+    MoreHorizontal,
     Percent,
     RefreshCw,
+    Search,
+    Settings,
+    Share2,
     Target,
     X,
     XCircle,
@@ -28,11 +36,15 @@ import { AiInsightsBadge } from '../components/AiInsightsBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getPOSName } from '@/lib/posMapping';
 
 import { PercentageGraph } from '../charts/PercentageGraph';
 import { FunnelGraph } from '../charts/FunnelGraph';
+import { UserFlowVisualization } from '../charts/UserFlowVisualization';
 import { DayWiseComparisonChart, DailyAverageChart } from '../components/ComparisonCharts';
 
 import {
@@ -56,9 +68,12 @@ import { MiniSparkline } from './MiniSparkline';
 import { CollapsibleLegend } from './CollapsibleLegend';
 import { PieTooltip } from './PieTooltip';
 import { CustomTooltip } from './CustomTooltip';
+import { useChartZoom } from '@/hooks/useChartZoom';
+import { ChartZoomControls } from '../components/ChartZoomControls';
 import type { DashboardProfile } from '@/types/analytics';
 import type { DateRangeState, EventKeyInfo, FilterState, PanelData } from './types';
 import { combinePieChartDuplicates, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './constants';
+import { ChartExpandedView } from '../components/ChartExpandedView';
 
 type MainPanelSectionProps = {
     profile: DashboardProfile;
@@ -189,6 +204,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     events,
     toast,
 }: MainPanelSectionProps) {
+    const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
+    const [expandedChart, setExpandedChart] = useState<{ title: string; render: (zoom: number) => React.ReactNode } | null>(null);
+
+    // Ensure we have valid default values for arrays
+    const rawEvents = events || [];
 
     // Memoize event lookup maps to prevent recreation on every render
     const eventColors = useMemo(() => {
@@ -232,6 +252,13 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
     return (
         <div className="space-y-8 mobile-no-scroll">
+            <ChartExpandedView
+                isOpen={!!expandedChart}
+                onClose={() => setExpandedChart(null)}
+                title={expandedChart?.title || 'Chart Analysis'}
+            >
+                {expandedChart?.render || (() => null)}
+            </ChartExpandedView>
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
                 className="rounded-2xl overflow-hidden group transition-all duration-300 relative"
@@ -317,13 +344,17 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 const mainPanel = profile?.panels?.[0];
                                 const mainPanelId = mainPanel?.panelId;
                                 const mainPanelConfig = (mainPanel as any)?.filterConfig;
-                                const mainGraphType = mainPanelConfig?.graphType;
                                 const currentFilters = mainPanelId ? (panelFiltersState[mainPanelId] || {} as Partial<FilterState>) : {} as Partial<FilterState>;
+                                const mainGraphType = (currentFilters as any).graphType || mainPanelConfig?.graphType;
 
                                 const isPercentageGraph = mainGraphType === 'percentage';
                                 const percentageConfig = mainPanelConfig?.percentageConfig;
                                 const isFunnelGraph = mainGraphType === 'funnel';
-                                const funnelConfig = mainPanelConfig?.funnelConfig;
+                                const isUserFlowGraph = mainGraphType === 'user_flow';
+
+                                // Type guards
+                                const funnelConfig = isFunnelGraph ? (mainPanelConfig?.funnelConfig) : undefined;
+                                const userFlowConfig = isUserFlowGraph ? (mainPanelConfig?.userFlowConfig || { startEventId: '', includeEvents: [], showDropOffs: true }) : undefined;
 
                                 // Extract available status codes and cache statuses from raw data (for API events)
                                 let configuredStatusCodes = percentageConfig?.filters?.statusCodes || [];
@@ -496,6 +527,33 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     );
                                 }
 
+                                // Configuration for User Flow Graph
+                                if (isUserFlowGraph) {
+                                    return (
+                                        <div className="col-span-12 space-y-4">
+                                            <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:bg-slate-900 rounded-lg p-4 border border-violet-200 dark:border-violet-500/30 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-white dark:bg-violet-900/20 p-2 rounded-lg border border-violet-100 dark:border-violet-500/20 shadow-sm">
+                                                        <GitBranch className="h-5 w-5 text-violet-500" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-sm font-semibold text-violet-700 dark:text-violet-300">User Flow Configuration</h4>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            Configure stages and events directly on the visualization card below.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {/* Disabled mock control to indicate where filters would be if needed */}
+                                                <div className="opacity-50 pointer-events-none">
+                                                    <Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-800">
+                                                        Interactive Mode Active
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
                                 // Specialized Filters for Funnel Graph - dropdowns like Template Builder
                                 if (isFunnelGraph && funnelConfig) {
                                     const defaultStageIds = funnelConfig.stages.map((s: any) => s.eventId);
@@ -640,7 +698,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     );
                                 }
 
-                                // Default Filters (Regular Graphs)
+                                // Default Filters (Regular Graphs and User Flow)
+                                // User Flow keeps Platform/POS/Source active but disables the global Events dropdown
                                 return (
                                     <div className={cn(
                                         "grid gap-3 sm:gap-4",
@@ -688,7 +747,13 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.events || []) : []).map(id => id.toString())}
                                                 onChange={(values) => handleFilterChange('events', values)}
                                                 placeholder={isMainPanelApi ? "Select API events" : "Select events"}
+                                                disabled={mainGraphType === 'user_flow'}
                                             />
+                                            {mainGraphType === 'user_flow' && (
+                                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                                    Events configured in flow stages below
+                                                </p>
+                                            )}
                                             {isMainPanelApi && (() => {
                                                 const mainPanelId = profile?.panels?.[0]?.panelId;
                                                 const selectedEventId = mainPanelId ? panelFiltersState[mainPanelId]?.events?.[0] : undefined;
@@ -936,7 +1001,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     const graphType = filterConfig?.graphType;
 
                     // Skip stats cards for special graph types
-                    if (graphType === 'percentage' || graphType === 'funnel') {
+                    if (graphType === 'percentage' || graphType === 'funnel' || graphType === 'user_flow') {
                         return null;
                     }
 
@@ -1146,7 +1211,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     const mainPanel = profile?.panels?.[0];
                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
 
-                    // Check if this is a special graph panel (percentage or funnel)
+                    // Check if this is a special graph panel (percentage, funnel, or user_flow)
                     const filterConfig = (mainPanel as any)?.filterConfig;
                     const graphType = filterConfig?.graphType;
 
@@ -1234,26 +1299,76 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                         if (isGrouped) {
                             return (
-                                <PercentageGraph
-                                    data={percentageGraphData}
-                                    parentEvents={activeParentEvents}
-                                    childEvents={activeChildEvents}
-                                    eventColors={eventColors}
-                                    eventNames={eventNames}
-                                    filters={{
-                                        ...(percentageConfig?.filters || {}),
-                                        statusCodes: activeStatusCodes,
-                                        cacheStatus: activeCacheStatus
-                                    }}
-                                    isHourly={isHourly}
-                                    onToggleHourly={(newValue) => {
-                                        if (setHourlyOverride) {
-                                            setHourlyOverride(newValue);
-                                        }
-                                    }}
-                                    onToggleBackToFunnel={handleToggleBackToFunnel}
-                                    events={events}
-                                />
+                                <div className="relative group">
+                                    <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        <UiTooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-gray-500 hover:text-indigo-600 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm"
+                                                    onClick={() => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        if (mainPanelId) {
+                                                            setExpandedChart({
+                                                                title: 'Percentage Distribution',
+                                                                render: (zoomLevel) => (
+                                                                    <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>
+                                                                        <PercentageGraph
+                                                                            data={percentageGraphData}
+                                                                            parentEvents={activeParentEvents}
+                                                                            childEvents={activeChildEvents}
+                                                                            eventColors={eventColors}
+                                                                            eventNames={eventNames}
+                                                                            filters={{
+                                                                                ...(percentageConfig?.filters || {}),
+                                                                                statusCodes: activeStatusCodes,
+                                                                                cacheStatus: activeCacheStatus
+                                                                            }}
+                                                                            isHourly={isHourly}
+                                                                            onToggleHourly={(newValue) => {
+                                                                                if (setHourlyOverride) {
+                                                                                    setHourlyOverride(newValue);
+                                                                                }
+                                                                            }}
+                                                                            onToggleBackToFunnel={handleToggleBackToFunnel}
+                                                                            events={events}
+                                                                        />
+                                                                    </div>
+                                                                )
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    <Maximize2 className="h-4 w-4" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Expand to full screen</p>
+                                            </TooltipContent>
+                                        </UiTooltip>
+                                    </div>
+                                    <PercentageGraph
+                                        data={percentageGraphData}
+                                        parentEvents={activeParentEvents}
+                                        childEvents={activeChildEvents}
+                                        eventColors={eventColors}
+                                        eventNames={eventNames}
+                                        filters={{
+                                            ...(percentageConfig?.filters || {}),
+                                            statusCodes: activeStatusCodes,
+                                            cacheStatus: activeCacheStatus
+                                        }}
+                                        isHourly={isHourly}
+                                        onToggleHourly={(newValue) => {
+                                            if (setHourlyOverride) {
+                                                setHourlyOverride(newValue);
+                                            }
+                                        }}
+                                        onToggleBackToFunnel={handleToggleBackToFunnel}
+                                        events={events}
+                                    />
+                                </div>
                             );
                         } else {
                             // Separate Graphs Mode
@@ -1266,6 +1381,55 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <span className="font-semibold text-sm text-foreground">
                                                     {eventNames[String(childEvent)] || `Event ${childEvent}`}
                                                 </span>
+                                            </div>
+                                            <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                <UiTooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-gray-500 hover:text-indigo-600 bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm"
+                                                            onClick={() => {
+                                                                const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                                if (mainPanelId) {
+                                                                    setExpandedChart({
+                                                                        title: `${eventNames[String(childEvent)] || childEvent} Percentage`,
+                                                                        render: (zoomLevel) => (
+                                                                            <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>
+                                                                                <PercentageGraph
+                                                                                    data={percentageGraphData}
+                                                                                    parentEvents={activeParentEvents}
+                                                                                    childEvents={[childEvent]}
+                                                                                    eventColors={eventColors}
+                                                                                    eventNames={eventNames}
+                                                                                    filters={{
+                                                                                        ...(percentageConfig?.filters || {}),
+                                                                                        statusCodes: activeStatusCodes,
+                                                                                        cacheStatus: activeCacheStatus
+                                                                                    }}
+                                                                                    isHourly={isHourly}
+                                                                                    events={events}
+                                                                                    showCombinedPercentage={false}
+                                                                                    onToggleHourly={(newValue) => {
+                                                                                        if (setHourlyOverride) {
+                                                                                            setHourlyOverride(newValue);
+                                                                                        }
+                                                                                    }}
+                                                                                    onToggleBackToFunnel={index === 0 ? handleToggleBackToFunnel : undefined}
+                                                                                />
+                                                                            </div>
+                                                                        )
+                                                                    });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Maximize2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Expand to full screen</p>
+                                                    </TooltipContent>
+                                                </UiTooltip>
                                             </div>
                                             <PercentageGraph
                                                 data={percentageGraphData}
@@ -1376,6 +1540,65 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     }}
                                 />
                             </div>
+                        );
+
+                    }
+
+                    // User Flow Graph - EXCLUSIVE RENDERING
+                    if (graphType === 'user_flow') {
+                        const userFlowConfig = filterConfig?.userFlowConfig;
+                        
+                        // Merge filter state with config
+                         return (
+                            <Card className="border border-violet-200/60 dark:border-violet-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 mt-4">
+                                <CardHeader className="pb-2 bg-gradient-to-r from-violet-50/80 to-fuchsia-50/60 dark:from-violet-900/20 dark:to-fuchsia-900/10 border-b border-violet-200/40 dark:border-violet-500/20">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                                                <GitBranch className="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-base md:text-lg">User Flow Visualization</CardTitle>
+                                                <p className="text-xs text-muted-foreground mt-0.5">Track user journey through defined stages</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400">Flow Analysis</span>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-6">
+                                    <UserFlowVisualization 
+                                        data={rawGraphResponse?.data || []}
+                                        eventNames={eventNames}
+                                        config={{
+                                            stages: userFlowConfig?.stages || [],
+                                            showDropOffs: userFlowConfig?.showDropOffs ?? true
+                                        }}
+                                        height={500}
+                                        availableEvents={events as any[]}
+                                        isEditable={true}
+                                        onConfigChange={(newConfig) => {
+                                             if (profile && setProfile && profile.panels && profile.panels.length > 0) {
+                                                const updatedProfile = {
+                                                    ...profile,
+                                                    panels: profile.panels.map((panel, index) => 
+                                                        index === 0 ? {
+                                                            ...panel,
+                                                            filterConfig: {
+                                                                ...panel.filterConfig,
+                                                                userFlowConfig: {
+                                                                    ...panel.filterConfig?.userFlowConfig,
+                                                                    ...newConfig
+                                                                }
+                                                            }
+                                                        } : panel
+                                                    )
+                                                };
+                                                setProfile(updatedProfile);
+                                             }
+                                        }}
+                                    />
+                                </CardContent>
+                            </Card>
                         );
                     }
 
@@ -1512,23 +1735,47 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <BarChart3 className="h-5 w-5 text-indigo-600" />
                                                 <CardTitle className="text-base md:text-lg">8-Day Hourly Comparison</CardTitle>
                                             </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                                                onClick={() => {
-                                                    setPanelChartType(prev => {
-                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                        if (!mainPanelId) return prev;
-                                                        return {
-                                                            ...prev,
-                                                            [mainPanelId]: 'default',
-                                                        };
-                                                    });
-                                                }}
-                                            >
-                                                ← Event Trends
-                                            </Button>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                    onClick={() => {
+                                                        setPanelChartType(prev => {
+                                                            const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                            if (!mainPanelId) return prev;
+                                                            return {
+                                                                ...prev,
+                                                                [mainPanelId]: 'default',
+                                                            };
+                                                        });
+                                                    }}
+                                                >
+                                                    ← Event Trends
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
+                                                    onClick={() => setExpandedChart({
+                                                        title: '8-Day Hourly Comparison',
+                                                        render: (z) => (
+                                                            <DayWiseComparisonChart
+                                                                data={graphData}
+                                                                dateRange={dateRange}
+                                                                eventKeys={filteredEventKeys}
+                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                eventNames={eventNames}
+                                                                eventStats={eventStatsForBadges}
+                                                                selectedEventKey={overlaySelectedEventKey}
+                                                                onEventClick={handleOverlayEventClick}
+                                                            />
+                                                        )
+                                                    })}
+                                                >
+                                                    <Maximize2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
@@ -1566,36 +1813,83 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <BarChart3 className="h-5 w-5 text-indigo-600" />
                                                 <CardTitle className="text-base md:text-lg">Daily Overlay Comparison</CardTitle>
                                             </div>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                                                onClick={() => {
-                                                    setPanelChartType(prev => {
-                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                        if (!mainPanelId) return prev;
-                                                        return {
-                                                            ...prev,
-                                                            [mainPanelId]: 'default',
-                                                        };
-                                                    });
-                                                }}
-                                            >
-                                                ← Event Trends
-                                            </Button>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                    onClick={() => {
+                                                        setPanelChartType(prev => {
+                                                            const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                            if (!mainPanelId) return prev;
+                                                            return {
+                                                                ...prev,
+                                                                [mainPanelId]: 'default',
+                                                            };
+                                                        });
+                                                    }}
+                                                >
+                                                    ← Event Trends
+                                                </Button>
+                                                <UiTooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
+                                                            onClick={() => setExpandedChart({
+                                                                title: 'Daily Overlay Comparison',
+                                                                render: (z) => (
+                                                                    <DayWiseComparisonChart
+                                                                        data={graphData}
+                                                                        dateRange={dateRange}
+                                                                        eventKeys={filteredEventKeys}
+                                                                        eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                                        eventNames={eventNames}
+                                                                        eventStats={eventStatsForBadges}
+                                                                        selectedEventKey={overlaySelectedEventKey}
+                                                                        onEventClick={handleOverlayEventClick}
+                                                                    />
+                                                                )
+                                                            })}
+                                                        >
+                                                            <Maximize2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>Expand to full screen</p>
+                                                    </TooltipContent>
+                                                </UiTooltip>
+                                            </div>
                                         </div>
                                     </CardHeader>
-                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                        <DayWiseComparisonChart
-                                            data={graphData}
-                                            dateRange={dateRange}
-                                            eventKeys={filteredEventKeys}
-                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                            eventNames={eventNames}
-                                            eventStats={eventStatsForBadges}
-                                            selectedEventKey={overlaySelectedEventKey}
-                                            onEventClick={handleOverlayEventClick}
-                                        />
+                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6 relative group">
+                                        <div className="absolute top-14 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                            <ChartZoomControls
+                                                zoomLevel={zoomLevel}
+                                                onZoomIn={zoomIn}
+                                                onZoomOut={zoomOut}
+                                                onReset={resetZoom}
+                                            />
+                                        </div>
+                                        <div 
+                                            className="w-full h-full origin-top-left transition-all duration-100 ease-out overflow-x-auto overflow-y-hidden"
+                                            onWheel={handleWheel}
+                                        >
+                                            <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>
+                                                <DayWiseComparisonChart
+                                                    data={graphData}
+                                                    dateRange={dateRange}
+                                                    eventKeys={filteredEventKeys}
+                                                    eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                                    eventNames={eventNames}
+                                                    eventStats={eventStatsForBadges}
+                                                    selectedEventKey={overlaySelectedEventKey}
+                                                    onEventClick={handleOverlayEventClick}
+                                                    headless={true}
+                                                />
+                                            </div>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             );
@@ -1666,6 +1960,31 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     eventKeys={eventKeys}
                                                 />
                                             )}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-9 text-sm font-semibold bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-4"
+                                                onClick={() => {
+                                                    setPanelChartType(prev => {
+                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                        if (!mainPanelId) return prev;
+                                                        const current = prev[mainPanelId] ?? 'default';
+                                                        return {
+                                                            ...prev,
+                                                            [mainPanelId]: current === 'deviation' ? 'default' : 'deviation',
+                                                        };
+                                                    });
+                                                }}
+                                            >
+                                                {(() => {
+                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                    if (isHourly) {
+                                                        return mainChartType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
+                                                    }
+                                                    return mainChartType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
+                                                })()}
+                                            </Button>
                                             {/* Hourly/Daily Toggle */}
                                             <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                                 <button
@@ -1692,29 +2011,52 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 </button>
                                             </div>
                                             <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-9 text-sm font-semibold bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-4"
-                                                onClick={() => {
-                                                    setPanelChartType(prev => {
-                                                        const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                        if (!mainPanelId) return prev;
-                                                        const current = prev[mainPanelId] ?? 'default';
-                                                        return {
-                                                            ...prev,
-                                                            [mainPanelId]: current === 'deviation' ? 'default' : 'deviation',
-                                                        };
-                                                    });
-                                                }}
+                                                 variant="ghost"
+                                                 size="icon"
+                                                 className="h-7 w-7 text-gray-500 hover:text-indigo-600"
+                                                 onClick={() => {
+                                                     // Determine current chart type and render correct expanded view
+                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                     const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                                     
+                                                     let chartTitle = 'Event Trends';
+                                                     let renderFn = (z: number) => null;
+
+                                                     // Logic mostly duplicates render below, but simplified for expand view
+                                                      // NOTE: In a real refactor, we would extract the "chart switch" logic to a component
+                                                      // For now, we will just pass the standard Line/Bar chart as that is 90% of use cases
+                                                      // To support Overlay mode in Expand, we'd need more logic here.
+                                                      
+                                                      setExpandedChart({
+                                                          title: 'Expanded Analysis',
+                                                          render: (z) => (
+                                                             /* Re-use the main chart rendering logic or a simplified version */
+                                                              <ResponsiveContainer width="100%" height="100%">
+                                                                    {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
+                                                                         <BarChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+                                                                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                             <XAxis dataKey="date" />
+                                                                             <YAxis />
+                                                                             <Tooltip />
+                                                                             <Bar dataKey="count" fill="#8884d8" />
+                                                                         </BarChart>
+                                                                    ) : (
+                                                                         <AreaChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+                                                                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                                              <XAxis dataKey="date" />
+                                                                              <YAxis />
+                                                                              <Tooltip />
+                                                                              {normalEventKeys.map((ek, i) => (
+                                                                                <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
+                                                                              ))}
+                                                                         </AreaChart>
+                                                                    )}
+                                                              </ResponsiveContainer>
+                                                          )
+                                                      });
+                                                 }}
                                             >
-                                                {(() => {
-                                                    const mainPanelId = profile?.panels?.[0]?.panelId;
-                                                    const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
-                                                    if (isHourly) {
-                                                        return mainChartType === 'deviation' ? '← Event Trends' : '8-Day Overlay →';
-                                                    }
-                                                    return mainChartType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
-                                                })()}
+                                                <Maximize2 className="h-5 w-5" />
                                             </Button>
                                         </div>
                                     </div>
@@ -1757,7 +2099,19 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         );
                                     })()}
 
-                                    <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer">
+                                    <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer relative group overflow-x-auto overflow-y-hidden">
+                                        <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                            <ChartZoomControls
+                                                zoomLevel={zoomLevel}
+                                                onZoomIn={zoomIn}
+                                                onZoomOut={zoomOut}
+                                                onReset={resetZoom}
+                                            />
+                                        </div>
+                                        <div 
+                                            className="h-full transition-all duration-200"
+                                            style={{ width: `${Math.max(100, zoomLevel * 100)}%`, minWidth: '100%' }}
+                                        >
                                         {graphData.length > 0 ? (
                                             <>
                                                 {/* Show deviation chart for days < 7 when toggled */}
@@ -2068,6 +2422,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 )}
                                             </div>
                                         )}
+                                        </div>
                                     </div>
                                 </CardContent>
 
@@ -2188,10 +2543,68 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 return 'isAvg Events';
                                             })()}
                                         </span>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 ml-1 text-gray-500 hover:text-indigo-600"
+                                            onClick={() => {
+                                                const firstAvgEvent = avgEventKeys[0];
+                                                const avgEventType = firstAvgEvent?.isAvgEvent || 0;
+                                                let title = 'Time Delay Trends';
+                                                if (avgEventType === 2) title = 'Cost Trends';
+                                                if (avgEventType === 3) title = 'Count Trends';
+
+                                                setExpandedChart({
+                                                    title,
+                                                    render: (z) => (
+                                                        <AreaChart
+                                                            data={graphData}
+                                                            margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
+                                                        >
+                                                            <defs>
+                                                                {avgEventKeys.map((eventKeyInfo, index) => {
+                                                                    const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                    const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                    return (
+                                                                        <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                                                            <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                        </linearGradient>
+                                                                    );
+                                                                })}
+                                                            </defs>
+                                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                            <XAxis dataKey="date" />
+                                                            <YAxis />
+                                                            <Tooltip />
+                                                            {avgEventKeys.map((eventKeyInfo, index) => {
+                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                const eventKey = eventKeyInfo.eventKey;
+                                                                return (
+                                                                    <Area
+                                                                        key={`time_${index}_${eventKey}`}
+                                                                        type="monotone"
+                                                                        dataKey={`${eventKey}_avgDelay`}
+                                                                        name={eventKeyInfo.eventName}
+                                                                        stroke={color}
+                                                                        strokeWidth={2.5}
+                                                                        fillOpacity={1}
+                                                                        fill={`url(#timeColor_${eventKey})`}
+                                                                    />
+                                                                );
+                                                            })}
+                                                        </AreaChart>
+                                                    )
+                                                });
+                                            }}
+                                        >
+                                            <Maximize2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6">
+                            <CardContent className="space-y-3 md:space-y-4 relative px-2 md:px-6 pb-4 md:pb-6 group">
                                 {/* Collapsible Legend - Only avg (time) events */}
                                 {avgEventKeys.length > 0 && (
                                     <CollapsibleLegend
@@ -2206,7 +2619,22 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     />
                                 )}
 
-                                <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full cursor-pointer">
+                                <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <ChartZoomControls
+                                        zoomLevel={zoomLevel}
+                                        onZoomIn={zoomIn}
+                                        onZoomOut={zoomOut}
+                                        onReset={resetZoom}
+                                    />
+                                </div>
+
+                                <div 
+                                    className="h-[300px] sm:h-[350px] md:h-[400px] w-full cursor-pointer overflow-x-auto overflow-y-hidden relative group"
+                                >
+                                    <div 
+                                        className="h-full transition-all duration-200"
+                                        style={{ width: `${Math.max(100, zoomLevel * 100)}%`, minWidth: '100%' }}
+                                    >
                                     {graphData.length > 0 ? (
                                         <ResponsiveContainer width="100%" height="100%">
                                             <AreaChart
@@ -2329,6 +2757,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </p>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -2960,7 +3389,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                     // Process pie chart data - combine duplicates and filter out single-item charts
                     const platformData = pieChartData?.platform ? combinePieChartDuplicates(pieChartData.platform) : [];
-                    const posData = pieChartData?.pos ? combinePieChartDuplicates(pieChartData.pos) : [];
+                    const rawPosData = pieChartData?.pos ? combinePieChartDuplicates(pieChartData.pos) : [];
+                    // Apply POS mapping to convert IDs to human-readable names
+                    const posData = rawPosData.map((item: any) => ({
+                        ...item,
+                        name: getPOSName(item.name)
+                    }));
                     const sourceData = pieChartData?.source ? combinePieChartDuplicates(pieChartData.source) : [];
 
                     const showPlatform = shouldShowPieChart(pieChartData?.platform);
@@ -3212,6 +3646,6 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     </div>
                 )
             }
-        </div >
+        </div>
     );
 });
