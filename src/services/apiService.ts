@@ -543,7 +543,7 @@ export class APIService {
 
                 // Add special POS values at the beginning
                 const specialSites: SiteDetail[] = [
-                    { id: 0, name: 'All POS', image: '' },
+                    { id: 0, name: 'Default', image: '' },
                     { id: -1, name: 'Others', image: '' },
                     ...sites
                 ];
@@ -555,7 +555,7 @@ export class APIService {
                 console.error('Failed to fetch site details:', error);
                 // Set fallback cache with special POS values
                 this.siteDetailsCache = [
-                    { id: 0, name: 'All POS', image: '' },
+                    { id: 0, name: 'Default', image: '' },
                     { id: -1, name: 'Others', image: '' },
                     { id: 2, name: 'Flipkart', image: '' }
                 ];
