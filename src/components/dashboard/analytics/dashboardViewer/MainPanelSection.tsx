@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InfoTooltip } from '../components/InfoTooltip';
 import {
@@ -229,6 +229,30 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 }: MainPanelSectionProps) {
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const [expandedChart, setExpandedChart] = useState<{ title: string; render: (zoom: number) => React.ReactNode } | null>(null);
+    const [voicePopoverOpen, setVoicePopoverOpen] = useState(false);
+
+    // Keyboard shortcut for Voice AI (Cmd+K / Ctrl+K)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                if (isAdmin && !isMainPanelApi) {
+                    setVoicePopoverOpen(prev => {
+                        const willOpen = !prev;
+                        // If opening, start recording after a short delay
+                        if (willOpen && !isRecording && toggleRecording) {
+                            setTimeout(() => toggleRecording(), 150);
+                        }
+                        return willOpen;
+                    });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isAdmin, isMainPanelApi, isRecording, toggleRecording]);
 
     // Ensure we have valid default values for arrays
     const rawEvents = events || [];
@@ -313,167 +337,174 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         <div className="flex items-center gap-2">
                             {/* Voice Command Button - Admin Only & Non-API Only */}
                             {isAdmin && !isMainPanelApi && (
-                                <Popover onOpenChange={(open) => {
-                                    if (open) {
-                                        if (!isRecording) {
-                                            setTimeout(() => toggleRecording(), 100);
+                                <div className="flex flex-col items-center gap-0.5">
+                                    <Popover open={voicePopoverOpen} onOpenChange={(open) => {
+                                        setVoicePopoverOpen(open);
+                                        if (open) {
+                                            if (!isRecording) {
+                                                setTimeout(() => toggleRecording(), 100);
+                                            }
+                                        } else {
+                                            setManualTranscript('');
+                                            setVoiceStatus?.('idle');
                                         }
-                                    } else {
-                                        setManualTranscript('');
-                                        setVoiceStatus?.('idle');
-                                    }
-                                }}>
-                                    <UiTooltip>
-                                        <TooltipTrigger asChild>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className={cn(
-                                                        "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-300 shadow-sm relative overflow-hidden group/mic ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg",
-                                                        isRecording && "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-md shadow-red-500/20"
-                                                    )}
-                                                >
-                                                    {isRecording ? (
-                                                        <>
-                                                            <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
-                                                            <div className="relative flex items-center gap-1.5">
-                                                                <div className="flex gap-0.5 items-center h-3">
-                                                                    <div className="w-0.5 h-full bg-red-500 animate-[bounce_1s_infinite_0ms]" />
-                                                                    <div className="w-0.5 h-full bg-red-500 animate-[bounce_1s_infinite_200ms]" />
+                                    }}>
+                                        <UiTooltip>
+                                            <TooltipTrigger asChild>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className={cn(
+                                                            "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-300 shadow-sm relative overflow-hidden group/mic ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg",
+                                                            isRecording && "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-md shadow-red-500/20"
+                                                        )}
+                                                    >
+                                                        {isRecording ? (
+                                                            <>
+                                                                <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
+                                                                <div className="relative flex items-center gap-1.5">
+                                                                <div className="flex gap-0.5 items-center h-4">
+                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0ms]" style={{height: '40%'}} />
+                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_100ms]" style={{height: '70%'}} />
+                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_200ms]" style={{height: '100%'}} />
+                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_300ms]" style={{height: '70%'}} />
+                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_400ms]" style={{height: '40%'}} />
                                                                 </div>
                                                                 <span className="font-bold text-xs animate-pulse">Listening...</span>
                                                             </div>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Mic className={cn(
-                                                                "h-4 w-4 text-indigo-500 group-hover/mic:scale-110 transition-transform",
-                                                                isParsingVoice && "animate-spin"
-                                                            )} />
-                                                            <span className="font-bold text-xs tracking-wide">
-                                                                {isParsingVoice ? 'AI Analyzing...' : 'Voice AI'}
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                </Button>
-                                            </PopoverTrigger>
-                                        </TooltipTrigger>
-                                        <TooltipContent className="bg-slate-900 text-white border-slate-800 p-2 shadow-xl">
-                                            <div className="flex flex-col gap-1">
-                                                <p className="font-bold text-xs uppercase tracking-wider opacity-60">Status</p>
-                                                <p className="flex items-center gap-2">
-                                                    {voiceStatus === 'idle' && <span className="w-2 h-2 rounded-full bg-slate-400" />}
-                                                    {voiceStatus === 'listening' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                                                    {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-purple-400" />}
-                                                    {voiceStatus === 'applying' && <Zap className="h-3 w-3 text-amber-400 animate-bounce" />}
-                                                    {voiceStatus === 'done' && <CheckCircle2 className="h-3 w-3 text-green-400" />}
-                                                    {voiceStatus === 'error' && <XCircle className="h-3 w-3 text-red-400" />}
-                                                    <span className="capitalize font-medium text-xs">
-                                                        {voiceStatus === 'idle' && 'Ready to listen'}
-                                                        {voiceStatus === 'listening' && 'Listening to your command...'}
-                                                        {voiceStatus === 'parsing' && 'AI is understanding...'}
-                                                        {voiceStatus === 'applying' && 'Applying filters...'}
-                                                        {voiceStatus === 'done' && 'Filters applied!'}
-                                                        {voiceStatus === 'error' && 'Something went wrong'}
-                                                    </span>
-                                                </p>
-                                            </div>
-                                        </TooltipContent>
-                                    </UiTooltip>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Mic className={cn(
+                                                                    "h-4 w-4 text-indigo-500 group-hover/mic:scale-110 transition-transform",
+                                                                    isParsingVoice && "animate-spin"
+                                                                )} />
+                                                                <span className="font-bold text-xs tracking-wide">
+                                                                    {isParsingVoice ? 'AI Analyzing...' : 'Voice AI'}
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="bg-slate-900 text-white border-slate-800 p-2 shadow-xl">
+                                                <div className="flex flex-col gap-1">
+                                                    <p className="font-bold text-xs uppercase tracking-wider opacity-60">Status</p>
+                                                    <p className="flex items-center gap-2">
+                                                        {voiceStatus === 'idle' && <span className="w-2 h-2 rounded-full bg-slate-400" />}
+                                                        {voiceStatus === 'listening' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+                                                        {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-purple-400" />}
+                                                        {voiceStatus === 'applying' && <Zap className="h-3 w-3 text-amber-400 animate-bounce" />}
+                                                        {voiceStatus === 'done' && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                                                        {voiceStatus === 'error' && <XCircle className="h-3 w-3 text-red-400" />}
+                                                        <span className="capitalize font-medium text-xs">
+                                                            {voiceStatus === 'idle' && 'Ready to listen'}
+                                                            {voiceStatus === 'listening' && 'Listening to your command...'}
+                                                            {voiceStatus === 'parsing' && 'AI is understanding...'}
+                                                            {voiceStatus === 'applying' && 'Applying filters...'}
+                                                            {voiceStatus === 'done' && 'Filters applied!'}
+                                                            {voiceStatus === 'error' && 'Something went wrong'}
+                                                        </span>
+                                                    </p>
+                                                </div>
+                                            </TooltipContent>
+                                        </UiTooltip>
 
-                                    <PopoverContent
-                                        className="w-[calc(100vw-2rem)] sm:w-80 p-4 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <div className="space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <h4 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-                                                    <Sparkles className="h-4 w-4" />
-                                                    AI Voice Assistant
-                                                </h4>
-                                                <Badge variant="outline" className="text-[10px] uppercase font-bold text-indigo-500 border-indigo-200">
-                                                    Beta
-                                                </Badge>
-                                            </div>
+                                        <PopoverContent
+                                            className="w-[calc(100vw-2rem)] sm:w-80 p-4 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <h4 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                                                        <Sparkles className="h-4 w-4" />
+                                                        AI Voice Assistant
+                                                    </h4>
+                                                    <Badge variant="outline" className="text-[10px] uppercase font-bold text-indigo-500 border-indigo-200">
+                                                        Beta
+                                                    </Badge>
+                                                </div>
 
-                                            <div className="relative">
-                                                <textarea
-                                                    placeholder="Type your command or use voice..."
-                                                    className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-y font-medium text-slate-700 dark:text-slate-200"
-                                                    value={manualTranscript}
-                                                    onChange={(e) => setManualTranscript(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === ' ') {
-                                                            e.stopPropagation();
-                                                        }
-                                                    }}
-                                                />
-                                                {manualTranscript.toLowerCase().includes('auto send') && (
-                                                    <div className="absolute right-3 top-3">
-                                                        <Badge variant="outline" className="bg-indigo-500 text-white border-none animate-pulse text-[10px] px-1.5 py-0 h-4">
-                                                            AUTO SEND DETECTED
-                                                        </Badge>
-                                                    </div>
-                                                )}
-                                                {isRecording && (
-                                                    <div className="absolute right-3 bottom-3">
-                                                        <div className="flex gap-1">
-                                                            <div className="w-1 h-3 bg-red-400 animate-pulse" />
-                                                            <div className="w-1 h-3 bg-red-400 animate-pulse delay-75" />
-                                                            <div className="w-1 h-3 bg-red-400 animate-pulse delay-150" />
+                                                <div className="relative">
+                                                    <textarea
+                                                        placeholder="Type your command or use voice..."
+                                                        className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-none font-medium text-slate-700 dark:text-slate-200"
+                                                        value={manualTranscript}
+                                                        onChange={(e) => setManualTranscript(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === ' ') {
+                                                                e.stopPropagation();
+                                                            }
+                                                        }}
+                                                    />
+                                                    {manualTranscript.toLowerCase().includes('auto send') && (
+                                                        <div className="absolute right-3 top-3">
+                                                            <Badge variant="outline" className="bg-indigo-500 text-white border-none animate-pulse text-[10px] px-1.5 py-0 h-4">
+                                                                AUTO SEND DETECTED
+                                                            </Badge>
                                                         </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    variant={isRecording ? "destructive" : "outline"}
-                                                    size="sm"
-                                                    onClick={() => toggleRecording()}
-                                                    className="flex-1 gap-2 rounded-xl font-bold"
-                                                >
-                                                    {isRecording ? (
-                                                        <>
-                                                            <XCircle className="h-4 w-4" /> Stop
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Mic className="h-4 w-4" /> Speak
-                                                        </>
                                                     )}
-                                                </Button>
-                                                <Button
-                                                    variant="default"
-                                                    size="sm"
-                                                    disabled={!manualTranscript.trim() || isParsingVoice || isRecording}
-                                                    onClick={() => handleVoiceTranscript(manualTranscript)}
-                                                    className="flex-1 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20"
-                                                >
-                                                    {voiceStatus === 'parsing' ? (
-                                                        <RefreshCw className="h-4 w-4 animate-spin" />
-                                                    ) : voiceStatus === 'done' ? (
-                                                        <Zap className="h-4 w-4 text-yellow-300" />
-                                                    ) : (
-                                                        <Zap className="h-4 w-4" />
+                                                    {isRecording && (
+                                                        <div className="absolute right-3 bottom-3">
+                                                            <div className="flex gap-1">
+                                                                <div className="w-1 h-3 bg-red-400 animate-pulse" />
+                                                                <div className="w-1 h-3 bg-red-400 animate-pulse delay-75" />
+                                                                <div className="w-1 h-3 bg-red-400 animate-pulse delay-150" />
+                                                            </div>
+                                                        </div>
                                                     )}
-                                                    {voiceStatus === 'done' ? 'Project SUCCESS!' : 'Send'}
-                                                </Button>
-                                            </div>
+                                                </div>
 
-                                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                                                <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                                                    <Info className="h-3 w-3" /> TRY SAYING
-                                                </p>
-                                                <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 italic font-medium">
-                                                    "Show Flipkart data for the last 3 days <strong>AUTO SEND</strong>"
-                                                </p>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant={isRecording ? "destructive" : "outline"}
+                                                        size="sm"
+                                                        onClick={() => toggleRecording()}
+                                                        className="flex-1 gap-2 rounded-xl font-bold"
+                                                    >
+                                                        {isRecording ? (
+                                                            <>
+                                                                <XCircle className="h-4 w-4" /> Stop
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Mic className="h-4 w-4" /> Speak
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        disabled={!manualTranscript.trim() || isParsingVoice || isRecording}
+                                                        onClick={() => handleVoiceTranscript(manualTranscript)}
+                                                        className="flex-1 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20"
+                                                    >
+                                                        {voiceStatus === 'parsing' ? (
+                                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                                        ) : voiceStatus === 'done' ? (
+                                                            <Zap className="h-4 w-4 text-yellow-300" />
+                                                        ) : (
+                                                            <Zap className="h-4 w-4" />
+                                                        )}
+                                                        {voiceStatus === 'done' ? 'Project SUCCESS!' : 'Send'}
+                                                    </Button>
+                                                </div>
+
+                                                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                    <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                                        <Info className="h-3 w-3" /> TRY SAYING
+                                                    </p>
+                                                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 italic font-medium">
+                                                        "Show Flipkart data for the last 3 days <strong>AUTO SEND</strong>"
+                                                    </p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">⌘K</span>
+                                </div>
                             )}
                             <Button
                                 variant="ghost"

@@ -222,7 +222,7 @@ export class VoiceRecognitionManager {
     // ... (Main Initialization) ...
     public initializeVoiceRecognition = (isTranslatorSupported: boolean) => {
         this.config.isTranslationSupported = isTranslatorSupported;
-        
+
         // Basic checks
         if (this.isBraveBrowser() || (getMobileOperatingSystem() === 'iOS' && !this.isIOSVersionSupported())) {
             this.config.isVoiceSupported = false;
@@ -251,7 +251,7 @@ export class VoiceRecognitionManager {
                         for (let i = 0; i < event.results.length; ++i) {
                             fullTranscript += event.results[i][0].transcript;
                         }
-                        
+
                         if (fullTranscript.trim()) {
                             this.callbacks.onTranscript(fullTranscript);
                         }
@@ -310,9 +310,36 @@ export class VoiceRecognitionManager {
         }
 
         try {
-            this.config.recognition?.start();
-        } catch (e) {
-            window.alert('Error starting voice recognition. Please refresh.');
+            // Ensure recognition is not already running
+            if (this.config.recognition) {
+                // Try to stop any existing recognition first
+                try {
+                    this.config.recognition.abort();
+                } catch (e) {
+                    // Ignore abort errors
+                }
+
+                // Small delay to ensure clean state
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Now start fresh
+                this.config.recognition.start();
+            }
+        } catch (e: any) {
+            console.error('Voice recognition start error:', e);
+
+            // If it's an "already started" error, try to recover
+            if (e.message && e.message.includes('already')) {
+                try {
+                    this.config.recognition?.abort();
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                    this.config.recognition?.start();
+                } catch (retryError) {
+                    this.callbacks.onError?.('Failed to start voice recognition. Please try again.');
+                }
+            } else {
+                this.callbacks.onError?.('Error starting voice recognition. Please refresh.');
+            }
         }
     };
 
