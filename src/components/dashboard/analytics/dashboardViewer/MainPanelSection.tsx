@@ -240,9 +240,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 if (isAdmin && !isMainPanelApi) {
                     setVoicePopoverOpen(prev => {
                         const willOpen = !prev;
-                        // If opening, start recording after a short delay
+                        // If opening, start recording after popover renders
                         if (willOpen && !isRecording && toggleRecording) {
-                            setTimeout(() => toggleRecording(), 150);
+                            // Longer delay to ensure popover is fully rendered and voice recognition is ready
+                            setTimeout(() => toggleRecording(), 500);
                         }
                         return willOpen;
                     });
@@ -365,15 +366,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             <>
                                                                 <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
                                                                 <div className="relative flex items-center gap-1.5">
-                                                                <div className="flex gap-0.5 items-center h-4">
-                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0ms]" style={{height: '40%'}} />
-                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_100ms]" style={{height: '70%'}} />
-                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_200ms]" style={{height: '100%'}} />
-                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_300ms]" style={{height: '70%'}} />
-                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_400ms]" style={{height: '40%'}} />
+                                                                    <div className="flex gap-0.5 items-center h-4">
+                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0ms]" style={{ height: '40%' }} />
+                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_100ms]" style={{ height: '70%' }} />
+                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_200ms]" style={{ height: '100%' }} />
+                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_300ms]" style={{ height: '70%' }} />
+                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_400ms]" style={{ height: '40%' }} />
+                                                                    </div>
+                                                                    <span className="font-bold text-xs animate-pulse">Listening...</span>
                                                                 </div>
-                                                                <span className="font-bold text-xs animate-pulse">Listening...</span>
-                                                            </div>
                                                             </>
                                                         ) : (
                                                             <>

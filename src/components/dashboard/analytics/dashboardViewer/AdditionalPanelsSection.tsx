@@ -143,7 +143,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                         const willOpen = !prev;
                         // If opening, start recording after a short delay
                         if (willOpen && !isRecording && toggleRecording) {
-                            setTimeout(() => toggleRecording(), 150);
+                            setTimeout(() => toggleRecording(), 500);
                         }
                         return willOpen;
                     });

@@ -87,6 +87,8 @@ export class VoiceRecognitionManager {
     private config: VoiceRecognitionConfig;
     private callbacks: VoiceRecognitionCallbacks;
     private isStarting: boolean = false; // Debounce flag
+    private lastRestartTime: number = 0;
+    private explicitStop: boolean = false;
 
     constructor(callbacks: VoiceRecognitionCallbacks) {
         this.config = {
@@ -237,9 +239,9 @@ export class VoiceRecognitionManager {
                     this.config.recognition = new SpeechRecognition();
                     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
-                    this.config.recognition!.continuous = false;
+                    this.config.recognition!.continuous = true; // Stay on during pauses
                     this.config.recognition!.interimResults = true;
-                    this.config.recognition!.lang = isSafari ? 'en-US' : 'auto';
+                    this.config.recognition!.lang = isSafari ? 'en-US' : (navigator.language || 'en-US');
 
                     this.config.recognition!.onstart = () => {
                         this.config.isRecording = true;
@@ -269,6 +271,23 @@ export class VoiceRecognitionManager {
                     };
 
                     this.config.recognition!.onend = () => {
+                        // Keep-alive: If not explicitly stopped and we think we should be recording, restart
+                        if (!this.explicitStop && this.config.isRecording) {
+                            const now = Date.now();
+                            if (now - this.lastRestartTime > 1000) {
+                                console.debug('Voice recognition ended unexpectedly, restarting...');
+                                this.lastRestartTime = now;
+                                try {
+                                    this.config.recognition?.start();
+                                } catch (e) {
+                                    console.error('Failed to restart voice recognition:', e);
+                                    this.config.isRecording = false;
+                                    this.callbacks.onEnd?.();
+                                }
+                                return;
+                            }
+                        }
+                        
                         this.config.isRecording = false;
                         this.callbacks.onEnd?.();
                     };
@@ -292,6 +311,7 @@ export class VoiceRecognitionManager {
         }
         
         this.isStarting = true;
+        this.explicitStop = false; // Reset stop flag on start
         
         try {
             if (this.isBraveBrowser()) {
@@ -326,7 +346,7 @@ export class VoiceRecognitionManager {
                 if (this.config.isRecording) {
                     try {
                         this.config.recognition.stop();
-                        await new Promise(resolve => setTimeout(resolve, 200));
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     } catch (e) {
                         // Ignore stop errors
                     }
@@ -339,8 +359,8 @@ export class VoiceRecognitionManager {
                     // Ignore abort errors
                 }
 
-                // Longer delay to ensure clean state
-                await new Promise(resolve => setTimeout(resolve, 200));
+                // Minimal delay to ensure clean state
+                await new Promise(resolve => setTimeout(resolve, 100));
 
                 // Now start fresh
                 this.config.recognition.start();
@@ -371,6 +391,7 @@ export class VoiceRecognitionManager {
     };
 
     public stopVoiceRecording = () => {
+        this.explicitStop = true; // Mark as intentional stop
         if (this.config.recognition && this.config.isRecording) {
             try {
                 this.config.recognition.stop();
