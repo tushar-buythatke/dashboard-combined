@@ -650,6 +650,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             console.error("Failed to parse voice command:", err);
             setVoiceStatus('error');
 
+            // Clear the transcript to reset UI
+            setManualTranscript('');
+
             // Check if error is related to API quota/key exhaustion
             const errorMessage = err?.message || err?.toString() || '';
             const errorStatus = err?.status || 0;
