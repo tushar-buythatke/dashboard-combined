@@ -1,6 +1,5 @@
 
 // MVP: Use env var if available, else fallback to hardcoded (safety net for dev)
-// MVP: Use env var if available, else fallback to hardcoded (safety net for dev)
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
 const PROXY_URL = '/api/analyze';
@@ -10,6 +9,43 @@ export interface AiInsightContext {
     period: string; // e.g., "Last 7 Days", "Hourly"
     metricType: 'count' | 'timing' | 'percentage' | 'funnel' | 'other';
     eventNames: string[];
+}
+
+export interface VoiceFilterResult {
+    platforms?: number[];
+    pos?: number[];
+    sources?: number[];
+    events?: number[];
+    dateRange?: {
+        from: string; // ISO string or Date
+        to: string;   // ISO string or Date
+    };
+    isHourly?: boolean;
+    explanation?: string;
+    // New fields for complex graph configurations
+    graphType?: 'regular' | 'percentage' | 'funnel' | 'user_flow';
+    percentageConfig?: {
+        parentEvents: number[]; // Denominator events
+        childEvents: number[];  // Numerator events
+    };
+    funnelConfig?: {
+        stages: { eventId: number }[];
+        multipleChildEvents: number[]; // Success events at the end
+    };
+    userFlowConfig?: {
+        stages: { label: string, eventIds: number[] }[];
+    };
+    // Support nested filters structure from AI
+    filters?: {
+        platforms?: number[];
+        pos?: number[];
+        sources?: number[];
+        events?: number[];
+        dateRange?: {
+            from: string;
+            to: string;
+        };
+    };
 }
 
 export const generatePanelInsights = async (
@@ -34,7 +70,8 @@ export const generatePanelInsights = async (
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     data: limitedData,
-                    context: context
+                    context: context,
+                    mode: 'insights'
                 })
             });
 
@@ -52,7 +89,7 @@ export const generatePanelInsights = async (
             console.log("Using Direct API Call (Dev Mode)");
 
             const prompt = `
-            You are a witty senior data analyst. Analyze this JSON data for panel "${context.panelName}".
+            You are a witty senior data analyst at Buyhatke. Analyze this JSON data for panel "${context.panelName}".
             Context: ${context.period}.
             Metric: ${context.metricType}.
             Events involved: ${context.eventNames.join(', ')}.
@@ -60,13 +97,14 @@ export const generatePanelInsights = async (
             DATA:
             ${JSON.stringify(limitedData)}
 
-            Generate exactly **2 (TWO)** short, punchy insights.
+            Generate exactly **2 (TWO)** highly analytical and witty insights.
             
             Rules:
             1. **Strict Limit**: Return EXACTLY 2 strings. No more.
-            2. **Style**: Analytical + witty comparison.
-            3. **Formatting**: Wrap key numbers/words in **double asterisks** for bolding (e.g., "**40% spike**").
-            4. JSON Array ONLY. 
+            2. **Style**: Analytical + Witty Comparison. Remove any "funny" or casual filler. Focus on "mind-boggling" stats and comparisons (e.g., "This metric spike is equivalent to a **400% jump** compared to the weekly baseline").
+            3. **Insight Types**: Look for correlations, anomalies, or significant trends.
+            4. **Formatting**: Wrap key numbers/words in **double asterisks** for bolding (e.g., "**40% spike**").
+            5. JSON Array ONLY. 
             `;
 
             const response = await fetch(API_URL, {
@@ -101,6 +139,114 @@ export const generatePanelInsights = async (
     } catch (error) {
         console.error('AI Insight Generation Failed:', error);
         throw error;
+    }
+};
+
+/**
+ * Parse a voice transcript into structured filter options using Gemini
+ */
+export const parseTranscriptToFilters = async (
+    transcript: string,
+    options: {
+        platforms: { id: number, name: string }[];
+        pos: { id: number, name: string }[];
+        sources: { id: number, name: string }[];
+        events: { id: number, name: string }[];
+    },
+    currentDate?: string // ISO string for today's context
+): Promise<VoiceFilterResult> => {
+    try {
+        if (import.meta.env.PROD) {
+            console.log("Using Vercel Proxy for AI Voice Filter Parsing");
+            const response = await fetch(PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transcript,
+                    options,
+                    currentDate: currentDate || new Date().toISOString(),
+                    mode: 'parse_voice'
+                })
+            });
+
+            if (!response.ok) {
+                if (response.status === 429) throw new Error('Rate limit exceeded');
+                throw new Error(`Proxy Error: ${response.statusText}`);
+            }
+
+            return await response.json();
+        } else {
+            console.log("Using Direct API Call for AI Voice Filter Parsing (Dev Mode)");
+            const prompt = `
+            You are a dashboard filter assistant. Convert this voice transcript into a structured JSON filter object or graph configuration.
+            
+            Today's Date Context: ${currentDate || new Date().toISOString()}
+            Transcript: "${transcript}"
+            
+            Available Options (only use IDs from these sets):
+            - Platforms: ${JSON.stringify(options.platforms)}
+            - POS/Websites: ${JSON.stringify(options.pos)}
+            - Sources: ${JSON.stringify(options.sources)}
+            - Events: ${JSON.stringify(options.events)}
+            
+            Task Breakdown:
+            1. Recognize Filters: Dates, Platforms, POS, Sources.
+            2. Recognize Graph Type: If the user asks for a "funnel", "user flow", or "percentage/ratio" graph, set the "graphType" and provide the appropriate config.
+            3. Semantic Event Mapping: map vague terms (e.g., "spend lens", "checkout flow", "auth") to specific event sequences or sets. 
+               Example: "spend lens" -> events like SPEND_shown, SPEND_clicked, SPEND_success.
+            
+            Output Schema Details:
+            - graphType: 'regular' | 'percentage' | 'funnel' | 'user_flow'
+            - percentageConfig: { "parentEvents": [ids], "childEvents": [ids] } -- Used for ratio analysis (Numerator/Denominator).
+            - funnelConfig: { "stages": [{ "eventId": id }], "multipleChildEvents": [ids] } -- Sequential conversion.
+            - userFlowConfig: { "stages": [{ "label": "Step Name", "eventIds": [ids] }] } -- Complex branching flows.
+            
+            Specific "Spend Lens" Example Strategy: 
+            If someone says "Show the full flow of spend lens", generate a funnel or user flow using ALL relevant events starting with or containing "spend" or "spent", ordered logically (Shown -> Clicked -> Calculated -> Success/Error).
+
+            Output rules:
+            1. Return ONLY a JSON object.
+            2. Match names to provided lists (fuzzy match). 
+            3. Use ISO strings for dateRange: { from: string, to: string }.
+            4. **Filter Reset Logic**: If a category (Platforms, POS, Sources) is not mentioned or implied as 'all', return an empty array '[]' for that field. Do NOT omit it if you want it cleared.
+            5. If a command implies a reset (e.g., "Show me something else"), ensure all other categories are cleared to '[]'.
+            6. Include a brief "explanation" of what you did.
+            
+            JSON Return Example for complex request:
+            {
+              "graphType": "funnel",
+              "funnelConfig": {
+                "stages": [{ "eventId": 101 }, { "eventId": 102 }],
+                "multipleChildEvents": [103, 104]
+              },
+              "explanation": "Setting up a Spend Lens funnel: Shown -> Clicked -> Success."
+            }
+            `;
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 800,
+                        response_mime_type: "application/json"
+                    }
+                })
+            });
+
+            if (!response.ok) throw new Error(`AI Filter Error: ${response.statusText}`);
+
+            const result = await response.json();
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error("No response from AI");
+
+            return JSON.parse(text.trim());
+        }
+    } catch (error) {
+        console.error('AI Filter Parsing Failed:', error);
+        return { explanation: "Failed to parse filters from voice." };
     }
 };
 

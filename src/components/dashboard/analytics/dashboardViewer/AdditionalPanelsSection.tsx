@@ -15,18 +15,26 @@ import {
     Hash,
     Layers,
     Maximize2,
+    Mic,
     Percent,
     RefreshCw,
     Target,
     TrendingUp,
     Zap,
     X,
+    Sparkles,
+    CheckCircle2,
+    XCircle,
+    Info,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { InteractiveButton } from '@/components/ui/interactive-button';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { TooltipProvider, Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 import { PLATFORMS, SOURCES } from '@/services/apiService';
@@ -101,9 +109,19 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     setHourlyOverride,
     panelHourlyOverride,
     setPanelHourlyOverrideForId,
+    isRecording = false,
+    toggleRecording = () => { },
+    voiceTooltip = 'Voice Search',
+    isParsingVoice = false,
+    voiceStatus = 'idle',
+    manualTranscript = '',
+    setManualTranscript = () => { },
+    handleVoiceTranscript = () => { },
+    isAdmin = false,
+    setVoiceStatus = () => { },
 }: any) {
     const [expandedChart, setExpandedChart] = useState<{ title: string; render: (zoom: number) => React.ReactNode } | null>(null);
-    
+
     // Zoom state for Event Trends charts in additional panels
     const eventTrendsZoom = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     // Zoom state for Time Delay charts in additional panels
@@ -400,6 +418,171 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 )}
                                             </div>
                                         </button>
+
+                                        {/* Voice AI Button - Admin Only & Non-API Only - Now outside the parent button */}
+                                        {isAdmin && !panelConfig?.isApiEvent && (
+                                            <Popover onOpenChange={(open) => {
+                                                if (open) {
+                                                    if (!isRecording) {
+                                                        setTimeout(() => toggleRecording(), 100);
+                                                    }
+                                                } else {
+                                                    setManualTranscript('');
+                                                    setVoiceStatus?.('idle');
+                                                }
+                                            }}>
+                                                <UiTooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className={cn(
+                                                                    "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-300 shadow-sm relative overflow-hidden group/mic ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg",
+                                                                    isRecording && "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-md shadow-red-500/20"
+                                                                )}
+                                                            >
+                                                                {isRecording ? (
+                                                                    <>
+                                                                        <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
+                                                                        <div className="relative flex items-center gap-1.5">
+                                                                            <div className="flex gap-0.5 items-center h-3">
+                                                                                <div className="w-0.5 h-full bg-red-500 animate-[bounce_1s_infinite_0ms]" />
+                                                                                <div className="w-0.5 h-full bg-red-500 animate-[bounce_1s_infinite_200ms]" />
+                                                                            </div>
+                                                                            <span className="font-bold text-xs animate-pulse">Listening...</span>
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Mic className={cn(
+                                                                            "h-4 w-4 text-indigo-500 group-hover/mic:scale-110 transition-transform",
+                                                                            isParsingVoice && "animate-spin"
+                                                                        )} />
+                                                                        <span className="font-bold text-xs tracking-wide">
+                                                                            {isParsingVoice ? 'AI Analyzing...' : 'Voice AI'}
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="bg-slate-900 text-white border-slate-800 p-2 shadow-xl">
+                                                        <div className="flex flex-col gap-1">
+                                                            <p className="font-bold text-xs uppercase tracking-wider opacity-60">Status</p>
+                                                            <p className="flex items-center gap-2">
+                                                                {voiceStatus === 'idle' && <span className="w-2 h-2 rounded-full bg-slate-400" />}
+                                                                {voiceStatus === 'listening' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+                                                                {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-purple-400" />}
+                                                                {voiceStatus === 'applying' && <Zap className="h-3 w-3 text-amber-400 animate-bounce" />}
+                                                                {voiceStatus === 'done' && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                                                                {voiceStatus === 'error' && <XCircle className="h-3 w-3 text-red-400" />}
+                                                                <span className="capitalize font-medium text-xs">
+                                                                    {voiceStatus === 'idle' && 'Ready to listen'}
+                                                                    {voiceStatus === 'listening' && 'Listening to your command...'}
+                                                                    {voiceStatus === 'parsing' && 'AI is understanding...'}
+                                                                    {voiceStatus === 'applying' && 'Applying filters...'}
+                                                                    {voiceStatus === 'done' && 'Filters applied!'}
+                                                                    {voiceStatus === 'error' && 'Something went wrong'}
+                                                                </span>
+                                                            </p>
+                                                        </div>
+                                                    </TooltipContent>
+                                                </UiTooltip>
+
+                                                <PopoverContent
+                                                    className="w-[calc(100vw-2rem)] sm:w-80 p-4 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <div className="space-y-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <h4 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                                                                <Sparkles className="h-4 w-4" />
+                                                                AI Voice Assistant
+                                                            </h4>
+                                                            <Badge variant="outline" className="text-[10px] uppercase font-bold text-indigo-500 border-indigo-200">
+                                                                Beta
+                                                            </Badge>
+                                                        </div>
+
+                                                        <div className="relative">
+                                                            <textarea
+                                                                placeholder="Type your command or use voice..."
+                                                                className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-y font-medium text-slate-700 dark:text-slate-200"
+                                                                value={manualTranscript}
+                                                                onChange={(e) => setManualTranscript(e.target.value)}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === ' ') {
+                                                                        e.stopPropagation();
+                                                                    }
+                                                                }}
+                                                            />
+                                                            {manualTranscript.toLowerCase().includes('auto send') && (
+                                                                <div className="absolute right-3 top-3">
+                                                                    <Badge variant="outline" className="bg-indigo-500 text-white border-none animate-pulse text-[10px] px-1.5 py-0 h-4">
+                                                                        AUTO SEND DETECTED
+                                                                    </Badge>
+                                                                </div>
+                                                            )}
+                                                            {isRecording && (
+                                                                <div className="absolute right-3 bottom-3">
+                                                                    <div className="flex gap-1">
+                                                                        <div className="w-1 h-3 bg-red-400 animate-pulse" />
+                                                                        <div className="w-1 h-3 bg-red-400 animate-pulse delay-75" />
+                                                                        <div className="w-1 h-3 bg-red-400 animate-pulse delay-150" />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2">
+                                                            <Button
+                                                                variant={isRecording ? "destructive" : "outline"}
+                                                                size="sm"
+                                                                onClick={() => toggleRecording()}
+                                                                className="flex-1 gap-2 rounded-xl font-bold"
+                                                            >
+                                                                {isRecording ? (
+                                                                    <>
+                                                                        <XCircle className="h-4 w-4" /> Stop
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <Mic className="h-4 w-4" /> Speak
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                variant="default"
+                                                                size="sm"
+                                                                disabled={!manualTranscript.trim() || isParsingVoice || isRecording}
+                                                                onClick={() => handleVoiceTranscript(manualTranscript)}
+                                                                className="flex-1 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20"
+                                                            >
+                                                                {voiceStatus === 'parsing' ? (
+                                                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                                                ) : voiceStatus === 'done' ? (
+                                                                    <Zap className="h-4 w-4 text-yellow-300" />
+                                                                ) : (
+                                                                    <Zap className="h-4 w-4" />
+                                                                )}
+                                                                {voiceStatus === 'done' ? 'Project SUCCESS!' : 'Send'}
+                                                            </Button>
+                                                        </div>
+
+                                                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                            <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                                                <Info className="h-3 w-3" /> TRY SAYING
+                                                            </p>
+                                                            <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 italic font-medium">
+                                                                "Show Flipkart data for the last 3 days <strong>AUTO SEND</strong>"
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        )}
                                         {/* Refresh Button */}
                                         <InteractiveButton
                                             onClick={() => handlePanelRefresh?.(panel.panelId)}
@@ -421,6 +604,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 </div>
                                             )}
                                         </InteractiveButton>
+
                                     </div>
 
                                     {/* Show filters only if explicitly NOT collapsed (false means expanded now) */}
@@ -1463,13 +1647,13 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
                                                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis 
-                                                                        dataKey="date" 
-                                                                        tick={<CustomXAxisTick isHourly={pIsHourly} />} 
+                                                                    <XAxis
+                                                                        dataKey="date"
+                                                                        tick={<CustomXAxisTick isHourly={pIsHourly} />}
                                                                         axisLine={{ stroke: '#e5e7eb' }}
-                                                                        tickLine={false} 
-                                                                        height={45} 
-                                                                        interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} 
+                                                                        tickLine={false}
+                                                                        height={45}
+                                                                        interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))}
                                                                     />
                                                                     <YAxis
                                                                         tick={{ fill: '#3b82f6', fontSize: 11 }}
@@ -1844,13 +2028,13 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
                                                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                    <XAxis 
-                                                                        dataKey="date" 
-                                                                        tick={<CustomXAxisTick isHourly={pIsHourly} />} 
+                                                                    <XAxis
+                                                                        dataKey="date"
+                                                                        tick={<CustomXAxisTick isHourly={pIsHourly} />}
                                                                         axisLine={{ stroke: '#e5e7eb' }}
-                                                                        tickLine={false} 
-                                                                        height={45} 
-                                                                        interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} 
+                                                                        tickLine={false}
+                                                                        height={45}
+                                                                        interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))}
                                                                     />
                                                                     <YAxis
                                                                         tick={{ fill: '#3b82f6', fontSize: 11 }}
@@ -1967,7 +2151,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 if (profile && setProfile) {
                                                                                     setProfile((prev: any) => ({
                                                                                         ...prev,
-                                                                                        panels: prev.panels.map((p: any) => 
+                                                                                        panels: prev.panels.map((p: any) =>
                                                                                             p.panelId === panel.panelId ? {
                                                                                                 ...p,
                                                                                                 filterConfig: {
@@ -2007,7 +2191,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         if (profile && setProfile) {
                                                             setProfile((prev: any) => ({
                                                                 ...prev,
-                                                                panels: prev.panels.map((p: any) => 
+                                                                panels: prev.panels.map((p: any) =>
                                                                     p.panelId === panel.panelId ? {
                                                                         ...p,
                                                                         filterConfig: {
@@ -2050,13 +2234,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-sm text-muted-foreground font-medium">{pNormalEventKeys.length} events</span>
-                                                        
-                                                        {filteredGraphData.length > 0 && (
-                                                            <AiInsightsBadge 
+
+                                                        {/* AI Insights Button - Admin Only */}
+                                                        {isAdmin && filteredGraphData.length > 0 && (
+                                                            <AiInsightsBadge
                                                                 panelId={panel.panelId}
-                                                                panelName="Event Trends (Count)"
+                                                                panelName={panel.panelName || 'Event Trends (Count)'}
                                                                 data={filteredGraphData}
-                                                                metricType="count"
+                                                                metricType={panelConfig?.isApiEvent ? 'percentage' : (panelData?.events?.[0]?.isAvgEvent ? 'timing' : 'count')}
                                                                 isHourly={pIsHourly}
                                                                 eventKeys={pNormalEventKeys}
                                                             />
@@ -2163,71 +2348,71 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         className="h-full transition-all duration-200"
                                                         style={{ width: `${Math.max(100, eventTrendsZoom.zoomLevel * 100)}%`, minWidth: '100%' }}
                                                     >
-                                                    {filteredGraphData.length > 0 ? (
-                                                        <ResponsiveContainer width="100%" height="100%">
-                                                            <AreaChart
-                                                                data={filteredGraphData}
-                                                                margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-                                                                onClick={(chartState: any) => {
-                                                                    if (chartState && chartState.activeIndex !== undefined) {
-                                                                        const index = parseInt(chartState.activeIndex);
-                                                                        const dataPoint = filteredGraphData[index];
-                                                                        if (dataPoint) {
-                                                                            setPanelPinnedTooltips?.((prev: any) => ({
-                                                                                ...prev,
-                                                                                [panel.panelId]: {
-                                                                                    dataPoint,
-                                                                                    label: chartState.activeLabel || dataPoint.date || ''
-                                                                                }
-                                                                            }));
+                                                        {filteredGraphData.length > 0 ? (
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <AreaChart
+                                                                    data={filteredGraphData}
+                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    onClick={(chartState: any) => {
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = filteredGraphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPanelPinnedTooltips?.((prev: any) => ({
+                                                                                    ...prev,
+                                                                                    [panel.panelId]: {
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    }
+                                                                                }));
+                                                                            }
                                                                         }
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <defs>
-                                                                    {pNormalEventKeys.map((eventKeyInfo: any, index: number) => {
-                                                                        const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
-                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                        return (
-                                                                            <linearGradient key={`normalGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                                                                                <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                                                                            </linearGradient>
-                                                                        );
-                                                                    })}
-                                                                </defs>
-                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
-                                                                <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
-                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                {pNormalEventKeys
-                                                                    .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
-                                                                    .map((eventKeyInfo: any, index: number) => {
-                                                                        const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
-                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                        const countKey = `${eventKeyInfo.eventKey}_count`;
-                                                                        const resolvedCountKey = (filteredGraphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
-                                                                            ? countKey
-                                                                            : eventKeyInfo.eventKey;
-                                                                        return (
-                                                                            <Area
-                                                                                key={`normal_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`}
-                                                                                type="monotone"
-                                                                                dataKey={resolvedCountKey}
-                                                                                name={eventKeyInfo.eventName}
-                                                                                stroke={color}
-                                                                                strokeWidth={2.5}
-                                                                                fill={`url(#normalColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
-                                                                                dot={{ fill: color, strokeWidth: 0, r: 3 }}
-                                                                                activeDot={{ r: 8, fill: color, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
-                                                                            />
-                                                                        );
-                                                                    })}
-                                                            </AreaChart>
-                                                        </ResponsiveContainer>
-                                                    ) : (
-                                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
-                                                    )}
+                                                                    }}
+                                                                >
+                                                                    <defs>
+                                                                        {pNormalEventKeys.map((eventKeyInfo: any, index: number) => {
+                                                                            const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            return (
+                                                                                <linearGradient key={`normalGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                                                                                </linearGradient>
+                                                                            );
+                                                                        })}
+                                                                    </defs>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
+                                                                    <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                    {pNormalEventKeys
+                                                                        .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
+                                                                        .map((eventKeyInfo: any, index: number) => {
+                                                                            const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            const countKey = `${eventKeyInfo.eventKey}_count`;
+                                                                            const resolvedCountKey = (filteredGraphData || []).some((row: any) => row && Object.prototype.hasOwnProperty.call(row, countKey))
+                                                                                ? countKey
+                                                                                : eventKeyInfo.eventKey;
+                                                                            return (
+                                                                                <Area
+                                                                                    key={`normal_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                                    type="monotone"
+                                                                                    dataKey={resolvedCountKey}
+                                                                                    name={eventKeyInfo.eventName}
+                                                                                    stroke={color}
+                                                                                    strokeWidth={2.5}
+                                                                                    fill={`url(#normalColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                                    dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                                    activeDot={{ r: 8, fill: color, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
+                                                                                />
+                                                                            );
+                                                                        })}
+                                                                </AreaChart>
+                                                            </ResponsiveContainer>
+                                                        ) : (
+                                                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -2485,84 +2670,84 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         className="h-full transition-all duration-200"
                                                         style={{ width: `${Math.max(100, timeDelayZoom.zoomLevel * 100)}%`, minWidth: '100%' }}
                                                     >
-                                                    {filteredGraphData.length > 0 ? (
-                                                        <ResponsiveContainer width="100%" height="100%">
-                                                            <AreaChart
-                                                                data={filteredGraphData}
-                                                                margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-                                                                onClick={(chartState: any) => {
-                                                                    if (chartState && chartState.activeIndex !== undefined) {
-                                                                        const index = parseInt(chartState.activeIndex);
-                                                                        const dataPoint = filteredGraphData[index];
-                                                                        if (dataPoint) {
-                                                                            setPanelPinnedTooltips?.((prev: any) => ({
-                                                                                ...prev,
-                                                                                [`${panel.panelId}_avg`]: {
-                                                                                    dataPoint,
-                                                                                    label: chartState.activeLabel || dataPoint.date || ''
-                                                                                }
-                                                                            }));
+                                                        {filteredGraphData.length > 0 ? (
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <AreaChart
+                                                                    data={filteredGraphData}
+                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    onClick={(chartState: any) => {
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = filteredGraphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPanelPinnedTooltips?.((prev: any) => ({
+                                                                                    ...prev,
+                                                                                    [`${panel.panelId}_avg`]: {
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    }
+                                                                                }));
+                                                                            }
                                                                         }
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <defs>
-                                                                    {pAvgEventKeys.map((eventKeyInfo: any, index: number) => {
-                                                                        const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
-                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                        return (
-                                                                            <linearGradient key={`avgGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                                                <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                                                                            </linearGradient>
-                                                                        );
-                                                                    })}
-                                                                </defs>
-                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
-                                                                <YAxis
-                                                                    tick={{ fill: '#f59e0b', fontSize: 10 }}
-                                                                    axisLine={false}
-                                                                    tickLine={false}
-                                                                    tickFormatter={(value) => {
-                                                                        if (!value || value <= 0) return '0';
-                                                                        const hasPriceAlert = pAvgEventKeys.some((ek: any) => {
-                                                                            const ev = (events || []).find((e: any) => String(e.eventId) === ek.eventId);
-                                                                            return ev?.feature === 1;
-                                                                        });
-                                                                        if (hasPriceAlert) {
-                                                                            if (value >= 60) return `${(value / 60).toFixed(1)}h`;
-                                                                            return `${value.toFixed(1)}m`;
-                                                                        }
-                                                                        if (value >= 60) return `${(value / 60).toFixed(1)}m`;
-                                                                        return `${value.toFixed(1)}s`;
                                                                     }}
-                                                                />
-                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                {pAvgEventKeys
-                                                                    .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
-                                                                    .map((eventKeyInfo: any, index: number) => {
-                                                                        const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
-                                                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                        return (
-                                                                            <Area
-                                                                                key={`avg_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`}
-                                                                                type="monotone"
-                                                                                dataKey={`${eventKeyInfo.eventKey}_avgDelay`}
-                                                                                name={eventKeyInfo.eventName}
-                                                                                stroke={color}
-                                                                                strokeWidth={2.5}
-                                                                                fill={`url(#avgColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
-                                                                                dot={{ fill: color, strokeWidth: 0, r: 3 }}
-                                                                                activeDot={{ r: 8, fill: color, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
-                                                                            />
-                                                                        );
-                                                                    })}
-                                                            </AreaChart>
-                                                        </ResponsiveContainer>
-                                                    ) : (
-                                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
-                                                    )}
+                                                                >
+                                                                    <defs>
+                                                                        {pAvgEventKeys.map((eventKeyInfo: any, index: number) => {
+                                                                            const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            return (
+                                                                                <linearGradient key={`avgGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                                </linearGradient>
+                                                                            );
+                                                                        })}
+                                                                    </defs>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
+                                                                    <YAxis
+                                                                        tick={{ fill: '#f59e0b', fontSize: 10 }}
+                                                                        axisLine={false}
+                                                                        tickLine={false}
+                                                                        tickFormatter={(value) => {
+                                                                            if (!value || value <= 0) return '0';
+                                                                            const hasPriceAlert = pAvgEventKeys.some((ek: any) => {
+                                                                                const ev = (events || []).find((e: any) => String(e.eventId) === ek.eventId);
+                                                                                return ev?.feature === 1;
+                                                                            });
+                                                                            if (hasPriceAlert) {
+                                                                                if (value >= 60) return `${(value / 60).toFixed(1)}h`;
+                                                                                return `${value.toFixed(1)}m`;
+                                                                            }
+                                                                            if (value >= 60) return `${(value / 60).toFixed(1)}m`;
+                                                                            return `${value.toFixed(1)}s`;
+                                                                        }}
+                                                                    />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                    {pAvgEventKeys
+                                                                        .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
+                                                                        .map((eventKeyInfo: any, index: number) => {
+                                                                            const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
+                                                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                                                            return (
+                                                                                <Area
+                                                                                    key={`avg_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`}
+                                                                                    type="monotone"
+                                                                                    dataKey={`${eventKeyInfo.eventKey}_avgDelay`}
+                                                                                    name={eventKeyInfo.eventName}
+                                                                                    stroke={color}
+                                                                                    strokeWidth={2.5}
+                                                                                    fill={`url(#avgColor_${panel.panelId}_${eventKeyInfo.eventKey})`}
+                                                                                    dot={{ fill: color, strokeWidth: 0, r: 3 }}
+                                                                                    activeDot={{ r: 8, fill: color, stroke: '#fff', strokeWidth: 3, cursor: 'pointer' }}
+                                                                                />
+                                                                            );
+                                                                        })}
+                                                                </AreaChart>
+                                                            </ResponsiveContainer>
+                                                        ) : (
+                                                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -2715,72 +2900,72 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         className="h-full transition-all duration-200"
                                                         style={{ width: `${Math.max(100, errorTrendsZoom.zoomLevel * 100)}%`, minWidth: '100%' }}
                                                     >
-                                                    {filteredGraphData.length > 0 ? (
-                                                        <ResponsiveContainer width="100%" height="100%">
-                                                            <AreaChart
-                                                                data={filteredGraphData}
-                                                                margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
-                                                                onClick={(chartState: any) => {
-                                                                    if (chartState && chartState.activeIndex !== undefined) {
-                                                                        const index = parseInt(chartState.activeIndex);
-                                                                        const dataPoint = filteredGraphData[index];
-                                                                        if (dataPoint) {
-                                                                            setPanelPinnedTooltips?.((prev: any) => ({
-                                                                                ...prev,
-                                                                                [`${panel.panelId}_error`]: {
-                                                                                    dataPoint,
-                                                                                    label: chartState.activeLabel || dataPoint.date || ''
-                                                                                }
-                                                                            }));
+                                                        {filteredGraphData.length > 0 ? (
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <AreaChart
+                                                                    data={filteredGraphData}
+                                                                    margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
+                                                                    onClick={(chartState: any) => {
+                                                                        if (chartState && chartState.activeIndex !== undefined) {
+                                                                            const index = parseInt(chartState.activeIndex);
+                                                                            const dataPoint = filteredGraphData[index];
+                                                                            if (dataPoint) {
+                                                                                setPanelPinnedTooltips?.((prev: any) => ({
+                                                                                    ...prev,
+                                                                                    [`${panel.panelId}_error`]: {
+                                                                                        dataPoint,
+                                                                                        label: chartState.activeLabel || dataPoint.date || ''
+                                                                                    }
+                                                                                }));
+                                                                            }
                                                                         }
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <defs>
-                                                                    {pErrorEventKeys.map((eventKeyInfo: any, index: number) => {
-                                                                        const errorColor = ERROR_COLORS[index % ERROR_COLORS.length];
-                                                                        return (
-                                                                            <linearGradient key={`errorGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
-                                                                                <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
-                                                                            </linearGradient>
-                                                                        );
-                                                                    })}
-                                                                    <linearGradient id={`errorSuccessGrad_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
-                                                                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                                                                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
-                                                                    </linearGradient>
-                                                                </defs>
-                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                                <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
-                                                                <YAxis tick={{ fill: '#ef4444', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
-                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
-                                                                {pErrorEventKeys
-                                                                    .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
-                                                                    .map((eventKeyInfo: any, idx: number) => {
-                                                                        const eventKey = eventKeyInfo.eventKey;
-                                                                        // For isError events: successCount = failed count, so show ONLY red line
-                                                                        return (
-                                                                            <Area
-                                                                                key={`error_${idx}_${panel.panelId}_${eventKey}_failed`}
-                                                                                type="monotone"
-                                                                                dataKey={`${eventKey}_success`}
-                                                                                name={`${eventKeyInfo.eventName} (Failed Count)`}
-                                                                                stroke="#ef4444"
-                                                                                strokeWidth={3}
-                                                                                fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
-                                                                                dot={false}
-                                                                                activeDot={{ r: 7, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
-                                                                                isAnimationActive={false} connectNulls={true}
-                                                                                animationDuration={0}
-                                                                            />
-                                                                        );
-                                                                    })}
-                                                            </AreaChart>
-                                                        </ResponsiveContainer>
-                                                    ) : (
-                                                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
-                                                    )}
+                                                                    }}
+                                                                >
+                                                                    <defs>
+                                                                        {pErrorEventKeys.map((eventKeyInfo: any, index: number) => {
+                                                                            const errorColor = ERROR_COLORS[index % ERROR_COLORS.length];
+                                                                            return (
+                                                                                <linearGradient key={`errorGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                                                    <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
+                                                                                    <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
+                                                                                </linearGradient>
+                                                                            );
+                                                                        })}
+                                                                        <linearGradient id={`errorSuccessGrad_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
+                                                                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                                                                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                                                                        </linearGradient>
+                                                                    </defs>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
+                                                                    <YAxis tick={{ fill: '#ef4444', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                    {pErrorEventKeys
+                                                                        .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
+                                                                        .map((eventKeyInfo: any, idx: number) => {
+                                                                            const eventKey = eventKeyInfo.eventKey;
+                                                                            // For isError events: successCount = failed count, so show ONLY red line
+                                                                            return (
+                                                                                <Area
+                                                                                    key={`error_${idx}_${panel.panelId}_${eventKey}_failed`}
+                                                                                    type="monotone"
+                                                                                    dataKey={`${eventKey}_success`}
+                                                                                    name={`${eventKeyInfo.eventName} (Failed Count)`}
+                                                                                    stroke="#ef4444"
+                                                                                    strokeWidth={3}
+                                                                                    fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
+                                                                                    dot={false}
+                                                                                    activeDot={{ r: 7, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
+                                                                                    isAnimationActive={false} connectNulls={true}
+                                                                                    animationDuration={0}
+                                                                                />
+                                                                            );
+                                                                        })}
+                                                                </AreaChart>
+                                                            </ResponsiveContainer>
+                                                        ) : (
+                                                            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No data available</div>
+                                                        )}
                                                     </div>
                                                 </div>
 

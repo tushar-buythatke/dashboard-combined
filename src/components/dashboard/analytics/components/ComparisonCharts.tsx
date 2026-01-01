@@ -41,9 +41,6 @@ interface ComparisonChartsProps {
 export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventNames = {}, eventStats, selectedEventKey, onEventClick, headless, onExpand }: ComparisonChartsProps) {
     if (!data || data.length === 0) return null;
 
-    // Zoom functionality
-    const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom();
-
     // Group data by day
     const groupedByDay: Record<string, any[]> = {};
 
@@ -288,8 +285,8 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     if (headless) {
         return (
             <div className="w-full h-full relative">
-                 {/* Smart summary chips embedded in headless mode if needed, or kept clean */}
-                 <div className="mb-3 flex flex-wrap gap-2 text-sm px-2">
+                {/* Smart summary chips embedded in headless mode if needed, or kept clean */}
+                <div className="mb-3 flex flex-wrap gap-2 text-sm px-2">
                     {peakHourTime && peakHourValue != null && (
                         <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
                             Peak: {peakHourTime} ({Math.round(peakHourValue)})
@@ -300,7 +297,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                             {todayVsAvgPct >= 0 ? '▲' : '▼'} vs 7d: {todayVsAvgPct >= 0 ? '+' : ''}{todayVsAvgPct.toFixed(0)}%
                         </div>
                     )}
-                     <Button
+                    <Button
                         type="button"
                         variant={highlightRecentTwo ? 'default' : 'outline'}
                         size="sm"
@@ -343,88 +340,69 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                 {highlightRecentTwo ? 'Today + last 2' : 'Legend selected'}
                             </Button>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <ChartZoomControls
-                                zoomLevel={zoomLevel}
-                                onZoomIn={zoomIn}
-                                onZoomOut={zoomOut}
-                                onReset={resetZoom}
-                            />
-                            {onExpand && (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 hover:bg-indigo-100 dark:hover:bg-indigo-900/30"
-                                    onClick={onExpand}
-                                    title="Expand to full screen"
-                                >
-                                    <Maximize2 className="h-4 w-4" />
-                                </Button>
-                            )}
-                        </div>
                     </div>
-                </div>
-                {/* Event Stats Badges */}
-                {!headless && eventStats && eventStats.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-3">
-                        {eventStats
-                            .slice()
-                            .sort((a, b) => {
-                                // Extract status codes and sort numerically (200, 400, 500, etc.)
-                                const extractStatusCode = (key: string) => {
-                                    const match = key.match(/\d{3}/);
-                                    return match ? parseInt(match[0]) : 999;
-                                };
-                                const aCode = extractStatusCode(a.eventKey);
-                                const bCode = extractStatusCode(b.eventKey);
-                                // If both are status codes, sort by code
-                                if (aCode !== 999 && bCode !== 999) {
-                                    return aCode - bCode;
-                                }
-                                // Otherwise sort by total count descending
-                                return b.total - a.total;
-                            })
-                            .map((stat, idx) => {
-                                const isSelected = selectedEventKey === stat.eventKey;
-                                // Determine color based on status code
-                                const statusMatch = stat.eventKey.match(/\d{3}/);
-                                const statusCode = statusMatch ? parseInt(statusMatch[0]) : NaN;
-                                let badgeColor;
-                                if (!isNaN(statusCode)) {
-                                    if (statusCode >= 200 && statusCode < 300) {
-                                        badgeColor = '#22c55e'; // Green for 2xx
-                                    } else if (statusCode >= 400 && statusCode < 500) {
-                                        badgeColor = '#f59e0b'; // Orange for 4xx
-                                    } else if (statusCode >= 500) {
-                                        badgeColor = '#ef4444'; // Red for 5xx
+                    {/* Event Stats Badges */}
+                    {!headless && eventStats && eventStats.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            {eventStats
+                                .slice()
+                                .sort((a, b) => {
+                                    // Extract status codes and sort numerically (200, 400, 500, etc.)
+                                    const extractStatusCode = (key: string) => {
+                                        const match = key.match(/\d{3}/);
+                                        return match ? parseInt(match[0]) : 999;
+                                    };
+                                    const aCode = extractStatusCode(a.eventKey);
+                                    const bCode = extractStatusCode(b.eventKey);
+                                    // If both are status codes, sort by code
+                                    if (aCode !== 999 && bCode !== 999) {
+                                        return aCode - bCode;
+                                    }
+                                    // Otherwise sort by total count descending
+                                    return b.total - a.total;
+                                })
+                                .map((stat, idx) => {
+                                    const isSelected = selectedEventKey === stat.eventKey;
+                                    // Determine color based on status code
+                                    const statusMatch = stat.eventKey.match(/\d{3}/);
+                                    const statusCode = statusMatch ? parseInt(statusMatch[0]) : NaN;
+                                    let badgeColor;
+                                    if (!isNaN(statusCode)) {
+                                        if (statusCode >= 200 && statusCode < 300) {
+                                            badgeColor = '#22c55e'; // Green for 2xx
+                                        } else if (statusCode >= 400 && statusCode < 500) {
+                                            badgeColor = '#f59e0b'; // Orange for 4xx
+                                        } else if (statusCode >= 500) {
+                                            badgeColor = '#ef4444'; // Red for 5xx
+                                        } else {
+                                            badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
+                                        }
                                     } else {
                                         badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
                                     }
-                                } else {
-                                    badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
-                                }
-                                return (
-                                    <div
-                                        key={stat.eventKey}
-                                        onClick={() => onEventClick?.(stat.eventKey)}
-                                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all ${isSelected
-                                            ? 'bg-purple-100 dark:bg-purple-900/40 border-2 border-purple-500 shadow-md scale-105'
-                                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-102'
-                                            }`}
-                                    >
-                                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: badgeColor }} />
-                                        <span className={`text-sm font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>
-                                            {eventNames[String(stat.eventId)] || stat.eventKey}
-                                        </span>
-                                        <span className={`text-sm font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
-                                        <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
-                                            {stat.successRate.toFixed(0)}%
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                    </div>
-                )}
+                                    return (
+                                        <div
+                                            key={stat.eventKey}
+                                            onClick={() => onEventClick?.(stat.eventKey)}
+                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all ${isSelected
+                                                ? 'bg-purple-100 dark:bg-purple-900/40 border-2 border-purple-500 shadow-md scale-105'
+                                                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-102'
+                                                }`}
+                                        >
+                                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: badgeColor }} />
+                                            <span className={`text-sm font-medium ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-700 dark:text-gray-300'}`}>
+                                                {eventNames[String(stat.eventId)] || stat.eventKey}
+                                            </span>
+                                            <span className={`text-sm font-bold ${isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
+                                            <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
+                                                {stat.successRate.toFixed(0)}%
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                        </div>
+                    )}
+                </div>
             </CardHeader>
             <CardContent className="p-4 md:p-6 bg-gradient-to-br from-indigo-50/30 to-purple-50/20 dark:from-indigo-900/10 dark:to-purple-900/5">
                 {/* Smart summary chips */}
@@ -442,16 +420,11 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                     {/* Volatility chip intentionally removed for now */}
                 </div>
 
-                <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
-                    <div 
-                        className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
-                        style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
-                    >
-                        {Content}
-                    </div>
+                <div className="h-[400px] w-full relative">
+                    {Content}
                 </div>
             </CardContent>
-        </Card>
+        </Card >
     );
 }
 
@@ -523,62 +496,62 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
             </CardHeader>
             <CardContent className="p-4 md:p-6">
                 <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
-                    <div 
+                    <div
                         className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
                         style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
                     >
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
-                            <defs>
-                                <linearGradient id="deviationGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis
-                                dataKey="time"
-                                tick={{ fontSize: 12 }}
-                                interval="preserveStartEnd"
-                            />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    border: '1px solid #ddd',
-                                    borderRadius: '8px'
-                                }}
-                            />
-                            <Legend />
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                                <defs>
+                                    <linearGradient id="deviationGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <XAxis
+                                    dataKey="time"
+                                    tick={{ fontSize: 12 }}
+                                    interval="preserveStartEnd"
+                                />
+                                <YAxis tick={{ fontSize: 12 }} />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '8px'
+                                    }}
+                                />
+                                <Legend />
 
-                            <Line
-                                type="monotone"
-                                dataKey="avg"
-                                name="Average"
-                                stroke="#06b6d4"
-                                strokeWidth={3}
-                                dot={{ r: 3, fill: '#06b6d4' }}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="max"
-                                name="Max"
-                                stroke="#ef4444"
-                                strokeWidth={2}
-                                strokeDasharray="5 5"
-                                dot={false}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="min"
-                                name="Min"
-                                stroke="#10b981"
-                                strokeWidth={2}
-                                strokeDasharray="5 5"
-                                dot={false}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
+                                <Line
+                                    type="monotone"
+                                    dataKey="avg"
+                                    name="Average"
+                                    stroke="#06b6d4"
+                                    strokeWidth={3}
+                                    dot={{ r: 3, fill: '#06b6d4' }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="max"
+                                    name="Max"
+                                    stroke="#ef4444"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={false}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="min"
+                                    name="Min"
+                                    stroke="#10b981"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={false}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
             </CardContent>
@@ -724,64 +697,64 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
             </CardHeader>
             <CardContent className="p-4 md:p-6">
                 <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
-                    <div 
+                    <div
                         className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
                         style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
                     >
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
-                            <defs>
-                                <linearGradient id="dailyGradient" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                            <XAxis
-                                dataKey="date"
-                                tick={{ fontSize: 11 }}
-                                angle={-45}
-                                textAnchor="end"
-                                height={80}
-                            />
-                            <YAxis tick={{ fontSize: 12 }} />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                    border: '1px solid #ddd',
-                                    borderRadius: '8px'
-                                }}
-                            />
-                            <Legend />
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                                <defs>
+                                    <linearGradient id="dailyGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <XAxis
+                                    dataKey="date"
+                                    tick={{ fontSize: 11 }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={80}
+                                />
+                                <YAxis tick={{ fontSize: 12 }} />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                        border: '1px solid #ddd',
+                                        borderRadius: '8px'
+                                    }}
+                                />
+                                <Legend />
 
-                            {/* Average reference line */}
-                            <ReferenceLine
-                                y={overallAvg}
-                                stroke="#f59e0b"
-                                strokeWidth={2}
-                                strokeDasharray="5 5"
-                                label={{
-                                    value: `Avg: ${overallAvg.toFixed(0)}`,
-                                    position: 'right',
-                                    fill: '#f59e0b',
-                                    fontSize: 12,
-                                    fontWeight: 'bold'
-                                }}
-                            />
+                                {/* Average reference line */}
+                                <ReferenceLine
+                                    y={overallAvg}
+                                    stroke="#f59e0b"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    label={{
+                                        value: `Avg: ${overallAvg.toFixed(0)}`,
+                                        position: 'right',
+                                        fill: '#f59e0b',
+                                        fontSize: 12,
+                                        fontWeight: 'bold'
+                                    }}
+                                />
 
-                            <Line
-                                type="monotone"
-                                dataKey="value"
-                                name="Daily Value"
-                                stroke="#10b981"
-                                strokeWidth={3}
-                                fill="url(#dailyGradient)"
-                                dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
-                                activeDot={{ r: 6 }}
-                                isAnimationActive={false}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
+                                <Line
+                                    type="monotone"
+                                    dataKey="value"
+                                    name="Daily Value"
+                                    stroke="#10b981"
+                                    strokeWidth={3}
+                                    fill="url(#dailyGradient)"
+                                    dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                                    activeDot={{ r: 6 }}
+                                    isAnimationActive={false}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
             </CardContent>

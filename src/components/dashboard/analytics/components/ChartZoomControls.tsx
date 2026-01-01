@@ -42,22 +42,22 @@ export function ChartZoomControls({
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="h-8 w-8 sm:h-7 sm:w-7 hover:bg-slate-100 dark:hover:bg-slate-800 touch-manipulation"
         onClick={onZoomOut}
         disabled={!canZoomOut}
         title="Zoom Out (Ctrl + Scroll Down)"
       >
-        <ZoomOut className="h-3.5 w-3.5" />
+        <ZoomOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
       </Button>
 
       {/* Current Zoom Level (clickable to reset) */}
       <button
         onClick={onReset}
         className={cn(
-          'px-2 py-1 text-xs font-semibold rounded transition-colors',
+          'px-2 sm:px-2 py-1 text-xs font-semibold rounded transition-colors',
           'hover:bg-slate-100 dark:hover:bg-slate-800',
           'text-slate-700 dark:text-slate-300',
-          'min-w-[50px] text-center'
+          'min-w-[50px] sm:min-w-[50px] text-center touch-manipulation'
         )}
         title="Reset Zoom (Click)"
       >
@@ -68,23 +68,23 @@ export function ChartZoomControls({
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="h-8 w-8 sm:h-7 sm:w-7 hover:bg-slate-100 dark:hover:bg-slate-800 touch-manipulation"
         onClick={onZoomIn}
         disabled={!canZoomIn}
         title="Zoom In (Ctrl + Scroll Up)"
       >
-        <ZoomIn className="h-3.5 w-3.5" />
+        <ZoomIn className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
       </Button>
 
       {/* Reset Button */}
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 hover:bg-slate-100 dark:hover:bg-slate-800 ml-0.5"
+        className="h-8 w-8 sm:h-7 sm:w-7 hover:bg-slate-100 dark:hover:bg-slate-800 ml-0.5 touch-manipulation"
         onClick={onReset}
         title="Reset View"
       >
-        <Maximize2 className="h-3.5 w-3.5" />
+        <Maximize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
       </Button>
     </div>
   );

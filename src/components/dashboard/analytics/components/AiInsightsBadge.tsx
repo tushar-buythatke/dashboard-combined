@@ -170,7 +170,7 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                             <div>
                                 <h4 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Ready to Analyze?</h4>
                                 <p className="text-xs text-muted-foreground w-64 mx-auto leading-relaxed">
-                                    Generate 2 funny & smart insights using your credits.
+                                    Generate 2 highly analytical & witty insights using your credits.
                                 </p>
                             </div>
                             <Button
