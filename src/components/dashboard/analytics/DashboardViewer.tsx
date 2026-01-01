@@ -646,12 +646,29 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Reset status after a delay
             setTimeout(() => setVoiceStatus('idle'), 3000);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to parse voice command:", err);
             setVoiceStatus('error');
+
+            // Check if error is related to API quota/key exhaustion
+            const errorMessage = err?.message || err?.toString() || '';
+            const errorStatus = err?.status || 0;
+            const isApiKeyError =
+                errorStatus === 429 ||
+                errorStatus === 403 ||
+                errorStatus === 500 ||
+                errorMessage.includes('quota') ||
+                errorMessage.includes('exceeded') ||
+                errorMessage.includes('429') ||
+                errorMessage.includes('403') ||
+                errorMessage.includes('API key') ||
+                errorMessage.includes('billing');
+
             toast({
-                title: "Voice Error",
-                description: "Failed to understand the command. Please try again.",
+                title: isApiKeyError ? "API Key Exhausted!" : "Voice Error",
+                description: isApiKeyError
+                    ? "The AI service quota has been exceeded. Please try again later or contact support."
+                    : "Failed to understand the command. Please try again.",
                 variant: "destructive"
             });
             setTimeout(() => setVoiceStatus('idle'), 3000);

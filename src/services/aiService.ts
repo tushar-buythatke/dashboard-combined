@@ -236,7 +236,13 @@ export const parseTranscriptToFilters = async (
                 })
             });
 
-            if (!response.ok) throw new Error(`AI Filter Error: ${response.statusText}`);
+            if (!response.ok) {
+                const errorText = await response.text().catch(() => response.statusText);
+                const error: any = new Error(`AI Filter Error: ${response.statusText}`);
+                error.status = response.status;
+                error.details = errorText;
+                throw error;
+            }
 
             const result = await response.json();
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -244,9 +250,13 @@ export const parseTranscriptToFilters = async (
 
             return JSON.parse(text.trim());
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('AI Filter Parsing Failed:', error);
-        return { explanation: "Failed to parse filters from voice." };
+        // Re-throw with status code preserved for UI handling
+        const enhancedError: any = new Error(error.message || 'Failed to parse filters from voice.');
+        enhancedError.status = error.status;
+        enhancedError.details = error.details;
+        throw enhancedError;
     }
 };
 

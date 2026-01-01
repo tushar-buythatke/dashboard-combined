@@ -86,6 +86,7 @@ export interface VoiceRecognitionCallbacks {
 export class VoiceRecognitionManager {
     private config: VoiceRecognitionConfig;
     private callbacks: VoiceRecognitionCallbacks;
+    private isStarting: boolean = false; // Debounce flag
 
     constructor(callbacks: VoiceRecognitionCallbacks) {
         this.config = {
@@ -284,43 +285,62 @@ export class VoiceRecognitionManager {
     };
 
     public startVoiceRecording = async () => {
-        if (this.isBraveBrowser()) {
-            this.showBraveNotSupportedAlert();
+        // Prevent multiple simultaneous start attempts
+        if (this.isStarting) {
+            console.warn('Voice recognition start already in progress, ignoring duplicate call');
             return;
         }
-
-        if (!this.config.isVoiceSupported) {
-            window.alert('Voice recognition is not supported in this browser.');
-            return;
-        }
-
-        if (this.config.isRecording) {
-            this.stopVoiceRecording();
-            return;
-        }
-
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-
-        if (!isSafari) {
-            const hasPermission = await this.checkMicrophonePermission();
-            if (!hasPermission) {
-                const granted = await this.requestMicrophonePermission();
-                if (!granted) return;
+        
+        this.isStarting = true;
+        
+        try {
+            if (this.isBraveBrowser()) {
+                this.showBraveNotSupportedAlert();
+                return;
             }
-        }
+
+            if (!this.config.isVoiceSupported) {
+                window.alert('Voice recognition is not supported in this browser.');
+                return;
+            }
+
+            if (this.config.isRecording) {
+                this.stopVoiceRecording();
+                return;
+            }
+
+            const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+            if (!isSafari) {
+                const hasPermission = await this.checkMicrophonePermission();
+                if (!hasPermission) {
+                    const granted = await this.requestMicrophonePermission();
+                    if (!granted) return;
+                }
+            }
 
         try {
-            // Ensure recognition is not already running
+            // Ensure recognition is not already running by checking internal state
             if (this.config.recognition) {
-                // Try to stop any existing recognition first
+                // Force stop if we think it's already recording
+                if (this.config.isRecording) {
+                    try {
+                        this.config.recognition.stop();
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    } catch (e) {
+                        // Ignore stop errors
+                    }
+                }
+
+                // Always abort to clear any lingering state
                 try {
                     this.config.recognition.abort();
                 } catch (e) {
                     // Ignore abort errors
                 }
 
-                // Small delay to ensure clean state
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Longer delay to ensure clean state
+                await new Promise(resolve => setTimeout(resolve, 200));
 
                 // Now start fresh
                 this.config.recognition.start();
@@ -328,24 +348,35 @@ export class VoiceRecognitionManager {
         } catch (e: any) {
             console.error('Voice recognition start error:', e);
 
-            // If it's an "already started" error, try to recover
-            if (e.message && e.message.includes('already')) {
+            // If it's an "already started" or "InvalidStateError", force reset
+            if (e.name === 'InvalidStateError' || (e.message && e.message.includes('already'))) {
                 try {
+                    // Force abort and wait longer
                     this.config.recognition?.abort();
-                    await new Promise(resolve => setTimeout(resolve, 150));
+                    this.config.isRecording = false;
+                    await new Promise(resolve => setTimeout(resolve, 300));
                     this.config.recognition?.start();
                 } catch (retryError) {
-                    this.callbacks.onError?.('Failed to start voice recognition. Please try again.');
+                    console.error('Retry failed:', retryError);
+                    this.callbacks.onError?.('Voice recognition is busy. Please wait a moment and try again.');
                 }
             } else {
                 this.callbacks.onError?.('Error starting voice recognition. Please refresh.');
             }
         }
+        } finally {
+            // Always reset the starting flag
+            this.isStarting = false;
+        }
     };
 
     public stopVoiceRecording = () => {
         if (this.config.recognition && this.config.isRecording) {
-            this.config.recognition.stop();
+            try {
+                this.config.recognition.stop();
+            } catch (e) {
+                console.error('Error stopping recognition:', e);
+            }
         }
     };
 
