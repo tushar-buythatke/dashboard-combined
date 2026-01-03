@@ -35,7 +35,7 @@ import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground } from '@/components/ui/animated-background';
 
 export function AnalyticsLayout() {
-    const { user, logout, isAuthenticated } = useAnalyticsAuth();
+    const { user, logout, isAuthenticated, isLoading } = useAnalyticsAuth();
     const { organizations, selectedOrganization, setSelectedOrganization } = useOrganization();
     const { mode, toggleMode } = useTheme();
     const { toast } = useToast();
@@ -239,6 +239,18 @@ export function AnalyticsLayout() {
         setSelectedExistingProfile(null);
         setNewConfigFeature(selectedFeatureId || availableFeatures[0]?.id || '1');
     };
+
+    // Show loading state while checking authentication
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-purple-50/30 dark:to-purple-950/10">
+                <div className="text-center space-y-4">
+                    <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-muted-foreground">Checking authentication...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!isAuthenticated) {
         return <AnalyticsLogin />;

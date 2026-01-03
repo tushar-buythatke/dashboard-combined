@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '../types/analytics';
 import { mockService } from '../services/mockData';
@@ -22,17 +22,16 @@ export function useAnalyticsAuth() {
 }
 
 export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        // Check for existing session
-        const storedUser = localStorage.getItem('analytics_user_v2');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+    // Initialize user state synchronously from localStorage to prevent flash
+    const [user, setUser] = useState<User | null>(() => {
+        try {
+            const storedUser = localStorage.getItem('analytics_user_v2');
+            return storedUser ? JSON.parse(storedUser) : null;
+        } catch {
+            return null;
         }
-        setIsLoading(false);
-    }, []);
+    });
+    const [isLoading, setIsLoading] = useState(false); // Already checked synchronously above
 
     const login = async (username: string, password: string) => {
         setIsLoading(true);
