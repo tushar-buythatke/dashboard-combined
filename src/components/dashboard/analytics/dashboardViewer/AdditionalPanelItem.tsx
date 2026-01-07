@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InteractiveButton } from '@/components/ui/interactive-button';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { cn } from '@/lib/utils';
+import { getPOSName } from '@/lib/posMapping';
 import { PLATFORMS, SOURCES } from '@/services/apiService';
 import { AnimatedNumber } from './AnimatedNumber';
 import { CollapsibleLegend } from './CollapsibleLegend';
@@ -752,8 +753,15 @@ export const AdditionalPanelItem = React.memo(({
                             const pieType = pieConfig.type as 'platform' | 'pos' | 'source';
                             const rawPieData = pPieData?.[pieType];
                             const combinedPieData = combinePieChartDuplicates(rawPieData || []);
-                            const showChart = shouldShowPieChart(combinedPieData);
-                            return { pieConfig, pieType, pieData: combinedPieData, showChart };
+                            // Apply POS name mapping for grocery POS IDs (same as MainPanelSection)
+                            const mappedPieData = pieType === 'pos'
+                                ? combinedPieData.map((item: any) => ({
+                                    ...item,
+                                    name: getPOSName(item.name)
+                                }))
+                                : combinedPieData;
+                            const showChart = shouldShowPieChart(mappedPieData);
+                            return { pieConfig, pieType, pieData: mappedPieData, showChart };
                         }).filter((item: any) => item.showChart);
 
                         const gridCols = processedPieConfigs.length === 1 ? 'md:grid-cols-1 max-w-md mx-auto' :
