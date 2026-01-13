@@ -68,6 +68,14 @@ import {
     YAxis,
 } from 'recharts';
 
+const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+};
+
 export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSection({
     profile,
     setProfile,
@@ -388,7 +396,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                     <div className="flex items-center gap-2">
                                         <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
                                             <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                                                {isPanelLoading ? <Skeleton className="h-4 w-12" /> : pTotalCount.toLocaleString()} total
+                                                {isPanelLoading ? <Skeleton className="h-4 w-12" /> : formatNumber(pTotalCount)} total
                                             </span>
                                             <InfoTooltip content="Sum of all events recorded for this panel and its filters." />
                                         </div>
@@ -476,15 +484,15 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         <>
                                                                             <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
                                                                             <div className="relative flex items-center gap-1.5">
-                                                                            <div className="flex gap-0.5 items-center h-4">
-                                                                                <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0ms]" style={{height: '40%'}} />
-                                                                                <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_100ms]" style={{height: '70%'}} />
-                                                                                <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_200ms]" style={{height: '100%'}} />
-                                                                                <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_300ms]" style={{height: '70%'}} />
-                                                                                <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_400ms]" style={{height: '40%'}} />
+                                                                                <div className="flex gap-0.5 items-center h-4">
+                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0ms]" style={{ height: '40%' }} />
+                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_100ms]" style={{ height: '70%' }} />
+                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_200ms]" style={{ height: '100%' }} />
+                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_300ms]" style={{ height: '70%' }} />
+                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_400ms]" style={{ height: '40%' }} />
+                                                                                </div>
+                                                                                <span className="font-bold text-xs animate-pulse">Listening...</span>
                                                                             </div>
-                                                                            <span className="font-bold text-xs animate-pulse">Listening...</span>
-                                                                        </div>
                                                                         </>
                                                                     ) : (
                                                                         <>
@@ -1680,11 +1688,11 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         {panelApiSeries.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis
                                                                         dataKey="date"
                                                                         tick={<CustomXAxisTick isHourly={pIsHourly} />}
-                                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                                        axisLine={false}
                                                                         tickLine={false}
                                                                         height={45}
                                                                         interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))}
@@ -2061,11 +2069,11 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         {panelApiSeries.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis
                                                                         dataKey="date"
                                                                         tick={<CustomXAxisTick isHourly={pIsHourly} />}
-                                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                                        axisLine={false}
                                                                         tickLine={false}
                                                                         height={45}
                                                                         interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))}
@@ -2415,9 +2423,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             );
                                                                         })}
                                                                     </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
-                                                                    <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => formatNumber(value)} />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
                                                                     {pNormalEventKeys
                                                                         .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
@@ -2737,10 +2745,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             );
                                                                         })}
                                                                     </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                     <YAxis
-                                                                        tick={{ fill: '#f59e0b', fontSize: 10 }}
+                                                                        tick={{ fill: '#94a3b8', fontSize: 11 }}
                                                                         axisLine={false}
                                                                         tickLine={false}
                                                                         tickFormatter={(value) => {
@@ -2970,9 +2978,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                                                                         </linearGradient>
                                                                     </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
-                                                                    <YAxis tick={{ fill: '#ef4444', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => formatNumber(value)} />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
                                                                     {pErrorEventKeys
                                                                         .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
@@ -3090,10 +3098,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             <stop offset="95%" stopColor={avgColor} stopOpacity={0.05} />
                                                                         </linearGradient>
                                                                     </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                     <YAxis
-                                                                        tick={{ fill: '#f59e0b', fontSize: 10 }}
+                                                                        tick={{ fill: '#94a3b8', fontSize: 11 }}
                                                                         axisLine={false}
                                                                         tickLine={false}
                                                                         tickFormatter={(value) => {
@@ -3183,9 +3191,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                                                                         </linearGradient>
                                                                     </defs>
-                                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
-                                                                    <YAxis tick={{ fill: '#ef4444', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                    <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => formatNumber(value)} />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={[errorEventKeyInfo]} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
                                                                     <Area
                                                                         type="monotone"
@@ -3248,9 +3256,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         );
                                                                     })}
                                                                 </defs>
-                                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                 <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
-                                                                <YAxis tick={{ fill: '#6b7280', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value} />
+                                                                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => formatNumber(value)} />
                                                                 <Tooltip content={<CustomTooltip events={events} eventKeys={pEventKeys} />} />
                                                                 {pEventKeys.map((eventKeyInfo: any, index: number) => {
                                                                     const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
@@ -3287,7 +3295,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 const rawPieData = pPieData?.[pieType];
                                 const combinedPieData = combinePieChartDuplicates(rawPieData || []);
                                 // Apply POS name mapping for grocery POS IDs (same as MainPanelSection)
-                                const mappedPieData = pieType === 'pos' 
+                                const mappedPieData = pieType === 'pos'
                                     ? combinedPieData.map((item: any) => ({
                                         ...item,
                                         name: getPOSName(item.name)

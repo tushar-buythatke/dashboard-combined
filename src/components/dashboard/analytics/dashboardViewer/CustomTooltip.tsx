@@ -54,8 +54,15 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         eventKeyToInfo.set(ek.eventKey, ek);
     });
 
-    const formatMetric = (value: number, metricType: 'timing' | 'delay' | 'bytes' | 'count' | 'money', featureId?: number) => {
+    const formatMetricWithKMB = (value: number, metricType: 'timing' | 'delay' | 'bytes' | 'count' | 'money', featureId?: number) => {
         if (!value || value <= 0) return metricType === 'count' ? '0' : null;
+
+        if (metricType === 'count') {
+            if (value >= 1000000000) return (value / 1000000000).toFixed(1) + 'B';
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M';
+            if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
+            return value.toLocaleString();
+        }
 
         if (metricType === 'bytes') {
             if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)}MB`;
@@ -90,6 +97,9 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
 
         return value.toLocaleString();
     };
+
+    // Replace old formatMetric with our new one
+    const formatMetric = formatMetricWithKMB;
 
     // Get per-event data from payload with success/fail/delay info
     const eventDataItems = payload.map((item: any) => {
@@ -290,7 +300,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                     : "bg-gradient-to-r from-purple-600 to-violet-600"
                             )}
                         >
-                            {someAvgEvents && formattedAvgMetric ? formattedAvgMetric : totalCount.toLocaleString()}
+                            {someAvgEvents && formattedAvgMetric ? formattedAvgMetric : formatMetric(totalCount, 'count')}
                         </div>
                         <div className={cn(
                             "text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-sm mt-1 inline-block",
@@ -339,7 +349,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                         </span>
                                     </div>
                                 ) : !item.isAvgEvent && (
-                                    <span className="text-sm md:text-base font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">{item.count?.toLocaleString()}</span>
+                                    <span className="text-sm md:text-base font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent">{formatMetric(item.count, 'count')}</span>
                                 )}
                             </div>
 
@@ -348,7 +358,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                 {/* Total Count for Avg events (Timing View) */}
                                 {item.isAvgEvent && (
                                     <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 font-bold text-gray-600 dark:text-gray-400">
-                                        {item.count?.toLocaleString()} reqs
+                                        {formatMetric(item.count, 'count')} reqs
                                     </span>
                                 )}
 
@@ -357,13 +367,13 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                     <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-50 dark:bg-green-500/10 border border-green-100 dark:border-green-500/10">
                                         <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />
                                         <span className="font-bold text-green-700 dark:text-green-400">
-                                            {item.successCount?.toLocaleString()}
+                                            {formatMetric(item.successCount, 'count')}
                                         </span>
                                     </span>
                                     <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/10">
                                         <XCircle className="w-2.5 h-2.5 text-red-500" />
                                         <span className="font-bold text-red-700 dark:text-red-400">
-                                            {item.errorCount?.toLocaleString()}
+                                            {formatMetric(item.errorCount, 'count')}
                                         </span>
                                     </span>
                                 </div>
@@ -420,11 +430,11 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                         )}
 
                         <div className="flex items-center gap-3">
-                            <span className="font-extrabold text-foreground">{totalCount.toLocaleString()} <span className="text-[9px] font-medium text-muted-foreground">reqs</span></span>
+                            <span className="font-extrabold text-foreground">{formatMetric(totalCount, 'count')} <span className="text-[9px] font-medium text-muted-foreground">reqs</span></span>
                             <div className="h-3 w-[1px] bg-gray-200 dark:bg-gray-800" />
-                            <span className="font-extrabold text-green-600 dark:text-green-400">{totalSuccess.toLocaleString()} <span className="text-[9px] font-medium text-muted-foreground">ok</span></span>
+                            <span className="font-extrabold text-green-600 dark:text-green-400">{formatMetric(totalSuccess, 'count')} <span className="text-[9px] font-medium text-muted-foreground">ok</span></span>
                             <div className="h-3 w-[1px] bg-gray-200 dark:bg-gray-800" />
-                            <span className="font-extrabold text-red-600 dark:text-red-400">{totalErrors.toLocaleString()} <span className="text-[9px] font-medium text-muted-foreground">err</span></span>
+                            <span className="font-extrabold text-red-600 dark:text-red-400">{formatMetric(totalErrors, 'count')} <span className="text-[9px] font-medium text-muted-foreground">err</span></span>
                         </div>
                     </div>
                 </div>

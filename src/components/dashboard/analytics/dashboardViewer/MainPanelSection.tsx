@@ -75,8 +75,21 @@ import { useChartZoom } from '@/hooks/useChartZoom';
 import { ChartZoomControls } from '../components/ChartZoomControls';
 import type { DashboardProfile } from '@/types/analytics';
 import type { DateRangeState, EventKeyInfo, FilterState, PanelData } from './types';
-import { combinePieChartDuplicates, EVENT_COLORS, PIE_COLORS, shouldShowPieChart } from './constants';
 import { ChartExpandedView } from '../components/ChartExpandedView';
+import { combinePieChartDuplicates, PIE_COLORS, shouldShowPieChart } from './constants';
+
+const EVENT_COLORS = [
+    '#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
+    '#06b6d4', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6'
+];
+
+const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+};
 
 type MainPanelSectionProps = {
     profile: DashboardProfile;
@@ -2447,11 +2460,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 );
                                                                             })}
                                                                         </defs>
-                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                         <XAxis
                                                                             dataKey="date"
                                                                             tick={<CustomXAxisTick />}
-                                                                            axisLine={{ stroke: '#e5e7eb' }}
+                                                                            axisLine={false}
                                                                             tickLine={false}
                                                                             height={45}
                                                                             interval={Math.floor(graphData.length / 8)}
@@ -2459,16 +2472,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         {/* Left Y-axis for Count */}
                                                                         <YAxis
                                                                             yAxisId="left"
-                                                                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                                                                            tick={{ fill: '#94a3b8', fontSize: 11 }}
                                                                             axisLine={false}
                                                                             tickLine={false}
-                                                                            tickFormatter={(value) => {
-                                                                                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                                                return value;
-                                                                            }}
-                                                                            dx={-10}
-                                                                            label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
+                                                                            tickFormatter={formatNumber}
+                                                                            width={65}
+                                                                            dx={-5}
                                                                         />
                                                                         <Tooltip
                                                                             content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
@@ -2484,6 +2493,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                             return (
                                                                                 <Bar
                                                                                     key={`bar_${index}_${eventKey}`}
+                                                                                    type="monotone"
                                                                                     dataKey={resolvedCountKey}
                                                                                     name={eventKeyInfo.eventName}
                                                                                     yAxisId="left"
@@ -2504,7 +2514,6 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 yAxisId="left"
                                                                                 fill="#6366f1"
                                                                                 radius={[3, 3, 0, 0]}
-                                                                                maxBarSize={40}
                                                                                 isAnimationActive={false}
                                                                                 animationDuration={0}
                                                                             />
@@ -2548,11 +2557,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 </feMerge>
                                                                             </filter>
                                                                         </defs>
-                                                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                         <XAxis
                                                                             dataKey="date"
                                                                             tick={<CustomXAxisTick isHourly={isHourly} />}
-                                                                            axisLine={{ stroke: '#e5e7eb' }}
+                                                                            axisLine={false}
                                                                             tickLine={false}
                                                                             height={45}
                                                                             interval={Math.floor(graphData.length / 8)}
@@ -2560,16 +2569,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         {/* Left Y-axis for Count */}
                                                                         <YAxis
                                                                             yAxisId="left"
-                                                                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                                                                            tick={{ fill: '#94a3b8', fontSize: 11 }}
                                                                             axisLine={false}
                                                                             tickLine={false}
-                                                                            tickFormatter={(value) => {
-                                                                                if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                                                if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                                                return value;
-                                                                            }}
-                                                                            dx={-10}
-                                                                            label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { fill: '#6b7280', fontSize: 10 } }}
+                                                                            tickFormatter={formatNumber}
+                                                                            width={65}
+                                                                            dx={-5}
                                                                         />
                                                                         <Tooltip
                                                                             content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
@@ -3341,20 +3346,22 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                                                     </linearGradient>
                                                 </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                 <XAxis
                                                     dataKey="date"
                                                     tick={<CustomXAxisTick isHourly={isHourly} />}
-                                                    axisLine={{ stroke: '#e5e7eb' }}
+                                                    axisLine={false}
                                                     tickLine={false}
-                                                    height={50}
+                                                    height={45}
                                                     interval={Math.floor(graphData.length / 8)}
                                                 />
                                                 <YAxis
-                                                    tick={{ fill: '#ef4444', fontSize: 10 }}
+                                                    tick={{ fill: '#94a3b8', fontSize: 11 }}
                                                     axisLine={false}
                                                     tickLine={false}
-                                                    tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                                    tickFormatter={formatNumber}
+                                                    width={65}
+                                                    dx={-5}
                                                 />
                                                 <Tooltip
                                                     content={<CustomTooltip events={events} eventKeys={errorEventKeys} />}

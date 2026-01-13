@@ -168,6 +168,14 @@ const applyApiFiltering = (rawData: any[], panelConfig: any, filters: any, event
     });
 };
 
+const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+};
+
 export const AdditionalPanelItem = React.memo(({
     panel,
     panelIndex,
@@ -489,7 +497,7 @@ export const AdditionalPanelItem = React.memo(({
                         <div className="flex items-center gap-2">
                             <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
                                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                                    {isPanelLoading ? <Skeleton className="h-4 w-12" /> : pTotalCount.toLocaleString()} total
+                                    {isPanelLoading ? <Skeleton className="h-4 w-12" /> : formatNumber(pTotalCount)} total
                                 </span>
                                 <InfoTooltip content="Sum of all events recorded for this panel and its filters." />
                             </div>
@@ -886,20 +894,20 @@ export const AdditionalPanelItem = React.memo(({
                                 <div className="h-[280px] md:h-[360px] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                            <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                                            <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} axisLine={false} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
                                             <YAxis
-                                                tick={{ fill: '#3b82f6', fontSize: 11 }}
+                                                tick={{ fill: '#94a3b8', fontSize: 11 }}
                                                 axisLine={false}
                                                 tickLine={false}
                                                 tickFormatter={(value) => {
                                                     if (!value || value <= 0) return '0';
                                                     if (panelMetricView?.startsWith('timing')) return `${Number(value).toFixed(0)}ms`;
                                                     if (panelMetricView?.startsWith('bytes')) return value >= 1000000 ? `${(value / 1000000).toFixed(1)}MB` : `${Number(value).toFixed(0)}B`;
-                                                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                                                    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
-                                                    return value;
+                                                    return formatNumber(value);
                                                 }}
+                                                width={65}
+                                                dx={-5}
                                             />
                                             <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
                                             {apiEventKeyInfos.map((ek: any, idx: number) => {

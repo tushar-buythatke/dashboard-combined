@@ -20,6 +20,14 @@ const DAY_COLORS = [
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toString();
+};
+
 interface ComparisonChartsProps {
     data: any[];
     dateRange: { from: Date; to: Date };
@@ -205,23 +213,45 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
         <div className="h-[450px] w-full">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                     <XAxis
                         dataKey="time"
-                        tick={{ fontSize: 11 }}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 11, fill: '#94a3b8' }}
                         interval={2}
+                        dy={10}
                     />
-                    <YAxis tick={{ fontSize: 12 }} />
+                    <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={formatNumber}
+                        width={65}
+                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    />
                     <Tooltip
-                        contentStyle={{
-                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                            border: '1px solid #ddd',
-                            borderRadius: '8px'
-                        }}
-                        // Sort by value descending - highest first
-                        itemSorter={(item: any) => {
-                            const value = item?.value;
-                            return typeof value === 'number' ? -value : 0;
+                        content={({ active, payload, label }: any) => {
+                            if (active && payload && payload.length) {
+                                return (
+                                    <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-3 shadow-xl rounded-xl min-w-[170px] z-50">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
+                                        <div className="space-y-2">
+                                            {payload.map((entry: any, index: number) => (
+                                                <div key={index} className="flex items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                                        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">{entry.name}</span>
+                                                    </div>
+                                                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
+                                                        {formatNumber(entry.value)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return null;
                         }}
                     />
 
@@ -244,18 +274,34 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                         const recentThreeKeys = daySeriesAsc.slice(-3).map(ds => ds.dayKey);
                         const isRecent = recentThreeKeys.includes(dayKey);
 
+                        // Last 2 days + today are considered "recent"
+                        // Today is the very last item in daySeriesAsc
+                        const isToday = dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
+                        const isYesterdayOrBefore = isRecent && !isToday;
+
                         const isSelected = highlightRecentTwo
                             ? isRecent
                             : selectedDayKey
                                 ? selectedDayKey === dayKey
-                                : dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
+                                : isToday;
 
-                        // Check if this is today (the most recent/last day)
-                        const isToday = dayKey === daySeriesAsc[daySeriesAsc.length - 1]?.dayKey;
+                        // NEW LOGIC: No more grey outs. Always use the series color.
+                        // We use a slight opacity reduction only for NON-selected lines to keep focus,
+                        // but they are still clearly colored, not grey.
+                        const strokeColor = color;
+                        const strokeOpacity = isSelected ? 1 : 0.4; // Brighter than before (was 0.2 and merged with grey)
 
-                        const strokeColor = isSelected ? color : '#9CA3AF';
-                        const strokeOpacity = isSelected ? (highlightRecentTwo ? 0.9 : 1) : 0.2;
-                        const strokeWidth = isSelected ? (isToday ? 3.5 : (highlightRecentTwo ? 2 : 2.5)) : 1.25;
+                        // Width logic:
+                        // - Today: 3.5 (Boldest)
+                        // - Last 2 Days (when toggled): 2.5 (Bold)
+                        // - Selected (from legend): 2.5 (Bold)
+                        // - Others: 1.25 (Normal)
+                        let strokeWidth = 1.25;
+                        if (isToday) {
+                            strokeWidth = 3.5;
+                        } else if (isSelected) {
+                            strokeWidth = 2.5;
+                        }
 
                         return (
                             <Line
@@ -289,7 +335,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                 <div className="mb-3 flex flex-wrap gap-2 text-sm px-2">
                     {peakHourTime && peakHourValue != null && (
                         <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
-                            Peak: {peakHourTime} ({Math.round(peakHourValue)})
+                            Peak: {peakHourTime} ({formatNumber(peakHourValue)})
                         </div>
                     )}
                     {todayVsAvgPct != null && (
@@ -409,7 +455,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                 <div className="mb-3 flex flex-wrap gap-2 text-sm relative">
                     {peakHourTime && peakHourValue != null && (
                         <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
-                            Peak hour today: {peakHourTime} ({Math.round(peakHourValue)})
+                            Peak hour today: {peakHourTime} ({formatNumber(peakHourValue)})
                         </div>
                     )}
                     {todayVsAvgPct != null && (
