@@ -400,14 +400,14 @@ export default function AuthLogin() {
     const renderTabs = () => (
         <div className="flex rounded-xl bg-muted p-1 mb-6">
             <button
-                onClick={() => { setFlowState('login'); setError(null) }}
+                onClick={() => { setFlowState('login'); setUsername(''); setPassword(''); setError(null) }}
                 className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${flowState === 'login' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
                     }`}
             >
                 <LogIn className="w-4 h-4" />Sign In
             </button>
             <button
-                onClick={() => { setFlowState('signup'); setError(null) }}
+                onClick={() => { setFlowState('signup'); setUsername(''); setPassword(''); setError(null) }}
                 className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${flowState === 'signup' ? 'bg-background text-emerald-600 shadow-sm' : 'text-muted-foreground hover:text-foreground'
                     }`}
             >

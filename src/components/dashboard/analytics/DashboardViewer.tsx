@@ -782,26 +782,32 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Scroll Spy: Notify parent of active panel
     // Track if we've already set the initial active panel for this profile
     const initialPanelSetRef = useRef<string | null>(null);
+    const activePanelTimeoutRef = useRef<any>(null);
 
     useEffect(() => {
         if (!onPanelActive || !profile?.panels?.length) return;
 
         const observerOptions = {
             root: null,
-            rootMargin: '-20% 0px -40% 0px', // More sensitive tracking
-            threshold: [0, 0.1, 0.5] // Multiple thresholds for better detection
+            rootMargin: '-30% 0px -30% 0px', // Adjusted margin for better center-scrolling detection
+            threshold: [0, 0.1]
         };
 
         const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && entry.intersectionRatio > 0) {
-                    const panelId = entry.target.getAttribute('data-panel-id');
-                    if (panelId) {
-                        onPanelActive(panelId);
-                        setActivePanelId(panelId);
+            const visibleEntry = entries.find(entry => entry.isIntersecting && entry.intersectionRatio > 0);
+
+            if (visibleEntry) {
+                const panelId = visibleEntry.target.getAttribute('data-panel-id');
+                if (panelId) {
+                    // Debounce the state update to prevent UI lag during scroll
+                    if (activePanelTimeoutRef.current) {
+                        clearTimeout(activePanelTimeoutRef.current);
                     }
+                    activePanelTimeoutRef.current = setTimeout(() => {
+                        onPanelActive(panelId);
+                    }, 100);
                 }
-            });
+            }
         };
 
         const observer = new IntersectionObserver(handleIntersect, observerOptions);
@@ -832,6 +838,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         return () => {
             observer.disconnect();
             clearTimeout(timeout);
+            if (activePanelTimeoutRef.current) {
+                clearTimeout(activePanelTimeoutRef.current);
+            }
         };
     }, [profile?.panels, onPanelActive, profileId]);
 
@@ -2802,7 +2811,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         // Auto-load data on initial mount AND when switching profiles
         // User wants to see fresh data immediately without clicking Apply Changes
         // CHANGED: Removed strict initialLoadComplete check to ensure data loads even if flag was set but data is missing
-        if (!loading && profile && events.length > 0) {
+        if (!loading && profile && events.length > 0 && initialLoadComplete.current) {
             // IMPORTANT: Do NOT auto-fetch again on filter changes.
             // Auto-load exactly once per profileId (until user switches profiles).
             if (lastAutoLoadedProfileId.current === profileId) return;
@@ -3373,7 +3382,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
             <div
                 className="space-y-6"
-                style={{ zoom: 0.8 }}
+                style={{ zoom: 0.8, willChange: 'transform' }}
             >
                 {/* ========== PREMIUM HERO HEADER ========== */}
                 <HeroGradientHeader

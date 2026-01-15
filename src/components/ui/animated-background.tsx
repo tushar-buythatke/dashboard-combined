@@ -72,20 +72,21 @@ export const CursorGlow = () => null;
 export const ParticleBurst = (_: { x: number; y: number; color?: string }) => null;
 
 // Static gradient mesh - NO animations, just static gradients
+// Optimized with reduced blurs and will-change for performance
 export const GradientMeshBackground = ({ className = "" }: { className?: string }) => (
-    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
+    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`} style={{ willChange: 'transform' }}>
         {/* Static gradient blobs - no motion */}
-        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-purple-400/20 via-violet-400/10 to-transparent dark:from-purple-600/12 dark:via-violet-600/6 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-gradient-to-br from-cyan-400/15 via-blue-400/8 to-transparent dark:from-cyan-600/10 dark:via-blue-600/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 left-1/3 w-[450px] h-[450px] bg-gradient-to-br from-pink-400/12 via-rose-400/6 to-transparent dark:from-pink-600/8 dark:via-rose-600/4 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-purple-400/15 via-violet-400/8 to-transparent dark:from-purple-600/10 dark:via-violet-600/5 rounded-full blur-2xl opacity-60" />
+        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-gradient-to-br from-cyan-400/10 via-blue-400/5 to-transparent dark:from-cyan-600/8 dark:via-blue-600/3 rounded-full blur-2xl opacity-40" />
+        <div className="absolute bottom-1/4 left-1/3 w-[450px] h-[450px] bg-gradient-to-br from-pink-400/8 via-rose-400/4 to-transparent dark:from-pink-600/6 dark:via-rose-600/2 rounded-full blur-xl opacity-30" />
 
-        {/* Subtle grid overlay */}
+        {/* Subtle grid overlay - very low opacity */}
         <div className="absolute inset-0" style={{
             backgroundImage: `
-                linear-gradient(to right, rgba(147, 51, 234, 0.02) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(147, 51, 234, 0.02) 1px, transparent 1px)
+                linear-gradient(to right, rgba(147, 51, 234, 0.015) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(147, 51, 234, 0.015) 1px, transparent 1px)
             `,
-            backgroundSize: '50px 50px'
+            backgroundSize: '80px 80px'
         }} />
     </div>
 );
