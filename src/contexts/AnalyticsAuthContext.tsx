@@ -69,12 +69,14 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
-    // Refresh user data on mount (to catch DB changes like approval/role updates)
+    // Refresh user data on mount - DISABLED per user request for 3-day persistence
+    /*
     useEffect(() => {
         if (user?.id) {
             refreshUser();
         }
     }, []); // Run once on mount
+    */
 
     const [isLoading, setIsLoading] = useState(false); // Already checked synchronously above
 
