@@ -1571,6 +1571,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         const loadInitialData = async () => {
             // Memory cleanup: Clear existing panel data and states when switching profiles
             setPanelsDataMap(new Map());
+            initialLoadComplete.current = false; // Reset for new profile
             setPanelFiltersState({});
             setPanelDateRanges({});
             setPanelChartType({});
@@ -2810,8 +2811,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     useEffect(() => {
         // Auto-load data on initial mount AND when switching profiles
         // User wants to see fresh data immediately without clicking Apply Changes
-        // CHANGED: Removed strict initialLoadComplete check to ensure data loads even if flag was set but data is missing
-        if (!loading && profile && events.length > 0 && initialLoadComplete.current) {
+        if (!loading && profile && events.length > 0) {
             // IMPORTANT: Do NOT auto-fetch again on filter changes.
             // Auto-load exactly once per profileId (until user switches profiles).
             if (lastAutoLoadedProfileId.current === profileId) return;
