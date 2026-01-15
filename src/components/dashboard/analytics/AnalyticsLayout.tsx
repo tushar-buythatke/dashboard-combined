@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { DashboardProfile, Feature } from '@/types/analytics';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
@@ -10,6 +11,7 @@ import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, C
 import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
+import { ChartErrorBoundary } from './components/ChartErrorBoundary';
 import {
     Dialog,
     DialogContent,
@@ -437,12 +439,20 @@ export function AnalyticsLayout() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => navigate('/admin')}
-                                className="flex items-center gap-1.5 h-8 px-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                                className={cn(
+                                    "flex items-center gap-1.5 h-8 px-3 transition-all duration-300",
+                                    pendingUsers.length > 0
+                                        ? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 animate-pulse hover:bg-red-100 dark:hover:bg-red-900/50 shadow-[0_0_8px_rgba(220,38,38,0.3)]"
+                                        : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                                )}
                             >
-                                <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                                <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Admin Panel</span>
+                                <ShieldAlert className={cn(
+                                    "h-3.5 w-3.5",
+                                    pendingUsers.length > 0 ? "text-red-500" : "text-amber-600 dark:text-amber-400"
+                                )} />
+                                <span className="text-xs font-bold">Admin Access Panel</span>
                                 {pendingUsers.length > 0 && (
-                                    <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-red-500 text-white font-bold animate-pulse">
+                                    <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-red-600 text-white font-bold shadow-sm">
                                         {pendingUsers.length}
                                     </span>
                                 )}
@@ -667,6 +677,32 @@ export function AnalyticsLayout() {
                         {mode === 'dark' ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-purple-600" />}
                     </Button>
 
+                    {/* Admin Access Panel Button */}
+                    {isAdmin && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/admin')}
+                            className={cn(
+                                "hidden sm:flex items-center gap-1.5 h-8 px-3 transition-all duration-300",
+                                pendingUsers.length > 0
+                                    ? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 animate-pulse hover:bg-red-100 dark:hover:bg-red-900/50 shadow-[0_0_8px_rgba(220,38,38,0.3)]"
+                                    : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                            )}
+                        >
+                            <ShieldAlert className={cn(
+                                "h-3.5 w-3.5",
+                                pendingUsers.length > 0 ? "text-red-500" : "text-amber-600 dark:text-amber-400"
+                            )} />
+                            <span className="text-xs font-bold hidden lg:inline">Admin Panel</span>
+                            {pendingUsers.length > 0 && (
+                                <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-red-600 text-white font-bold shadow-sm">
+                                    {pendingUsers.length}
+                                </span>
+                            )}
+                        </Button>
+                    )}
+
                     {hasWriteAccess(selectedFeatureId) && (
                         <div className="hidden sm:block">
                             <Button
@@ -680,7 +716,7 @@ export function AnalyticsLayout() {
                         </div>
                     )}
                     <span className="text-xs lg:text-sm px-2 lg:px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 font-medium hidden sm:inline-flex">
-                        {isAdmin ? '✨ Super Admin' : (hasWriteAccess(selectedFeatureId) ? '✍️ Editor' : '👁 Viewer')}
+                        {isAdmin ? ' Super Admin 🤟🏻😎' : (hasWriteAccess(selectedFeatureId) ? '😼 Editor' : '🦁 Viewer')}
                     </span>
                     <Button variant="ghost" size="icon" onClick={logout} className="hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 h-8 w-8">
                         <LogOut className="h-4 w-4" />
@@ -773,14 +809,16 @@ export function AnalyticsLayout() {
                                 initialProfileId={selectedProfileId}
                             />
                         ) : selectedProfileId ? (
-                            <DashboardViewer
-                                profileId={selectedProfileId}
-                                onEditProfile={hasWriteAccess(selectedFeatureId) ? (_profile: DashboardProfile) => {
-                                    setIsCreatingProfile(true);
-                                } : undefined}
-                                onAlertsUpdate={setCriticalAlertsData}
-                                onPanelActive={setActivePanelId}
-                            />
+                            <ChartErrorBoundary>
+                                <DashboardViewer
+                                    profileId={selectedProfileId}
+                                    onEditProfile={hasWriteAccess(selectedFeatureId) ? (_profile: DashboardProfile) => {
+                                        setIsCreatingProfile(true);
+                                    } : undefined}
+                                    onAlertsUpdate={setCriticalAlertsData}
+                                    onPanelActive={setActivePanelId}
+                                />
+                            </ChartErrorBoundary>
                         ) : (
                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                                 <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center mb-6 shadow-lg">

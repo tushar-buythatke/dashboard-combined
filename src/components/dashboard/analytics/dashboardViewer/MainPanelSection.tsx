@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InfoTooltip } from '../components/InfoTooltip';
 import {
@@ -23,6 +24,7 @@ import {
     Mic,
     MoreHorizontal,
     Percent,
+    PieChart as PieChartIcon,
     RefreshCw,
     Search,
     Settings,
@@ -83,12 +85,13 @@ const EVENT_COLORS = [
     '#06b6d4', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6'
 ];
 
+// Professional Pie Tooltip
 const formatNumber = (num: number | null | undefined) => {
     if (num === null || num === undefined) return '0';
     if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return num.toString();
+    return Math.floor(num).toLocaleString();
 };
 
 type MainPanelSectionProps = {
@@ -100,7 +103,7 @@ type MainPanelSectionProps = {
     filteredApiData: any[];
     dateRange: DateRangeState;
     isHourly: boolean;
-    setHourlyOverride?: React.Dispatch<React.SetStateAction<boolean | null>>;
+    setHourlyOverride?: (value: boolean | null) => void;
     filtersCollapsed: boolean;
     setFiltersCollapsed: (next: boolean) => void;
     pendingRefresh: boolean;
@@ -151,7 +154,9 @@ type MainPanelSectionProps = {
     apiMetricView: any;
     setApiMetricView: (next: any) => void;
     pieChartData: any;
-    openExpandedPie: (pieType: any, title: string, data: any[]) => void;
+    eventPieCharts?: Record<string, any>;
+    openExpandedPie: (activeType: any, title: string, distributions: any, isApiEvent?: boolean) => void;
+    setExpandedChart: (chart: { type: string; title: string, params?: any } | null) => void;
     CustomXAxisTick: React.ComponentType<any>;
     HourlyStatsCard: React.ComponentType<any>;
     events: any[];
@@ -228,7 +233,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     apiMetricView,
     setApiMetricView,
     pieChartData,
+    eventPieCharts,
     openExpandedPie,
+    setExpandedChart,
     CustomXAxisTick,
     HourlyStatsCard,
     events,
@@ -244,8 +251,87 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     isAdmin = false,
     setVoiceStatus = () => { },
 }: MainPanelSectionProps) {
+    const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
+    const [refreshFlash, setRefreshFlash] = useState(false);
+
+    // Keyboard shortcuts: Command+Enter to refresh, Command+Shift to toggle hourly/daily
+    const [filtersFlash, setFiltersFlash] = useState(false);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Command+Enter to refresh panel
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                setRefreshFlash(true);
+                setFiltersFlash(true);
+                setTimeout(() => {
+                    setRefreshFlash(false);
+                    setFiltersFlash(false);
+                }, 800);
+                toast({
+                    title: "🔄 Refreshing Panel...",
+                    description: "Loading latest data",
+                    duration: 2000,
+                });
+                handleApplyFilters();
+            }
+            // Command+Shift (without Enter) to toggle hourly/daily
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key === 'Shift') {
+                // This won't trigger on Shift alone, let's use a different approach
+            }
+        };
+
+        // Use keyup for Command+Shift detection
+        const handleKeyUp = (e: KeyboardEvent) => {
+            // Command+Shift released - toggle hourly/daily
+            if (e.key === 'Shift' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                if (setHourlyOverride) {
+                    const newValue = !isHourly;
+                    setHourlyOverride(newValue);
+                    toast({
+                        title: newValue ? "📊 Switched to Hourly" : "📅 Switched to Daily",
+                        description: newValue ? "Showing hourly data resolution" : "Showing daily data resolution",
+                        duration: 2000,
+                    });
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [handleApplyFilters, setHourlyOverride, isHourly, toast]);
+
+    // Helper to render external labels for slices > 5%
+    // Helper to render external labels for slices > 5%
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, value }: any) => {
+        const RADIAN = Math.PI / 180;
+        const radius = outerRadius + 15;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+        if (percent < 0.05) return null;
+
+        return (
+            <text
+                x={x}
+                y={y}
+                fill="currentColor"
+                textAnchor={x > cx ? 'start' : 'end'}
+                dominantBaseline="central"
+                className="text-[9px] font-bold fill-slate-500 dark:fill-slate-400"
+            >
+                <tspan x={x} dy="-0.6em">{name}</tspan>
+                <tspan x={x} dy="1.2em" className="font-normal opacity-80">{`${Math.floor(value).toLocaleString()} (${(percent * 100).toFixed(2)}%)`}</tspan>
+            </text>
+        );
+    };
+
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
-    const [expandedChart, setExpandedChart] = useState<{ title: string; render: (zoom: number) => React.ReactNode } | null>(null);
     const [voicePopoverOpen, setVoicePopoverOpen] = useState(false);
 
     // Keyboard shortcut for Voice AI (Cmd+K / Ctrl+K)
@@ -317,17 +403,27 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
     return (
         <div className="space-y-8 mobile-no-scroll">
-            <ChartExpandedView
-                isOpen={!!expandedChart}
-                onClose={() => setExpandedChart(null)}
-                title={expandedChart?.title || 'Chart Analysis'}
-            >
-                {expandedChart?.render || (() => null)}
-            </ChartExpandedView>
+            {/* Fixed Position Refresh Notification Banner - visible when scrolled */}
+            {/* Fixed Position Refresh Notification Banner - visible when scrolled (Portal) */}
+            {filtersFlash && createPortal(
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-2xl shadow-purple-500/50 flex items-center gap-2 animate-bounce font-sans antialiased pointer-events-none">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span className="font-bold text-xs tracking-wide">Refreshing Panel...</span>
+                </div>,
+                document.body
+            )}
+            
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
-                className="rounded-2xl overflow-hidden group transition-all duration-300 relative"
+                className={cn(
+                    "rounded-2xl overflow-hidden group transition-all duration-300 relative",
+                    filtersFlash && "ring-4 ring-purple-400 shadow-lg shadow-purple-400/50"
+                )}
             >
+                {/* Flash Overlay */}
+                {filtersFlash && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-indigo-400/20 animate-pulse pointer-events-none z-20" />
+                )}
                 {/* Purple/Pink Gradient Accent Bar */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
 
@@ -524,6 +620,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">⌘K</span>
                                 </div>
                             )}
+                            {/* Quick Refresh Shortcut Hint */}
+                            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-purple-100/80 dark:bg-purple-900/40 rounded-lg border border-purple-300 dark:border-purple-600">
+                                <span className="text-sm text-purple-700 dark:text-purple-300 font-bold">⌘+Enter</span>
+                                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Refresh</span>
+                            </div>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -545,29 +646,43 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             {/* Hourly/Daily Toggle in Filter Panel */}
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-muted-foreground">Data Resolution:</span>
-                                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
-                                    <button
-                                        onClick={() => setHourlyOverride?.(true)}
-                                        className={cn(
-                                            "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
-                                            isHourly
-                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
-                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50"
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-muted-foreground font-medium">Showing:</span>
+                                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                                        {dataLoading && (
+                                            <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                                <RefreshCw className="h-3 w-3 animate-spin text-purple-600" />
+                                            </div>
                                         )}
-                                    >
-                                        Hourly
-                                    </button>
-                                    <button
-                                        onClick={() => setHourlyOverride?.(false)}
-                                        className={cn(
-                                            "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
-                                            !isHourly
-                                                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
-                                                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50"
-                                        )}
-                                    >
-                                        Daily
-                                    </button>
+                                        <button
+                                            onClick={() => setHourlyOverride?.(true)}
+                                            disabled={dataLoading}
+                                            className={cn(
+                                                "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                isHourly
+                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
+                                                dataLoading && "opacity-50 cursor-not-allowed"
+                                            )}
+                                        >
+                                            Hourly
+                                        </button>
+                                        <button
+                                            onClick={() => setHourlyOverride?.(false)}
+                                            disabled={dataLoading}
+                                            className={cn(
+                                                "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                !isHourly
+                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
+                                                dataLoading && "opacity-50 cursor-not-allowed"
+                                            )}
+                                        >
+                                            Daily
+                                        </button>
+                                    </div>
+                                    {/* Shortcut hint */}
+                                    <span className="px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-bold rounded-md border border-purple-300 dark:border-purple-600" title="Press ⌘+Shift to toggle">⌘+Shift</span>
                                 </div>
                             </div>
                         </div>
@@ -646,30 +761,46 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Percentage Graph - Event Selection</span>
                                                 </div>
 
-                                                {/* Graph Grouping Toggle */}
-                                                <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                    <button
-                                                        onClick={() => handleFilterChange('activePercentageGroupChildEvents', true)}
-                                                        className={cn(
-                                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
-                                                            isGrouped
-                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
-                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
-                                                        )}
-                                                    >
-                                                        SINGLE GRAPH
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleFilterChange('activePercentageGroupChildEvents', false)}
-                                                        className={cn(
-                                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
-                                                            !isGrouped
-                                                                ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
-                                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
-                                                        )}
-                                                    >
-                                                        SEPARATE GRAPHS
-                                                    </button>
+                                                <div className="flex items-center gap-4">
+                                                    {/* Event Distribution Toggle */}
+                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800 shadow-sm">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="percentage-show-events"
+                                                            className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                                            checked={currentFilters.showEventPieCharts ?? false}
+                                                            onChange={(e) => handleFilterChange('showEventPieCharts', e.target.checked)}
+                                                        />
+                                                        <label htmlFor="percentage-show-events" className="text-xs font-bold text-purple-700 dark:text-purple-300 cursor-pointer uppercase tracking-wider">
+                                                            Events Analysis
+                                                        </label>
+                                                    </div>
+
+                                                    {/* Graph Grouping Toggle */}
+                                                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                                        <button
+                                                            onClick={() => handleFilterChange('activePercentageGroupChildEvents', true)}
+                                                            className={cn(
+                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                                isGrouped
+                                                                    ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
+                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
+                                                            )}
+                                                        >
+                                                            SINGLE GRAPH
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleFilterChange('activePercentageGroupChildEvents', false)}
+                                                            className={cn(
+                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                                !isGrouped
+                                                                    ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
+                                                                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
+                                                            )}
+                                                        >
+                                                            SEPARATE GRAPHS
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -1176,15 +1307,21 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         "relative transition-all duration-300 font-semibold",
                                         pendingRefresh
                                             ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300"
-                                            : "bg-primary hover:bg-primary/90"
+                                            : "bg-primary hover:bg-primary/90",
+                                        refreshFlash && "ring-4 ring-green-400 ring-opacity-75"
                                     )}
                                 >
+                                    {/* Flash overlay */}
+                                    {refreshFlash && (
+                                        <span className="absolute inset-0 bg-green-400/30 animate-ping rounded-lg" />
+                                    )}
                                     {dataLoading ? (
                                         <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
                                     ) : (
                                         <RefreshCw className="mr-2 h-5 w-5" />
                                     )}
                                     {pendingRefresh ? "⚡ APPLY CHANGES" : "Refresh This Panel"}
+                                    <span className="ml-2 px-2 py-0.5 text-[11px] bg-white/20 rounded-md font-semibold">⌘+Enter</span>
                                     {pendingRefresh && (
                                         <div
                                             className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
@@ -1204,28 +1341,30 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <Label className="text-xs text-muted-foreground whitespace-nowrap">Auto-refresh:</Label>
-                                <select
-                                    value={autoRefreshMinutes}
-                                    onChange={(e) => setAutoRefreshMinutes(Number(e.target.value))}
-                                    className="h-8 px-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                                >
-                                    <option value={0}>Disabled</option>
-                                    <option value={1}>1 min</option>
-                                    <option value={2}>2 min</option>
-                                    <option value={5}>5 min</option>
-                                    <option value={10}>10 min</option>
-                                    <option value={15}>15 min</option>
-                                    <option value={30}>30 min</option>
-                                </select>
-                                {autoRefreshMinutes > 0 && (
-                                    <span
-                                        className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-xs text-muted-foreground whitespace-nowrap">Auto-refresh:</Label>
+                                    <select
+                                        value={autoRefreshMinutes}
+                                        onChange={(e) => setAutoRefreshMinutes(Number(e.target.value))}
+                                        className="h-8 px-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
                                     >
-                                        <div className="w-2 h-2 rounded-full bg-green-500" />
-                                        Active
-                                    </span>
-                                )}
+                                        <option value={0}>Disabled</option>
+                                        <option value={1}>1 min</option>
+                                        <option value={2}>2 min</option>
+                                        <option value={5}>5 min</option>
+                                        <option value={10}>10 min</option>
+                                        <option value={15}>15 min</option>
+                                        <option value={30}>30 min</option>
+                                    </select>
+                                    {autoRefreshMinutes > 0 && (
+                                        <span
+                                            className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
+                                        >
+                                            <div className="w-2 h-2 rounded-full bg-green-500" />
+                                            Active
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -1511,7 +1650,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             // Read the CURRENT previousGraphType inside the handler to avoid stale closure
                             const currentPreviousGraphType = (profile?.panels?.[0] as any)?.previousGraphType;
                             console.log('🔄 Back to Funnel clicked:', { currentPreviousGraphType, profile: !!profile, panels: profile?.panels?.length });
-                            
+
                             if (profile && profile.panels && profile.panels[0] && currentPreviousGraphType) {
                                 const updatedConfig = {
                                     ...profile.panels[0].filterConfig,
@@ -1558,31 +1697,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
                                                         if (mainPanelId) {
                                                             setExpandedChart({
+                                                                type: 'percentage',
                                                                 title: 'Percentage Distribution',
-                                                                render: (zoomLevel) => (
-                                                                    <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>
-                                                                        <PercentageGraph
-                                                                            data={percentageGraphData}
-                                                                            parentEvents={activeParentEvents}
-                                                                            childEvents={activeChildEvents}
-                                                                            eventColors={eventColors}
-                                                                            eventNames={eventNames}
-                                                                            filters={{
-                                                                                ...(percentageConfig?.filters || {}),
-                                                                                statusCodes: activeStatusCodes,
-                                                                                cacheStatus: activeCacheStatus
-                                                                            }}
-                                                                            isHourly={isHourly}
-                                                                            onToggleHourly={(newValue) => {
-                                                                                if (setHourlyOverride) {
-                                                                                    setHourlyOverride(newValue);
-                                                                                }
-                                                                            }}
-                                                                            onToggleBackToFunnel={handleToggleBackToFunnel}
-                                                                            events={events}
-                                                                        />
-                                                                    </div>
-                                                                )
+                                                                params: {
+                                                                    parentEvents: activeParentEvents,
+                                                                    childEvents: activeChildEvents,
+                                                                    filters: {
+                                                                        statusCodes: activeStatusCodes,
+                                                                        cacheStatus: activeCacheStatus
+                                                                    }
+                                                                }
                                                             });
                                                         }
                                                     }}
@@ -1641,31 +1765,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 if (mainPanelId) {
                                                                     setExpandedChart({
                                                                         title: `${eventNames[String(childEvent)] || childEvent} Percentage`,
-                                                                        render: (zoomLevel) => (
-                                                                            <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>
-                                                                                <PercentageGraph
-                                                                                    data={percentageGraphData}
-                                                                                    parentEvents={activeParentEvents}
-                                                                                    childEvents={[childEvent]}
-                                                                                    eventColors={eventColors}
-                                                                                    eventNames={eventNames}
-                                                                                    filters={{
-                                                                                        ...(percentageConfig?.filters || {}),
-                                                                                        statusCodes: activeStatusCodes,
-                                                                                        cacheStatus: activeCacheStatus
-                                                                                    }}
-                                                                                    isHourly={isHourly}
-                                                                                    events={events}
-                                                                                    showCombinedPercentage={false}
-                                                                                    onToggleHourly={(newValue) => {
-                                                                                        if (setHourlyOverride) {
-                                                                                            setHourlyOverride(newValue);
-                                                                                        }
-                                                                                    }}
-                                                                                    onToggleBackToFunnel={index === 0 ? handleToggleBackToFunnel : undefined}
-                                                                                />
-                                                                            </div>
-                                                                        )
+                                                                        type: 'percentage',
+                                                                        params: {
+                                                                            parentEvents: activeParentEvents,
+                                                                            childEvents: [childEvent],
+                                                                            filters: {
+                                                                                statusCodes: activeStatusCodes,
+                                                                                cacheStatus: activeCacheStatus
+                                                                            }
+                                                                        }
                                                                     });
                                                                 }
                                                             }}
@@ -1981,6 +2089,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <div className="flex items-center gap-2">
                                                 <BarChart3 className="h-5 w-5 text-indigo-600" />
                                                 <CardTitle className="text-base md:text-lg">8-Day Hourly Comparison</CardTitle>
+                                                <span className="px-2 py-0.5 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold rounded-md border border-indigo-300 dark:border-indigo-600" title="Press ⌘+Shift to toggle Hourly/Daily">⌘+Shift</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
@@ -2005,19 +2114,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     size="icon"
                                                     className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
                                                     onClick={() => setExpandedChart({
-                                                        title: '8-Day Hourly Comparison',
-                                                        render: (z) => (
-                                                            <DayWiseComparisonChart
-                                                                data={graphData}
-                                                                dateRange={dateRange}
-                                                                eventKeys={filteredEventKeys}
-                                                                eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                                eventNames={eventNames}
-                                                                eventStats={eventStatsForBadges}
-                                                                selectedEventKey={overlaySelectedEventKey}
-                                                                onEventClick={handleOverlayEventClick}
-                                                            />
-                                                        )
+                                                        type: 'hourly_overlay',
+                                                        title: '8-Day Hourly Comparison'
                                                     })}
                                                 >
                                                     <Maximize2 className="h-4 w-4" />
@@ -2085,19 +2183,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             size="icon"
                                                             className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
                                                             onClick={() => setExpandedChart({
-                                                                title: 'Daily Overlay Comparison',
-                                                                render: (z) => (
-                                                                    <DayWiseComparisonChart
-                                                                        data={graphData}
-                                                                        dateRange={dateRange}
-                                                                        eventKeys={filteredEventKeys}
-                                                                        eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
-                                                                        eventNames={eventNames}
-                                                                        eventStats={eventStatsForBadges}
-                                                                        selectedEventKey={overlaySelectedEventKey}
-                                                                        onEventClick={handleOverlayEventClick}
-                                                                    />
-                                                                )
+                                                                type: 'daily_overlay',
+                                                                title: 'Daily Overlay Comparison'
                                                             })}
                                                         >
                                                             <Maximize2 className="h-4 w-4" />
@@ -2277,31 +2364,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     // To support Overlay mode in Expand, we'd need more logic here.
 
                                                     setExpandedChart({
-                                                        title: 'Expanded Analysis',
-                                                        render: (z) => (
-                                                            /* Re-use the main chart rendering logic or a simplified version */
-                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                {(profile?.panels?.[0] as any)?.filterConfig?.graphType === 'bar' ? (
-                                                                    <BarChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
-                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                                        <XAxis dataKey="date" />
-                                                                        <YAxis />
-                                                                        <Tooltip />
-                                                                        <Bar dataKey="count" fill="#8884d8" />
-                                                                    </BarChart>
-                                                                ) : (
-                                                                    <AreaChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
-                                                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                                                        <XAxis dataKey="date" />
-                                                                        <YAxis />
-                                                                        <Tooltip />
-                                                                        {normalEventKeys.map((ek, i) => (
-                                                                            <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
-                                                                        ))}
-                                                                    </AreaChart>
-                                                                )}
-                                                            </ResponsiveContainer>
-                                                        )
+                                                        type: 'main_trends',
+                                                        title: 'Expanded Analysis'
                                                     });
                                                 }}
                                             >
@@ -2349,14 +2413,23 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     })()}
 
                                     <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer relative group overflow-x-auto overflow-y-hidden">
-                                        <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                            <ChartZoomControls
-                                                zoomLevel={zoomLevel}
-                                                onZoomIn={zoomIn}
-                                                onZoomOut={zoomOut}
-                                                onReset={resetZoom}
-                                            />
-                                        </div>
+                                        {/* Hide parent zoom controls when deviation chart is shown (it has its own) */}
+                                        {(() => {
+                                            const mainPanelId = profile?.panels?.[0]?.panelId;
+                                            const mainChartType = mainPanelId ? panelChartType[mainPanelId] ?? 'default' : 'default';
+                                            const isDeviationMode = mainChartType === 'deviation';
+                                            if (isDeviationMode) return null;
+                                            return (
+                                                <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                    <ChartZoomControls
+                                                        zoomLevel={zoomLevel}
+                                                        onZoomIn={zoomIn}
+                                                        onZoomOut={zoomOut}
+                                                        onReset={resetZoom}
+                                                    />
+                                                </div>
+                                            );
+                                        })()}
                                         <div
                                             className="h-full transition-all duration-200"
                                             style={{ width: `${Math.max(100, zoomLevel * 100)}%`, minWidth: '100%' }}
@@ -2796,47 +2869,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 if (avgEventType === 3) title = 'Count Trends';
 
                                                 setExpandedChart({
-                                                    title,
-                                                    render: (z) => (
-                                                        <AreaChart
-                                                            data={graphData}
-                                                            margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
-                                                        >
-                                                            <defs>
-                                                                {avgEventKeys.map((eventKeyInfo, index) => {
-                                                                    const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                    const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                    return (
-                                                                        <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                                            <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                                                                        </linearGradient>
-                                                                    );
-                                                                })}
-                                                            </defs>
-                                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
-                                                            <XAxis dataKey="date" />
-                                                            <YAxis />
-                                                            <Tooltip />
-                                                            {avgEventKeys.map((eventKeyInfo, index) => {
-                                                                const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
-                                                                const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
-                                                                const eventKey = eventKeyInfo.eventKey;
-                                                                return (
-                                                                    <Area
-                                                                        key={`time_${index}_${eventKey}`}
-                                                                        type="monotone"
-                                                                        dataKey={`${eventKey}_avgDelay`}
-                                                                        name={eventKeyInfo.eventName}
-                                                                        stroke={color}
-                                                                        strokeWidth={2.5}
-                                                                        fillOpacity={1}
-                                                                        fill={`url(#timeColor_${eventKey})`}
-                                                                    />
-                                                                );
-                                                            })}
-                                                        </AreaChart>
-                                                    )
+                                                    type: 'avg_trends',
+                                                    title
                                                 });
                                             }}
                                         >
@@ -3498,7 +3532,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             variant="ghost"
                                                             size="icon"
                                                             className="h-7 w-7 hover:bg-blue-100 dark:hover:bg-blue-500/20"
-                                                            onClick={() => openExpandedPie('status', 'Status Codes', statusData)}
+                                                            onClick={() => openExpandedPie('status', 'Status Codes', { status: statusData }, false)}
                                                         >
                                                             <Maximize2 className="h-3.5 w-3.5" />
                                                         </Button>
@@ -3571,7 +3605,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             variant="ghost"
                                                             size="icon"
                                                             className="h-7 w-7 hover:bg-purple-100 dark:hover:bg-purple-500/20"
-                                                            onClick={() => openExpandedPie('cacheStatus', 'Cache Status', cacheStatusData)}
+                                                            onClick={() => openExpandedPie('cacheStatus', 'Cache Status', { cacheStatus: cacheStatusData }, false)}
                                                         >
                                                             <Maximize2 className="h-3.5 w-3.5" />
                                                         </Button>
@@ -3678,7 +3712,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-7 w-7 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
-                                                        onClick={() => openExpandedPie('platform', 'Platform', platformData)}
+                                                        onClick={() => {
+                                                            const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
+                                                            openExpandedPie('platform', 'Platform', dists, isMainPanelApi);
+                                                        }}
                                                     >
                                                         <Maximize2 className="h-3.5 w-3.5" />
                                                     </Button>
@@ -3751,7 +3788,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-7 w-7 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
-                                                        onClick={() => openExpandedPie('pos', 'POS', posData)}
+                                                        onClick={() => {
+                                                            const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
+                                                            openExpandedPie('pos', 'POS', dists, isMainPanelApi);
+                                                        }}
                                                     >
                                                         <Maximize2 className="h-3.5 w-3.5" />
                                                     </Button>
@@ -3824,7 +3864,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-7 w-7 hover:bg-amber-100 dark:hover:bg-amber-500/20"
-                                                        onClick={() => openExpandedPie('source', 'Source', sourceData)}
+                                                        onClick={() => {
+                                                            const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
+                                                            openExpandedPie('source', 'Source', dists, isMainPanelApi);
+                                                        }}
                                                     >
                                                         <Maximize2 className="h-3.5 w-3.5" />
                                                     </Button>
@@ -3880,6 +3923,515 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     );
                 })()
             }
+
+            {/* Per-Event Distribution Pie Charts */}
+            {(() => {
+                const panelConfig = profile?.panels?.[0]?.filterConfig;
+                const showEventPieCharts = (panelFiltersState[profile.panels[0]?.panelId]?.showEventPieCharts ?? panelConfig?.showEventPieCharts);
+                if (!showEventPieCharts || !eventPieCharts || Object.keys(eventPieCharts).length === 0) return null;
+
+                // For percentage graphs, separate parent and child events
+                const isPercentageGraph = panelConfig?.graphType === 'percentage';
+                const percentageConfig = panelConfig?.percentageConfig;
+                const parentEventIds = isPercentageGraph && percentageConfig
+                    ? (panelFiltersState[profile.panels[0]?.panelId]?.activePercentageEvents || percentageConfig.parentEvents || []).map((id: string) => parseInt(id)).filter(id => !isNaN(id))
+                    : [];
+                const childEventIds = isPercentageGraph && percentageConfig
+                    ? (panelFiltersState[profile.panels[0]?.panelId]?.activePercentageChildEvents || percentageConfig.childEvents || []).map((id: string) => parseInt(id)).filter(id => !isNaN(id))
+                    : [];
+
+                const parentEvents = parentEventIds.map(id => events.find(e => e.eventId === String(id))).filter(Boolean);
+                const childEvents = childEventIds.map(id => events.find(e => e.eventId === String(id))).filter(Boolean);
+                const allEvents = isPercentageGraph
+                    ? [...parentEvents, ...childEvents]
+                    : Object.keys(eventPieCharts).map(id => events.find(e => String(e.eventId) === id)).filter(Boolean);
+
+                return (
+                    <div className="mt-8 space-y-6">
+                        <div className="flex items-center gap-3 pb-2 border-b border-purple-200 dark:border-purple-800">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                                <PieChartIcon className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-foreground">Event Distribution Analysis</h3>
+                                <p className="text-sm text-muted-foreground font-medium">
+                                    {isPercentageGraph
+                                        ? "POS, Platform, and Source breakdown for parent and child events"
+                                        : "Detailed POS, Platform, and Source breakdown for each selected event"}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Parent Events Section (for percentage graphs) */}
+                        {isPercentageGraph && parentEvents.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 px-2">
+                                    <div className="h-1 w-8 bg-purple-500 rounded-full" />
+                                    <h4 className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Parent Events (Denominator)</h4>
+                                </div>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {parentEvents.map((event) => {
+                                        const pieData = eventPieCharts[event.eventId];
+                                        if (!pieData) return null;
+
+                                        const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                        const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
+                                        const posData = rawPosData.map((item: any) => ({
+                                            ...item,
+                                            name: getPOSName(item.name)
+                                        }));
+                                        const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
+
+                                        const showPlatform = shouldShowPieChart(pieData?.platform);
+                                        const showPos = shouldShowPieChart(pieData?.pos);
+                                        const showSource = shouldShowPieChart(pieData?.source);
+
+                                        if (!showPlatform && !showPos && !showSource) return null;
+
+                                        // Prioritize POS if it has any data
+                                        const defaultMode = (posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source';
+                                        const activeMode = eventDistModes[event.eventId] || defaultMode;
+                                        const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                        const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+
+                                        return (
+                                            <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-100 dark:border-purple-800">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
+                                                            <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 flex-shrink-0 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full"
+                                                            onClick={() => {
+                                                                const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
+                                                            }}
+                                                        >
+                                                            <Maximize2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                        </Button>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="p-4">
+                                                    <div className="flex flex-row items-start gap-4 h-full">
+                                                        {/* Distribution Mode Toggle (On the Left) */}
+                                                        <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
+                                                            {[
+                                                                { id: 'platform', label: 'Platform', show: showPlatform, color: 'indigo' },
+                                                                { id: 'pos', label: 'POS', show: showPos, color: 'emerald' },
+                                                                { id: 'source', label: 'Source', show: showSource, color: 'amber' }
+                                                            ].filter(t => t.show).map((tab) => {
+                                                                const tabActiveMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                const isActive = tabActiveMode === tab.id;
+                                                                const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+
+                                                                return (
+                                                                    <button
+                                                                        key={tab.id}
+                                                                        onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                        className={cn(
+                                                                            "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
+                                                                            isActive
+                                                                                ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
+                                                                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                                                        )}
+                                                                    >
+                                                                        <span>{tab.label}</span>
+                                                                        {dataLength > 1 && (
+                                                                            <span className={cn(
+                                                                                "w-1.5 h-1.5 rounded-full",
+                                                                                isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
+                                                                            )} />
+                                                                        )}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Large Pie Chart View */}
+                                                        <div className="relative flex-1 min-w-0 h-full">
+                                                            {(() => {
+                                                                const localActiveMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                const localActiveData = localActiveMode === 'platform' ? platformData : localActiveMode === 'pos' ? posData : sourceData;
+                                                                const localTotalVal = localActiveData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                const categoryLabel = localActiveMode === 'platform' ? 'Platform' : localActiveMode === 'pos' ? 'POS Site' : 'Source';
+
+                                                                return (
+                                                                    <div className="space-y-2 h-full flex flex-col">
+                                                                        <div
+                                                                            className="h-64 w-full cursor-pointer relative"
+                                                                            onClick={() => {
+                                                                                const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                openExpandedPie(localActiveMode, `${event.eventName} - ${localActiveMode.toUpperCase()}`, dists, event.isApiEvent);
+                                                                            }}
+                                                                        >
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <PieChart>
+                                                                                    <Pie
+                                                                                        data={localActiveData}
+                                                                                        cx="50%"
+                                                                                        cy="50%"
+                                                                                        innerRadius={45}
+                                                                                        outerRadius={75}
+                                                                                        paddingAngle={2}
+                                                                                        dataKey="value"
+                                                                                        isAnimationActive={false}
+                                                                                        stroke="none"
+                                                                                        label={renderCustomizedLabel}
+                                                                                        labelLine={false}
+                                                                                    >
+                                                                                        {localActiveData.map((_: any, idx: number) => (
+                                                                                            <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                        ))}
+                                                                                    </Pie>
+                                                                                    <Tooltip content={<PieTooltip totalValue={localTotalVal} category={categoryLabel} isAvgEventType={mainPanelAvgEventType} />} />
+                                                                                </PieChart>
+                                                                            </ResponsiveContainer>
+                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{localActiveMode}</span>
+                                                                                <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                    {formatNumber(localTotalVal)}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Child Events Section (for percentage graphs) */}
+                        {isPercentageGraph && childEvents.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 px-2">
+                                    <div className="h-1 w-8 bg-green-500 rounded-full" />
+                                    <h4 className="text-sm font-bold text-green-700 dark:text-green-300 uppercase tracking-wider">Child Events (Numerator)</h4>
+                                </div>
+                                {(() => {
+                                    const uniqueChildEvents = childEvents.filter(childEvent =>
+                                        !parentEvents.some(parentEvent => parentEvent.eventId === childEvent.eventId)
+                                    );
+
+                                    if (uniqueChildEvents.length === 0 && childEvents.length > 0) {
+                                        return (
+                                            <div className="p-4 rounded-xl border border-dashed border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 text-center">
+                                                <p className="text-sm text-muted-foreground">
+                                                    Child events are identical to parent events and are displayed above.
+                                                </p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            {uniqueChildEvents.map((event) => {
+                                                const pieData = eventPieCharts[event.eventId];
+                                                if (!pieData) return null;
+
+                                                const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
+                                                const posData = rawPosData.map((item: any) => ({
+                                                    ...item,
+                                                    name: getPOSName(item.name)
+                                                }));
+                                                const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
+
+                                                const showPlatform = shouldShowPieChart(pieData?.platform) && platformData.length > 1;
+                                                const showPos = shouldShowPieChart(pieData?.pos) && posData.length > 1;
+                                                const showSource = shouldShowPieChart(pieData?.source) && sourceData.length > 1;
+
+                                                if (!showPlatform && !showPos && !showSource) return null;
+
+                                                return (
+                                                    <Card key={event.eventId} className="border border-green-200 dark:border-green-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                        <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 border-b border-green-100 dark:border-green-800">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                                    <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
+                                                                    <CardTitle className="text-sm font-bold text-green-700 dark:text-green-300 truncate">{event.eventName}</CardTitle>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 flex-shrink-0 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-full"
+                                                                    onClick={() => {
+                                                                        const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                        const mode = eventDistModes[event.eventId] || (showPos ? 'pos' : showPlatform ? 'platform' : 'source');
+                                                                        openExpandedPie(mode, `${event.eventName} - ${mode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                    }}
+                                                                >
+                                                                    <Maximize2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                                                </Button>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="p-4">
+                                                            <div className="flex flex-row items-start gap-4 h-full">
+                                                                {/* Distribution Mode Toggle (On the Left) */}
+                                                                <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
+                                                                    {[
+                                                                        { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
+                                                                        { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
+                                                                        { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
+                                                                    ].filter(t => t.show).map((tab) => {
+                                                                        const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                        const isActive = activeMode === tab.id;
+                                                                        const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+
+                                                                        return (
+                                                                            <button
+                                                                                key={tab.id}
+                                                                                onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                                className={cn(
+                                                                                    "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
+                                                                                    isActive
+                                                                                        ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
+                                                                                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                                                                )}
+                                                                            >
+                                                                                <span>{tab.label}</span>
+                                                                                {dataLength > 1 && (
+                                                                                    <span className={cn(
+                                                                                        "w-1.5 h-1.5 rounded-full",
+                                                                                        isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
+                                                                                    )} />
+                                                                                )}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                {/* Large Pie Chart View */}
+                                                                <div className="relative flex-1 min-w-0 h-full">
+                                                                    {(() => {
+                                                                        const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                        const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                                                        const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                        const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
+                                                                        return (
+                                                                            <div className="space-y-2 h-full flex flex-col">
+                                                                                <div
+                                                                                    className="h-64 w-full cursor-pointer relative"
+                                                                                    onClick={() => {
+                                                                                        const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                        openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                                    }}
+                                                                                >
+                                                                                    <ResponsiveContainer width="100%" height="100%">
+                                                                                        <PieChart>
+                                                                                            <Pie
+                                                                                                data={activeData}
+                                                                                                cx="50%"
+                                                                                                cy="50%"
+                                                                                                innerRadius={45}
+                                                                                                outerRadius={75}
+                                                                                                paddingAngle={2}
+                                                                                                dataKey="value"
+                                                                                                isAnimationActive={false}
+                                                                                                stroke="none"
+                                                                                                label={renderCustomizedLabel}
+                                                                                                labelLine={false}
+                                                                                            >
+                                                                                                {activeData.map((_: any, idx: number) => (
+                                                                                                    <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                                ))}
+                                                                                            </Pie>
+                                                                                            <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} isAvgEventType={mainPanelAvgEventType} />} />
+                                                                                        </PieChart>
+                                                                                    </ResponsiveContainer>
+
+                                                                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                                        <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                            {formatNumber(totalVal)}
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                </div>
+
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        )}
+
+                        {/* Regular Events Section (for non-percentage graphs) */}
+                        {!isPercentageGraph && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {allEvents.map((event) => {
+                                    const pieData = eventPieCharts[event.eventId];
+                                    if (!pieData) return null;
+
+                                    const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                    const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
+                                    const posData = rawPosData.map((item: any) => ({
+                                        ...item,
+                                        name: getPOSName(item.name)
+                                    }));
+                                    const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
+
+                                    const showPlatform = shouldShowPieChart(pieData?.platform) && platformData.length > 1;
+                                    const showPos = shouldShowPieChart(pieData?.pos) && posData.length > 1;
+                                    const showSource = shouldShowPieChart(pieData?.source) && sourceData.length > 1;
+
+                                    if (!showPlatform && !showPos && !showSource) return null;
+
+                                    return (
+                                        <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/10 border-b border-purple-100 dark:border-purple-800">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                        <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
+                                                        <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 flex-shrink-0 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full"
+                                                        onClick={() => {
+                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                            const mode = eventDistModes[event.eventId] || (showPlatform ? 'platform' : showPos ? 'pos' : 'source');
+                                                            openExpandedPie(mode, `${event.eventName} - ${mode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                        }}
+                                                    >
+                                                        <Maximize2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                    </Button>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="p-4">
+                                                {/* Distribution Mode Toggle */}
+                                                <div className="flex items-center justify-center p-1 mb-4 bg-muted/60 dark:bg-slate-800/60 rounded-xl border border-border/50 shadow-sm">
+                                                    {[
+                                                        { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
+                                                        { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
+                                                        { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
+                                                    ].filter(t => t.show).map((tab) => {
+                                                        const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                        const isActive = activeMode === tab.id;
+                                                        const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+
+                                                        return (
+                                                            <button
+                                                                key={tab.id}
+                                                                onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                className={cn(
+                                                                    "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-300",
+                                                                    isActive
+                                                                        ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-md border border-${tab.color}-100 dark:border-${tab.color}-900/50`
+                                                                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                )}
+                                                            >
+                                                                {tab.label}
+                                                                {dataLength > 1 && (
+                                                                    <span className={cn(
+                                                                        "w-1.5 h-1.5 rounded-full animate-pulse",
+                                                                        isActive ? `bg-${tab.color}-500` : "bg-slate-300 dark:bg-slate-600"
+                                                                    )} />
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* Large Pie Chart View */}
+                                                <div className="relative group">
+                                                    {(() => {
+                                                        const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                        const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                                        const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                        const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
+                                                        return (
+                                                            <div className="space-y-4">
+                                                                <div
+                                                                    className="h-44 w-full cursor-pointer transition-transform duration-300 group-hover:scale-105 relative"
+                                                                    onClick={() => {
+                                                                        const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                        openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                    }}
+                                                                >
+                                                                    <ResponsiveContainer width="100%" height="100%">
+                                                                        <PieChart>
+                                                                            <Pie
+                                                                                data={activeData}
+                                                                                cx="50%"
+                                                                                cy="50%"
+                                                                                innerRadius={55}
+                                                                                outerRadius={85}
+                                                                                paddingAngle={2}
+                                                                                dataKey="value"
+                                                                                isAnimationActive={false}
+                                                                                stroke="none"
+                                                                            >
+                                                                                {activeData.map((_: any, idx: number) => (
+                                                                                    <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                ))}
+                                                                            </Pie>
+                                                                            <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} isAvgEventType={mainPanelAvgEventType} />} />
+                                                                        </PieChart>
+                                                                    </ResponsiveContainer>
+
+                                                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                        <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                            {formatNumber(totalVal)}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                <div className="space-y-1.5 px-2">
+                                                                    {[...activeData]
+                                                                        .sort((a: any, b: any) => b.value - a.value)
+                                                                        .slice(0, 3)
+                                                                        .map((item: any, idx: number) => {
+                                                                            const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                            return (
+                                                                                <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                        <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                    </div>
+                                                                                    <div className="flex items-center gap-2 tabular-nums">
+                                                                                        <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                        <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* Hourly Stats Card - shown below Pie Charts for ≤8 day ranges when enabled */}
             {

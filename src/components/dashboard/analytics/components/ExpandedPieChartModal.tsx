@@ -1,16 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Activity, Target, Zap, X } from 'lucide-react';
+import { Activity, Target, Zap, X, PieChart as PieChartIcon, Check } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { cn } from '@/lib/utils';
-import { formatIsAvgValue, getIsAvgLabel, getIsAvgTotalLabel } from '@/lib/formatters';
+import { formatIsAvgValue } from '@/lib/formatters';
 import { getPOSName } from '@/lib/posMapping';
 import { useChartZoom } from '@/hooks/useChartZoom';
 import { useChartKeyboardNav } from '@/hooks/useAccessibility';
 import { ChartZoomControls } from './ChartZoomControls';
 
-// Pie chart colors - softer, lighter tones
+// Professional Pie Tooltip
+// Professional Pie Tooltip
+const formatNumber = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '0';
+    if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return Math.floor(num).toString();
+};
+
+const formatRupee = (num: number | null | undefined) => {
+    if (num === null || num === undefined) return '₹0';
+    return `₹${Number(num).toLocaleString()}`;
+};
+
 export const PIE_COLORS = [
     '#818cf8', // indigo-400 - deeper, more vibrant
     '#34d399', // emerald-400 - richer green
@@ -23,12 +37,18 @@ export const PIE_COLORS = [
 ];
 
 // Professional Pie Tooltip
-export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0, isPosChart = false }: any) => {
+export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0, isPosChart = false, isApiEvent = false }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
-        const percentage = ((data.value / totalValue) * 100).toFixed(1);
+        const percentage = ((data.value / totalValue) * 100).toFixed(2);
         // Apply POS mapping if this is a POS chart
         const displayName = isPosChart ? getPOSName(data.name) : data.name;
+
+        // Format value logic
+        const formattedValue = isAvgEventType === 2
+            ? (isApiEvent ? `₹${Number(data.value).toLocaleString()}` : Number(data.value).toLocaleString())
+            : formatIsAvgValue(data.value, isAvgEventType);
+
         return (
             <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 px-4 py-3 min-w-[140px]">
                 <div className="flex items-center gap-2.5 mb-1">
@@ -44,7 +64,7 @@ export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0, is
                     <div className="flex justify-between items-center">
                         <span className="text-xs text-slate-600 dark:text-slate-400">Value</span>
                         <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {formatIsAvgValue(data.value, isAvgEventType)}
+                            {formattedValue}
                         </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -61,9 +81,14 @@ export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0, is
 };
 
 export interface ExpandedPieData {
-    type: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus';
+    activeType: 'platform' | 'pos' | 'source';
     title: string;
-    data: any[];
+    distributions: {
+        platform: any[];
+        pos: any[];
+        source: any[];
+    };
+    isApiEvent?: boolean;
 }
 
 interface ExpandedPieChartModalProps {
@@ -74,6 +99,18 @@ interface ExpandedPieChartModalProps {
 }
 
 export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType = 0 }: ExpandedPieChartModalProps) {
+    // Local state to manage the currently selected distribution type within the modal
+    const [activeType, setActiveType] = useState<'platform' | 'pos' | 'source'>('platform');
+    const [minPercentage, setMinPercentage] = useState(0);
+    const [topItems, setTopItems] = useState<'5' | '10' | 'all'>('10');
+
+    // Sync local state with prop when modal opens
+    useEffect(() => {
+        if (pieData?.activeType) {
+            setActiveType(pieData.activeType);
+        }
+    }, [pieData?.activeType, open]);
+
     // Initialize zoom functionality
     const {
         zoomLevel,
@@ -83,6 +120,13 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
         handleWheel,
     } = useChartZoom({ minZoom: 0.5, maxZoom: 3, zoomStep: 0.2 });
 
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Reset search when active type changes
+    useEffect(() => {
+        setSearchQuery('');
+    }, [activeType]);
+
     // Keyboard navigation support
     useChartKeyboardNav({
         onNext: zoomIn,      // Right/Down arrow -> Zoom In
@@ -90,223 +134,407 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
         onEscape: onClose,   // Escape -> Close modal
     });
 
-    if (!pieData || !pieData.data?.length) return null;
+    if (!pieData || !pieData.distributions) return null;
 
-    const metricType = pieData.data.find((d: any) => d?.metricType)?.metricType || 'count';
+    // Get the data based on active type
+    const currentData = pieData.distributions[activeType] || [];
+
+    // Check available distributions for sidebar
+    const hasPlatform = (pieData.distributions.platform?.length || 0) > 0;
+    const hasPos = (pieData.distributions.pos?.length || 0) > 0;
+    const hasSource = (pieData.distributions.source?.length || 0) > 0;
+
+    if (!currentData.length) return null;
+
+    const metricType = currentData.find((d: any) => d?.metricType)?.metricType || 'count';
     const isCount = metricType === 'count' && isAvgEventType === 0;
-
-    // Get label based on isAvgEventType or metricType
-    const getMetricLabel = () => {
-        if (isAvgEventType === 2) return 'Amount (₹)';
-        if (isAvgEventType === 1) return 'Avg Delay (ms)';
-        if (isCount) return 'Count';
-        if (metricType === 'avgDelay') return isAvgEventType === 2 ? 'Avg Amount (₹)' : 'Avg Delay (ms)';
-        if (metricType === 'medianDelay') return 'Median Delay (ms)';
-        if (metricType === 'modeDelay') return 'Mode Delay (ms)';
-        return 'Value';
-    };
 
     const formatValue = (v: any) => {
         const n = Number(v);
         if (!Number.isFinite(n)) return '0';
+
+        // Only show Rupee symbol if isAvgEventType === 2 AND (isApiEvent is true)
+        if (isAvgEventType === 2) {
+            return pieData.isApiEvent
+                ? `₹${n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`
+                : n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        // For specific AvgEventType 0 (which is Count), always floor
+        if (isAvgEventType === 0) {
+            return Math.floor(n).toLocaleString();
+        }
+
         return formatIsAvgValue(n, isAvgEventType);
     };
 
-    const formatTotalLabel = () => {
-        if (isAvgEventType === 2) return 'Total (₹)';
-        if (isAvgEventType === 1) return 'Total (ms)';
-        return 'Total Entries';
-    };
+    const total = currentData.reduce((acc: number, item: any) => acc + item.value, 0);
 
-    const total = pieData.data.reduce((acc: number, item: any) => acc + item.value, 0);
     // Apply POS mapping if this is a POS chart
-    const mappedData = pieData.type === 'pos' 
-        ? pieData.data.map((item: any) => ({
+    const mappedData = activeType === 'pos'
+        ? currentData.map((item: any) => ({
             ...item,
             name: getPOSName(item.name)
-          }))
-        : pieData.data;
-    const sortedData = [...mappedData].sort((a, b) => b.value - a.value);
+        }))
+        : currentData;
+
+    let processedData = [...mappedData].sort((a, b) => b.value - a.value);
+
+    // Filter by Min Percentage
+    if (minPercentage > 0 && total > 0) {
+        processedData = processedData.filter(item => (item.value / total) * 100 >= minPercentage);
+    }
+
+    // Top Items Toggle
+    if (topItems !== 'all') {
+        processedData = processedData.slice(0, parseInt(topItems));
+    }
+
+    const sortedData = processedData;
+
+    // Filter by search query
+    const filteredData = sortedData.filter(item =>
+        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     // Show only the most relevant segments (top N), group the rest
-    const MAX_SEGMENTS = 10;
+    const MAX_SEGMENTS = topItems === 'all' ? 100 : parseInt(topItems);
     const primarySegments = sortedData.slice(0, MAX_SEGMENTS);
     const otherSegmentsTotal = sortedData
         .slice(MAX_SEGMENTS)
         .reduce((acc: number, item: any) => acc + item.value, 0);
 
     const displayData = otherSegmentsTotal > 0
-        ? [...primarySegments, { name: 'Other categories', value: otherSegmentsTotal, isOther: true }]
+        ? [...primarySegments, { name: 'Other', value: otherSegmentsTotal, isOther: true }]
         : primarySegments;
+
+    const navItems = [
+        { id: 'platform', label: 'Platform', icon: Activity, count: pieData.distributions.platform?.length || 0, show: hasPlatform },
+        { id: 'pos', label: 'POS', icon: Target, count: pieData.distributions.pos?.length || 0, show: hasPos },
+        { id: 'source', label: 'Source', icon: Zap, count: pieData.distributions.source?.length || 0, show: hasSource },
+    ] as const;
+
+    // Direct label rendering for pie chart
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, value }: any) => {
+        const RADIAN = Math.PI / 180;
+        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+        // Only show label if slice is large enough
+        if (percent < 0.05) return null;
+
+        return (
+            <text
+                x={x}
+                y={y}
+                fill="white"
+                textAnchor="middle"
+                dominantBaseline="central"
+                className="text-[10px] font-bold drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]"
+            >
+                {`${name} (${formatNumber(value)}) - ${(percent * 100).toFixed(2)}%`}
+            </text>
+        );
+    };
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent
-                showCloseButton={false}
-                className="w-full max-w-[96vw] sm:max-w-full md:w-[96vw] lg:w-[94vw] sm:max-w-7xl max-h-[90vh] overflow-hidden p-0 bg-white dark:bg-slate-900"
+                showCloseButton={true}
+                className="w-[98vw] max-w-[1800px] h-[92vh] overflow-hidden p-0 bg-white dark:bg-slate-950 flex flex-col md:flex-row gap-0 shadow-2xl"
             >
-                {/* Premium Header with Close Button */}
-                <div className="relative px-4 sm:px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                            {pieData.type === 'platform' && <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
-                            {pieData.type === 'pos' && <Target className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
-                            {pieData.type === 'source' && <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
-                            {pieData.type === 'status' && <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
-                            {pieData.type === 'cacheStatus' && <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-white" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h2 className="text-lg sm:text-xl font-bold truncate">{pieData.title} Distribution</h2>
-                            <p className="text-purple-100 text-xs sm:text-sm truncate">
-                                {sortedData.length} categories • {formatValue(total)} total
-                            </p>
-                            <div className="mt-2">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-white/15 text-white">
-                                    {getMetricLabel()}
-                                </span>
+                {/* Left Sidebar - Navigation */}
+                <div className="w-full md:w-64 bg-slate-50 dark:bg-slate-900 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0">
+                    <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+                        <div className="flex items-center gap-2.5 mb-3">
+                            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+                                <PieChartIcon className="h-3.5 w-3.5 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h2 className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">Distribution</h2>
+                                <p className="text-[10px] text-muted-foreground truncate leading-tight" title={pieData.title}>{pieData.title}</p>
                             </div>
                         </div>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onClose}
-                            className="ml-auto h-10 w-10 sm:h-8 sm:w-8 rounded-full bg-white/10 hover:bg-white/20 text-white touch-manipulation flex-shrink-0"
-                            aria-label="Close modal"
-                        >
-                            <X className="h-5 w-5 sm:h-4 sm:w-4" />
+
+                        {/* Search Input */}
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full h-8 px-8 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                            <svg className="absolute left-2.5 top-2.5 h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    className="absolute right-2.5 top-2.5"
+                                >
+                                    <X className="h-3 w-3 text-slate-400 hover:text-slate-600" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="p-2 md:p-3 space-y-4 overflow-y-auto">
+                        <div className="space-y-1">
+                            <div className="mb-2 px-2">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Metrics</span>
+                            </div>
+                            {navItems.filter(item => item.show).map((item) => {
+                                const Icon = item.icon;
+                                const isActive = activeType === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => {
+                                            setActiveType(item.id as any);
+                                            resetZoom(); // Reset zoom when switching charts
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
+                                            isActive
+                                                ? "bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
+                                        )}
+                                    >
+                                        <Icon className={cn("h-3.5 w-3.5", isActive ? "text-purple-500" : "text-slate-400")} />
+                                        <span>{item.label}</span>
+                                        <span className={cn(
+                                            "ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-bold",
+                                            isActive ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                        )}>
+                                            {item.count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Top Items Toggle */}
+                        <div className="space-y-2 px-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Show Results</span>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                                {(['5', '10', 'all'] as const).map((count) => (
+                                    <button
+                                        key={count}
+                                        onClick={() => setTopItems(count)}
+                                        className={cn(
+                                            "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
+                                            topItems === count
+                                                ? "bg-purple-600 text-white shadow-sm"
+                                                : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                                        )}
+                                    >
+                                        {count === 'all' ? 'All' : `Top ${count}`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Minimum % Filter */}
+                        <div className="space-y-2 px-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Filter by Min %</span>
+                                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">{minPercentage}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="20"
+                                step="0.5"
+                                value={minPercentage}
+                                onChange={(e) => setMinPercentage(parseFloat(e.target.value))}
+                                className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                            />
+                            <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase">
+                                <span>0%</span>
+                                <span>20%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-4 mt-auto border-t border-slate-200 dark:border-slate-800 md:block hidden">
+                        <Button variant="outline" className="w-full justify-center h-9 text-xs" onClick={onClose}>
+                            Close View
                         </Button>
                     </div>
                 </div>
 
-                {/* Main Content - Scrollable */}
-                <div className="p-4 sm:p-6 md:p-8 max-h-[calc(90vh-100px)] overflow-y-auto">
-                    {/* From md and up, use a 12-column grid so chart and
-                        breakdown can share space without clipping */}
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-10 items-stretch">
-                        {/* Enhanced Pie Chart Section */}
-                        <div className="md:col-span-7 lg:col-span-7 bg-white dark:bg-slate-800/50 rounded-2xl border border-purple-200/50 dark:border-purple-500/30 p-8 shadow-lg shadow-purple-500/10 relative">
-                            {/* ZOOM CONTROLS - VISIBLE IN TOP RIGHT */}
-                            <div className="absolute top-4 right-4 z-10">
-                                <ChartZoomControls
-                                    zoomLevel={zoomLevel}
-                                    onZoomIn={zoomIn}
-                                    onZoomOut={zoomOut}
-                                    onReset={resetZoom}
-                                    minZoom={0.5}
-                                    maxZoom={3}
-                                />
+                {/* Main Content Area */}
+                <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white dark:bg-slate-950">
+                    {/* Header for Mobile/Desktop */}
+                    <div className="px-4 py-2 md:px-6 md:py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-950 z-10 min-h-[56px]">
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 capitalize">
+                                {activeType} Breakdown
+                            </h3>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0">
+                                <span className="font-bold bg-slate-100 dark:bg-slate-800 px-1.5 rounded text-slate-700 dark:text-slate-300">
+                                    {formatValue(total)}
+                                </span>
+                                <span>total • {sortedData.length} categories</span>
                             </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onClose}
+                                className="h-9 w-9 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                            >
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                    </div>
 
-                            <div className="h-[360px] md:h-[420px] w-full overflow-hidden" onWheel={handleWheel}>
-                                <div style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center", transition: "transform 0.15s ease-out", width: "100%", height: "100%" }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={displayData}
-                                            cx="50%"
-                                            cy="50%"
-                                            startAngle={0}
-                                            endAngle={360}
-                                            innerRadius={90}
-                                            outerRadius={170}
-                                            paddingAngle={2}
-                                            dataKey="value"
-                                            strokeWidth={2}
-                                            stroke="#fff"
-                                            label={false}
-                                            labelLine={false}
-                                            isAnimationActive={false}
-                                            animationDuration={0}
-                                        >
-                                            {displayData.map((_: any, index: number) => (
-                                                <Cell
-                                                    key={`cell-${index}`}
-                                                    fill={PIE_COLORS[index % PIE_COLORS.length]}
-                                                    className="drop-shadow-lg"
+                    {/* Chart Container */}
+                    <div className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 bg-slate-50/30 dark:bg-slate-900/10">
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6 max-w-none mx-auto h-full items-start">
+
+                            {/* Chart Section */}
+                            <div className="xl:col-span-7 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm relative min-h-[400px]">
+                                {/* Zoom Controls */}
+                                <div className="absolute top-4 right-4 z-10">
+                                    <ChartZoomControls
+                                        zoomLevel={zoomLevel}
+                                        onZoomIn={zoomIn}
+                                        onZoomOut={zoomOut}
+                                        onReset={resetZoom}
+                                        minZoom={0.5}
+                                        maxZoom={3}
+                                    />
+                                </div>
+
+                                <div className="h-[400px] md:h-[650px] w-full flex flex-col items-center justify-center p-2" onWheel={handleWheel}>
+                                    <div
+                                        style={{
+                                            transform: `scale(${zoomLevel})`,
+                                            transformOrigin: "center center",
+                                            transition: "transform 0.15s ease-out",
+                                            width: "100%",
+                                            height: "100%",
+                                            display: 'flex',
+                                            justifyContent: 'center',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={displayData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    startAngle={0}
+                                                    endAngle={360}
+                                                    innerRadius={150}
+                                                    outerRadius={250}
+                                                    paddingAngle={2}
+                                                    dataKey="value"
+                                                    strokeWidth={2}
+                                                    stroke="#fff"
+                                                    label={renderCustomizedLabel}
+                                                    labelLine={false}
+                                                    isAnimationActive={false}
+                                                >
+                                                    {displayData.map((_: any, index: number) => (
+                                                        <Cell
+                                                            key={`cell-${index}`}
+                                                            fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                            className="drop-shadow-sm stroke-slate-50 dark:stroke-slate-900"
+                                                        />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip
+                                                    content={
+                                                        <PieTooltip
+                                                            totalValue={total}
+                                                            isAvgEventType={isAvgEventType}
+                                                            isPosChart={activeType === 'pos'}
+                                                            isApiEvent={pieData.isApiEvent}
+                                                        />
+                                                    }
                                                 />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip content={<PieTooltip totalValue={total} isAvgEventType={isAvgEventType} isPosChart={pieData.type === 'pos'} />} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-
-                            {/* Chart Summary Stats */}
-                            <div className="mt-4 grid grid-cols-2 gap-4">
-                                <div className="text-center p-3 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 rounded-xl">
-                                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{sortedData.length}</div>
-                                    <div className="text-xs text-muted-foreground">Categories</div>
-                                </div>
-                                <div className="text-center p-3 bg-gradient-to-br from-pink-50 to-fuchsia-50 dark:from-pink-500/10 dark:to-fuchsia-500/10 rounded-xl">
-                                    <div className="text-2xl font-bold text-pink-600 dark:text-pink-400">{formatValue(total)}</div>
-                                    <div className="text-xs text-muted-foreground">{formatTotalLabel()}</div>
-                                </div>
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    {/* Central Stats Overlay */}
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-[12px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">
+                                            TOTAL
+                                        </span>
+                                        <span className="text-5xl font-black text-slate-900 dark:text-white tabular-nums tracking-tighter">
+                                            {pieData.isApiEvent ? formatRupee(total).split('.')[0] : formatNumber(total)}
+                                        </span>
+                                        <div className="h-1 w-12 bg-purple-500/50 rounded-full mt-4" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Enhanced Data Table */}
-                        <div className="md:col-span-5 lg:col-span-5 bg-white dark:bg-slate-800/50 rounded-2xl border border-purple-200/50 dark:border-purple-500/30 overflow-hidden shadow-lg shadow-purple-500/10">
-                        <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-500/10 dark:to-pink-500/10 border-b border-purple-200/50 dark:border-purple-500/30">
-                            <h3 className="font-semibold text-foreground">Detailed Breakdown</h3>
-                            <p className="text-xs text-muted-foreground">Sorted by highest value</p>
-                        </div>
-
-                        <div className="max-h-[300px] sm:max-h-[420px] overflow-y-auto">
-                            <div className="space-y-0">
-                                {displayData.map((item: any, index: number) => {
-                                    const percentage = total > 0 ? ((item.value / total) * 100) : 0;
-
-                                    return (
-                                        <div
-                                            key={item.name}
-                                            className="flex items-center gap-4 p-4 border-b border-gray-100 dark:border-gray-700/50 hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-pink-50/50 dark:hover:from-purple-500/5 dark:hover:to-pink-500/5 transition-all duration-200"
-                                        >
-                                            {/* Color + Name */}
-                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                            {/* Data Table Section */}
+                            <div className="xl:col-span-5 flex flex-col bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full max-h-[750px]">
+                                <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex justify-between items-center">
+                                    <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
+                                        {searchQuery ? `Search Results (${filteredData.length})` : 'Detailed Breakdown'}
+                                    </h4>
+                                    <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                                        {searchQuery ? filteredData.length : sortedData.length} items
+                                    </span>
+                                </div>
+                                <div className="flex-1 overflow-y-auto">
+                                    {(searchQuery ? filteredData : sortedData).map((item: any, index: number) => {
+                                        const percentage = total > 0 ? ((item.value / total) * 100) : 0;
+                                        // Find original index for color consistency
+                                        const originalIndex = sortedData.findIndex(s => s.name === item.name);
+                                        return (
+                                            <div
+                                                key={item.name}
+                                                className="flex items-center gap-3 p-3 w-full border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                            >
                                                 <div
                                                     className={cn(
-                                                        "w-3 h-3 rounded-full flex-shrink-0 border-2 border-white dark:border-gray-800",
-                                                        item.isOther && "opacity-70"
+                                                        "w-2.5 h-2.5 rounded-full flex-shrink-0",
+                                                        item.isOther && "opacity-50"
                                                     )}
-                                                    style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                                                    style={{ backgroundColor: PIE_COLORS[originalIndex % PIE_COLORS.length] }}
                                                 />
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="font-medium text-sm text-foreground truncate">
-                                                        {item.name}
+                                                    <div className="flex justify-between items-baseline mb-1">
+                                                        <span className="text-[11px] font-medium truncate pr-2 text-slate-700 dark:text-slate-200">{item.name}</span>
+                                                        <span className="text-[11px] font-semibold text-slate-900 dark:text-slate-100">{formatValue(item.value)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full rounded-full"
+                                                                style={{
+                                                                    width: `${percentage}%`,
+                                                                    backgroundColor: PIE_COLORS[originalIndex % PIE_COLORS.length]
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <span className="text-[9px] text-muted-foreground w-8 text-right font-medium">{percentage.toFixed(1)}%</span>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            {/* Progress Bar */}
-                                            <div className="hidden sm:flex flex-1 items-center">
-                                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full"
-                                                        style={{
-                                                            width: `${Math.max(percentage, total > 0 ? 2 : 0)}%`,
-                                                            background: PIE_COLORS[index % PIE_COLORS.length]
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Values */}
-                                            <div className="text-right flex-shrink-0 min-w-[88px] sm:min-w-[104px]">
-                                                <div className="font-semibold text-sm text-foreground">{formatValue(item.value)}</div>
-                                                <div className="text-xs font-medium text-purple-600 dark:text-purple-400">
-                                                    {percentage.toFixed(1)}%
-                                                </div>
-                                            </div>
+                                        );
+                                    })}
+                                    {(searchQuery ? filteredData : sortedData).length === 0 && (
+                                        <div className="p-8 text-center">
+                                            <p className="text-xs text-muted-foreground italic">No results found for "{searchQuery}"</p>
                                         </div>
-                                    );
-                                })}
+                                    )}
+                                </div>
                             </div>
+
                         </div>
                     </div>
                 </div>
-            </div>
-        </DialogContent>
+            </DialogContent>
         </Dialog>
     );
 }

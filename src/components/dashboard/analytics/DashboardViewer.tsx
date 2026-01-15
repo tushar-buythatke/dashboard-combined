@@ -29,6 +29,7 @@ import { StatWidgetCard, StatWidgetGrid } from '@/components/ui/stat-widget-card
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { ExpandedPieChartModal, type ExpandedPieData } from './components/ExpandedPieChartModal';
+import { ChartExpandedView } from './components/ChartExpandedView';
 import { CriticalAlertsPanel } from './components/CriticalAlertsPanel';
 import { DayWiseComparisonChart, HourlyDeviationChart, DailyAverageChart } from './components/ComparisonCharts';
 import { PercentageGraph } from './charts/PercentageGraph';
@@ -300,7 +301,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     });
 
     // Manual override for hourly/daily toggle (null = auto based on date range)
-    const [hourlyOverride, setHourlyOverride] = useState<boolean | null>(null);
+    const [hourlyOverride, setHourlyOverrideState] = useState<boolean | null>(null);
 
     // Compute isHourly based on date range (8 days or less = hourly) OR manual override
     const autoIsHourly = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
@@ -310,15 +311,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // This allows each additional panel to have its own independent hourly/daily toggle
     const [panelHourlyOverride, setPanelHourlyOverride] = useState<Record<string, boolean | null>>({});
 
-    const setPanelHourlyOverrideForId = useCallback((panelId: string, value: boolean | null) => {
-        setPanelHourlyOverride(prev => ({
-            ...prev,
-            [panelId]: value
-        }));
-    }, []);
-
     // Expanded pie chart modal state
     const [expandedPie, setExpandedPie] = useState<ExpandedPieData | null>(null);
+    const [expandedChart, setExpandedChart] = useState<{ type: string; title: string, params?: any } | null>(null);
     const [pieModalOpen, setPieModalOpen] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1538,15 +1533,19 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             [panelId]: true
         }));
     }, []);
-
     // Function to open expanded pie chart and sync with URL so browser
     // back/forward buttons can close/reopen it
-    const openExpandedPie = useCallback((type: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus', title: string, data: any[]) => {
-        setExpandedPie({ type, title, data });
+    const openExpandedPie = useCallback((activeType: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus', title: string, distributions: any, isApiEvent: boolean = false) => {
+        setExpandedPie({
+            activeType: activeType as any,
+            title,
+            distributions,
+            isApiEvent
+        });
         setPieModalOpen(true);
         setSearchParams(prev => {
             const next = new URLSearchParams(prev as any);
-            next.set('expandedPie', type);
+            next.set('expandedPie', activeType);
             return next;
         });
     }, [setSearchParams]);
@@ -1561,7 +1560,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             return;
         }
 
-        if (expandedPie && expandedPie.type === expandedType && !pieModalOpen) {
+        if (expandedPie && expandedPie.activeType === expandedType && !pieModalOpen) {
             setPieModalOpen(true);
         }
     }, [searchParams, expandedPie, pieModalOpen]);
@@ -2144,7 +2143,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
 
     // Function to refresh a single panel's data
-    const refreshPanelData = useCallback(async (panelId: string, overrideFilters?: FilterState, overrideDateRange?: DateRangeState, overridePanel?: any) => {
+    const refreshPanelData = useCallback(async (panelId: string, overrideFilters?: FilterState, overrideDateRange?: DateRangeState, overridePanel?: any, overrideIsHourly?: boolean | null) => {
         if (!profile || events.length === 0) return;
 
         const panel = overridePanel || profile.panels.find(p => p.panelId === panelId);
@@ -2227,9 +2226,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Check if this is a special graph (percentage, funnel, or user_flow)
             const isSpecialGraph = panelConfig?.graphType === 'percentage' || panelConfig?.graphType === 'funnel' || panelConfig?.graphType === 'user_flow';
 
+            // New: Check if separate pie charts for each event are requested
+            const showEventPieCharts = panelConfig?.showEventPieCharts === true;
+
             // Determine effective hourly override: use per-panel override if available, otherwise global defaults
             // Previously forced 'deviation' charts to hourly, but this prevented 'Daily' view from working
-            const panelOverride = panelHourlyOverride[panelId];
+            // Determine effective hourly override: use explicit function arg first (highest priority),
+            // then per-panel override state, then global defaults
+            // This ensures instant updates when toggling
+            const panelOverride = overrideIsHourly !== undefined ? overrideIsHourly : panelHourlyOverride[panelId];
             const effectiveHourlyOverride = (panelOverride !== undefined && panelOverride !== null)
                 ? panelOverride
                 : hourlyOverride;
@@ -2239,7 +2244,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // OPTIMIZED: Make all 3 API calls IN PARALLEL for up to 3x speedup
             const eventIdsForSourceStr = eventIdsToFetch.map(id => typeof id === 'number' ? id : parseInt(id)).filter(id => !isNaN(id));
 
-            const [graphResponse, pieResponse, sourceStrsFromApi] = await Promise.all([
+            const [graphResponse, pieResponse, sourceStrsFromApi, eventPieChartsResult] = await Promise.all([
                 // Graph data call
                 apiService.getGraphData(
                     panelFilters.events,
@@ -2275,7 +2280,48 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         console.warn('📋 SourceStr API failed, will fallback to extraction from graph data:', sourceStrErr);
                         return [];
                     })
-                    : Promise.resolve([])
+                    : Promise.resolve([]),
+                // NEW: Separate Pie Charts for each event (including parent/child for percentage graphs)
+                showEventPieCharts && eventIdsToFetch.length > 0
+                    ? (() => {
+                        // For percentage graphs, fetch pie charts for both parent and child events
+                        let eventsToFetchPies: number[] = [];
+                        if (panelConfig?.graphType === 'percentage' && panelConfig?.percentageConfig) {
+                            const { parentEvents = [], childEvents = [] } = panelConfig.percentageConfig;
+                            const activeParents = currentPanelFilters.activePercentageEvents || parentEvents;
+                            const activeChildren = currentPanelFilters.activePercentageChildEvents || childEvents;
+                            eventsToFetchPies = [...new Set([
+                                ...activeParents.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id)),
+                                ...activeChildren.map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id))
+                            ])];
+                        } else {
+                            eventsToFetchPies = eventIdsToFetch;
+                        }
+
+                        if (eventsToFetchPies.length === 0) return Promise.resolve(null);
+
+                        return Promise.all(
+                            eventsToFetchPies.map(eventId =>
+                                apiService.getPieChartData(
+                                    [eventId],
+                                    hasApiEvents ? [] : panelFilters.platforms,
+                                    hasApiEvents ? [] : panelFilters.pos,
+                                    hasApiEvents ? [] : panelFilters.sources,
+                                    currentSourceStrFilter,
+                                    panelDateRange.from,
+                                    panelDateRange.to,
+                                    hasApiEvents
+                                ).catch(() => null)
+                            )
+                        ).then(results => {
+                            const map: Record<string, any> = {};
+                            eventsToFetchPies.forEach((eventId, idx) => {
+                                if (results[idx]) map[eventId] = results[idx];
+                            });
+                            return map;
+                        });
+                    })()
+                    : Promise.resolve(null)
             ]);
 
             // Fallback: extract sourceStrs from graph response if API had no results
@@ -2299,6 +2345,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     graphData: processedResult.data,
                     eventKeys: processedResult.eventKeys,
                     pieChartData: finalPieData,
+                    eventPieCharts: eventPieChartsResult || undefined,
                     loading: false,
                     error: null,
                     filters: panelFilters,
@@ -2349,7 +2396,71 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         } finally {
             setPanelLoading(prev => ({ ...prev, [panelId]: false }));
         }
-    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, panelsDataMap, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr, hourlyOverride, panelHourlyOverride, panelChartType]);
+    }, [profile, events, filters, panelFiltersState, panelDateRanges, dateRange, processGraphData, selectedSourceStrs, panelSelectedSourceStrs, extractSourceStrs, filterBySourceStr, hourlyOverride, panelHourlyOverride, panelChartType]);
+
+    // Enhanced setHourlyOverride that also adjusts date range for better UX
+    // Defined after refreshPanelData to avoid circular dependency
+    const setHourlyOverride = useCallback((newValue: boolean | null) => {
+        setHourlyOverrideState(newValue);
+
+        // When manually switching, adjust the date range to match the requested resolution's optimal window
+        let newRange = dateRange;
+        if (newValue === true) {
+            // Hourly: set to 8 days rolling
+            newRange = {
+                from: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+                to: new Date()
+            };
+            setDateRange(newRange);
+        } else if (newValue === false) {
+            // Daily: set to 30 days rolling
+            newRange = {
+                from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+                to: new Date()
+            };
+            setDateRange(newRange);
+        }
+
+        // Trigger immediate refresh for active panel (use setTimeout to avoid state update during render)
+        if (profile?.panels && initialLoadComplete.current) {
+            setTimeout(() => {
+                const activePanelId = profile.panels[activePanelIndex]?.panelId;
+                if (activePanelId) {
+                    // Ensure we use the new range immediately for the call
+                    refreshPanelData(activePanelId, undefined, newRange);
+                }
+            }, 0);
+        }
+    }, [dateRange, profile, activePanelIndex, refreshPanelData]);
+
+    const setPanelHourlyOverrideForId = useCallback((panelId: string, value: boolean | null) => {
+        setPanelHourlyOverride(prev => ({
+            ...prev,
+            [panelId]: value
+        }));
+
+        // Trigger immediate refresh for this panel (use setTimeout to avoid state update during render)
+        if (profile?.panels && initialLoadComplete.current) {
+            setTimeout(() => {
+                const panelIdx = profile.panels.findIndex(p => p.panelId === panelId);
+                if (panelIdx !== -1) {
+                    // Adjust date range for the panel as well
+                    let newRange = panelDateRanges[panelId] || dateRange;
+                    if (value === true) {
+                        newRange = { from: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000), to: new Date() };
+                    } else if (value === false) {
+                        newRange = { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() };
+                    }
+
+                    setPanelDateRanges(prev => ({ ...prev, [panelId]: newRange }));
+
+                    // Pass the new value directly to refreshPanelData as the 5th argument (overrideIsHourly)
+                    // This ensures the API call uses the NEW value, not the stale state
+                    refreshPanelData(panelId, undefined, newRange, undefined, value);
+                }
+            }, 0);
+        }
+    }, [profile, refreshPanelData, panelDateRanges, dateRange]);
 
     // NOTE: Additional panels use LAZY LOADING - they load data ONLY when:
     // 1. User clicks on the panel in the sidebar (see ProfileSidebar onPanelClick)
@@ -3684,7 +3795,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             apiMetricView={apiMetricView}
                             setApiMetricView={setApiMetricView}
                             pieChartData={pieChartData}
+                            eventPieCharts={panelsDataMap.get(profile.panels[0].panelId)?.eventPieCharts}
                             openExpandedPie={openExpandedPie}
+                            setExpandedChart={setExpandedChart}
                             CustomXAxisTick={CustomXAxisTick}
                             HourlyStatsCard={HourlyStatsCard}
                             events={events}
@@ -3743,6 +3856,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         panelApiMetricView={panelApiMetricView}
                         setPanelApiMetricView={setPanelApiMetricView}
                         openExpandedPie={openExpandedPie}
+                        setExpandedChart={setExpandedChart}
                         isHourly={isHourly}
                         HourlyStatsCard={HourlyStatsCard}
                         // NEW: Pass active panel index to render only that panel
@@ -3768,21 +3882,208 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         setVoiceStatus={setVoiceStatus}
                     />
                 )}
-
-                {/* Expanded Pie Chart Modal */}
-                <ExpandedPieChartModal
-                    open={pieModalOpen}
-                    onClose={() => {
-                        setSearchParams(prev => {
-                            const next = new URLSearchParams(prev as any);
-                            next.delete('expandedPie');
-                            return next;
-                        });
-                    }}
-                    pieData={expandedPie}
-                    isAvgEventType={globalAvgEventType}
-                />
             </div>
+
+            {/* ========== MODALS (RENDERED OUTSIDE ZOOMED CONTAINER FOR FULL SCREEN) ========== */}
+            {/* Expanded Pie Chart Modal */}
+            <ExpandedPieChartModal
+                open={pieModalOpen}
+                onClose={() => {
+                    setSearchParams(prev => {
+                        const next = new URLSearchParams(prev as any);
+                        next.delete('expandedPie');
+                        return next;
+                    });
+                }}
+                pieData={expandedPie}
+                isAvgEventType={globalAvgEventType}
+            />
+
+            {/* Chart Expanded View Modal */}
+            <ChartExpandedView
+                isOpen={!!expandedChart}
+                onClose={() => setExpandedChart(null)}
+                title={expandedChart?.title || 'Chart Analysis'}
+            >
+                {(zoomLevel) => {
+                    if (!expandedChart) return null;
+
+                    const eventColorsMap = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {});
+                    const eventNamesMap = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.eventName }), {});
+
+                    // Replicate event stats calculation for badges
+                    const calculateEventStats = (dataArray: any[], keys: EventKeyInfo[]) => {
+                        return keys.map(eki => {
+                            let total = 0;
+                            let success = 0;
+                            dataArray.forEach(item => {
+                                total += Number(item[`${eki.eventKey}_count`] ?? item[eki.eventKey] ?? 0);
+                                success += Number(item[`${eki.eventKey}_success`] ?? item[`${eki.eventKey}_successCount`] ?? 0);
+                            });
+                            return {
+                                eventKey: eki.eventKey,
+                                eventId: eki.eventId,
+                                total,
+                                successRate: total > 0 ? (success / total) * 100 : 0
+                            };
+                        });
+                    };
+
+                    switch (expandedChart.type) {
+                        case 'hourly_overlay':
+                        case 'daily_overlay': {
+                            const filteredEks = overlaySelectedEventKey
+                                ? (normalEventKeys || []).filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                : (normalEventKeys || []).map(e => e.eventKey);
+
+                            const eventStats = calculateEventStats(graphData, normalEventKeys || []);
+
+                            return (
+                                <DayWiseComparisonChart
+                                    data={graphData}
+                                    dateRange={dateRange}
+                                    eventKeys={filteredEks}
+                                    eventColors={eventColorsMap}
+                                    eventNames={eventNamesMap}
+                                    eventStats={eventStats}
+                                    selectedEventKey={overlaySelectedEventKey}
+                                    onEventClick={handleOverlayEventClick}
+                                    headless={true}
+                                />
+                            );
+                        }
+
+                        case 'percentage': {
+                            const { parentEvents, childEvents, filters: percentageFilters } = expandedChart.params || {};
+
+                            // Build percentage graph data with proper handling for avgEvents and sourceStr filtering
+                            // Replicating logic from MainPanelSection
+                            const hasAvgEvents = [...(parentEvents || []), ...(childEvents || [])].some((eventId: string) => {
+                                const ev = (events || []).find((e: any) => String(e.eventId) === String(eventId));
+                                return ev?.isAvgEvent === 1;
+                            });
+
+                            const percentageData = (() => {
+                                if (hasAvgEvents || isMainPanelApi) {
+                                    // Use rawData if available, fallback to graphData
+                                    let rawData = rawGraphResponse?.data || graphData || [];
+
+                                    // Apply sourceStr filtering ONLY if data has sourceStr and filter is selected
+                                    const activeSourceStrs = selectedSourceStrs || [];
+                                    const hasSourceStr = rawData.length > 0 && rawData.some((d: any) => d.sourceStr);
+
+                                    if (hasSourceStr && activeSourceStrs.length > 0) {
+                                        rawData = rawData.filter((d: any) =>
+                                            d.sourceStr && activeSourceStrs.includes(d.sourceStr.toString())
+                                        );
+                                    }
+
+                                    return rawData;
+                                }
+                                return graphData;
+                            })();
+
+                            return (
+                                <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>
+                                    <PercentageGraph
+                                        data={percentageData}
+                                        parentEvents={parentEvents}
+                                        childEvents={childEvents}
+                                        eventColors={eventColorsMap}
+                                        eventNames={eventNamesMap}
+                                        filters={percentageFilters}
+                                        isHourly={isHourly}
+                                        onToggleHourly={(val) => setHourlyOverride(val)}
+                                        events={events}
+                                    />
+                                </div>
+                            );
+                        }
+
+                        case 'main_trends': {
+                            const mainPanel = profile?.panels?.[0];
+                            const isBar = (mainPanel as any)?.filterConfig?.graphType === 'bar';
+
+                            return (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    {isBar ? (
+                                        <BarChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="date" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            <Bar dataKey="count" fill="#8884d8" />
+                                        </BarChart>
+                                    ) : (
+                                        <AreaChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="date" />
+                                            <YAxis />
+                                            <Tooltip />
+                                            {normalEventKeys.map((ek, i) => (
+                                                <Area
+                                                    key={ek.eventKey}
+                                                    type="monotone"
+                                                    dataKey={`${ek.eventKey}_count`}
+                                                    stroke={EVENT_COLORS[i % EVENT_COLORS.length]}
+                                                    fill={EVENT_COLORS[i % EVENT_COLORS.length]}
+                                                    fillOpacity={0.3}
+                                                />
+                                            ))}
+                                        </AreaChart>
+                                    )}
+                                </ResponsiveContainer>
+                            );
+                        }
+
+                        case 'avg_trends': {
+                            return (
+                                <AreaChart
+                                    data={graphData}
+                                    margin={{ top: 10, right: 30, left: 0, bottom: 50 }}
+                                >
+                                    <defs>
+                                        {avgEventKeys.map((eventKeyInfo, index) => {
+                                            const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                            const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                            return (
+                                                <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                </linearGradient>
+                                            );
+                                        })}
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                    <XAxis dataKey="date" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    {avgEventKeys.map((eventKeyInfo, index) => {
+                                        const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
+                                        const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
+                                        const eventKey = eventKeyInfo.eventKey;
+                                        return (
+                                            <Area
+                                                key={`time_${index}_${eventKey}`}
+                                                type="monotone"
+                                                dataKey={`${eventKey}_avgDelay`}
+                                                name={eventKeyInfo.eventName}
+                                                stroke={color}
+                                                strokeWidth={2.5}
+                                                fillOpacity={1}
+                                                fill={`url(#timeColor_${eventKey})`}
+                                            />
+                                        );
+                                    })}
+                                </AreaChart>
+                            );
+                        }
+
+                        default:
+                            return null;
+                    }
+                }}
+            </ChartExpandedView>
         </>
     );
 }

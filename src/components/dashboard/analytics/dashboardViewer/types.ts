@@ -23,6 +23,7 @@ export interface FilterState {
     apiStatusCodes?: string[];
     apiCacheStatus?: string[];
     activePercentageGroupChildEvents?: boolean; // Toggle: true = Single Graph, false = Separate Graphs
+    showEventPieCharts?: boolean; // Toggle: Show separate pie charts for each event
     activeIncludeEvents?: string[]; // For User Flow graph sequence
 }
 
@@ -52,4 +53,5 @@ export interface PanelData {
     showLegend: boolean;
     rawGraphResponse?: any;
     hasLoadedOnce?: boolean; // Prevents infinite loading loops when API returns empty data
+    eventPieCharts?: Record<string, any>;
 }

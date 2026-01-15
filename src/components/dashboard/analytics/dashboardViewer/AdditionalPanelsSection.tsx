@@ -1,4 +1,5 @@
 import React, { Fragment, useMemo, useState, useEffect } from 'react';
+import { createPortal, unstable_batchedUpdates } from 'react-dom';
 import { AiInsightsBadge } from '../components/AiInsightsBadge';
 import type { FilterState } from './types';
 import { InfoTooltip } from '../components/InfoTooltip';
@@ -17,6 +18,7 @@ import {
     Maximize2,
     Mic,
     Percent,
+    PieChart as PieChartIcon,
     RefreshCw,
     Target,
     TrendingUp,
@@ -68,12 +70,13 @@ import {
     YAxis,
 } from 'recharts';
 
+// Professional Pie Tooltip
 const formatNumber = (num: number | null | undefined) => {
     if (num === null || num === undefined) return '0';
     if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return num.toString();
+    return Math.floor(num).toLocaleString();
 };
 
 export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSection({
@@ -107,6 +110,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     handlePanelEventClick,
     panelAvgSelectedEventKey,
     handlePanelAvgEventClick,
+    setExpandedChart,
     CustomXAxisTick,
     panelApiPerformanceSeriesMap,
     panelApiMetricView,
@@ -131,8 +135,32 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     isAdmin = false,
     setVoiceStatus = () => { },
 }: any) {
-    const [expandedChart, setExpandedChart] = useState<{ title: string; render: (zoom: number) => React.ReactNode } | null>(null);
+    const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
 
+    // Helper to render external labels for slices > 5%
+    // Helper to render external labels for slices > 5%
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name, value }: any) => {
+        const RADIAN = Math.PI / 180;
+        const radius = outerRadius + 15;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+        if (percent < 0.05) return null;
+
+        return (
+            <text
+                x={x}
+                y={y}
+                fill="currentColor"
+                textAnchor={x > cx ? 'start' : 'end'}
+                dominantBaseline="central"
+                className="text-[9px] font-bold fill-slate-500 dark:fill-slate-400"
+            >
+                <tspan x={x} dy="-0.6em">{name}</tspan>
+                <tspan x={x} dy="1.2em" className="font-normal opacity-80">{`${Math.floor(value).toLocaleString()} (${(percent * 100).toFixed(2)}%)`}</tspan>
+            </text>
+        );
+    };
     // Zoom state for Event Trends charts in additional panels
     const eventTrendsZoom = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     // Zoom state for Time Delay charts in additional panels
@@ -141,18 +169,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     const errorTrendsZoom = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const [voicePopoverOpen, setVoicePopoverOpen] = useState(false);
 
-    // Keyboard shortcut for Voice AI (Cmd+K / Ctrl+K)
+    // Keyboard shortcuts for Voice AI and Panel Actions
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+            // Cmd+K for Voice AI
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
                 e.preventDefault();
-                // Only open if admin and on a non-API panel
                 const currentPanel = profile?.panels?.[activePanelIndex];
                 if (isAdmin && !currentPanel?.filterConfig?.isApiEvent) {
                     setVoicePopoverOpen(prev => {
                         const willOpen = !prev;
-                        // If opening, start recording after a short delay
                         if (willOpen && !isRecording && toggleRecording) {
                             setTimeout(() => toggleRecording(), 500);
                         }
@@ -160,11 +186,64 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                     });
                 }
             }
+            // Cmd+Enter to Refresh
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                const currentPanel = profile?.panels?.[activePanelIndex];
+                if (currentPanel && handlePanelRefresh) {
+                    handlePanelRefresh(currentPanel.panelId);
+                    setFlashMessage("Refreshing Panel...");
+                    setRefreshFlash(true);
+                    setTimeout(() => setRefreshFlash(false), 800);
+                }
+            }
+        };
+
+        const handleKeyUp = (e: KeyboardEvent) => {
+            // Cmd+Shift to toggle Hourly/Daily
+            if (e.key === 'Shift' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                const currentPanel = profile?.panels?.[activePanelIndex];
+                if (currentPanel && setPanelHourlyOverrideForId) {
+                    const pDateRange = panelDateRanges?.[currentPanel.panelId] || dateRange;
+                    const isRangeShort = pDateRange ? Math.ceil((pDateRange.to.getTime() - pDateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8 : false;
+                    const currentEffective = panelHourlyOverride?.[currentPanel.panelId] ?? (hourlyOverride ?? isRangeShort);
+
+                    const newValue = !currentEffective;
+
+                    unstable_batchedUpdates(() => {
+                        setPanelHourlyOverrideForId(currentPanel.panelId, newValue);
+
+                        // Update Date Range based on mode
+                        if (updatePanelDateRange) {
+                            const now = new Date();
+                            const newFrom = new Date(now);
+                            if (newValue) { // Switching to Hourly -> Last 7 days
+                                newFrom.setDate(now.getDate() - 7);
+                            } else { // Switching to Daily -> Last 30 days
+                                newFrom.setDate(now.getDate() - 30);
+                            }
+                            updatePanelDateRange(currentPanel.panelId, newFrom, now);
+                        }
+
+                        setFlashMessage(newValue ? "Switched to Hourly (7 Days)" : "Switched to Daily (30 Days)");
+                        setRefreshFlash(true);
+                        setTimeout(() => setRefreshFlash(false), 2000);
+                    });
+                }
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isAdmin, activePanelIndex, profile, isRecording, toggleRecording]);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isAdmin, activePanelIndex, profile, isRecording, toggleRecording, handlePanelRefresh, setPanelHourlyOverrideForId, panelHourlyOverride, panelDateRanges, dateRange, hourlyOverride, updatePanelDateRange]);
+
+    const [refreshFlash, setRefreshFlash] = useState(false);
+    const [flashMessage, setFlashMessage] = useState("Refreshing Panel...");
 
 
     const eventColors = useMemo(() => {
@@ -262,14 +341,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
     return (
         <>
-            <ChartExpandedView
-                isOpen={!!expandedChart}
-                onClose={() => setExpandedChart(null)}
-                title={expandedChart?.title || 'Chart Analysis'}
-            >
-                {expandedChart?.render || (() => null)}
-            </ChartExpandedView>
-
+            {/* Fixed Position Refresh Notification Banner - visible when scrolled (Portal) */}
+            {refreshFlash && createPortal(
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-2xl shadow-purple-500/50 flex items-center gap-2 animate-bounce font-sans antialiased pointer-events-none">
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span className="font-bold text-xs tracking-wide">{flashMessage}</span>
+                </div>,
+                document.body
+            )}
             {profile.panels.slice(1).filter((_: any, idx: number) => {
                 // SINGLE PANEL ARCHITECTURE: Only render the panel that matches activePanelIndex
                 // activePanelIndex 0 = main panel, 1+ = additional panels (so idx 0 in slice = activePanelIndex 1)
@@ -412,243 +491,274 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 </div>
                             </CardHeader>
                             <CardContent className="pt-0">
+                                {/* Refresh Flash Banner */}
+                                {refreshFlash && (
+                                    <div className="mb-3 p-2 bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-lg text-white text-sm font-semibold flex items-center justify-center gap-2 animate-pulse shadow-lg">
+                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                        {flashMessage}
+                                    </div>
+                                )}
                                 <div className="p-3 sm:p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl border border-purple-100 dark:border-purple-900/30 shadow-sm">
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2 mb-4">
-                                        {/* Clickable Filter Toggle Bar */}
-                                        <button
+                                    <div className={cn(
+                                        "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2 mb-4 p-2 rounded-xl transition-all duration-300",
+                                        panelFiltersCollapsed?.[panel.panelId] !== false
+                                            ? "bg-slate-100 dark:bg-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-800/80"
+                                            : "bg-gradient-to-r from-purple-100/50 to-fuchsia-100/50 dark:from-purple-900/20 dark:to-fuchsia-900/10 border border-purple-200 dark:border-purple-500/30"
+                                    )}>
+                                        {/* Clickable Filter Toggle Left Section */}
+                                        <div
+                                            className="flex items-center gap-3 cursor-pointer flex-1"
                                             onClick={() =>
                                                 setPanelFiltersCollapsed?.((prev: any) => ({
                                                     ...prev,
                                                     [panel.panelId]: !prev?.[panel.panelId]
                                                 }))
                                             }
-                                            className={cn(
-                                                "flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer group",
+                                        >
+                                            <div className={cn(
+                                                "h-10 w-10 rounded-lg flex items-center justify-center transition-colors shadow-sm",
                                                 panelFiltersCollapsed?.[panel.panelId] !== false
-                                                    ? "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                                    : "bg-gradient-to-r from-purple-100 to-fuchsia-100 dark:from-purple-900/30 dark:to-fuchsia-900/20 border border-purple-200 dark:border-purple-500/30"
-                                            )}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={cn(
-                                                    "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
-                                                    panelFiltersCollapsed?.[panel.panelId] !== false
-                                                        ? "bg-slate-200 dark:bg-slate-700"
-                                                        : "bg-gradient-to-br from-purple-500 to-fuchsia-600"
-                                                )}>
-                                                    <Filter className={cn(
-                                                        "w-4 h-4",
-                                                        panelFiltersCollapsed?.[panel.panelId] !== false ? "text-slate-500" : "text-white"
-                                                    )} />
+                                                    ? "bg-slate-200 dark:bg-slate-700"
+                                                    : "bg-gradient-to-br from-purple-500 to-fuchsia-600"
+                                            )}>
+                                                <Filter className={cn(
+                                                    "w-5 h-5",
+                                                    panelFiltersCollapsed?.[panel.panelId] !== false ? "text-slate-500" : "text-white"
+                                                )} />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={cn(
+                                                        "text-sm font-bold",
+                                                        panelFiltersCollapsed?.[panel.panelId] !== false ? "text-slate-700 dark:text-slate-300" : "text-purple-700 dark:text-purple-300"
+                                                    )}>
+                                                        Panel Filters
+                                                    </span>
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/50 dark:bg-black/20 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 uppercase tracking-wider">
+                                                        Independent
+                                                    </span>
                                                 </div>
-                                                <div className="text-left">
-                                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">Panel Filters</span>
+                                                <div className="flex items-center gap-1.5">
                                                     <span className="text-xs text-muted-foreground">Click to {panelFiltersCollapsed?.[panel.panelId] !== false ? 'expand' : 'collapse'}</span>
+                                                    {panelFiltersCollapsed?.[panel.panelId] !== false ? (
+                                                        <ChevronDown className="h-4 w-4 text-slate-400" />
+                                                    ) : (
+                                                        <ChevronUp className="h-4 w-4 text-purple-500" />
+                                                    )}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs text-muted-foreground hidden sm:inline">(Independent)</span>
-                                                {panelFiltersCollapsed?.[panel.panelId] !== false ? (
-                                                    <ChevronDown className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
-                                                ) : (
-                                                    <ChevronUp className="h-5 w-5 text-purple-500" />
-                                                )}
-                                            </div>
-                                        </button>
+                                        </div>
 
-                                        {/* Voice AI Button - Admin Only & Non-API Only - Now outside the parent button */}
-                                        {isAdmin && !panelConfig?.isApiEvent && (
-                                            <div className="flex flex-col items-center gap-0.5">
-                                                <Popover open={voicePopoverOpen} onOpenChange={(open) => {
-                                                    setVoicePopoverOpen(open);
-                                                    if (open) {
-                                                        if (!isRecording) {
-                                                            setTimeout(() => toggleRecording(), 100);
+                                        {/* Right Side Actions */}
+                                        <div className="flex items-center gap-3 justify-end">
+                                            {/* Voice AI Button - Admin Only & Non-API Only */}
+                                            {isAdmin && !panelConfig?.isApiEvent && (
+                                                <div className="flex flex-col items-center gap-0.5">
+                                                    <Popover open={voicePopoverOpen} onOpenChange={(open) => {
+                                                        setVoicePopoverOpen(open);
+                                                        if (open) {
+                                                            if (!isRecording) {
+                                                                setTimeout(() => toggleRecording(), 100);
+                                                            }
+                                                        } else {
+                                                            setManualTranscript('');
+                                                            setVoiceStatus?.('idle');
                                                         }
-                                                    } else {
-                                                        setManualTranscript('');
-                                                        setVoiceStatus?.('idle');
-                                                    }
-                                                }}>
-                                                    <UiTooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <PopoverTrigger asChild>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    size="sm"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    className={cn(
-                                                                        "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-300 shadow-sm relative overflow-hidden group/mic ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg",
-                                                                        isRecording && "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-md shadow-red-500/20"
-                                                                    )}
-                                                                >
-                                                                    {isRecording ? (
-                                                                        <>
-                                                                            <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
-                                                                            <div className="relative flex items-center gap-1.5">
-                                                                                <div className="flex gap-0.5 items-center h-4">
-                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0ms]" style={{ height: '40%' }} />
-                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_100ms]" style={{ height: '70%' }} />
-                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_200ms]" style={{ height: '100%' }} />
-                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_300ms]" style={{ height: '70%' }} />
-                                                                                    <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_400ms]" style={{ height: '40%' }} />
+                                                    }}>
+                                                        <UiTooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <PopoverTrigger asChild>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className={cn(
+                                                                            "h-9 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all duration-300 shadow-sm relative overflow-hidden group/mic ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg",
+                                                                            isRecording && "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 shadow-md shadow-red-500/20"
+                                                                        )}
+                                                                    >
+                                                                        {isRecording ? (
+                                                                            <>
+                                                                                <span className="absolute inset-0 bg-red-500/10 animate-pulse" />
+                                                                                <div className="relative flex items-center gap-1.5">
+                                                                                    <div className="flex gap-0.5 items-center h-4">
+                                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0ms]" style={{ height: '40%' }} />
+                                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_100ms]" style={{ height: '70%' }} />
+                                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_200ms]" style={{ height: '100%' }} />
+                                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_300ms]" style={{ height: '70%' }} />
+                                                                                        <div className="w-1 bg-red-500 rounded-full animate-[bounce_0.6s_ease-in-out_infinite_400ms]" style={{ height: '40%' }} />
+                                                                                    </div>
+                                                                                    <span className="font-bold text-xs animate-pulse">Listening...</span>
                                                                                 </div>
-                                                                                <span className="font-bold text-xs animate-pulse">Listening...</span>
-                                                                            </div>
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Mic className={cn(
-                                                                                "h-4 w-4 text-indigo-500 group-hover/mic:scale-110 transition-transform",
-                                                                                isParsingVoice && "animate-spin"
-                                                                            )} />
-                                                                            <span className="font-bold text-xs tracking-wide">
-                                                                                {isParsingVoice ? 'AI Analyzing...' : 'Voice AI'}
-                                                                            </span>
-                                                                        </>
-                                                                    )}
-                                                                </Button>
-                                                            </PopoverTrigger>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent className="bg-slate-900 text-white border-slate-800 p-2 shadow-xl">
-                                                            <div className="flex flex-col gap-1">
-                                                                <p className="font-bold text-xs uppercase tracking-wider opacity-60">Status</p>
-                                                                <p className="flex items-center gap-2">
-                                                                    {voiceStatus === 'idle' && <span className="w-2 h-2 rounded-full bg-slate-400" />}
-                                                                    {voiceStatus === 'listening' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                                                                    {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-purple-400" />}
-                                                                    {voiceStatus === 'applying' && <Zap className="h-3 w-3 text-amber-400 animate-bounce" />}
-                                                                    {voiceStatus === 'done' && <CheckCircle2 className="h-3 w-3 text-green-400" />}
-                                                                    {voiceStatus === 'error' && <XCircle className="h-3 w-3 text-red-400" />}
-                                                                    <span className="capitalize font-medium text-xs">
-                                                                        {voiceStatus === 'idle' && 'Ready to listen'}
-                                                                        {voiceStatus === 'listening' && 'Listening to your command...'}
-                                                                        {voiceStatus === 'parsing' && 'AI is understanding...'}
-                                                                        {voiceStatus === 'applying' && 'Applying filters...'}
-                                                                        {voiceStatus === 'done' && 'Filters applied!'}
-                                                                        {voiceStatus === 'error' && 'Something went wrong'}
-                                                                    </span>
-                                                                </p>
-                                                            </div>
-                                                        </TooltipContent>
-                                                    </UiTooltip>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Mic className={cn(
+                                                                                    "h-4 w-4 text-indigo-500 group-hover/mic:scale-110 transition-transform",
+                                                                                    isParsingVoice && "animate-spin"
+                                                                                )} />
+                                                                                <span className="font-bold text-xs tracking-wide">
+                                                                                    {isParsingVoice ? 'AI Analyzing...' : 'Voice AI'}
+                                                                                </span>
+                                                                            </>
+                                                                        )}
+                                                                    </Button>
+                                                                </PopoverTrigger>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent className="bg-slate-900 text-white border-slate-800 p-2 shadow-xl">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <p className="font-bold text-xs uppercase tracking-wider opacity-60">Status</p>
+                                                                    <p className="flex items-center gap-2">
+                                                                        {voiceStatus === 'idle' && <span className="w-2 h-2 rounded-full bg-slate-400" />}
+                                                                        {voiceStatus === 'listening' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+                                                                        {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-purple-400" />}
+                                                                        {voiceStatus === 'applying' && <Zap className="h-3 w-3 text-amber-400 animate-bounce" />}
+                                                                        {voiceStatus === 'done' && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                                                                        {voiceStatus === 'error' && <XCircle className="h-3 w-3 text-red-400" />}
+                                                                        <span className="capitalize font-medium text-xs">
+                                                                            {voiceStatus === 'idle' && 'Ready to listen'}
+                                                                            {voiceStatus === 'listening' && 'Listening to your command...'}
+                                                                            {voiceStatus === 'parsing' && 'AI is understanding...'}
+                                                                            {voiceStatus === 'applying' && 'Applying filters...'}
+                                                                            {voiceStatus === 'done' && 'Filters applied!'}
+                                                                            {voiceStatus === 'error' && 'Something went wrong'}
+                                                                        </span>
+                                                                    </p>
+                                                                </div>
+                                                            </TooltipContent>
+                                                        </UiTooltip>
 
-                                                    <PopoverContent
-                                                        className="w-[calc(100vw-2rem)] sm:w-80 p-4 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center justify-between">
-                                                                <h4 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-                                                                    <Sparkles className="h-4 w-4" />
-                                                                    AI Voice Assistant
-                                                                </h4>
-                                                                <Badge variant="outline" className="text-[10px] uppercase font-bold text-indigo-500 border-indigo-200">
-                                                                    Beta
-                                                                </Badge>
-                                                            </div>
+                                                        <PopoverContent
+                                                            className="w-[calc(100vw-2rem)] sm:w-80 p-4 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            <div className="space-y-4">
+                                                                <div className="flex items-center justify-between">
+                                                                    <h4 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                                                                        <Sparkles className="h-4 w-4" />
+                                                                        AI Voice Assistant
+                                                                    </h4>
+                                                                    <Badge variant="outline" className="text-[10px] uppercase font-bold text-indigo-500 border-indigo-200">
+                                                                        Beta
+                                                                    </Badge>
+                                                                </div>
 
-                                                            <div className="relative">
-                                                                <textarea
-                                                                    placeholder="Type your command or use voice..."
-                                                                    className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-none font-medium text-slate-700 dark:text-slate-200"
-                                                                    value={manualTranscript}
-                                                                    onChange={(e) => setManualTranscript(e.target.value)}
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === ' ') {
-                                                                            e.stopPropagation();
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                {manualTranscript.toLowerCase().includes('auto send') && (
-                                                                    <div className="absolute right-3 top-3">
-                                                                        <Badge variant="outline" className="bg-indigo-500 text-white border-none animate-pulse text-[10px] px-1.5 py-0 h-4">
-                                                                            AUTO SEND DETECTED
-                                                                        </Badge>
-                                                                    </div>
-                                                                )}
-                                                                {isRecording && (
-                                                                    <div className="absolute right-3 bottom-3">
-                                                                        <div className="flex gap-1">
-                                                                            <div className="w-1 h-3 bg-red-400 animate-pulse" />
-                                                                            <div className="w-1 h-3 bg-red-400 animate-pulse delay-75" />
-                                                                            <div className="w-1 h-3 bg-red-400 animate-pulse delay-150" />
+                                                                <div className="relative">
+                                                                    <textarea
+                                                                        placeholder="Type your command or use voice..."
+                                                                        className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-none font-medium text-slate-700 dark:text-slate-200"
+                                                                        value={manualTranscript}
+                                                                        onChange={(e) => setManualTranscript(e.target.value)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === ' ') {
+                                                                                e.stopPropagation();
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    {manualTranscript.toLowerCase().includes('auto send') && (
+                                                                        <div className="absolute right-3 top-3">
+                                                                            <Badge variant="outline" className="bg-indigo-500 text-white border-none animate-pulse text-[10px] px-1.5 py-0 h-4">
+                                                                                AUTO SEND DETECTED
+                                                                            </Badge>
                                                                         </div>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-
-                                                            <div className="flex items-center gap-2">
-                                                                <Button
-                                                                    variant={isRecording ? "destructive" : "outline"}
-                                                                    size="sm"
-                                                                    onClick={() => toggleRecording()}
-                                                                    className="flex-1 gap-2 rounded-xl font-bold"
-                                                                >
-                                                                    {isRecording ? (
-                                                                        <>
-                                                                            <XCircle className="h-4 w-4" /> Stop
-                                                                        </>
-                                                                    ) : (
-                                                                        <>
-                                                                            <Mic className="h-4 w-4" /> Speak
-                                                                        </>
                                                                     )}
-                                                                </Button>
-                                                                <Button
-                                                                    variant="default"
-                                                                    size="sm"
-                                                                    disabled={!manualTranscript.trim() || isParsingVoice || isRecording}
-                                                                    onClick={() => handleVoiceTranscript(manualTranscript)}
-                                                                    className="flex-1 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20"
-                                                                >
-                                                                    {voiceStatus === 'parsing' ? (
-                                                                        <RefreshCw className="h-4 w-4 animate-spin" />
-                                                                    ) : voiceStatus === 'done' ? (
-                                                                        <Zap className="h-4 w-4 text-yellow-300" />
-                                                                    ) : (
-                                                                        <Zap className="h-4 w-4" />
+                                                                    {isRecording && (
+                                                                        <div className="absolute right-3 bottom-3">
+                                                                            <div className="flex gap-1">
+                                                                                <div className="w-1 h-3 bg-red-400 animate-pulse" />
+                                                                                <div className="w-1 h-3 bg-red-400 animate-pulse delay-75" />
+                                                                                <div className="w-1 h-3 bg-red-400 animate-pulse delay-150" />
+                                                                            </div>
+                                                                        </div>
                                                                     )}
-                                                                    {voiceStatus === 'done' ? 'Project SUCCESS!' : 'Send'}
-                                                                </Button>
-                                                            </div>
+                                                                </div>
 
-                                                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                                                                <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
-                                                                    <Info className="h-3 w-3" /> TRY SAYING
-                                                                </p>
-                                                                <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 italic font-medium">
-                                                                    "Show Flipkart data for the last 3 days <strong>AUTO SEND</strong>"
-                                                                </p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Button
+                                                                        variant={isRecording ? "destructive" : "outline"}
+                                                                        size="sm"
+                                                                        onClick={() => toggleRecording()}
+                                                                        className="flex-1 gap-2 rounded-xl font-bold"
+                                                                    >
+                                                                        {isRecording ? (
+                                                                            <>
+                                                                                <XCircle className="h-4 w-4" /> Stop
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <Mic className="h-4 w-4" /> Speak
+                                                                            </>
+                                                                        )}
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        disabled={!manualTranscript.trim() || isParsingVoice || isRecording}
+                                                                        onClick={() => handleVoiceTranscript(manualTranscript)}
+                                                                        className="flex-1 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20"
+                                                                    >
+                                                                        {voiceStatus === 'parsing' ? (
+                                                                            <RefreshCw className="h-4 w-4 animate-spin" />
+                                                                        ) : voiceStatus === 'done' ? (
+                                                                            <Zap className="h-4 w-4 text-yellow-300" />
+                                                                        ) : (
+                                                                            <Zap className="h-4 w-4" />
+                                                                        )}
+                                                                        {voiceStatus === 'done' ? 'Project SUCCESS!' : 'Send'}
+                                                                    </Button>
+                                                                </div>
+
+                                                                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                                                                    <p className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                                                                        <Info className="h-3 w-3" /> TRY SAYING
+                                                                    </p>
+                                                                    <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 italic font-medium">
+                                                                        "Show Flipkart data for the last 3 days <strong>AUTO SEND</strong>"
+                                                                    </p>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </PopoverContent>
-                                                </Popover>
-                                                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">⌘K</span>
-                                            </div>
-                                        )}
-                                        {/* Refresh Button */}
-                                        <InteractiveButton
-                                            onClick={() => handlePanelRefresh?.(panel.panelId)}
-                                            disabled={isPanelLoading}
-                                            size="sm"
-                                            className={cn(
-                                                "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] w-full sm:w-auto",
-                                                panelFilterChanges?.[panel.panelId]
-                                                    ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
-                                                    : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
-                                            )}
-                                            loading={isPanelLoading}
-                                        >
-                                            <RefreshCw className="w-4 h-4 mr-1.5" />
-                                            {panelFilterChanges?.[panel.panelId] ? "⚡ APPLY" : "Refresh"}
-                                            {panelFilterChanges?.[panel.panelId] && (
-                                                <div className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
-                                                    !
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-tight">⌘K</span>
                                                 </div>
                                             )}
-                                        </InteractiveButton>
 
+                                            {/* Refresh Button - Updated to match Main Panel & Purple Flash */}
+                                            <div className="flex flex-col items-center gap-0.5">
+                                                <InteractiveButton
+                                                    onClick={() => {
+                                                        setFlashMessage("Refreshing Panel...");
+                                                        setRefreshFlash(true);
+                                                        setTimeout(() => setRefreshFlash(false), 2000);
+                                                        handlePanelRefresh?.(panel.panelId);
+                                                    }}
+                                                    disabled={isPanelLoading}
+                                                    size="sm"
+                                                    className={cn(
+                                                        "relative transition-all duration-300 shadow-md font-semibold min-h-[36px] px-4 rounded-lg",
+                                                        panelFilterChanges?.[panel.panelId]
+                                                            ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-red-500/40 border border-red-300"
+                                                            : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white border border-purple-400/30",
+                                                        refreshFlash && "ring-4 ring-purple-400 ring-opacity-75"
+                                                    )}
+                                                    loading={isPanelLoading}
+                                                >
+                                                    {/* Flash overlay */}
+                                                    {refreshFlash && (
+                                                        <span className="absolute inset-0 bg-purple-400/30 animate-ping rounded-lg" />
+                                                    )}
+                                                    <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", isPanelLoading && "animate-spin")} />
+                                                    <span className="text-xs">{panelFilterChanges?.[panel.panelId] ? "APPLY" : "Refresh"}</span>
+                                                    {panelFilterChanges?.[panel.panelId] && (
+                                                        <div className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white text-red-600 rounded-full flex items-center justify-center text-[10px] font-bold shadow-sm border border-red-100">
+                                                            !
+                                                        </div>
+                                                    )}
+                                                </InteractiveButton>
+                                                <div className="hidden sm:flex items-center gap-1 px-1.5 py-0.5 bg-purple-100/60 dark:bg-purple-900/30 rounded border border-purple-200/50 dark:border-purple-700/40">
+                                                    <span className="text-[9px] text-purple-700 dark:text-purple-300 font-bold">⌘+Enter</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Show filters only if explicitly NOT collapsed (false means expanded now) */}
@@ -681,29 +791,41 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
                                                         />
                                                     </div>
-                                                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                        <button
-                                                            onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, true)}
-                                                            className={cn(
-                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
-                                                                pIsHourly
-                                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-muted-foreground font-medium">Showing:</span>
+                                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                                                            {isPanelLoading && (
+                                                                <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
+                                                                    <RefreshCw className="h-3 w-3 animate-spin text-purple-600" />
+                                                                </div>
                                                             )}
-                                                        >
-                                                            Hourly
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, false)}
-                                                            className={cn(
-                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
-                                                                !pIsHourly
-                                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
-                                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                                            )}
-                                                        >
-                                                            Daily
-                                                        </button>
+                                                            <button
+                                                                onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, true)}
+                                                                disabled={isPanelLoading}
+                                                                className={cn(
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                                    pIsHourly
+                                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700",
+                                                                    isPanelLoading && "opacity-50 cursor-not-allowed"
+                                                                )}
+                                                            >
+                                                                Hourly
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, false)}
+                                                                disabled={isPanelLoading}
+                                                                className={cn(
+                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                                    !pIsHourly
+                                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700",
+                                                                    isPanelLoading && "opacity-50 cursor-not-allowed"
+                                                                )}
+                                                            >
+                                                                Daily
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -780,8 +902,28 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <div className="mt-3 text-xs text-muted-foreground text-center">
-                                                            Formula: (Child Count / Parent Count) × 100
+                                                        <div className="flex items-center justify-between mt-3 px-1">
+                                                            <div className="text-xs text-muted-foreground">
+                                                                Formula: (Child Count / Parent Count) × 100
+                                                            </div>
+                                                            <div className="flex items-center gap-2 px-3 py-1 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-800 shadow-sm">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    id={`percentage-show-events-${panel.panelId}`}
+                                                                    className="h-3.5 w-3.5 rounded border-purple-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                                                    checked={currentPanelFilters.showEventPieCharts ?? false}
+                                                                    onChange={(e) => {
+                                                                        setPanelFiltersState?.((prev: any) => ({
+                                                                            ...prev,
+                                                                            [panel.panelId]: { ...prev?.[panel.panelId], showEventPieCharts: e.target.checked }
+                                                                        }));
+                                                                        setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
+                                                                    }}
+                                                                />
+                                                                <label htmlFor={`percentage-show-events-${panel.panelId}`} className="text-[10px] font-bold text-purple-700 dark:text-purple-300 cursor-pointer uppercase tracking-wider">
+                                                                    Events Analysis
+                                                                </label>
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -1603,7 +1745,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             onExpand={() => {
                                                 setExpandedChart?.({
                                                     title: `${panel.panelName} - Percentage Analysis`,
-                                                    render: (z) => (
+                                                    render: (z: number) => (
                                                         <div style={{ width: '100%', height: '100%' }}>
                                                             <PercentageGraph
                                                                 data={percentageGraphData}
@@ -1832,7 +1974,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-7 w-7"
-                                                                        onClick={() => openExpandedPie?.('status', 'Status Codes', statusData)}
+                                                                        onClick={() => openExpandedPie?.('status', 'Status Codes', { status: statusData })}
                                                                     >
                                                                         <Maximize2 className="h-3.5 w-3.5" />
                                                                     </Button>
@@ -1865,7 +2007,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className="h-7 w-7"
-                                                                        onClick={() => openExpandedPie?.('cacheStatus', 'Cache Status', cacheStatusData)}
+                                                                        onClick={() => openExpandedPie?.('cacheStatus', 'Cache Status', { cacheStatus: cacheStatusData })}
                                                                     >
                                                                         <Maximize2 className="h-3.5 w-3.5" />
                                                                     </Button>
@@ -2191,7 +2333,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         onClick={() => {
                                                             setExpandedChart?.({
                                                                 title: `${panel.panelName} - User Flow Analysis`,
-                                                                render: (z) => (
+                                                                render: (z: number) => (
                                                                     <div style={{ width: '100%', height: '100%' }}>
                                                                         <UserFlowVisualization
                                                                             data={panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || []}
@@ -2358,7 +2500,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             onClick={() => {
                                                                 setExpandedChart?.({
                                                                     title: `${panel.panelName} - Event Trends`,
-                                                                    render: (z) => (
+                                                                    render: (z: number) => (
                                                                         <ResponsiveContainer width="100%" height="100%">
                                                                             <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
                                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -2680,7 +2822,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             onClick={() => {
                                                                 setExpandedChart?.({
                                                                     title: `${panel.panelName} - Time Delay Trends`,
-                                                                    render: (z) => (
+                                                                    render: (z: number) => (
                                                                         <ResponsiveContainer width="100%" height="100%">
                                                                             <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
                                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -2910,7 +3052,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             onClick={() => {
                                                                 setExpandedChart?.({
                                                                     title: `${panel.panelName} - Error Event Trends`,
-                                                                    render: (z) => (
+                                                                    render: (z: number) => (
                                                                         <ResponsiveContainer width="100%" height="100%">
                                                                             <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
                                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -3370,7 +3512,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             variant="ghost"
                                                                             size="icon"
                                                                             className={cn("h-7 w-7", hoverBgMap[pieType])}
-                                                                            onClick={() => openExpandedPie?.(pieType, pieType.charAt(0).toUpperCase() + pieType.slice(1), pieData)}
+                                                                            onClick={() => {
+                                                                                const dists = {
+                                                                                    platform: pPieData?.platform,
+                                                                                    pos: pPieData?.pos,
+                                                                                    source: pPieData?.source
+                                                                                };
+                                                                                openExpandedPie?.(pieType, pieType.charAt(0).toUpperCase() + pieType.slice(1), dists);
+                                                                            }}
                                                                         >
                                                                             <Maximize2 className="h-3.5 w-3.5" />
                                                                         </Button>
@@ -3409,12 +3558,603 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             ) : null;
                         })()}
 
+                        {/* Per-Event Distribution Pie Charts */}
+                        {(() => {
+                            const panelData = panelsDataMap.get(panel.panelId);
+                            const eventPieCharts = panelData?.eventPieCharts;
+                            const panelConfig = (panel as any)?.filterConfig;
+
+                            const showEventPieCharts = (currentPanelFilters.showEventPieCharts ?? panelConfig?.showEventPieCharts);
+                            if (!showEventPieCharts || !eventPieCharts || Object.keys(eventPieCharts).length === 0) return null;
+
+                            // For percentage graphs, separate parent and child events
+                            const isPercentageGraph = panelGraphType === 'percentage';
+                            const percentageConfig = panelConfig?.percentageConfig;
+                            const parentEventIds = isPercentageGraph && percentageConfig
+                                ? (currentPanelFilters.activePercentageEvents || percentageConfig.parentEvents || []).map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id))
+                                : [];
+                            const childEventIds = isPercentageGraph && percentageConfig
+                                ? (currentPanelFilters.activePercentageChildEvents || percentageConfig.childEvents || []).map((id: string) => parseInt(id)).filter((id: number) => !isNaN(id))
+                                : [];
+
+                            const parentEvents = parentEventIds.map((id: number) => events.find((e: any) => e.eventId === String(id))).filter(Boolean);
+                            const childEvents = childEventIds.map((id: number) => events.find((e: any) => e.eventId === String(id))).filter(Boolean);
+                            const allEvents = isPercentageGraph
+                                ? [...parentEvents, ...childEvents]
+                                : Object.keys(eventPieCharts).map((id: string) => events.find((e: any) => String(e.eventId) === id)).filter(Boolean);
+
+                            return (
+                                <div className="mt-8 space-y-6 px-4">
+                                    <div className="flex items-center gap-3 pb-2 border-b border-purple-200 dark:border-purple-800">
+                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                                            <PieChartIcon className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-foreground">Event Distribution Analysis</h3>
+                                            <p className="text-sm text-muted-foreground font-medium">
+                                                {isPercentageGraph
+                                                    ? "POS, Platform, and Source breakdown for parent and child events"
+                                                    : "Detailed POS, Platform, and Source breakdown for each selected event"}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Parent Events Section (for percentage graphs) */}
+                                    {isPercentageGraph && parentEvents.length > 0 && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 px-2">
+                                                <div className="h-1 w-8 bg-purple-500 rounded-full" />
+                                                <h4 className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Parent Events (Denominator)</h4>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {parentEvents.map((event: any) => {
+                                                    const pieData = eventPieCharts[event.eventId];
+                                                    if (!pieData) return null;
+
+                                                    const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                    const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
+                                                    const posData = rawPosData.map((item: any) => ({
+                                                        ...item,
+                                                        name: getPOSName(item.name)
+                                                    }));
+                                                    const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
+
+                                                    const showPlatform = shouldShowPieChart(pieData?.platform);
+                                                    const showPos = shouldShowPieChart(pieData?.pos);
+                                                    const showSource = shouldShowPieChart(pieData?.source);
+
+                                                    if (!showPlatform && !showPos && !showSource) return null;
+
+                                                    // Prioritize POS if it has any data, regardless of shouldShowPieChart
+                                                    const defaultMode = (posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source';
+                                                    const activeMode = eventDistModes[event.eventId] || defaultMode;
+                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+
+                                                    return (
+                                                        <Card key={event.eventId} className="border border-purple-200/60 dark:border-purple-500/30 bg-white dark:bg-slate-900/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                                                            <CardHeader className="py-2.5 px-3 border-b border-purple-100 dark:border-purple-800/60 bg-slate-50/50 dark:bg-slate-900/50">
+                                                                <div className="flex flex-col gap-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                            <div className="h-4 w-4 rounded-full flex-shrink-0 shadow-sm border border-white dark:border-slate-800" style={{ backgroundColor: event.isParent ? '#8b5cf6' : event.color }} />
+                                                                            <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate pr-1">
+                                                                                {event.eventName}
+                                                                            </CardTitle>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-6 w-6 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                                                                                onClick={() => openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent)}
+                                                                            >
+                                                                                <Maximize2 className="h-3 w-3" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </CardHeader>
+                                                            <CardContent className="p-4">
+                                                                <div className="flex flex-row items-start gap-4 h-full">
+                                                                    {/* Distribution Mode Toggle (On the Left) */}
+                                                                    <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
+                                                                        {[
+                                                                            { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
+                                                                            { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
+                                                                            { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
+                                                                        ].filter(t => t.show).map((tab) => {
+                                                                            const activeMode = eventDistModes[event.eventId] || (shouldShowPieChart(pieData?.pos) ? 'pos' : shouldShowPieChart(pieData?.platform) ? 'platform' : 'source');
+                                                                            const isActive = activeMode === tab.id;
+                                                                            const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+
+                                                                            return (
+                                                                                <button
+                                                                                    key={tab.id}
+                                                                                    onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                                    className={cn(
+                                                                                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
+                                                                                        isActive
+                                                                                            ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
+                                                                                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                                                                    )}
+                                                                                >
+                                                                                    <span>{tab.label}</span>
+                                                                                    {dataLength > 1 && (
+                                                                                        <span className={cn(
+                                                                                            "w-1.5 h-1.5 rounded-full",
+                                                                                            isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
+                                                                                        )} />
+                                                                                    )}
+                                                                                </button>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+
+                                                                    {/* Large Pie Chart View */}
+                                                                    <div className="relative flex-1 min-w-0 h-full">
+                                                                        {(() => {
+                                                                            const activeMode = eventDistModes[event.eventId] || ((pieData?.pos && pieData.pos.length > 0) ? 'pos' : (pieData?.platform && pieData.platform.length > 0) ? 'platform' : 'source');
+                                                                            const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                                                            const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                            const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
+                                                                            const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
+                                                                                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                                                                const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
+                                                                                const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
+
+                                                                                return (
+                                                                                    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-bold">
+                                                                                        {`${(percent * 100).toFixed(2)}%`}
+                                                                                        {` (${Math.floor(value)})`}
+                                                                                    </text>
+                                                                                );
+                                                                            };
+
+                                                                            return (
+                                                                                <div className="space-y-2 h-full flex flex-col">
+                                                                                    <div
+                                                                                        className="h-64 w-full cursor-pointer relative"
+                                                                                        onClick={() => {
+                                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                            openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
+                                                                                        }}
+                                                                                    >
+                                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                                            <PieChart>
+                                                                                                <Pie
+                                                                                                    data={activeData}
+                                                                                                    cx="50%"
+                                                                                                    cy="50%"
+                                                                                                    innerRadius={45}
+                                                                                                    outerRadius={75}
+                                                                                                    paddingAngle={2}
+                                                                                                    dataKey="value"
+                                                                                                    isAnimationActive={false}
+                                                                                                    stroke="none"
+                                                                                                    label={renderCustomizedLabel}
+                                                                                                    labelLine={false}
+                                                                                                >
+                                                                                                    {activeData.map((_: any, idx: number) => (
+                                                                                                        <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                                    ))}
+                                                                                                </Pie>
+                                                                                                <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
+                                                                                            </PieChart>
+                                                                                        </ResponsiveContainer>
+
+                                                                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                                            <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                                {formatNumber(totalVal)}
+                                                                                            </span>
+                                                                                        </div>
+
+                                                                                    </div>
+
+                                                                                    {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                                    <div className="space-y-1.5 px-2">
+                                                                                        {[...activeData]
+                                                                                            .sort((a: any, b: any) => b.value - a.value)
+                                                                                            .slice(0, 3)
+                                                                                            .map((item: any, idx: number) => {
+                                                                                                const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                                return (
+                                                                                                    <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                            <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                                        </div>
+                                                                                                        <div className="flex items-center gap-2 tabular-nums">
+                                                                                                            <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                                            <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })()}
+                                                                    </div>
+                                                                </div>
+                                                            </CardContent>
+                                                        </Card>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )
+                                    }
+
+                                    {/* Child Events Section (for percentage graphs) */}
+                                    {isPercentageGraph && childEvents.length > 0 && (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 px-2">
+                                                <div className="h-1 w-8 bg-green-500 rounded-full" />
+                                                <h4 className="text-sm font-bold text-green-700 dark:text-green-300 uppercase tracking-wider">Child Events (Numerator)</h4>
+                                            </div>
+
+                                            {(() => {
+                                                const uniqueChildEvents = childEvents.filter((childEvent: any) =>
+                                                    !parentEvents.some((parentEvent: any) => parentEvent.eventId === childEvent.eventId)
+                                                );
+
+                                                if (uniqueChildEvents.length === 0 && childEvents.length > 0) {
+                                                    return (
+                                                        <div className="p-4 rounded-xl border border-dashed border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10 text-center">
+                                                            <p className="text-sm text-muted-foreground">
+                                                                Child events are identical to parent events and are displayed above.
+                                                            </p>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                        {uniqueChildEvents.map((event: any) => {
+                                                            const pieData = eventPieCharts[event.eventId];
+                                                            if (!pieData) return null;
+
+                                                            const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                            const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
+                                                            const posData = rawPosData.map((item: any) => ({
+                                                                ...item,
+                                                                name: getPOSName(item.name)
+                                                            }));
+                                                            const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
+
+                                                            const showPlatform = shouldShowPieChart(pieData?.platform);
+                                                            const showPos = shouldShowPieChart(pieData?.pos);
+                                                            const showSource = shouldShowPieChart(pieData?.source);
+
+                                                            if (!showPlatform && !showPos && !showSource) return null;
+
+                                                            return (
+                                                                <Card key={event.eventId} className="border border-green-200/60 dark:border-green-500/30 bg-white dark:bg-slate-900/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                                                                    <CardHeader className="py-2.5 px-3 border-b border-green-100 dark:border-green-800/60 bg-slate-50/50 dark:bg-slate-900/50">
+                                                                        <div className="flex flex-col gap-2">
+                                                                            <div className="flex items-center justify-between">
+                                                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                                    <div className="h-4 w-4 rounded-full flex-shrink-0 shadow-sm border border-white dark:border-slate-800 animate-pulse" style={{ backgroundColor: event.color }} />
+                                                                                    <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate pr-1">
+                                                                                        {event.eventName}
+                                                                                    </CardTitle>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-6 w-6 text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                                                                                        onClick={() => {
+                                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                            const mode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                                            openExpandedPie(mode, `${event.eventName} - ${mode.toUpperCase()}`, dists, event.isApiEvent);
+                                                                                        }}
+                                                                                    >
+                                                                                        <Maximize2 className="h-3 w-3" />
+                                                                                    </Button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </CardHeader>
+                                                                    <CardContent className="p-4">
+                                                                        <div className="flex flex-row items-start gap-4 h-full">
+                                                                            {/* Distribution Mode Toggle (On the Left) */}
+                                                                            <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
+                                                                                {[
+                                                                                    { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
+                                                                                    { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
+                                                                                    { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
+                                                                                ].filter(t => t.show).map((tab) => {
+                                                                                    const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                                    const isActive = activeMode === tab.id;
+                                                                                    const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+
+                                                                                    return (
+                                                                                        <button
+                                                                                            key={tab.id}
+                                                                                            onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                                            className={cn(
+                                                                                                "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
+                                                                                                isActive
+                                                                                                    ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
+                                                                                                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                                                                            )}
+                                                                                        >
+                                                                                            <span>{tab.label}</span>
+                                                                                            {dataLength > 1 && (
+                                                                                                <span className={cn(
+                                                                                                    "w-1.5 h-1.5 rounded-full",
+                                                                                                    isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
+                                                                                                )} />
+                                                                                            )}
+                                                                                        </button>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+
+                                                                            {/* Large Pie Chart View */}
+                                                                            <div className="relative flex-1 min-w-0 h-full">
+                                                                                {(() => {
+                                                                                    const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                                    const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                                                                    const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                                    const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
+                                                                                    const renderChildLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
+                                                                                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                                                                        const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
+                                                                                        const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
+
+                                                                                        return (
+                                                                                            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-bold">
+                                                                                                {`${(percent * 100).toFixed(2)}%`}
+                                                                                                {` (${Math.floor(value)})`}
+                                                                                            </text>
+                                                                                        );
+                                                                                    };
+
+                                                                                    return (
+                                                                                        <div className="space-y-2 h-full flex flex-col">
+                                                                                            <div
+                                                                                                className="h-64 w-full cursor-pointer relative"
+                                                                                                onClick={() => {
+                                                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                                    openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
+                                                                                                }}
+                                                                                            >
+                                                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                                                    <PieChart>
+                                                                                                        <Pie
+                                                                                                            data={activeData}
+                                                                                                            cx="50%"
+                                                                                                            cy="50%"
+                                                                                                            innerRadius={45}
+                                                                                                            outerRadius={75}
+                                                                                                            paddingAngle={2}
+                                                                                                            dataKey="value"
+                                                                                                            isAnimationActive={false}
+                                                                                                            stroke="none"
+                                                                                                            label={renderChildLabel}
+                                                                                                            labelLine={false}
+                                                                                                        >
+                                                                                                            {activeData.map((_: any, idx: number) => (
+                                                                                                                <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                                            ))}
+                                                                                                        </Pie>
+                                                                                                        <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
+                                                                                                    </PieChart>
+                                                                                                </ResponsiveContainer>
+                                                                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                                                    <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                                        {formatNumber(totalVal)}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                                            <div className="space-y-1.5 px-2">
+                                                                                                {[...activeData]
+                                                                                                    .sort((a: any, b: any) => b.value - a.value)
+                                                                                                    .slice(0, 3)
+                                                                                                    .map((item: any, idx: number) => {
+                                                                                                        const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                                        return (
+                                                                                                            <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                                                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                                    <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                                                </div>
+                                                                                                                <div className="flex items-center gap-2 tabular-nums">
+                                                                                                                    <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                                                    <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        );
+                                                                                                    })}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })()}
+                                                                            </div>
+                                                                        </div>
+                                                                    </CardContent>
+                                                                </Card>
+                                                            );
+                                                        })}
+                                                    </div>);
+                                            })()}
+                                        </div>
+                                    )
+                                    }
+
+                                    {/* Regular Events Section (for non-percentage graphs) */}
+                                    {!isPercentageGraph && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {allEvents.map((event: any) => {
+                                                const pieData = eventPieCharts[event.eventId];
+                                                if (!pieData) return null;
+
+                                                const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
+                                                const posData = rawPosData.map((item: any) => ({
+                                                    ...item,
+                                                    name: getPOSName(item.name)
+                                                }));
+                                                const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
+
+                                                const showPlatform = shouldShowPieChart(pieData?.platform) && platformData.length > 1;
+                                                const showPos = shouldShowPieChart(pieData?.pos) && posData.length > 1;
+                                                const showSource = shouldShowPieChart(pieData?.source) && sourceData.length > 1;
+
+                                                if (!showPlatform && !showPos && !showSource) return null;
+
+                                                return (
+                                                    <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                        <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/10 border-b border-purple-100 dark:border-purple-800">
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                                    <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
+                                                                    <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                                </div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 flex-shrink-0 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full"
+                                                                    onClick={() => {
+                                                                        const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                        const mode = eventDistModes[event.eventId] || (showPlatform ? 'platform' : showPos ? 'pos' : 'source');
+                                                                        openExpandedPie(mode, `${event.eventName} - ${mode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                    }}
+                                                                >
+                                                                    <Maximize2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                                </Button>
+                                                            </div>
+                                                        </CardHeader>
+                                                        <CardContent className="p-4">
+                                                            {/* Distribution Mode Toggle */}
+                                                            <div className="flex items-center justify-center p-1 mb-4 bg-muted/60 dark:bg-slate-800/60 rounded-xl border border-border/50 shadow-sm">
+                                                                {[
+                                                                    { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
+                                                                    { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
+                                                                    { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
+                                                                ].filter(t => t.show).map((tab) => {
+                                                                    const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                    const isActive = activeMode === tab.id;
+                                                                    const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+
+                                                                    return (
+                                                                        <button
+                                                                            key={tab.id}
+                                                                            onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                            className={cn(
+                                                                                "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-300",
+                                                                                isActive
+                                                                                    ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-md border border-${tab.color}-100 dark:border-${tab.color}-900/50`
+                                                                                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                            )}
+                                                                        >
+                                                                            {tab.label}
+                                                                            {dataLength > 1 && (
+                                                                                <span className={cn(
+                                                                                    "w-1.5 h-1.5 rounded-full animate-pulse",
+                                                                                    isActive ? `bg-${tab.color}-500` : "bg-slate-300 dark:bg-slate-600"
+                                                                                )} />
+                                                                            )}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {/* Large Pie Chart View */}
+                                                            <div className="relative group">
+                                                                {(() => {
+                                                                    const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                    const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                                                    const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                    const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
+                                                                    return (
+                                                                        <div className="space-y-4">
+                                                                            <div
+                                                                                className="h-44 w-full cursor-pointer transition-transform duration-300 group-hover:scale-105 relative"
+                                                                                onClick={() => {
+                                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                    openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                                }}
+                                                                            >
+                                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                                    <PieChart>
+                                                                                        <Pie
+                                                                                            data={activeData}
+                                                                                            cx="50%"
+                                                                                            cy="50%"
+                                                                                            innerRadius={55}
+                                                                                            outerRadius={85}
+                                                                                            paddingAngle={2}
+                                                                                            dataKey="value"
+                                                                                            isAnimationActive={false}
+                                                                                            stroke="none"
+                                                                                        >
+                                                                                            {activeData.map((_: any, idx: number) => (
+                                                                                                <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                            ))}
+                                                                                        </Pie>
+                                                                                        <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
+                                                                                    </PieChart>
+                                                                                </ResponsiveContainer>
+
+                                                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                                    <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                        {formatNumber(totalVal)}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                            <div className="space-y-1.5 px-2">
+                                                                                {[...activeData]
+                                                                                    .sort((a: any, b: any) => b.value - a.value)
+                                                                                    .slice(0, 3)
+                                                                                    .map((item: any, idx: number) => {
+                                                                                        const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                        return (
+                                                                                            <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                    <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                                </div>
+                                                                                                <div className="flex items-center gap-2 tabular-nums">
+                                                                                                    <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                                    <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
                         {isHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
                             <div>
                                 <HourlyStatsCard graphData={filteredGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
                             </div>
                         )}
-                    </div>
+                    </div >
                 );
             })}
         </>

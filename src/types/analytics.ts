@@ -130,6 +130,7 @@ export interface PanelConfig {
         dailyDeviationCurve?: boolean; // For <7 days: show 7-day overlay comparison
         isApiEvent?: boolean; // Toggle for API events vs regular events
         showHourlyStats?: boolean; // Enable hourly/daily toggle for this panel
+        showEventPieCharts?: boolean; // New: Show separate pie charts for each event
 
         // Graph-specific configurations maintained in filter state
         userFlowConfig?: UserFlowGraphConfig;

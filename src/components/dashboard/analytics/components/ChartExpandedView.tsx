@@ -29,7 +29,7 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div
-                className="bg-white dark:bg-slate-900 w-full h-full sm:w-[95vw] sm:h-[90vh] sm:rounded-2xl shadow-2xl flex flex-col relative overflow-hidden"
+                className="bg-white dark:bg-slate-900 w-full h-full sm:w-[95vw] sm:h-[85vh] sm:rounded-2xl shadow-2xl flex flex-col relative overflow-hidden sm:mt-16"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -59,16 +59,18 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
 
                 {/* Content Area - Scrollable with Zoom */}
                 <div
-                    className="flex-1 w-full relative overflow-auto bg-gray-50/50 dark:bg-slate-950/50"
+                    className="flex-1 w-full relative overflow-auto bg-gray-50/50 dark:bg-slate-950/50 flex flex-col"
                     onWheel={handleWheel}
                 >
                     <div
-                        className="h-full min-h-0 transition-all duration-150 ease-out origin-top-left p-3 sm:p-6"
+                        className="flex-1 min-h-0 transition-all duration-150 ease-out origin-top-left p-3 sm:p-6"
                         style={{
                             // KEY CHANGE: Width Scaling logic
                             // Instead of transform: scale(), we set explicit width to force re-layout of X-axis
                             width: `${zoomLevel * 100}%`,
-                            minWidth: '100%'
+                            minWidth: '100%',
+                            // Ensure height takes full space if not zoomed, but expands if content needs it
+                            minHeight: '100%'
                         }}
                     >
                         {children(zoomLevel)}

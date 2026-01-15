@@ -52,6 +52,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
         to: Date;
     };
     showHourlyStats: boolean;
+    showEventPieCharts?: boolean;
     dailyDeviationCurve?: boolean;
     isApiEvent?: boolean; // Toggle for API events vs regular events
     autoApiConfig?: boolean; // Auto-detect and configure API events
@@ -471,6 +472,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 to: new Date()
                             },
                             showHourlyStats: savedConfig?.showHourlyStats !== false, // Default to true
+                            showEventPieCharts: savedConfig?.showEventPieCharts || false, // Default to false
                             // Default deviation curve to enabled unless explicitly disabled
                             dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false,
                             // Load API event flag - preserve from filterConfig OR detect from events
@@ -576,7 +578,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     },
                     graphType: 'line',
                     dateRange: {
-                        from: subDays(new Date(), 7),
+                        from: subDays(new Date(), 30),
                         to: new Date()
                     },
                     showHourlyStats: false,
@@ -636,7 +638,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             },
             graphType: 'line',
             dateRange: {
-                from: subDays(new Date(), 7),
+                from: subDays(new Date(), 30),
                 to: new Date()
             },
             showHourlyStats: false,  // Unchecked by default
@@ -779,7 +781,17 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const toggleHourlyStats = (panelId: string) => {
         setPanels(panels.map(p => {
             if (p.panelId === panelId) {
-                return { ...p, showHourlyStats: !p.showHourlyStats };
+                const newShowHourly = !p.showHourlyStats;
+                // Auto-adjust date range: 8 days for hourly, 30 days for daily
+                const newRange = newShowHourly 
+                    ? { from: subDays(new Date(), 8), to: new Date() }
+                    : { from: subDays(new Date(), 30), to: new Date() };
+                
+                return { 
+                    ...p, 
+                    showHourlyStats: newShowHourly,
+                    dateRange: newRange
+                };
             }
             return p;
         }));
@@ -864,8 +876,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const updatePanelAlertIsHourly = (panelId: string, isHourly: boolean) => {
         setPanels(panels.map(p => {
             if (p.panelId === panelId) {
+                // Auto-adjust date range: 8 days for hourly, 30 days for daily
+                const newRange = isHourly 
+                    ? { from: subDays(new Date(), 8), to: new Date() }
+                    : { from: subDays(new Date(), 30), to: new Date() };
+
                 return {
                     ...p,
+                    dateRange: newRange,
                     criticalAlertConfig: {
                         ...(p.criticalAlertConfig || { enabled: true, alertEventFilters: [], alertsIsApi: 0, alertsIsHourly: false }),
                         alertsIsHourly: isHourly
@@ -969,6 +987,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         to: p.dateRange.to.toISOString()
                     },
                     showHourlyStats: p.showHourlyStats,
+                    showEventPieCharts: p.showEventPieCharts,
                     dailyDeviationCurve: p.dailyDeviationCurve,
                     isApiEvent: p.isApiEvent || false // Save API event flag
                 };
@@ -1870,6 +1889,24 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         </div>
                                                                     </div>
 
+                                                                    {/* Events Analysis Toggle */}
+                                                                    <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
+                                                                        <div className="flex items-center justify-between gap-4">
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Events Analysis</Label>
+                                                                                <span className="text-[9px] text-muted-foreground">Show detailed pie charts for each event</span>
+                                                                            </div>
+                                                                            <Switch
+                                                                                checked={(panel as any).showEventPieCharts ?? false}
+                                                                                onCheckedChange={(checked) => setPanels(prev => prev.map(p =>
+                                                                                    p.panelId === panel.panelId
+                                                                                        ? { ...p, showEventPieCharts: checked }
+                                                                                        : p
+                                                                                ))}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
                                                                     {/* Child Events Grouping Toggle */}
                                                                     <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
                                                                         <div className="flex items-center justify-between gap-4">
@@ -2341,6 +2378,23 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     />
                                                                                     <Label htmlFor={`${panel.panelId}-hourly-stats`} className="cursor-pointer">
                                                                                         Hourly Stats Card (for ≤8 day ranges)
+                                                                                    </Label>
+                                                                                </div>
+                                                                                <div className="flex items-center space-x-2">
+                                                                                    <Checkbox
+                                                                                        id={`${panel.panelId}-event-pie-charts`}
+                                                                                        checked={panel.showEventPieCharts}
+                                                                                        onCheckedChange={() => {
+                                                                                            setPanels(panels.map(p => 
+                                                                                                p.panelId === panel.panelId 
+                                                                                                    ? { ...p, showEventPieCharts: !p.showEventPieCharts }
+                                                                                                    : p
+                                                                                            ));
+                                                                                        }}
+                                                                                    />
+                                                                                    <Label htmlFor={`${panel.panelId}-event-pie-charts`} className="cursor-pointer flex flex-col">
+                                                                                        <span className="font-medium">Show Distribution Pie Charts</span>
+                                                                                        <span className="text-[10px] text-muted-foreground">Creates separate POS/Platform/Source pie charts for each event</span>
                                                                                     </Label>
                                                                                 </div>
                                                                                 <div className="flex items-center space-x-2">

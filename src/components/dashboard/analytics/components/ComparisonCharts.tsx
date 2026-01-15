@@ -210,7 +210,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     }
 
     const Content = (
-        <div className="h-[450px] w-full">
+        <div className={cn("w-full transition-all duration-300", headless ? "h-full" : "h-[450px]")}>
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
@@ -330,9 +330,70 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
 
     if (headless) {
         return (
-            <div className="w-full h-full relative">
-                {/* Smart summary chips embedded in headless mode if needed, or kept clean */}
-                <div className="mb-3 flex flex-wrap gap-2 text-sm px-2">
+            <div className="w-full h-full flex flex-col gap-4">
+                {/* Top Controls: Event Stats Badges */}
+                {eventStats && eventStats.length > 0 && (
+                    <div className="flex flex-wrap gap-2 px-2 py-1 bg-white/50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
+                        {eventStats
+                            .slice()
+                            .sort((a, b) => {
+                                // Extract status codes and sort numerically (200, 400, 500, etc.)
+                                const extractStatusCode = (key: string) => {
+                                    const match = key.match(/\d{3}/);
+                                    return match ? parseInt(match[0]) : 999;
+                                };
+                                const aCode = extractStatusCode(a.eventKey);
+                                const bCode = extractStatusCode(b.eventKey);
+                                // If both are status codes, sort by code
+                                if (aCode !== 999 && bCode !== 999) {
+                                    return aCode - bCode;
+                                }
+                                // Otherwise sort by total count descending
+                                return b.total - a.total;
+                            })
+                            .map((stat, idx) => {
+                                const isSelected = selectedEventKey === stat.eventKey;
+                                // Determine color based on status code
+                                const statusMatch = stat.eventKey.match(/\d{3}/);
+                                const statusCode = statusMatch ? parseInt(statusMatch[0]) : NaN;
+                                let badgeColor;
+                                if (!isNaN(statusCode)) {
+                                    if (statusCode >= 200 && statusCode < 300) {
+                                        badgeColor = '#22c55e'; // Green for 2xx
+                                    } else if (statusCode >= 400 && statusCode < 500) {
+                                        badgeColor = '#f59e0b'; // Orange for 4xx
+                                    } else if (statusCode >= 500) {
+                                        badgeColor = '#ef4444'; // Red for 5xx
+                                    } else {
+                                        badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
+                                    }
+                                } else {
+                                    badgeColor = eventColors[stat.eventId] || DAY_COLORS[idx % DAY_COLORS.length];
+                                }
+                                return (
+                                    <div
+                                        key={stat.eventKey}
+                                        onClick={() => onEventClick?.(stat.eventKey)}
+                                        className={cn(
+                                            "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-all border select-none",
+                                            isSelected
+                                                ? "bg-purple-100 dark:bg-purple-900/40 border-purple-500 shadow-sm scale-105"
+                                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700"
+                                        )}
+                                    >
+                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: badgeColor }} />
+                                        <span className={cn("text-xs font-semibold whitespace-nowrap", isSelected ? 'text-purple-900 dark:text-purple-100' : 'text-slate-600 dark:text-slate-400')}>
+                                            {eventNames[String(stat.eventId)] || stat.eventKey}
+                                        </span>
+                                        <span className="text-xs font-bold whitespace-nowrap">{stat.total.toLocaleString()}</span>
+                                    </div>
+                                );
+                            })}
+                    </div>
+                )}
+
+                {/* Smart summary chips embedded in headless mode */}
+                <div className="flex flex-wrap gap-2 text-sm px-2">
                     {peakHourTime && peakHourValue != null && (
                         <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
                             Peak: {peakHourTime} ({formatNumber(peakHourValue)})
@@ -343,9 +404,12 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                             {todayVsAvgPct >= 0 ? '▲' : '▼'} vs 7d: {todayVsAvgPct >= 0 ? '+' : ''}{todayVsAvgPct.toFixed(0)}%
                         </div>
                     )}
-
                 </div>
-                {Content}
+
+                {/* Main Content Area - takes remaining space */}
+                <div className="flex-1 min-h-0 w-full relative">
+                    {Content}
+                </div>
             </div>
         );
     }
