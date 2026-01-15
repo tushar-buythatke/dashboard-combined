@@ -72,7 +72,15 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     const [panelTreeExpanded, setPanelTreeExpanded] = useState(true);
     const { user } = useAnalyticsAuth();
     const { deleteProfile } = useFirebaseConfig();
-    const isAdmin = useMemo(() => user?.role === 0, [user?.role]);
+    const isAdmin = useMemo(() => user?.role === 1, [user?.role]);
+
+    // Helper to check write access for this specific feature
+    const hasWriteAccess = useMemo(() => {
+        if (isAdmin) return true;
+        if (!user?.permissions?.features) return false;
+        return user.permissions.features[featureId] === 'write';
+    }, [isAdmin, user?.permissions, featureId]);
+
     const [showSmartGuide, setShowSmartGuide] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     // activePanelId is now a prop
@@ -101,7 +109,9 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                 })) as DashboardProfile[];
                 setProfiles(data);
                 if (!selectedProfileId && data.length > 0) {
-                    onSelectProfile(data[0].profileId);
+                    // Default to first non-APIs profile, or first profile if only APIs exists
+                    const defaultProfile = data.find(p => p.profileName !== 'APIs') || data[0];
+                    onSelectProfile(defaultProfile.profileId);
                 }
             }
         };
@@ -190,7 +200,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     };
 
     const handleDeleteConfirm = async () => {
-        if (!profileToDelete || !isAdmin) return;
+        if (!profileToDelete || !hasWriteAccess) return;
 
         const profileId = profileToDelete.profileId;
 
@@ -313,7 +323,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
             </Button>
 
             {/* New Profile Button */}
-            {isAdmin && (
+            {hasWriteAccess && (
                 <Button
                     onClick={onCreateProfile}
                     size="icon"
@@ -371,7 +381,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                     )}
                 </div>
                 <div className="flex items-center gap-1">
-                    {isAdmin && (
+                    {hasWriteAccess && (
                         <Button
                             onClick={onCreateProfile}
                             size="sm"
@@ -496,7 +506,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                 </div>
                                             </div>
 
-                                            {isAdmin && (
+                                            {hasWriteAccess && (
                                                 <div
                                                     role="button"
                                                     tabIndex={0}

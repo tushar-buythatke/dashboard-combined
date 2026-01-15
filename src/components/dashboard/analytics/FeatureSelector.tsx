@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { Feature } from '@/types/analytics';
-import { mockService } from '@/services/mockData';
 import { getFeatureColor, apiService } from '@/services/apiService';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BarChart3, ArrowRight, Zap, Loader2 } from 'lucide-react';
@@ -13,29 +13,49 @@ interface FeatureSelectorProps {
 
 export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
     const { selectedOrganization } = useOrganization();
+    const { user } = useAnalyticsAuth();
     const [features, setFeatures] = useState<Feature[]>([]);
     const [loading, setLoading] = useState(true);
     const [alertCounts, setAlertCounts] = useState<Record<string, number>>({});
     const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
-    // Load base features
+    // Load base features - FAST: Direct API call, no Firebase
     useEffect(() => {
         const loadFeatures = async () => {
             setLoading(true);
             try {
                 const orgId = selectedOrganization?.id ?? 0;
-                const baseFeatures = await mockService.getFeatures(orgId);
+                
+                // Direct API call - fast and reliable
+                const apiFeatures = await apiService.getFeaturesList(orgId);
+                
+                // Transform to Feature format
+                let baseFeatures: Feature[] = apiFeatures.map(f => ({
+                    id: f.id.toString(),
+                    name: f.name,
+                    description: `${f.name} analytics and tracking`
+                }));
+
+                // Filter features based on user permissions
+                // Admins (role=1) see all features
+                // Users with null permissions also see all (until admin sets permissions)
+                // Only filter if user has explicit permissions set
+                if (user?.role !== 1 && user?.permissions?.features && Object.keys(user.permissions.features).length > 0) {
+                    baseFeatures = baseFeatures.filter(f => !!user?.permissions?.features?.[String(f.id)]);
+                }
+
                 setFeatures(baseFeatures);
             } catch (error) {
                 console.error('Failed to load features', error);
+                setFeatures([]); // Show empty instead of hanging
             } finally {
                 setLoading(false);
             }
         };
         loadFeatures();
-    }, [selectedOrganization?.id]);
+    }, [selectedOrganization?.id, user?.role, user?.permissions]);
 
-    // Load alert counts for features
+    // Load alert counts for features (runs after features load, doesn't block UI)
     useEffect(() => {
         const loadAlertCounts = async () => {
             if (!features.length) return;
@@ -180,13 +200,12 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                                 key={feature.id}
                                 onMouseEnter={() => setHoveredCard(feature.id)}
                                 onMouseLeave={() => setHoveredCard(null)}
-                                className={`transform transition-transform duration-200 ease-out active:scale-[0.98] ${
-                                    hasAlerts 
-                                        ? hoveredCard === feature.id
-                                            ? 'scale-[1.04] -translate-y-2' 
-                                            : 'hover:scale-[1.03] hover:-translate-y-1.5'
-                                        : 'hover:scale-[1.02] hover:-translate-y-1'
-                                }`}
+                                className={`transform transition-transform duration-200 ease-out active:scale-[0.98] ${hasAlerts
+                                    ? hoveredCard === feature.id
+                                        ? 'scale-[1.04] -translate-y-2'
+                                        : 'hover:scale-[1.03] hover:-translate-y-1.5'
+                                    : 'hover:scale-[1.02] hover:-translate-y-1'
+                                    }`}
                                 style={{ willChange: 'transform' }}
                             >
                                 <div

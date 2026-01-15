@@ -409,9 +409,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
     const [apiSelectedEventKey, setApiSelectedEventKey] = useState<string | null>(null); // Independent selection for API Performance Metrics
     const [overlaySelectedEventKey, setOverlaySelectedEventKey] = useState<string | null>(null); // Independent selection for 8-Day Overlay
+    const [avgSelectedEventKey, setAvgSelectedEventKey] = useState<string | null>(null); // Independent selection for Avg/Cost Trends
     const [errorSelectedEventKey, setErrorSelectedEventKey] = useState<string | null>(null); // Independent selection for Error Event Tracking
     const [panelLegendExpanded, setPanelLegendExpanded] = useState<Record<string, boolean>>({});
     const [panelSelectedEventKey, setPanelSelectedEventKey] = useState<Record<string, string | null>>({});
+    const [panelAvgSelectedEventKey, setPanelAvgSelectedEventKey] = useState<Record<string, string | null>>({});
     const panelRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     // API event metric view - comprehensive metrics
@@ -442,7 +444,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
     // Voice Recognition
     const { user } = useAnalyticsAuth();
-    const isAdmin = user?.role === 0;
+    const isAdmin = user?.role === 1;
 
     const { isRecording, transcript, isSupported: isVoiceSupported, toggleRecording, tooltip: voiceTooltip } = useVoiceRecognition();
     const [isParsingVoice, setIsParsingVoice] = useState(false);
@@ -3659,7 +3661,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             overlaySelectedEventKey={overlaySelectedEventKey}
                             handleOverlayEventClick={handleOverlayEventClick}
                             errorSelectedEventKey={errorSelectedEventKey}
-                            handleErrorEventClick={handleErrorEventClick}
+                            handleErrorEventClick={(k) => setErrorSelectedEventKey(prev => prev === k ? null : k)}
+                            avgSelectedEventKey={avgSelectedEventKey}
+                            handleAvgEventClick={(k) => setAvgSelectedEventKey(prev => prev === k ? null : k)}
                             apiSelectedEventKey={apiSelectedEventKey}
                             handleApiEventClick={handleApiEventClick}
                             panelChartType={panelChartType}
@@ -3722,7 +3726,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         panelLegendExpanded={panelLegendExpanded}
                         togglePanelLegend={togglePanelLegend}
                         panelSelectedEventKey={panelSelectedEventKey}
-                        handlePanelEventClick={handlePanelEventClick}
+                        handlePanelEventClick={(panelId: string, k: string) => setPanelSelectedEventKey(prev => ({ ...prev, [panelId]: prev[panelId] === k ? null : k }))}
+                        panelAvgSelectedEventKey={panelAvgSelectedEventKey}
+                        handlePanelAvgEventClick={(panelId: string, k: string) => setPanelAvgSelectedEventKey(prev => ({ ...prev, [panelId]: prev[panelId] === k ? null : k }))}
                         CustomXAxisTick={CustomXAxisTick}
                         panelApiPerformanceSeriesMap={panelApiPerformanceSeriesMap}
                         panelApiMetricView={panelApiMetricView}

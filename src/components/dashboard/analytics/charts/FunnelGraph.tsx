@@ -309,7 +309,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             onReset={resetZoom}
                         />
                     </div>
-                    <div 
+                    <div
                         className="relative h-[450px] flex items-end justify-center gap-6 md:gap-8 pl-12 pr-8 md:pl-14 md:pr-12 origin-center transition-transform duration-100 ease-out"
                         style={{ transform: `scale(${zoomLevel})` }}
                         onWheel={handleWheel}
@@ -367,8 +367,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                                 <span className={cn(
                                                                     "font-bold",
                                                                     stage.dropoffPercentage > 30 ? "text-red-600 dark:text-red-400" :
-                                                                    stage.dropoffPercentage > 15 ? "text-orange-600 dark:text-orange-400" :
-                                                                    "text-yellow-600 dark:text-yellow-400"
+                                                                        stage.dropoffPercentage > 15 ? "text-orange-600 dark:text-orange-400" :
+                                                                            "text-yellow-600 dark:text-yellow-400"
                                                                 )}>-{stage.dropoffPercentage.toFixed(2)}%</span>
                                                             </div>
                                                             <div className="flex items-center justify-between gap-4">
@@ -389,29 +389,43 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             /* Regular single-event bar with dual metrics */
                                             <div
                                                 className={cn(
-                                                    "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-hidden",
+                                                    "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-visible",
                                                     // Color code based on drop-off percentage
                                                     stage.dropoffPercentage > 30
                                                         ? "bg-gradient-to-t from-red-400/90 to-red-500/90 hover:from-red-500/90 hover:to-red-600/90 border-2 border-red-500/30"
                                                         : stage.dropoffPercentage > 15
-                                                        ? "bg-gradient-to-t from-orange-400/90 to-orange-500/90 hover:from-orange-500/90 hover:to-orange-600/90 border-2 border-orange-500/30"
-                                                        : "bg-gradient-to-t from-indigo-400/90 to-indigo-500/90 hover:from-indigo-500/90 hover:to-indigo-600/90 border-2 border-indigo-500/30",
+                                                            ? "bg-gradient-to-t from-orange-400/90 to-orange-500/90 hover:from-orange-500/90 hover:to-orange-600/90 border-2 border-orange-500/30"
+                                                            : "bg-gradient-to-t from-indigo-400/90 to-indigo-500/90 hover:from-indigo-500/90 hover:to-indigo-600/90 border-2 border-indigo-500/30",
                                                     isSelected && "ring-4 ring-indigo-300/50 dark:ring-indigo-400/50 scale-105"
                                                 )}
                                                 style={{ height: `${heightPct}%` }}
                                             >
-                                                {/* DUAL METRICS: Percentage + Count always visible */}
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                                                    <span className="text-white font-bold text-base sm:text-lg md:text-xl drop-shadow-lg">
-                                                        {stage.percentage.toFixed(1)}%
-                                                    </span>
-                                                    <span className="text-white/90 font-semibold text-xs sm:text-sm drop-shadow-lg">
-                                                        {stage.count.toLocaleString()}
-                                                    </span>
-                                                </div>
+                                                {/* Labels ABOVE bar when percentage < 10% - positioned at top of bar with negative offset */}
+                                                {stage.percentage < 10 && (
+                                                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 whitespace-nowrap">
+                                                        <span className="font-bold text-base sm:text-lg text-indigo-600 dark:text-indigo-400 drop-shadow-sm">
+                                                            {stage.percentage.toFixed(1)}%
+                                                        </span>
+                                                        <span className="font-semibold text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                                            {stage.count.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* DUAL METRICS: Percentage + Count inside bar (only when percentage >= 10%) */}
+                                                {stage.percentage >= 10 && (
+                                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+                                                        <span className="text-white font-bold text-base sm:text-lg md:text-xl drop-shadow-lg">
+                                                            {stage.percentage.toFixed(1)}%
+                                                        </span>
+                                                        <span className="text-white/90 font-semibold text-xs sm:text-sm drop-shadow-lg">
+                                                            {stage.count.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                )}
 
                                                 {/* High drop-off indicator */}
-                                                {stage.dropoffPercentage > 20 && (
+                                                {stage.dropoffPercentage > 20 && stage.percentage >= 10 && (
                                                     <div className="absolute top-1 right-1 bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5">
                                                         <span className="text-white text-[10px] font-bold">-{stage.dropoffPercentage.toFixed(0)}%</span>
                                                     </div>

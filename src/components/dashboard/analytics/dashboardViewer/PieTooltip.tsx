@@ -21,9 +21,9 @@ export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0 }: 
 
     // Determine the metric label based on isAvgEventType or metricType
     const getMetricLabel = () => {
+        if (isCount) return 'Count';
         if (isAvgEventType === 2) return 'Amount (₹)';
         if (isAvgEventType === 1) return 'Avg Delay (ms)';
-        if (isCount) return 'Count';
         if (metricType === 'avgDelay') return isAvgEventType === 2 ? 'Avg Amount (₹)' : 'Avg Delay (ms)';
         if (metricType === 'medianDelay') return 'Median Delay (ms)';
         if (metricType === 'modeDelay') return 'Mode Delay (ms)';
@@ -33,6 +33,9 @@ export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0 }: 
     const formatValue = (v: any) => {
         const n = Number(v);
         if (!Number.isFinite(n)) return '0';
+
+        // Prioritize count formatting
+        if (isCount) return n.toLocaleString();
 
         // Use isAvgEventType for formatting
         if (isAvgEventType === 2) {

@@ -3,7 +3,9 @@ import type { AnalyticsDataResponse, EventConfig } from '@/types/analytics';
 
 // Direct API URLs - backend now handles CORS
 const API_BASE_URL = 'https://ext1.buyhatke.com/feature-tracking/dashboard';
-const POS_API_BASE_URL = 'https://search-new.bitbns.com/buyhatkeAdDashboard/ads';
+const POS_API_BASE_URL = import.meta.env.DEV 
+    ? 'http://localhost:8096/buyhatkeAdDashboard/ads'
+    : 'https://search-new.bitbns.com/buyhatkeAdDashboard/ads';
 
 // Platform mappings (fixed values)
 export const PLATFORMS = [

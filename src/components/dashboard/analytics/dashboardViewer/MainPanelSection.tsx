@@ -138,6 +138,8 @@ type MainPanelSectionProps = {
     handleOverlayEventClick: (eventKey: string) => void;
     errorSelectedEventKey: string | null;
     handleErrorEventClick: (eventKey: string) => void;
+    avgSelectedEventKey: string | null;
+    handleAvgEventClick: (eventKey: string) => void;
     apiSelectedEventKey: string | null;
     handleApiEventClick: (eventKey: string) => void;
     panelChartType: Record<string, 'default' | 'deviation'>;
@@ -213,6 +215,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     handleOverlayEventClick,
     errorSelectedEventKey,
     handleErrorEventClick,
+    avgSelectedEventKey,
+    handleAvgEventClick,
     apiSelectedEventKey,
     handleApiEventClick,
     panelChartType,
@@ -1501,12 +1505,17 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             return graphData;
                         })();
 
-                        // Define onToggleBackToFunnel handler once
-                        const handleToggleBackToFunnel = (profile?.panels?.[0] as any)?.previousGraphType === 'funnel' ? () => {
-                            if (profile && profile.panels && profile.panels[0]) {
+                        // Define onToggleBackToFunnel handler once - show button when ANY previousGraphType exists
+                        const previousGraphType = (profile?.panels?.[0] as any)?.previousGraphType;
+                        const handleToggleBackToFunnel = previousGraphType ? () => {
+                            // Read the CURRENT previousGraphType inside the handler to avoid stale closure
+                            const currentPreviousGraphType = (profile?.panels?.[0] as any)?.previousGraphType;
+                            console.log('🔄 Back to Funnel clicked:', { currentPreviousGraphType, profile: !!profile, panels: profile?.panels?.length });
+                            
+                            if (profile && profile.panels && profile.panels[0] && currentPreviousGraphType) {
                                 const updatedConfig = {
                                     ...profile.panels[0].filterConfig,
-                                    graphType: 'funnel' as const,
+                                    graphType: currentPreviousGraphType as 'funnel' | 'percentage' | 'user_flow',
                                 };
 
                                 const updatedProfile = {
@@ -1520,13 +1529,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     )
                                 };
 
+                                console.log('🔄 Updating profile with graphType:', currentPreviousGraphType);
                                 setProfile(updatedProfile as any);
 
                                 toast({
-                                    title: "🔄 Switched to Funnel Analysis",
-                                    description: "Back to funnel view",
+                                    title: `🔄 Switched to ${currentPreviousGraphType === 'funnel' ? 'Funnel' : currentPreviousGraphType === 'user_flow' ? 'User Flow' : 'Previous'} Analysis`,
+                                    description: `Back to ${currentPreviousGraphType} view`,
                                     duration: 2000,
                                 });
+                            } else {
+                                console.error('❌ Cannot switch back:', { profile: !!profile, panels: profile?.panels?.length, currentPreviousGraphType });
                             }
                         } : undefined;
 
@@ -2843,8 +2855,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         onToggle={() => setMainLegendExpanded(!mainLegendExpanded)}
                                         maxVisibleItems={5}
                                         graphData={graphData}
-                                        selectedEventKey={selectedEventKey}
-                                        onEventClick={handleEventClick}
+                                        selectedEventKey={avgSelectedEventKey}
+                                        onEventClick={handleAvgEventClick}
                                     />
                                 )}
 
@@ -2948,7 +2960,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     />
                                                     {/* Dynamic areas for avg (time) events */}
                                                     {avgEventKeys
-                                                        .filter(ek => !selectedEventKey || ek.eventKey === selectedEventKey)
+                                                        .filter(ek => !avgSelectedEventKey || ek.eventKey === avgSelectedEventKey)
                                                         .map((eventKeyInfo, index) => {
                                                             const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];

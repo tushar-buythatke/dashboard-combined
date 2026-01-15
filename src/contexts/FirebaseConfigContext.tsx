@@ -87,7 +87,7 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
   const [isConnected, setIsConnected] = useState(globalIsConnected);
   const [isLoading, setIsLoading] = useState(!globalConnectionChecked);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Track if we've initialized
   const initializedRef = useRef(false);
 
@@ -102,7 +102,7 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
   const [selectedFeature, setSelectedFeature] = useState<FeatureConfig | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<DashboardProfileConfig | null>(null);
 
-  const isAdmin = user?.role === 0;
+  const isAdmin = user?.role === 1;
   const orgId = selectedOrganization?.id?.toString() || 'default';
 
   // Initialize connection ONCE (uses global singleton to prevent re-checking)
@@ -110,12 +110,12 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
     // Skip if already initialized in this component instance
     if (initializedRef.current) return;
     initializedRef.current = true;
-    
+
     // If already checked globally, use cached result
     if (globalConnectionChecked) {
       setIsConnected(globalIsConnected);
       setIsLoading(false);
-      
+
       // Load global config if connected
       if (globalIsConnected) {
         firebaseConfigService.getGlobalConfig().then(result => {
@@ -126,18 +126,18 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
       }
       return;
     }
-    
+
     // First time - check connection
     const initializeConnection = async () => {
       setIsLoading(true);
       try {
         console.log('🔥 Checking Firebase connection (one-time)...');
         const connected = await firebaseConfigService.checkConnection();
-        
+
         // Store globally to prevent re-checking
         globalConnectionChecked = true;
         globalIsConnected = connected;
-        
+
         setIsConnected(connected);
 
         if (connected) {
@@ -195,7 +195,7 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
       const result = await firebaseConfigService.getProfiles(selectedFeature.featureId, orgId);
       if (result.success) {
         setProfiles(result.items);
-        
+
         // Auto-select default profile
         const defaultProfile = result.items.find(p => p.isDefault);
         if (defaultProfile && !selectedProfile) {
@@ -407,8 +407,8 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
 
     try {
       const result = await firebaseConfigService.setDefaultProfile(
-        profileId, 
-        selectedFeature.featureId, 
+        profileId,
+        selectedFeature.featureId,
         orgId
       );
       if (result.success) {
@@ -423,7 +423,7 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
   }, [isAdmin, selectedFeature, orgId, refreshProfiles]);
 
   const cloneProfile = useCallback(async (
-    sourceProfileId: string, 
+    sourceProfileId: string,
     newName: string
   ): Promise<DashboardProfileConfig | null> => {
     if (!isAdmin || !user) {

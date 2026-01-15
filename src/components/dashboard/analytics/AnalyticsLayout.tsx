@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { DashboardProfile, Feature } from '@/types/analytics';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
-import { AnalyticsLogin } from './AnalyticsLogin';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
@@ -35,7 +34,19 @@ import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground } from '@/components/ui/animated-background';
 
 export function AnalyticsLayout() {
-    const { user, logout, isAuthenticated, isLoading } = useAnalyticsAuth();
+    const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers } = useAnalyticsAuth();
+    const navigate = useNavigate();
+
+    // Redirect if not authenticated
+    useEffect(() => {
+        if (!isLoading && !isAuthenticated) {
+            navigate('/auth', { replace: true });
+        }
+    }, [isAuthenticated, isLoading, navigate]);
+
+    // Prevent flash of protected content while redirecting
+    if (!isLoading && !isAuthenticated) return null;
+
     const { organizations, selectedOrganization, setSelectedOrganization } = useOrganization();
     const { mode, toggleMode } = useTheme();
     const { toast } = useToast();
@@ -47,6 +58,15 @@ export function AnalyticsLayout() {
     const [featureSelectorKey, setFeatureSelectorKey] = useState(0);
     const [criticalAlertsData, setCriticalAlertsData] = useState<any[]>([]);
     const [activePanelId, setActivePanelId] = useState<string | null>(null);
+
+    // Admin Access Management
+    const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+    const [showAdminPane, setShowAdminPane] = useState(true);
+
+    // User Access Request
+    const [showRequestAccessModal, setShowRequestAccessModal] = useState(false);
+    const [requestFeatures, setRequestFeatures] = useState<string[]>([]);
+    const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
     // Live clock with seconds
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -91,7 +111,24 @@ export function AnalyticsLayout() {
     // Mobile sidebar visibility
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-    const isAdmin = user?.role === 0;
+    const isAdmin = user?.role === 1;
+
+    // Helper to check write access for a feature
+    const hasWriteAccess = (featureId: string | null) => {
+        // If user is global admin (role 1), they have write access everywhere
+        if (isAdmin) return true;
+
+        if (!featureId || !user?.permissions?.features) return false;
+        return user.permissions.features[featureId] === 'write';
+    };
+
+    // Helper to check if user has access to a feature
+    const hasFeatureAccess = (featureId: string) => {
+        if (isAdmin) return true;
+
+        if (!user?.permissions?.features) return false;
+        return !!user.permissions.features[featureId];
+    };
 
     // Panel navigation - scroll to specific panel by ID and auto-fetch data
     const handleJumpToPanel = (panelId: string, panelName?: string) => {
@@ -126,19 +163,89 @@ export function AnalyticsLayout() {
     useEffect(() => {
         const loadFeatures = async () => {
             try {
-                const features = await mockService.getFeatures(selectedOrganization?.id ?? 0);
+                let features = await mockService.getFeatures(selectedOrganization?.id ?? 0);
+
+                // Filter features based on user permissions (unless user is global admin)
+                if (!isAdmin && user?.permissions?.features) {
+                    features = features.filter(f => hasFeatureAccess(f.id));
+                }
+
                 setAvailableFeatures(features);
                 if (features.length > 0 && !selectedFeatureId) {
                     setNewConfigFeature(features[0].id);
                 }
             } catch (error) {
                 console.error('Failed to load features:', error);
-                // Set empty array as fallback to prevent blank screen
                 setAvailableFeatures([]);
             }
         };
         loadFeatures();
-    }, [selectedOrganization?.id, selectedFeatureId]);
+        loadFeatures();
+    }, [selectedOrganization?.id, selectedFeatureId, user?.permissions]);
+
+    // Load pending users for Admin
+    useEffect(() => {
+        if (isAdmin) {
+            const loadPending = async () => {
+                if (getPendingUsers) {
+                    const users = await getPendingUsers();
+                    setPendingUsers(users);
+                }
+            };
+            loadPending();
+            // Poll every 30s
+            const interval = setInterval(loadPending, 30000);
+            return () => clearInterval(interval);
+        }
+    }, [isAdmin, getPendingUsers]);
+
+    const handleAdminAction = async (userId: string | number, action: 'approve' | 'reject', permissions?: any) => {
+        if (adminAction) {
+            const result = await adminAction(userId, action, permissions);
+            if (result.success) {
+                toast({
+                    title: action === 'approve' ? "User Approved" : "Request Rejected",
+                    description: `Successfully ${action}ed user request.`,
+                });
+                // Refresh pending users
+                const users = await getPendingUsers();
+                setPendingUsers(users);
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Action Failed",
+                    description: result.message || "Could not process request.",
+                });
+            }
+        }
+    };
+
+    const handleRequestAccess = async () => {
+        if (requestAccess && requestFeatures.length > 0) {
+            setIsSubmittingRequest(true);
+            const permissions: { features: Record<string, 'read' | 'write'> } = { features: {} };
+            requestFeatures.forEach(fid => {
+                permissions.features[fid] = 'read'; // Default to read access
+            });
+
+            const result = await requestAccess(permissions);
+            setIsSubmittingRequest(false);
+
+            if (result.success) {
+                toast({
+                    title: "Request Submitted",
+                    description: "Your access request has been sent to the admin.",
+                });
+                setShowRequestAccessModal(false);
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Request Failed",
+                    description: result.message || "Could not submit request.",
+                });
+            }
+        }
+    };
 
     // Load existing profiles when modal opens
     useEffect(() => {
@@ -199,7 +306,7 @@ export function AnalyticsLayout() {
                 profileId: `profile_${Date.now()}`,
                 profileName: newConfigName,
                 featureId: newConfigFeature,
-                createdBy: user?.id || 'admin',
+                createdBy: String(user?.id || 'admin'),
                 createdAt: new Date().toISOString(),
                 lastModified: new Date().toISOString(),
                 version: 1,
@@ -252,10 +359,6 @@ export function AnalyticsLayout() {
         );
     }
 
-    if (!isAuthenticated) {
-        return <AnalyticsLogin />;
-    }
-
     if (!selectedFeatureId) {
         return (
             <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-purple-50/30 dark:to-purple-950/10 relative overflow-hidden">
@@ -300,6 +403,52 @@ export function AnalyticsLayout() {
                         </div>
                     </div>
                     <div className="flex items-center gap-1.5 lg:gap-3">
+                        {/* Request Access Button (Non-Admins) */}
+                        {!isAdmin && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    if (user?.pending_status === 1) {
+                                        toast({ title: "Request Pending", description: "You already have a pending request." });
+                                    } else {
+                                        navigate('/request-access');
+                                    }
+                                }}
+                                className={`hidden sm:flex gap-2 h-8 ${user?.pending_status === 1 ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10' : ''}`}
+                            >
+                                {user?.pending_status === 1 ? (
+                                    <>
+                                        <Clock className="h-3.5 w-3.5" />
+                                        <span>Request Pending</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <UserPlus className="h-3.5 w-3.5" />
+                                        <span>Request Access</span>
+                                    </>
+                                )}
+                            </Button>
+                        )}
+
+                        {/* Admin Access Panel Button */}
+                        {isAdmin && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate('/admin')}
+                                className="flex items-center gap-1.5 h-8 px-3 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                            >
+                                <ShieldAlert className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Admin Panel</span>
+                                {pendingUsers.length > 0 && (
+                                    <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-red-500 text-white font-bold animate-pulse">
+                                        {pendingUsers.length}
+                                    </span>
+                                )}
+                            </Button>
+                        )}
+
                         {/* Live Clock */}
                         <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-50/50 to-violet-50/50 dark:from-purple-900/20 dark:to-violet-900/20 border border-purple-200/50 dark:border-purple-500/30">
                             <div className="flex items-center gap-1.5">
@@ -324,7 +473,7 @@ export function AnalyticsLayout() {
                             {mode === 'dark' ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-purple-600" />}
                         </Button>
 
-                        {isAdmin && (
+                        {hasWriteAccess(selectedFeatureId || newConfigFeature) && (
                             <Button
                                 onClick={() => setShowNewConfigModal(true)}
                                 size="sm"
@@ -486,6 +635,8 @@ export function AnalyticsLayout() {
                             setSelectedFeatureId(null);
                             setSelectedProfileId(null);
                             setIsCreatingProfile(false);
+                            // Force fresh remount of FeatureSelector to avoid stale loading state
+                            setFeatureSelectorKey(prev => prev + 1);
                         }}
                         className="hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8 w-8 lg:h-9 lg:w-9"
                     >
@@ -516,7 +667,7 @@ export function AnalyticsLayout() {
                         {mode === 'dark' ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-purple-600" />}
                     </Button>
 
-                    {isAdmin && (
+                    {hasWriteAccess(selectedFeatureId) && (
                         <div className="hidden sm:block">
                             <Button
                                 onClick={() => setShowNewConfigModal(true)}
@@ -529,7 +680,7 @@ export function AnalyticsLayout() {
                         </div>
                     )}
                     <span className="text-xs lg:text-sm px-2 lg:px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 font-medium hidden sm:inline-flex">
-                        {user?.role === 0 ? '✨ Admin' : '👁 Viewer'}
+                        {isAdmin ? '✨ Super Admin' : (hasWriteAccess(selectedFeatureId) ? '✍️ Editor' : '👁 Viewer')}
                     </span>
                     <Button variant="ghost" size="icon" onClick={logout} className="hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 h-8 w-8">
                         <LogOut className="h-4 w-4" />
@@ -613,6 +764,7 @@ export function AnalyticsLayout() {
                     <div className="absolute inset-0 bg-dot-pattern opacity-30 pointer-events-none" />
 
                     <div className="relative z-10 p-4 lg:p-6">
+
                         {isCreatingProfile ? (
                             <ProfileBuilder
                                 featureId={selectedFeatureId}
@@ -623,7 +775,7 @@ export function AnalyticsLayout() {
                         ) : selectedProfileId ? (
                             <DashboardViewer
                                 profileId={selectedProfileId}
-                                onEditProfile={isAdmin ? (_profile: DashboardProfile) => {
+                                onEditProfile={hasWriteAccess(selectedFeatureId) ? (_profile: DashboardProfile) => {
                                     setIsCreatingProfile(true);
                                 } : undefined}
                                 onAlertsUpdate={setCriticalAlertsData}
@@ -748,6 +900,52 @@ export function AnalyticsLayout() {
                                     Add Panels
                                 </>
                             )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Request Access Modal */}
+            <Dialog open={showRequestAccessModal} onOpenChange={setShowRequestAccessModal}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Request Feature Access</DialogTitle>
+                        <DialogDescription>
+                            Select the features you need access to. Admin approval is required.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2">
+                            <Label>Available Features</Label>
+                            {availableFeatures.map(feature => (
+                                <div key={feature.id} className="flex items-center space-x-2 border p-2 rounded hover:bg-muted/50 transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        id={`req-feature-${feature.id}`}
+                                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={requestFeatures.includes(String(feature.id))}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setRequestFeatures([...requestFeatures, String(feature.id)]);
+                                            } else {
+                                                setRequestFeatures(requestFeatures.filter(id => id !== String(feature.id)));
+                                            }
+                                        }}
+                                    />
+                                    <div className="flex-1">
+                                        <label htmlFor={`req-feature-${feature.id}`} className="text-sm font-medium leading-none cursor-pointer block">
+                                            {feature.name}
+                                        </label>
+                                        <p className="text-xs text-muted-foreground mt-0.5">{feature.description || "Analytics and tracking"}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowRequestAccessModal(false)}>Cancel</Button>
+                        <Button onClick={handleRequestAccess} disabled={isSubmittingRequest || requestFeatures.length === 0}>
+                            {isSubmittingRequest ? "Submitting..." : "Submit Request"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

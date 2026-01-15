@@ -88,11 +88,11 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
 
     // Highlight state
     // - selectedDayKey: used when manually picking a day from legend
-    // - highlightRecentTwo: when true, always emphasize the last 2 days
+    // - highlightRecentTwo: defaulted to false as per request to remove this feature
     const [selectedDayKey, setSelectedDayKey] = React.useState<string | null>(() =>
         daysAsc.length > 0 ? daysAsc[daysAsc.length - 1] : null
     );
-    const [highlightRecentTwo, setHighlightRecentTwo] = React.useState<boolean>(true);
+    const [highlightRecentTwo, setHighlightRecentTwo] = React.useState<boolean>(false);
 
     // Auto-select first event on load if available
     React.useEffect(() => {
@@ -343,15 +343,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                             {todayVsAvgPct >= 0 ? '▲' : '▼'} vs 7d: {todayVsAvgPct >= 0 ? '+' : ''}{todayVsAvgPct.toFixed(0)}%
                         </div>
                     )}
-                    <Button
-                        type="button"
-                        variant={highlightRecentTwo ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-7 px-3 text-xs font-semibold rounded-lg ml-auto"
-                        onClick={() => setHighlightRecentTwo((prev) => !prev)}
-                    >
-                        {highlightRecentTwo ? 'Today + 2' : 'Selected'}
-                    </Button>
+
                 </div>
                 {Content}
             </div>
@@ -373,20 +365,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                             </p>
                         </div>
                     </div>
-                    <div className="hidden sm:flex flex-col items-end gap-2">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground font-medium">Highlight</span>
-                            <Button
-                                type="button"
-                                variant={highlightRecentTwo ? 'default' : 'outline'}
-                                size="sm"
-                                className="h-9 px-4 text-sm font-semibold rounded-lg"
-                                onClick={() => setHighlightRecentTwo((prev) => !prev)}
-                            >
-                                {highlightRecentTwo ? 'Today + last 2' : 'Legend selected'}
-                            </Button>
-                        </div>
-                    </div>
+
                     {/* Event Stats Badges */}
                     {!headless && eventStats && eventStats.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-3">

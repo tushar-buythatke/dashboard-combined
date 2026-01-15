@@ -18,7 +18,7 @@ export const EVENT_COLORS = [
 
 // Premium error colors - sophisticated and vibrant for better distinction
 export const ERROR_COLORS = [
-     '#dc2626', // Red 600 - Primary Error
+    '#dc2626', // Red 600 - Primary Error
     '#ea580c', // Orange 600 - Warning
     '#ca8a04', // Yellow 600 - Caution
     '#c026d3', // Fuchsia 600 - Secondary Error
@@ -88,9 +88,9 @@ export const combinePieChartDuplicates = (data: any[] | Record<string, any>): an
 };
 
 // Utility function to check if pie chart should be displayed
-// Returns false if there's only 1 item (100% share) - no point showing that
+// Now shows pie chart even for single entry (100% share) for consistency
 export const shouldShowPieChart = (data: any[] | Record<string, any>): boolean => {
     if (!data) return false;
     const combinedData = combinePieChartDuplicates(data);
-    return combinedData.length > 1;
+    return combinedData.length >= 1; // Show pie chart even for 100% single entry
 };

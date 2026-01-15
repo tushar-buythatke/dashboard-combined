@@ -105,6 +105,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     togglePanelLegend,
     panelSelectedEventKey,
     handlePanelEventClick,
+    panelAvgSelectedEventKey,
+    handlePanelAvgEventClick,
     CustomXAxisTick,
     panelApiPerformanceSeriesMap,
     panelApiMetricView,
@@ -1561,14 +1563,23 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 // Update hourly override state using the per-panel setter
                                                 setPanelHourlyOverrideForId?.(panel.panelId, newIsHourly);
                                             }}
-                                            onToggleBackToFunnel={(panel as any)?.previousGraphType === 'funnel' ? () => {
-                                                // Toggle back to funnel graph
-                                                if (profile && profile.panels) {
-                                                    const actualIndex = panelIndex + 1;
+                                            onToggleBackToFunnel={(panel as any)?.previousGraphType ? () => {
+                                                // Toggle back to previous graph type
+                                                const prevType = (panel as any)?.previousGraphType;
+                                                // FIX: Use activePanelIndex directly instead of panelIndex + 1
+                                                // panelIndex is always 0 due to single panel filter, but activePanelIndex is the correct index
+                                                console.log('🔄 Back to Previous (Additional Panel) clicked:', { prevType, panelIndex, activePanelIndex, panelId: panel.panelId });
+
+                                                if (profile && profile.panels && prevType) {
+                                                    const actualIndex = activePanelIndex; // FIX: Use activePanelIndex directly
                                                     const targetPanel = profile.panels[actualIndex];
+                                                    if (!targetPanel) {
+                                                        console.error('❌ Target panel not found at index:', actualIndex);
+                                                        return;
+                                                    }
                                                     const updatedConfig = {
                                                         ...targetPanel.filterConfig,
-                                                        graphType: 'funnel' as const,
+                                                        graphType: prevType as 'funnel' | 'percentage' | 'user_flow',
                                                     };
 
                                                     const updatedProfile = {
@@ -1582,7 +1593,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         )
                                                     };
 
+                                                    console.log('🔄 Updating additional panel at index', actualIndex, 'with graphType:', prevType);
                                                     setProfile?.(updatedProfile);
+                                                } else {
+                                                    console.error('❌ Cannot switch back (Additional Panel):', { prevType, profileExists: !!profile });
                                                 }
                                             } : undefined}
                                             events={events}
@@ -2695,8 +2709,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     onToggle={() => togglePanelLegend?.(`${panel.panelId}_avg`)}
                                                     maxVisibleItems={4}
                                                     graphData={filteredGraphData}
-                                                    selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
-                                                    onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
+                                                    selectedEventKey={panelAvgSelectedEventKey?.[panel.panelId] || null}
+                                                    onEventClick={(eventKey: string) => handlePanelAvgEventClick?.(panel.panelId, eventKey)}
                                                 />
                                                 <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden">
                                                     {/* Zoom Controls for Time Delay Trends */}
@@ -2767,7 +2781,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     />
                                                                     <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
                                                                     {pAvgEventKeys
-                                                                        .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
+                                                                        .filter((ek: any) => !panelAvgSelectedEventKey?.[panel.panelId] || ek.eventKey === panelAvgSelectedEventKey?.[panel.panelId])
                                                                         .map((eventKeyInfo: any, index: number) => {
                                                                             const event = (events || []).find((e: any) => String(e.eventId) === eventKeyInfo.eventId);
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];

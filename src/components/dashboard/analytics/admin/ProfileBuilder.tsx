@@ -1025,7 +1025,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             profileId: initialProfileId || `profile_${Date.now()}`,
             profileName,
             featureId,
-            createdBy: user?.id || 'unknown',
+            createdBy: String(user?.id || 'unknown'),
             createdAt: new Date().toISOString(),
             lastModified: new Date().toISOString(),
             version: 1,

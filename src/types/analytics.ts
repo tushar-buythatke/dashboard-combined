@@ -1,10 +1,18 @@
-export type UserRole = 0 | 1 | 2; // 0 = Admin, 1 = User, 2 = Viewer (read-only)
+export type UserRole = 0 | 1 | 2; // 0 = Viewer (Read-only), 1 = Admin (Full access), 2 = View Only
 
 export interface User {
-    id: string;
+    id: number | string;
     username: string;
-    role: UserRole;
-    token: string;
+    role?: UserRole;
+    token?: string;
+    dashboardId?: number;
+    permissions?: {
+        features: Record<string, 'read' | 'write'>;
+    } | null;
+    pending_permissions?: {
+        features: Record<string, 'read' | 'write'>;
+    } | null;
+    pending_status?: number; // 0=none, 1=pending
 }
 
 export interface Feature {
@@ -122,7 +130,7 @@ export interface PanelConfig {
         dailyDeviationCurve?: boolean; // For <7 days: show 7-day overlay comparison
         isApiEvent?: boolean; // Toggle for API events vs regular events
         showHourlyStats?: boolean; // Enable hourly/daily toggle for this panel
-        
+
         // Graph-specific configurations maintained in filter state
         userFlowConfig?: UserFlowGraphConfig;
         percentageConfig?: PercentageGraphConfig;
