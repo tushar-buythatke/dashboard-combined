@@ -128,19 +128,24 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const loginUser = (userData: User) => {
-        setUser(userData);
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
-            user: userData,
-            expiry: Date.now() + SESSION_EXPIRY
-        }));
-    };
-
     const logout = () => {
         setUser(null);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
         // Force redirect to auth page to prevent component errors
         window.location.href = '/auth';
+    };
+
+    // Standardized setUser wrapper for persistence
+    const loginUser = (userData: User | null) => {
+        setUser(userData);
+        if (userData) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
+                user: userData,
+                expiry: Date.now() + SESSION_EXPIRY
+            }));
+        } else {
+            localStorage.removeItem(LOCAL_STORAGE_KEY);
+        }
     };
 
     const requestAccess = async (permissions: any) => {
