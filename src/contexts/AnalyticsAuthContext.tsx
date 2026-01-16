@@ -69,14 +69,28 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
-    // Refresh user data on mount - DISABLED per user request for 3-day persistence
-    /*
+    // Auto-refresh user data to check for approval status changes
+    // This ensures users who were approved get their status updated automatically
     useEffect(() => {
-        if (user?.id) {
-            refreshUser();
+        if (!user?.id) return;
+
+        // Initial refresh on mount
+        refreshUser();
+
+        // Set up periodic refresh every 30 seconds if user has pending status
+        if (user.pending_status === 1) {
+            console.log('👀 User has pending request - setting up auto-refresh');
+            const intervalId = setInterval(() => {
+                console.log('🔄 Auto-checking approval status...');
+                refreshUser();
+            }, 30000); // Check every 30 seconds
+
+            return () => {
+                console.log('🛑 Stopping auto-refresh');
+                clearInterval(intervalId);
+            };
         }
-    }, []); // Run once on mount
-    */
+    }, [user?.id, user?.pending_status]); // Re-run if user ID or pending status changes
 
     const [isLoading, setIsLoading] = useState(false); // Already checked synchronously above
 
@@ -212,28 +226,61 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
             const data = await response.json();
 
             if (data.status === 1 && data.data) {
+                // Backend returns: { approved, userId, userName, type, permissions, pending_status, pending_permissions }
+                const backendData = data.data;
+                
+                // CRITICAL FIX: Handle both 'approved' flag and 'pending_status'
+                // When user is approved: approved=true, pending_status=0
+                // When user is pending: approved=false, pending_status=1
+                const isApproved = backendData.approved === true;
+                const finalPendingStatus = isApproved ? 0 : (backendData.pending_status ?? 1);
+                
                 // Update local state with fresh data from DB
                 const freshUser: User = {
                     ...user,
-                    role: data.data.type, // Map type to role
-                    permissions: data.data.permissions || user.permissions,
-                    pending_status: data.data.pending_status,
-                    pending_permissions: data.data.pending_permissions
+                    role: backendData.type ?? user.role, // Map type to role
+                    permissions: backendData.permissions || user.permissions,
+                    // FIX: Use calculated pending_status based on approved flag
+                    pending_status: finalPendingStatus,
+                    pending_permissions: backendData.pending_permissions ?? null
                 };
+
+                // Detect approval status change
+                const wasApproved = user.pending_status === 0;
+                const nowApproved = finalPendingStatus === 0;
+                const statusChanged = wasApproved !== nowApproved;
 
                 // Only update if something changed to avoid loop
                 if (JSON.stringify(freshUser) !== JSON.stringify(user)) {
-                    console.log('Refreshing user data from backend', freshUser);
+                    if (statusChanged && nowApproved) {
+                        console.log('🎉 USER APPROVED! Status changed from pending to approved', {
+                            userId: user.id,
+                            username: user.username,
+                            oldPendingStatus: user.pending_status,
+                            newPendingStatus: finalPendingStatus,
+                            permissions: freshUser.permissions
+                        });
+                    } else {
+                        console.log('✅ Refreshing user data from backend', {
+                            approved: isApproved,
+                            oldPendingStatus: user.pending_status,
+                            newPendingStatus: finalPendingStatus,
+                            permissions: freshUser.permissions
+                        });
+                    }
+                    
                     setUser(freshUser);
                     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
                         user: freshUser,
                         expiry: Date.now() + SESSION_EXPIRY
                     }));
                 }
+            } else {
+                console.warn('⚠️ Invalid response from checkApproval API:', data);
             }
         } catch (e) {
             // Silently fail if backend is unreachable to prevent UI crash
-            console.warn("Failed to refresh user data (backend might be offline):", e);
+            console.warn("❌ Failed to refresh user data (backend might be offline):", e);
         }
     };
 

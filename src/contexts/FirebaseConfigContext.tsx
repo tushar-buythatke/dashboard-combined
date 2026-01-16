@@ -2,6 +2,14 @@
  * Firebase Configuration Context
  * Provides centralized access to Firebase-stored configurations.
  * Optimized to avoid excessive API calls and re-renders.
+ * 
+ * ============================================================================
+ * FIREBASE DISABLED: This context is currently disabled as all data is now
+ * stored in the custom database. The context remains for type compatibility.
+ * 
+ * TO RE-ENABLE: Set ENABLE_FIREBASE=true in firebase.ts and uncomment the
+ * FirebaseConfigProvider wrapper in src/pages/Analytics.tsx
+ * ============================================================================
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -9,6 +17,7 @@ import type { ReactNode } from 'react';
 import { firebaseConfigService } from '../services/firebaseConfigService';
 import { useAnalyticsAuth } from './AnalyticsAuthContext';
 import { useOrganization } from './OrganizationContext';
+import { ENABLE_FIREBASE } from '../../firebase';
 import type {
   GlobalAppConfig,
   FeatureConfig,
@@ -106,10 +115,22 @@ export function FirebaseConfigProvider({ children }: FirebaseConfigProviderProps
   const orgId = selectedOrganization?.id?.toString() || 'default';
 
   // Initialize connection ONCE (uses global singleton to prevent re-checking)
+  // FIREBASE DISABLED: Skip connection check when Firebase is disabled
   useEffect(() => {
     // Skip if already initialized in this component instance
     if (initializedRef.current) return;
     initializedRef.current = true;
+
+    // FIREBASE DISABLED: Skip all Firebase operations
+    if (!ENABLE_FIREBASE) {
+      console.log('🔥 Firebase is DISABLED - skipping connection check');
+      globalConnectionChecked = true;
+      globalIsConnected = false;
+      setIsConnected(false);
+      setIsLoading(false);
+      setError(null);
+      return;
+    }
 
     // If already checked globally, use cached result
     if (globalConnectionChecked) {
