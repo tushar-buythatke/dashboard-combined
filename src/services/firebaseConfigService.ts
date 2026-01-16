@@ -6,6 +6,8 @@
  * 
  * Now with dual-write support: writes go to custom DB first, then Firebase.
  * Reads use DB as primary with Firebase as fallback.
+ * 
+ * FIREBASE DISABLED: This service now only uses the custom database.
  */
 
 import { dashboardDbService } from './dashboardDbService';
@@ -22,7 +24,8 @@ import {
   query,
   where,
   reconnectFirestore,
-  firebaseConfig
+  firebaseConfig,
+  ENABLE_FIREBASE
 } from '../../firebase';
 
 import type {
@@ -64,12 +67,22 @@ const cache: {
 class FirebaseConfigService {
   private listeners: Map<string, UnsubscribeFunction> = new Map();
 
+  // Helper to check if Firebase is available
+  private isFirebaseEnabled(): boolean {
+    return ENABLE_FIREBASE && db !== null;
+  }
+
   // ==================== GLOBAL CONFIG ====================
 
   /**
    * Get global application configuration
    */
   async getGlobalConfig(): Promise<ConfigOperationResult<GlobalAppConfig>> {
+    // FIREBASE DISABLED GUARD
+    if (!this.isFirebaseEnabled()) {
+      return { success: true, data: DEFAULT_GLOBAL_CONFIG };
+    }
+
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.GLOBAL_CONFIG, 'global');
       const docSnap = await getDoc(docRef);
@@ -91,6 +104,9 @@ class FirebaseConfigService {
    * Initialize global config with defaults
    */
   async initializeGlobalConfig(): Promise<ConfigOperationResult<GlobalAppConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: true, data: DEFAULT_GLOBAL_CONFIG };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.GLOBAL_CONFIG, 'global');
       await setDoc(docRef, DEFAULT_GLOBAL_CONFIG);
@@ -105,6 +121,9 @@ class FirebaseConfigService {
    * Update global configuration (admin only)
    */
   async updateGlobalConfig(config: Partial<GlobalAppConfig>, updatedBy: string): Promise<ConfigOperationResult<GlobalAppConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.GLOBAL_CONFIG, 'global');
       const updateData = {
@@ -128,6 +147,9 @@ class FirebaseConfigService {
    * Get all organizations
    */
   async getOrganizations(): Promise<ConfigListResult<OrganizationConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: true, items: [], total: 0 };
+    }
     try {
       // Simple query - sort in memory to avoid index requirements
       const snapshot = await getDocs(collection(db, FIREBASE_COLLECTIONS.ORGANIZATIONS));
@@ -146,6 +168,9 @@ class FirebaseConfigService {
    * Get organization by ID
    */
   async getOrganization(orgId: string): Promise<ConfigOperationResult<OrganizationConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.ORGANIZATIONS, orgId);
       const docSnap = await getDoc(docRef);
@@ -164,6 +189,9 @@ class FirebaseConfigService {
    * Create or update organization
    */
   async saveOrganization(org: OrganizationConfig): Promise<ConfigOperationResult<OrganizationConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.ORGANIZATIONS, org.orgId);
       const data = {
@@ -184,6 +212,11 @@ class FirebaseConfigService {
    * Get all features for an organization (with caching)
    */
   async getFeatures(orgId: string, forceRefresh: boolean = false): Promise<ConfigListResult<FeatureConfig>> {
+    // FIREBASE DISABLED GUARD
+    if (!this.isFirebaseEnabled()) {
+      return { success: true, items: [], total: 0 };
+    }
+
     // Check cache first
     const cacheKey = orgId;
     const cached = cache.features.get(cacheKey);
@@ -219,6 +252,9 @@ class FirebaseConfigService {
    * Get feature by ID
    */
   async getFeature(featureId: string): Promise<ConfigOperationResult<FeatureConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.FEATURES, featureId);
       const docSnap = await getDoc(docRef);
@@ -237,6 +273,9 @@ class FirebaseConfigService {
    * Create or update feature
    */
   async saveFeature(feature: FeatureConfig): Promise<ConfigOperationResult<FeatureConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.FEATURES, feature.featureId);
       const data = {
@@ -255,6 +294,9 @@ class FirebaseConfigService {
    * Delete feature (soft delete)
    */
   async deleteFeature(featureId: string): Promise<ConfigOperationResult<void>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.FEATURES, featureId);
       await updateDoc(docRef, {
@@ -345,7 +387,7 @@ class FirebaseConfigService {
 
           // Cache the results for faster subsequent loads
           cache.profilesByFeature.set(cacheKey, { data: items, timestamp: Date.now() });
-          
+
           return { success: true, items, total: items.length };
         }
       } catch (dbError) {
@@ -355,6 +397,12 @@ class FirebaseConfigService {
     // ========================================
 
     // ========== FALLBACK TO FIREBASE ==========
+    // Skip Firebase fallback if disabled
+    if (!this.isFirebaseEnabled()) {
+      console.log(`⚠️ Firebase disabled, returning empty profiles for feature ${featureId}`);
+      return { success: true, items: [], total: 0 };
+    }
+
     try {
       console.log(`🔄 Falling back to Firebase for feature ${featureId}`);
 
@@ -383,6 +431,11 @@ class FirebaseConfigService {
    * Uses caching to avoid repeated calls
    */
   async getAllProfiles(forceRefresh: boolean = false): Promise<ConfigListResult<DashboardProfileConfig>> {
+    // FIREBASE DISABLED GUARD
+    if (!this.isFirebaseEnabled()) {
+      return { success: true, items: [], total: 0 };
+    }
+
     // Check cache first
     if (!forceRefresh && cache.allProfiles && Date.now() - cache.allProfiles.timestamp < CACHE_TTL) {
       // console.log(`📦 Returning cached profiles (${cache.allProfiles.data.length} profiles)`);
@@ -497,6 +550,11 @@ class FirebaseConfigService {
     // ========================================
 
     // ========== FIREBASE FALLBACK ==========
+    // Skip Firebase fallback if disabled
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Profile not found (Firebase disabled)' };
+    }
+
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, profileId);
       const docSnap = await getDoc(docRef);
@@ -517,8 +575,6 @@ class FirebaseConfigService {
    */
   async saveProfile(profile: DashboardProfileConfig, modifiedBy: string): Promise<ConfigOperationResult<DashboardProfileConfig>> {
     try {
-      const docRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, profile.profileId);
-
       const data: DashboardProfileConfig = {
         ...profile,
         updatedAt: new Date().toISOString(),
@@ -562,6 +618,16 @@ class FirebaseConfigService {
       }
       // ========================================
 
+      // Skip Firebase write if disabled
+      if (!this.isFirebaseEnabled()) {
+        console.log('⚠️ Firebase disabled, saved to DB only:', profile.profileId);
+        // Invalidate profiles cache
+        cache.allProfiles = undefined;
+        cache.profilesByFeature.clear();
+        return { success: true, data };
+      }
+
+      const docRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, profile.profileId);
       await setDoc(docRef, data);
 
       // Invalidate profiles cache
@@ -600,6 +666,15 @@ class FirebaseConfigService {
       }
       // ========================================
 
+      // Skip Firebase update if disabled
+      if (!this.isFirebaseEnabled()) {
+        console.log('⚠️ Firebase disabled, deleted from DB only:', profileId);
+        // Invalidate profiles cache
+        cache.allProfiles = undefined;
+        cache.profilesByFeature.clear();
+        return { success: true };
+      }
+
       const docRef = doc(db, FIREBASE_COLLECTIONS.PROFILES, profileId);
       await updateDoc(docRef, {
         isActive: false,
@@ -621,6 +696,9 @@ class FirebaseConfigService {
    * Set profile as default for a feature
    */
   async setDefaultProfile(profileId: string, featureId: string, orgId: string): Promise<ConfigOperationResult<void>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       // First, unset all other defaults for this feature
       const profiles = await this.getProfiles(featureId, orgId);
@@ -652,6 +730,9 @@ class FirebaseConfigService {
    * Get all events for a feature
    */
   async getEvents(featureId: string, orgId: string): Promise<ConfigListResult<EventDefinitionConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: true, items: [], total: 0 };
+    }
     try {
       // Simple query - filter and sort in memory to avoid index requirements
       const q = query(
@@ -674,6 +755,9 @@ class FirebaseConfigService {
    * Save event definition
    */
   async saveEvent(event: EventDefinitionConfig): Promise<ConfigOperationResult<EventDefinitionConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.EVENTS, event.eventId);
       const data = {
@@ -709,6 +793,9 @@ class FirebaseConfigService {
    * Get panel templates
    */
   async getPanelTemplates(featureId: string, orgId: string): Promise<ConfigListResult<PanelTemplateConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: true, items: [], total: 0 };
+    }
     try {
       const q = query(
         collection(db, FIREBASE_COLLECTIONS.PANEL_TEMPLATES),
@@ -729,6 +816,9 @@ class FirebaseConfigService {
    * Save panel template
    */
   async savePanelTemplate(template: PanelTemplateConfig, createdBy: string): Promise<ConfigOperationResult<PanelTemplateConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.PANEL_TEMPLATES, template.templateId);
       const data = {
@@ -750,6 +840,9 @@ class FirebaseConfigService {
    * Get user preferences
    */
   async getUserPreferences(userId: string): Promise<ConfigOperationResult<UserPreferencesConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.USER_PREFERENCES, userId);
       const docSnap = await getDoc(docRef);
@@ -768,6 +861,9 @@ class FirebaseConfigService {
    * Save user preferences
    */
   async saveUserPreferences(prefs: UserPreferencesConfig): Promise<ConfigOperationResult<UserPreferencesConfig>> {
+    if (!this.isFirebaseEnabled()) {
+      return { success: false, error: 'Firebase is disabled' };
+    }
     try {
       const docRef = doc(db, FIREBASE_COLLECTIONS.USER_PREFERENCES, prefs.userId);
       const data = {
@@ -792,6 +888,11 @@ class FirebaseConfigService {
     orgId: string,
     callback: (profiles: DashboardProfileConfig[]) => void
   ): UnsubscribeFunction {
+    // FIREBASE DISABLED: Return no-op unsubscribe
+    if (!this.isFirebaseEnabled()) {
+      return () => { };
+    }
+
     const q = query(
       collection(db, FIREBASE_COLLECTIONS.PROFILES),
       where('featureId', '==', featureId),
@@ -814,6 +915,10 @@ class FirebaseConfigService {
    * Subscribe to global config changes
    */
   subscribeToGlobalConfig(callback: (config: GlobalAppConfig) => void): UnsubscribeFunction {
+    if (!this.isFirebaseEnabled()) {
+      return () => { };
+    }
+
     const docRef = doc(db, FIREBASE_COLLECTIONS.GLOBAL_CONFIG, 'global');
 
     const unsubscribe = onSnapshot(docRef, (snapshot: any) => {
@@ -831,6 +936,10 @@ class FirebaseConfigService {
    * Subscribe to feature changes
    */
   subscribeToFeatures(orgId: string, callback: (features: FeatureConfig[]) => void): UnsubscribeFunction {
+    if (!this.isFirebaseEnabled()) {
+      return () => { };
+    }
+
     const q = query(
       collection(db, FIREBASE_COLLECTIONS.FEATURES),
       where('orgId', '==', orgId),
@@ -922,6 +1031,11 @@ class FirebaseConfigService {
    * Check if Firebase is initialized and connected
    */
   async checkConnection(): Promise<boolean> {
+    // FIREBASE DISABLED: Return false immediately when Firebase is disabled
+    if (!ENABLE_FIREBASE) {
+      return false;
+    }
+
     try {
       // First check if Firebase config is properly loaded
       if (!firebaseConfig.projectId || !firebaseConfig.apiKey) {

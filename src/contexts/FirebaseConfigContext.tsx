@@ -76,11 +76,41 @@ interface FirebaseConfigContextType {
 
 const FirebaseConfigContext = createContext<FirebaseConfigContextType | undefined>(undefined);
 
-export function useFirebaseConfig() {
+export function useFirebaseConfig(): FirebaseConfigContextType {
   const context = useContext(FirebaseConfigContext);
-  if (context === undefined) {
-    throw new Error('useFirebaseConfig must be used within a FirebaseConfigProvider');
+
+  // FIREBASE DISABLED: Return safe defaults when not in provider or Firebase is disabled
+  if (context === undefined || !ENABLE_FIREBASE) {
+    // Return safe default values when Firebase is disabled
+    return {
+      isConnected: false,
+      isLoading: false,
+      error: ENABLE_FIREBASE ? 'Not in FirebaseConfigProvider' : 'Firebase is disabled',
+      globalConfig: DEFAULT_GLOBAL_CONFIG,
+      features: [],
+      selectedFeature: null,
+      setSelectedFeature: () => { },
+      profiles: [],
+      selectedProfile: null,
+      setSelectedProfile: () => { },
+      events: [],
+      panelTemplates: [],
+      isAdmin: false,
+      saveProfile: async () => false,
+      deleteProfile: async () => false,
+      saveFeature: async () => false,
+      deleteFeature: async () => false,
+      saveEvent: async () => false,
+      savePanelTemplate: async () => false,
+      updateGlobalConfig: async () => false,
+      setDefaultProfile: async () => false,
+      cloneProfile: async () => null,
+      refreshFeatures: async () => { },
+      refreshProfiles: async () => { },
+      refreshEvents: async () => { },
+    };
   }
+
   return context;
 }
 

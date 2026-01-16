@@ -27,7 +27,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useFirebaseConfig } from '@/contexts/FirebaseConfigContext';
 import {
     Tooltip,
     TooltipContent,
@@ -71,7 +70,6 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     const [profileToDelete, setProfileToDelete] = useState<DashboardProfile | null>(null);
     const [panelTreeExpanded, setPanelTreeExpanded] = useState(true);
     const { user } = useAnalyticsAuth();
-    const { deleteProfile } = useFirebaseConfig();
     const isAdmin = useMemo(() => user?.role === 1, [user?.role]);
 
     // Helper to check write access for this specific feature
@@ -220,13 +218,13 @@ export const ProfileSidebar = memo(function ProfileSidebar({
         setProfileToDelete(null);
 
         // Call API in background - if it fails, we could re-add but usually it succeeds
-        const success = await deleteProfile(profileId);
-        if (!success) {
+        const result = await firebaseConfigService.deleteProfile(profileId, featureId);
+        if (!result.success) {
             // API failed - refresh the list to restore
             console.error('Delete failed, refreshing profiles...');
-            const result = await firebaseConfigService.getProfiles(featureId, 'default');
-            if (result.success) {
-                const data = result.items.map(p => ({
+            const refreshResult = await firebaseConfigService.getProfiles(featureId, 'default');
+            if (refreshResult.success) {
+                const data = refreshResult.items.map(p => ({
                     ...p,
                     lastModified: p.updatedAt || p.createdAt,
                 })) as DashboardProfile[];

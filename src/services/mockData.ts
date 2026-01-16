@@ -261,11 +261,15 @@ class MockService {
             this.saveProfilesToStorage();
         }
 
+        // FIREBASE DISABLED: Skip Firebase initialization
         // Check Firebase connection
-        this.initializeFirebase();
+        // this.initializeFirebase();
+        this.firebaseInitialized = false;
+        this.useFirebase = false;
     }
 
     private async initializeFirebase() {
+        // FIREBASE DISABLED: This method is no longer called
         try {
             const connected = await firebaseConfigService.checkConnection();
             this.firebaseInitialized = connected;
