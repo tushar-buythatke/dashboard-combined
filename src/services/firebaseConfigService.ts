@@ -132,9 +132,9 @@ class FirebaseConfigService {
       // Simple query - sort in memory to avoid index requirements
       const snapshot = await getDocs(collection(db, FIREBASE_COLLECTIONS.ORGANIZATIONS));
       const items = snapshot.docs
-        .map(doc => doc.data() as OrganizationConfig)
-        .filter(org => org.isActive !== false)
-        .sort((a, b) => (a.orgName || '').localeCompare(b.orgName || ''));
+        .map((doc: any) => doc.data() as OrganizationConfig)
+        .filter((org: OrganizationConfig) => org.isActive !== false)
+        .sort((a: OrganizationConfig, b: OrganizationConfig) => (a.orgName || '').localeCompare(b.orgName || ''));
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching organizations:', error);
@@ -201,9 +201,9 @@ class FirebaseConfigService {
       const snapshot = await getDocs(q);
       // Filter and sort in memory
       const items = snapshot.docs
-        .map(doc => doc.data() as FeatureConfig)
-        .filter(f => f.isActive !== false)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
+        .map((doc: any) => doc.data() as FeatureConfig)
+        .filter((f: FeatureConfig) => f.isActive !== false)
+        .sort((a: FeatureConfig, b: FeatureConfig) => (a.order || 0) - (b.order || 0));
 
       // Update cache
       cache.features.set(cacheKey, { data: items, timestamp: Date.now() });
@@ -367,8 +367,8 @@ class FirebaseConfigService {
 
       // Filter in memory for orgId and isActive
       const items = snapshot.docs
-        .map(doc => doc.data() as DashboardProfileConfig)
-        .filter(p => (p.orgId === orgId || !p.orgId || p.orgId === 'default') && p.isActive !== false);
+        .map((doc: any) => doc.data() as DashboardProfileConfig)
+        .filter((p: DashboardProfileConfig) => (p.orgId === orgId || !p.orgId || p.orgId === 'default') && p.isActive !== false);
 
       console.log(`✅ Firebase: Loaded ${items.length} profiles for feature ${featureId}`);
       return { success: true, items, total: items.length };
@@ -392,8 +392,8 @@ class FirebaseConfigService {
     try {
       const snapshot = await getDocs(collection(db, FIREBASE_COLLECTIONS.PROFILES));
       const items = snapshot.docs
-        .map(doc => doc.data() as DashboardProfileConfig)
-        .filter(p => p.isActive !== false);
+        .map((doc: any) => doc.data() as DashboardProfileConfig)
+        .filter((p: DashboardProfileConfig) => p.isActive !== false);
 
       // Update cache
       cache.allProfiles = { data: items, timestamp: Date.now() };
@@ -660,9 +660,9 @@ class FirebaseConfigService {
       );
       const snapshot = await getDocs(q);
       const items = snapshot.docs
-        .map(doc => doc.data() as EventDefinitionConfig)
-        .filter(e => (e.orgId === orgId || !e.orgId || e.orgId === 'default') && e.isActive !== false)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
+        .map((doc: any) => doc.data() as EventDefinitionConfig)
+        .filter((e: EventDefinitionConfig) => (e.orgId === orgId || !e.orgId || e.orgId === 'default') && e.isActive !== false)
+        .sort((a: EventDefinitionConfig, b: EventDefinitionConfig) => (a.order || 0) - (b.order || 0));
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -716,8 +716,8 @@ class FirebaseConfigService {
       );
       const snapshot = await getDocs(q);
       const items = snapshot.docs
-        .map(doc => doc.data() as PanelTemplateConfig)
-        .filter(t => t.isGlobal || t.featureId === featureId);
+        .map((doc: any) => doc.data() as PanelTemplateConfig)
+        .filter((t: PanelTemplateConfig) => t.isGlobal || t.featureId === featureId);
       return { success: true, items, total: items.length };
     } catch (error) {
       console.error('Error fetching panel templates:', error);
@@ -799,8 +799,8 @@ class FirebaseConfigService {
       where('isActive', '==', true)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const profiles = snapshot.docs.map(doc => doc.data() as DashboardProfileConfig);
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const profiles = snapshot.docs.map((doc: any) => doc.data() as DashboardProfileConfig);
       callback(profiles);
     });
 
@@ -816,7 +816,7 @@ class FirebaseConfigService {
   subscribeToGlobalConfig(callback: (config: GlobalAppConfig) => void): UnsubscribeFunction {
     const docRef = doc(db, FIREBASE_COLLECTIONS.GLOBAL_CONFIG, 'global');
 
-    const unsubscribe = onSnapshot(docRef, (snapshot) => {
+    const unsubscribe = onSnapshot(docRef, (snapshot: any) => {
       if (snapshot.exists()) {
         callback(snapshot.data() as GlobalAppConfig);
       }
@@ -837,8 +837,8 @@ class FirebaseConfigService {
       where('isActive', '==', true)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const features = snapshot.docs.map(doc => doc.data() as FeatureConfig);
+    const unsubscribe = onSnapshot(q, (snapshot: any) => {
+      const features = snapshot.docs.map((doc: any) => doc.data() as FeatureConfig);
       callback(features);
     });
 
