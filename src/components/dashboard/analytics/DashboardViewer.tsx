@@ -372,9 +372,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         sources: [],
         events: []
     });
-    const [alertDateRange, setAlertDateRange] = useState<{ from: Date; to: Date }>({
-        from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Last 7 days default
-        to: new Date()
+    // Alert date range - use dynamic default based on alertIsHourly state
+    const [alertDateRange, setAlertDateRange] = useState<{ from: Date; to: Date }>(() => {
+        // Dynamic default: 8 days for hourly (default), 30 days for daily
+        const daysBack = 8; // Start with hourly default
+        return {
+            from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
+            to: new Date()
+        };
     });
 
     // Multiple panels data storage
@@ -1626,24 +1631,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
                         initialPanelFilters[panel.panelId] = defaultFilters;
 
-                        // Load saved dateRange from panel config, or use appropriate default based on showHourlyStats
+                        // ALWAYS use dynamic defaults based on showHourlyStats, NEVER use old saved dates
+                        // This prevents showing outdated data from profile builder
                         const isHourlyPanel = panelConfig.showHourlyStats === true;
-                        let panelDateRange: DateRangeState;
-
-                        if (panelConfig.dateRange?.from && panelConfig.dateRange?.to) {
-                            // Use saved date range from config
-                            panelDateRange = {
-                                from: new Date(panelConfig.dateRange.from),
-                                to: new Date(panelConfig.dateRange.to)
-                            };
-                        } else {
-                            // Use appropriate default: 8 days for hourly, 30 days for daily
-                            const daysBack = isHourlyPanel ? 8 : 30;
-                            panelDateRange = {
-                                from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
-                                to: new Date()
-                            };
-                        }
+                        const daysBack = isHourlyPanel ? 8 : 30;
+                        const panelDateRange: DateRangeState = {
+                            from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
+                            to: new Date()
+                        };
 
                         initialPanelDateRanges[panel.panelId] = panelDateRange;
 
@@ -1653,24 +1648,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         initialPanelChartTypes[panel.panelId] = isDeviation ? 'deviation' : 'default';
                     });
 
-                    // Set main panel's date range from first panel's saved config
+                    // Set main panel's date range - ALWAYS use dynamic defaults, never old saved config
                     const firstPanel = loadedProfile.panels[0];
                     const firstConfig = (firstPanel as any)?.filterConfig || {};
                     const isMainHourly = firstConfig.showHourlyStats === true;
 
-                    if (firstConfig.dateRange?.from && firstConfig.dateRange?.to) {
-                        setDateRange({
-                            from: new Date(firstConfig.dateRange.from),
-                            to: new Date(firstConfig.dateRange.to)
-                        });
-                    } else {
-                        // Default: 8 days for hourly, 30 days for daily
-                        const daysBack = isMainHourly ? 8 : 30;
-                        setDateRange({
-                            from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
-                            to: new Date()
-                        });
-                    }
+                    // ALWAYS use fresh defaults: 8 days for hourly, 30 days for daily
+                    const daysBack = isMainHourly ? 8 : 30;
+                    setDateRange({
+                        from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
+                        to: new Date()
+                    });
 
                     // Set hourly override from first panel's saved config
                     if (firstConfig.showHourlyStats !== undefined) {
@@ -2474,17 +2462,24 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             setDateRange(newRange);
         }
 
-        // Trigger immediate refresh for active panel (use setTimeout to avoid state update during render)
+        // Sync ALL panel date ranges with the main date range
+        if (profile?.panels) {
+            const updatedPanelRanges: Record<string, DateRangeState> = {};
+            profile.panels.forEach(panel => {
+                updatedPanelRanges[panel.panelId] = newRange;
+            });
+            setPanelDateRanges(updatedPanelRanges);
+        }
+
+        // Trigger immediate refresh for ALL panels to avoid stale data
         if (profile?.panels && initialLoadComplete.current) {
             setTimeout(() => {
-                const activePanelId = profile.panels[activePanelIndex]?.panelId;
-                if (activePanelId) {
-                    // Ensure we use the new range immediately for the call
-                    refreshPanelData(activePanelId, undefined, newRange);
-                }
+                profile.panels.forEach((panel, idx) => {
+                    refreshPanelData(panel.panelId, undefined, newRange, undefined, newValue);
+                });
             }, 0);
         }
-    }, [dateRange, profile, activePanelIndex, refreshPanelData]);
+    }, [dateRange, profile, refreshPanelData]);
 
     const setPanelHourlyOverrideForId = useCallback((panelId: string, value: boolean | null) => {
         setPanelHourlyOverride(prev => ({
@@ -2492,28 +2487,40 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             [panelId]: value
         }));
 
-        // Trigger immediate refresh for this panel (use setTimeout to avoid state update during render)
+        // Adjust date range for the panel based on the new hourly/daily setting
+        let newRange: DateRangeState;
+        if (value === true) {
+            newRange = { from: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000), to: new Date() };
+        } else if (value === false) {
+            newRange = { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() };
+        } else {
+            newRange = panelDateRanges[panelId] || dateRange;
+        }
+
+        // Update this specific panel's date range
+        setPanelDateRanges(prev => ({ ...prev, [panelId]: newRange }));
+
+        // Trigger immediate refresh for this panel with the new settings
         if (profile?.panels && initialLoadComplete.current) {
             setTimeout(() => {
-                const panelIdx = profile.panels.findIndex(p => p.panelId === panelId);
-                if (panelIdx !== -1) {
-                    // Adjust date range for the panel as well
-                    let newRange = panelDateRanges[panelId] || dateRange;
-                    if (value === true) {
-                        newRange = { from: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000), to: new Date() };
-                    } else if (value === false) {
-                        newRange = { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() };
-                    }
-
-                    setPanelDateRanges(prev => ({ ...prev, [panelId]: newRange }));
-
-                    // Pass the new value directly to refreshPanelData as the 5th argument (overrideIsHourly)
-                    // This ensures the API call uses the NEW value, not the stale state
-                    refreshPanelData(panelId, undefined, newRange, undefined, value);
-                }
+                // Pass the new value directly to refreshPanelData as the 5th argument (overrideIsHourly)
+                // This ensures the API call uses the NEW value, not the stale state
+                refreshPanelData(panelId, undefined, newRange, undefined, value);
             }, 0);
         }
     }, [profile, refreshPanelData, panelDateRanges, dateRange]);
+
+    // Wrapper for setAlertIsHourly that auto-adjusts alert date range
+    const handleAlertIsHourlyChange = useCallback((isHourly: boolean) => {
+        setAlertIsHourly(isHourly);
+        
+        // Auto-adjust alert date range: 8 days for hourly, 30 days for daily
+        const daysBack = isHourly ? 8 : 30;
+        setAlertDateRange({
+            from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
+            to: new Date()
+        });
+    }, []);
 
     // NOTE: Additional panels use LAZY LOADING - they load data ONLY when:
     // 1. User clicks on the panel in the sidebar (see ProfileSidebar onPanelClick)
@@ -3593,18 +3600,24 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                                 };
                                                 setDateRange(newDateRange);
 
-                                                // Update the main panel's date range
-                                                if (profile?.panels && profile.panels.length > 0) {
-                                                    const mainPanelId = profile.panels[0].panelId;
+                                                // Sync ALL panel date ranges with the main date range
+                                                if (profile?.panels) {
+                                                    const updatedPanelRanges: Record<string, DateRangeState> = {};
+                                                    const updatedFilterChanges: Record<string, boolean> = {};
+                                                    
+                                                    profile.panels.forEach(panel => {
+                                                        updatedPanelRanges[panel.panelId] = newDateRange;
+                                                        updatedFilterChanges[panel.panelId] = true;
+                                                    });
+
                                                     setPanelDateRanges(prev => ({
                                                         ...prev,
-                                                        [mainPanelId]: newDateRange
+                                                        ...updatedPanelRanges
                                                     }));
 
-                                                    // Mark that this panel's filters have changed
                                                     setPanelFilterChanges(prev => ({
                                                         ...prev,
-                                                        [mainPanelId]: true
+                                                        ...updatedFilterChanges
                                                     }));
                                                 }
 
@@ -3724,7 +3737,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             onFilterChange={setAlertFilters}
                             onDateRangeChange={setAlertDateRange}
                             onIsApiChange={setAlertIsApi}
-                            onIsHourlyChange={setAlertIsHourly}
+                            onIsHourlyChange={handleAlertIsHourlyChange}
                             onLoadAlerts={loadAlerts}
                             onPageChange={setAlertsPage}
                             eventToPanelMap={eventToPanelMap}
