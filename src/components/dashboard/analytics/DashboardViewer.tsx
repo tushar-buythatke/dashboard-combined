@@ -313,7 +313,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         // Robust check: Force to false if range > 8 days regardless of override
         const diffInDays = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
         if (diffInDays > 8) return false;
-        
+
         return hourlyOverride !== null ? hourlyOverride : autoIsHourly;
     }, [hourlyOverride, autoIsHourly, dateRange.from, dateRange.to]);
 
@@ -1625,14 +1625,57 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         };
 
                         initialPanelFilters[panel.panelId] = defaultFilters;
-                        // Use the current global dateRange as the default per-panel range
-                        initialPanelDateRanges[panel.panelId] = { ...dateRange };
+
+                        // Load saved dateRange from panel config, or use appropriate default based on showHourlyStats
+                        const isHourlyPanel = panelConfig.showHourlyStats === true;
+                        let panelDateRange: DateRangeState;
+
+                        if (panelConfig.dateRange?.from && panelConfig.dateRange?.to) {
+                            // Use saved date range from config
+                            panelDateRange = {
+                                from: new Date(panelConfig.dateRange.from),
+                                to: new Date(panelConfig.dateRange.to)
+                            };
+                        } else {
+                            // Use appropriate default: 8 days for hourly, 30 days for daily
+                            const daysBack = isHourlyPanel ? 8 : 30;
+                            panelDateRange = {
+                                from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
+                                to: new Date()
+                            };
+                        }
+
+                        initialPanelDateRanges[panel.panelId] = panelDateRange;
 
                         // Initialize chart type per panel from saved config
                         // Default to enabled (true) for daily deviation curve - DEVIATION MODE BY DEFAULT
                         const isDeviation = panelConfig.dailyDeviationCurve !== false;
                         initialPanelChartTypes[panel.panelId] = isDeviation ? 'deviation' : 'default';
                     });
+
+                    // Set main panel's date range from first panel's saved config
+                    const firstPanel = loadedProfile.panels[0];
+                    const firstConfig = (firstPanel as any)?.filterConfig || {};
+                    const isMainHourly = firstConfig.showHourlyStats === true;
+
+                    if (firstConfig.dateRange?.from && firstConfig.dateRange?.to) {
+                        setDateRange({
+                            from: new Date(firstConfig.dateRange.from),
+                            to: new Date(firstConfig.dateRange.to)
+                        });
+                    } else {
+                        // Default: 8 days for hourly, 30 days for daily
+                        const daysBack = isMainHourly ? 8 : 30;
+                        setDateRange({
+                            from: new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000),
+                            to: new Date()
+                        });
+                    }
+
+                    // Set hourly override from first panel's saved config
+                    if (firstConfig.showHourlyStats !== undefined) {
+                        setHourlyOverrideState(firstConfig.showHourlyStats);
+                    }
 
                     setPanelFiltersState(initialPanelFilters);
                     setPanelDateRanges(initialPanelDateRanges);

@@ -78,7 +78,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     const [combineModalOpen, setCombineModalOpen] = useState(false);
     const [combiningPanel, setCombiningPanel] = useState<ExtendedPanelConfig | null>(null);
     const [currentPanelIndex, setCurrentPanelIndex] = useState(0); // For single-panel edit mode
-    
+
     // DB IDs for proper upsert behavior (UPDATE instead of INSERT)
     const [dbProfileId, setDbProfileId] = useState<number | undefined>(undefined);
     const [dbPanelIds, setDbPanelIds] = useState<Record<string, number>>({});
@@ -426,7 +426,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 const profile = await mockService.getProfile(initialProfileId);
                 if (profile) {
                     setProfileName(profile.profileName);
-                    
+
                     // Preserve DB IDs for proper upsert (UPDATE not INSERT)
                     if ((profile as any)._dbProfileId) {
                         setDbProfileId((profile as any)._dbProfileId);
@@ -471,7 +471,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 from: subDays(new Date(), 7),
                                 to: new Date()
                             },
-                            showHourlyStats: savedConfig?.showHourlyStats !== false, // Default to true
+                            showHourlyStats: savedConfig?.showHourlyStats ?? false, // Default to false (matches new panel default), preserve explicitly saved value
                             showEventPieCharts: savedConfig?.showEventPieCharts || false, // Default to false
                             // Default deviation curve to enabled unless explicitly disabled
                             dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false,
@@ -547,10 +547,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             },
                             graphType: 'line',
                             dateRange: {
-                                from: subDays(new Date(), 7),
+                                from: subDays(new Date(), 8),
                                 to: new Date()
                             },
-                            showHourlyStats: false,
+                            showHourlyStats: true,
                             visualizations: {
                                 lineGraph: { enabled: false, aggregationMethod: 'sum', showLegend: false, yAxisLabel: '' },
                                 pieCharts: []
@@ -578,10 +578,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     },
                     graphType: 'line',
                     dateRange: {
-                        from: subDays(new Date(), 30),
+                        from: subDays(new Date(), 8),
                         to: new Date()
                     },
-                    showHourlyStats: false,
+                    showHourlyStats: true,
                     visualizations: {
                         lineGraph: { enabled: false, aggregationMethod: 'sum', showLegend: false, yAxisLabel: '' },
                         pieCharts: []
@@ -638,10 +638,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             },
             graphType: 'line',
             dateRange: {
-                from: subDays(new Date(), 30),
+                from: subDays(new Date(), 8),
                 to: new Date()
             },
-            showHourlyStats: false,  // Unchecked by default
+            showHourlyStats: true,  // Default to hourly mode
             dailyDeviationCurve: true,  // Checked by default - user wants 8-Day Overlay
             isApiEvent: false, // Default to regular events
             visualizations: {
@@ -682,7 +682,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 if (filterType === 'events') {
                     const numericValues = filterValues as number[];
                     const selectedEvents = availableEvents.filter(e => numericValues.includes(parseInt(e.eventId)));
-                    
+
                     // Auto-sync critical alert event filters for API panels
                     const updatedCriticalAlertConfig = p.isApiEvent && p.criticalAlertConfig
                         ? {
@@ -699,7 +699,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 alertsIsHourly: true
                             }
                             : p.criticalAlertConfig;
-                    
+
                     return {
                         ...p,
                         filters: updatedFilters,
@@ -739,8 +739,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
 
                 if (graphType === 'user_flow' && !(p as any).userFlowConfig) {
                     (updated as any).userFlowConfig = {
-                         stages: [],
-                         showDropOffs: true
+                        stages: [],
+                        showDropOffs: true
                     };
                 }
 
@@ -783,12 +783,12 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
             if (p.panelId === panelId) {
                 const newShowHourly = !p.showHourlyStats;
                 // Auto-adjust date range: 8 days for hourly, 30 days for daily
-                const newRange = newShowHourly 
+                const newRange = newShowHourly
                     ? { from: subDays(new Date(), 8), to: new Date() }
                     : { from: subDays(new Date(), 30), to: new Date() };
-                
-                return { 
-                    ...p, 
+
+                return {
+                    ...p,
                     showHourlyStats: newShowHourly,
                     dateRange: newRange
                 };
@@ -877,7 +877,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         setPanels(panels.map(p => {
             if (p.panelId === panelId) {
                 // Auto-adjust date range: 8 days for hourly, 30 days for daily
-                const newRange = isHourly 
+                const newRange = isHourly
                     ? { from: subDays(new Date(), 8), to: new Date() }
                     : { from: subDays(new Date(), 30), to: new Date() };
 
@@ -1164,18 +1164,6 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 <div className="flex gap-1">
                                                     <Button
                                                         variant="ghost"
-                                                        size="sm"
-                                                        className="h-8 gap-1"
-                                                        onClick={() => {
-                                                            setCombiningPanel(panel);
-                                                            setCombineModalOpen(true);
-                                                        }}
-                                                    >
-                                                        <Combine className="h-4 w-4" />
-                                                        Combine
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
                                                         size="icon"
                                                         className="h-8 w-8 text-destructive"
                                                         onClick={() => deletePanel(panel.panelId)}
@@ -1287,7 +1275,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                 {(() => {
                                     const regularPanels = panels.filter(p => p.type !== 'alerts');
                                     const panel = regularPanels[currentPanelIndex];
-                                    
+
                                     if (!panel) return null;
 
                                     return (
@@ -1309,19 +1297,6 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         </div>
                                                     </div>
                                                     <div className="flex gap-2">
-                                                        {regularPanels.length > 1 && (
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => {
-                                                                    setCombiningPanel(panel);
-                                                                    setCombineModalOpen(true);
-                                                                }}
-                                                            >
-                                                                <Combine className="h-4 w-4 mr-1" />
-                                                                Combine
-                                                            </Button>
-                                                        )}
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
@@ -1499,7 +1474,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     />
                                                                 )}
                                                                 <p className="text-xs text-muted-foreground mt-2">
-                                                                    {(panel.criticalAlertConfig?.alertsIsApi ?? 0) === 2 
+                                                                    {(panel.criticalAlertConfig?.alertsIsApi ?? 0) === 2
                                                                         ? 'Panel ID is used automatically for percentage/funnel critical alerts'
                                                                         : 'Select specific events to monitor, or leave empty to monitor all events'}
                                                                 </p>
@@ -1546,7 +1521,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     availableEvents.filter(e => e.isApiEvent === true).length === 0 ||
                                                                     panel.graphType === 'percentage' ||
                                                                     panel.graphType === 'funnel' ||
-                                                              	panel.graphType === 'user_flow'
+                                                                    panel.graphType === 'user_flow'
                                                                 }
                                                             />
                                                         </div>
@@ -1792,7 +1767,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                             type="button"
                                                                             onClick={() => setPanels(prev => prev.map(p =>
                                                                                 p.panelId === panel.panelId
-                                                                                    ? { ...p, showHourlyStats: false }
+                                                                                    ? { ...p, showHourlyStats: false, dateRange: { from: subDays(new Date(), 30), to: new Date() } }
                                                                                     : p
                                                                             ))}
                                                                             className={cn(
@@ -1808,7 +1783,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                             type="button"
                                                                             onClick={() => setPanels(prev => prev.map(p =>
                                                                                 p.panelId === panel.panelId
-                                                                                    ? { ...p, showHourlyStats: true }
+                                                                                    ? { ...p, showHourlyStats: true, dateRange: { from: subDays(new Date(), 8), to: new Date() } }
                                                                                     : p
                                                                             ))}
                                                                             className={cn(
@@ -2174,33 +2149,33 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     <div className="space-y-4">
                                                                         {((panel as any).userFlowConfig?.stages || []).map((stage: any, index: number) => (
                                                                             <div key={stage.id || index} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-violet-200 dark:border-violet-500/30 shadow-sm relative group">
-                                                                                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                        <Button
-                                                                                            variant="ghost"
-                                                                                            size="icon"
-                                                                                            className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
-                                                                                            onClick={() => {
-                                                                                                setPanels(prev => prev.map(p => {
-                                                                                                    if (p.panelId === panel.panelId) {
-                                                                                                        const stages = [...((p as any).userFlowConfig?.stages || [])];
-                                                                                                        stages.splice(index, 1);
-                                                                                                        return { ...p, userFlowConfig: { ...(p as any).userFlowConfig, stages } };
-                                                                                                    }
-                                                                                                    return p;
-                                                                                                }));
-                                                                                            }}
-                                                                                        >
-                                                                                            <Trash2 className="h-3 w-3" />
-                                                                                        </Button>
-                                                                                 </div>
-                                                                                 
-                                                                                 <div className="flex items-center gap-2 mb-2">
-                                                                                     <div className="flex items-center justify-center bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 h-5 w-5 rounded-full text-[10px] font-bold">
-                                                                                         {index + 1}
-                                                                                     </div>
-                                                                                     <Input 
-                                                                                        className="h-7 text-xs font-semibold border-transparent hover:border-violet-200 focus:border-violet-400 px-1 w-[200px]" 
-                                                                                        value={stage.label || ''} 
+                                                                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                                                                        onClick={() => {
+                                                                                            setPanels(prev => prev.map(p => {
+                                                                                                if (p.panelId === panel.panelId) {
+                                                                                                    const stages = [...((p as any).userFlowConfig?.stages || [])];
+                                                                                                    stages.splice(index, 1);
+                                                                                                    return { ...p, userFlowConfig: { ...(p as any).userFlowConfig, stages } };
+                                                                                                }
+                                                                                                return p;
+                                                                                            }));
+                                                                                        }}
+                                                                                    >
+                                                                                        <Trash2 className="h-3 w-3" />
+                                                                                    </Button>
+                                                                                </div>
+
+                                                                                <div className="flex items-center gap-2 mb-2">
+                                                                                    <div className="flex items-center justify-center bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 h-5 w-5 rounded-full text-[10px] font-bold">
+                                                                                        {index + 1}
+                                                                                    </div>
+                                                                                    <Input
+                                                                                        className="h-7 text-xs font-semibold border-transparent hover:border-violet-200 focus:border-violet-400 px-1 w-[200px]"
+                                                                                        value={stage.label || ''}
                                                                                         placeholder={`Stage ${index + 1} Label`}
                                                                                         onChange={(e) => {
                                                                                             setPanels(prev => prev.map(p => {
@@ -2212,8 +2187,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                                 return p;
                                                                                             }));
                                                                                         }}
-                                                                                     />
-                                                                                 </div>
+                                                                                    />
+                                                                                </div>
 
                                                                                 <div className="pl-7">
                                                                                     <MultiSelectDropdown
@@ -2227,32 +2202,32 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                             }))}
                                                                                         selected={stage.eventIds || []}
                                                                                         onChange={(values) => {
-                                                                                             setPanels(prev => prev.map(p =>
+                                                                                            setPanels(prev => prev.map(p =>
                                                                                                 p.panelId === panel.panelId
-                                                                                                    ? { 
-                                                                                                        ...p, 
-                                                                                                        userFlowConfig: { 
-                                                                                                            ...(p as any).userFlowConfig, 
-                                                                                                            stages: ((p as any).userFlowConfig?.stages || []).map((s: any, i: number) => 
+                                                                                                    ? {
+                                                                                                        ...p,
+                                                                                                        userFlowConfig: {
+                                                                                                            ...(p as any).userFlowConfig,
+                                                                                                            stages: ((p as any).userFlowConfig?.stages || []).map((s: any, i: number) =>
                                                                                                                 i === index ? { ...s, eventIds: values } : s
                                                                                                             )
-                                                                                                        } 
+                                                                                                        }
                                                                                                     }
                                                                                                     : p
-                                                                                             ));
+                                                                                            ));
                                                                                         }}
                                                                                         placeholder="Select events for this stage"
                                                                                         className="h-8 text-xs"
                                                                                     />
                                                                                     <div className="mt-1 flex flex-wrap gap-1">
-                                                                                         {(stage.eventIds || []).map((eid: string) => {
-                                                                                             const ev = availableEvents.find(e => e.eventId === eid);
-                                                                                             return ev ? (
+                                                                                        {(stage.eventIds || []).map((eid: string) => {
+                                                                                            const ev = availableEvents.find(e => e.eventId === eid);
+                                                                                            return ev ? (
                                                                                                 <span key={eid} className="text-[10px] px-1.5 py-0.5 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 rounded border border-violet-100 dark:border-violet-800">
                                                                                                     {ev.eventName}
                                                                                                 </span>
-                                                                                             ) : null;
-                                                                                         })}
+                                                                                            ) : null;
+                                                                                        })}
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
@@ -2265,10 +2240,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                 setPanels(prev => prev.map(p => {
                                                                                     if (p.panelId === panel.panelId) {
                                                                                         const stages = [...((p as any).userFlowConfig?.stages || [])];
-                                                                                        stages.push({ 
-                                                                                            id: `stage-${Date.now()}`, 
+                                                                                        stages.push({
+                                                                                            id: `stage-${Date.now()}`,
                                                                                             label: `Stage ${stages.length + 1}`,
-                                                                                            eventIds: [] 
+                                                                                            eventIds: []
                                                                                         });
                                                                                         return { ...p, userFlowConfig: { ...(p as any).userFlowConfig, stages } };
                                                                                     }
@@ -2385,8 +2360,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                         id={`${panel.panelId}-event-pie-charts`}
                                                                                         checked={panel.showEventPieCharts}
                                                                                         onCheckedChange={() => {
-                                                                                            setPanels(panels.map(p => 
-                                                                                                p.panelId === panel.panelId 
+                                                                                            setPanels(panels.map(p =>
+                                                                                                p.panelId === panel.panelId
                                                                                                     ? { ...p, showEventPieCharts: !p.showEventPieCharts }
                                                                                                     : p
                                                                                             ));

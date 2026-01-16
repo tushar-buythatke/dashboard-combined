@@ -33,6 +33,7 @@ import {
     X,
     XCircle,
     Sparkles,
+    TrendingUp,
     Zap,
 } from 'lucide-react';
 import { AiInsightsBadge } from '../components/AiInsightsBadge';
@@ -2226,6 +2227,56 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 />
                                             </div>
                                         </div>
+                                    </CardContent>
+                                </Card>
+                            );
+                        } else {
+                            // For >8 days, show Daily Trends with Average Line
+                            const filteredEventKeys = overlaySelectedEventKey
+                                ? normalEventKeys.filter(e => e.eventKey === overlaySelectedEventKey).map(e => e.eventKey)
+                                : normalEventKeys.map(e => e.eventKey);
+
+                            return (
+                                <Card className="border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                    <CardHeader className="pb-2 px-3 md:px-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <TrendingUp className="h-5 w-5 text-emerald-600" />
+                                                <CardTitle className="text-base md:text-lg">Daily Trends with Average Line</CardTitle>
+                                                <span className="text-xs text-muted-foreground">({daysDiff} days)</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                                    onClick={() => {
+                                                        setPanelChartType(prev => {
+                                                            const mainPanelId = profile?.panels?.[0]?.panelId;
+                                                            if (!mainPanelId) return prev;
+                                                            return {
+                                                                ...prev,
+                                                                [mainPanelId]: 'default',
+                                                            };
+                                                        });
+                                                    }}
+                                                >
+                                                    ← Event Trends
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                        <DailyAverageChart
+                                            data={graphData}
+                                            dateRange={dateRange}
+                                            eventKeys={filteredEventKeys}
+                                            eventColors={events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {})}
+                                            eventNames={eventNames}
+                                            eventStats={eventStatsForBadges}
+                                            selectedEventKey={overlaySelectedEventKey}
+                                            onEventClick={handleOverlayEventClick}
+                                        />
                                     </CardContent>
                                 </Card>
                             );

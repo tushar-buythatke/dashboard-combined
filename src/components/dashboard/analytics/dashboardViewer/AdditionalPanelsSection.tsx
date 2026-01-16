@@ -54,7 +54,7 @@ import { UserFlowVisualization } from '../charts/UserFlowVisualization';
 import { ChartZoomControls } from '../components/ChartZoomControls';
 import { useChartZoom } from '@/hooks/useChartZoom';
 
-import { DayWiseComparisonChart } from '../components/ComparisonCharts';
+import { DayWiseComparisonChart, DailyAverageChart } from '../components/ComparisonCharts';
 
 import {
     Area,
@@ -2767,6 +2767,52 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             ? pNormalEventKeys.filter((e: any) => e.eventKey === selectedEventKey).map((e: any) => e.eventKey)
                                             : pNormalEventKeys.map((e: any) => e.eventKey);
 
+                                        // Calculate days difference to determine which chart to show
+                                        const daysDiff = Math.ceil((currentPanelDateRange.to.getTime() - currentPanelDateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+
+                                        // For >8 days, show Daily Trends with Average Line instead
+                                        if (daysDiff > 8) {
+                                            return (
+                                                <Card className="border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                                    <CardHeader className="pb-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <TrendingUp className="h-5 w-5 text-emerald-600" />
+                                                                <CardTitle className="text-base font-semibold">Daily Trends with Average Line</CardTitle>
+                                                                <span className="text-xs text-muted-foreground">({daysDiff} days)</span>
+                                                            </div>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-7 text-xs bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                                                onClick={() => {
+                                                                    setPanelChartType?.((prev: any) => ({
+                                                                        ...prev,
+                                                                        [panel.panelId]: 'default',
+                                                                    }));
+                                                                }}
+                                                            >
+                                                                ← Event Trends
+                                                            </Button>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                                        <DailyAverageChart
+                                                            data={filteredGraphData}
+                                                            dateRange={currentPanelDateRange}
+                                                            eventKeys={filteredEventKeys}
+                                                            eventColors={eventColors}
+                                                            eventNames={eventNames}
+                                                            eventStats={pEventStatsForBadges}
+                                                            selectedEventKey={selectedEventKey}
+                                                            onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
+                                                        />
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        }
+
+                                        // For <=8 days, show the 8-Day Overlay Comparison
                                         return (
                                             <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
                                                 <CardHeader className="pb-2">
