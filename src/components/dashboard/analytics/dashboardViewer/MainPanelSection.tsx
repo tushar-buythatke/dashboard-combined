@@ -412,7 +412,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 </div>,
                 document.body
             )}
-            
+
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
                 className={cn(
@@ -1738,6 +1738,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         }}
                                         onToggleBackToFunnel={handleToggleBackToFunnel}
                                         events={events}
+                                        eventPieCharts={eventPieCharts}
                                     />
                                 </div>
                             );
@@ -1806,6 +1807,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     }
                                                 }}
                                                 onToggleBackToFunnel={index === 0 ? handleToggleBackToFunnel : undefined}
+                                                eventPieCharts={eventPieCharts}
                                             />
                                         </div>
                                     ))}
@@ -2567,6 +2569,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         <Tooltip
                                                                             content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
                                                                             cursor={{ fill: 'rgba(168, 85, 247, 0.1)' }}
+                                                                            wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
                                                                         />
                                                                         {/* Dynamic bars for normal (count) events only */}
                                                                         {normalEventKeys.length > 0 ? normalEventKeys.map((eventKeyInfo, index) => {
@@ -2664,6 +2667,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         <Tooltip
                                                                             content={<CustomTooltip events={events} eventKeys={normalEventKeys} />}
                                                                             cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                                            wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
                                                                         />
                                                                         {/* Dynamic areas for normal (count) events only */}
                                                                         {normalEventKeys.length > 0 ? normalEventKeys
@@ -2904,7 +2908,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 </div>
 
                                 <div
-                                    className="h-[300px] sm:h-[350px] md:h-[400px] w-full cursor-pointer overflow-x-auto overflow-y-hidden relative group"
+                                    className="h-[300px] sm:h-[350px] md:h-[400px] w-full cursor-pointer relative group"
                                 >
                                     <div
                                         className="h-full transition-all duration-200"
@@ -2991,6 +2995,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <Tooltip
                                                         content={<CustomTooltip events={events} eventKeys={avgEventKeys} />}
                                                         cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                        wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
                                                     />
                                                     {/* Dynamic areas for avg (time) events */}
                                                     {avgEventKeys
@@ -3125,7 +3130,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     )}
 
-                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
+                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full relative group">
                                         {(isMainPanelApi ? apiPerformanceSeries : graphData).length > 0 ? (
                                             <ResponsiveContainer width="100%" height="100%">
                                                 <AreaChart
@@ -3188,6 +3193,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <Tooltip
                                                         content={<CustomTooltip events={events} eventKeys={apiPerformanceEventKeys} />}
                                                         cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                        wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
                                                     />
                                                     {/* Dynamic areas - simplified approach that works */}
                                                     {apiPerformanceEventKeys.map((eventKeyInfo: EventKeyInfo, index: number) => {
@@ -3373,7 +3379,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     />
                                 )}
 
-                                <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
+                                <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full relative group">
                                     {graphData.length > 0 ? (
                                         <ResponsiveContainer width="100%" height="100%">
                                             <AreaChart
@@ -3412,6 +3418,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <Tooltip
                                                     content={<CustomTooltip events={events} eventKeys={errorEventKeys} />}
                                                     cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }}
+                                                    wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
                                                 />
                                                 {/* For error events: success = error count, fail = non-error count */}
                                                 {errorEventKeys
@@ -3971,6 +3978,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 </div>
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     {parentEvents.map((event) => {
+                                        if (!event) return null;
                                         const pieData = eventPieCharts[event.eventId];
                                         if (!pieData) return null;
 
@@ -3993,6 +4001,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         const activeMode = eventDistModes[event.eventId] || defaultMode;
                                         const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
                                         const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                        const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
 
                                         return (
                                             <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
@@ -4016,90 +4025,99 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     </div>
                                                 </CardHeader>
                                                 <CardContent className="p-4">
-                                                    <div className="flex flex-row items-start gap-4 h-full">
-                                                        {/* Distribution Mode Toggle (On the Left) */}
-                                                        <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
-                                                            {[
-                                                                { id: 'platform', label: 'Platform', show: showPlatform, color: 'indigo' },
-                                                                { id: 'pos', label: 'POS', show: showPos, color: 'emerald' },
-                                                                { id: 'source', label: 'Source', show: showSource, color: 'amber' }
-                                                            ].filter(t => t.show).map((tab) => {
-                                                                const tabActiveMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
-                                                                const isActive = tabActiveMode === tab.id;
-                                                                const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+                                                    {/* Distribution Mode Toggle */}
+                                                    <div className="flex items-center justify-center p-1 mb-4 bg-muted/60 dark:bg-slate-800/60 rounded-xl border border-border/50 shadow-sm">
+                                                        {[
+                                                            { id: 'platform', label: 'Platform', show: showPlatform, color: 'indigo' },
+                                                            { id: 'pos', label: 'POS', show: showPos, color: 'emerald' },
+                                                            { id: 'source', label: 'Source', show: showSource, color: 'amber' }
+                                                        ].filter(t => t.show).map((tab) => {
+                                                            const isActive = activeMode === tab.id;
+                                                            const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
 
-                                                                return (
-                                                                    <button
-                                                                        key={tab.id}
-                                                                        onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
-                                                                        className={cn(
-                                                                            "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
-                                                                            isActive
-                                                                                ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
-                                                                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                                                                        )}
-                                                                    >
-                                                                        <span>{tab.label}</span>
-                                                                        {dataLength > 1 && (
-                                                                            <span className={cn(
-                                                                                "w-1.5 h-1.5 rounded-full",
-                                                                                isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
-                                                                            )} />
-                                                                        )}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
+                                                            return (
+                                                                <button
+                                                                    key={tab.id}
+                                                                    onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                    className={cn(
+                                                                        "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-300",
+                                                                        isActive
+                                                                            ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-md border border-${tab.color}-100 dark:border-${tab.color}-900/50`
+                                                                            : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                    )}
+                                                                >
+                                                                    {tab.label}
+                                                                    {dataLength > 1 && (
+                                                                        <span className={cn(
+                                                                            "w-1.5 h-1.5 rounded-full animate-pulse",
+                                                                            isActive ? `bg-${tab.color}-500` : "bg-slate-300 dark:bg-slate-600"
+                                                                        )} />
+                                                                    )}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
 
-                                                        {/* Large Pie Chart View */}
-                                                        <div className="relative flex-1 min-w-0 h-full">
-                                                            {(() => {
-                                                                const localActiveMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
-                                                                const localActiveData = localActiveMode === 'platform' ? platformData : localActiveMode === 'pos' ? posData : sourceData;
-                                                                const localTotalVal = localActiveData.reduce((acc: number, item: any) => acc + item.value, 0);
-                                                                const categoryLabel = localActiveMode === 'platform' ? 'Platform' : localActiveMode === 'pos' ? 'POS Site' : 'Source';
-
-                                                                return (
-                                                                    <div className="space-y-2 h-full flex flex-col">
-                                                                        <div
-                                                                            className="h-64 w-full cursor-pointer relative"
-                                                                            onClick={() => {
-                                                                                const dists = { platform: platformData, pos: posData, source: sourceData };
-                                                                                openExpandedPie(localActiveMode, `${event.eventName} - ${localActiveMode.toUpperCase()}`, dists, event.isApiEvent);
-                                                                            }}
+                                                    {/* Large Pie Chart View */}
+                                                    <div className="relative group">
+                                                        <div className="space-y-4">
+                                                            <div
+                                                                className="h-44 w-full cursor-pointer transition-transform duration-300 group-hover:scale-105 relative"
+                                                                onClick={() => {
+                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                    openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
+                                                                }}
+                                                            >
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <PieChart>
+                                                                        <Pie
+                                                                            data={activeData}
+                                                                            cx="50%"
+                                                                            cy="50%"
+                                                                            innerRadius={55}
+                                                                            outerRadius={85}
+                                                                            paddingAngle={2}
+                                                                            dataKey="value"
+                                                                            isAnimationActive={false}
+                                                                            stroke="none"
                                                                         >
-                                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                                <PieChart>
-                                                                                    <Pie
-                                                                                        data={localActiveData}
-                                                                                        cx="50%"
-                                                                                        cy="50%"
-                                                                                        innerRadius={45}
-                                                                                        outerRadius={75}
-                                                                                        paddingAngle={2}
-                                                                                        dataKey="value"
-                                                                                        isAnimationActive={false}
-                                                                                        stroke="none"
-                                                                                        label={renderCustomizedLabel}
-                                                                                        labelLine={false}
-                                                                                    >
-                                                                                        {localActiveData.map((_: any, idx: number) => (
-                                                                                            <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                                                                                        ))}
-                                                                                    </Pie>
-                                                                                    <Tooltip content={<PieTooltip totalValue={localTotalVal} category={categoryLabel} isAvgEventType={mainPanelAvgEventType} />} />
-                                                                                </PieChart>
-                                                                            </ResponsiveContainer>
-                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                                                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{localActiveMode}</span>
-                                                                                <span className="text-2xl font-black text-foreground tabular-nums">
-                                                                                    {formatNumber(localTotalVal)}
-                                                                                </span>
+                                                                            {activeData.map((_: any, idx: number) => (
+                                                                                <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                            ))}
+                                                                        </Pie>
+                                                                        <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={categoryLabel} isAvgEventType={mainPanelAvgEventType} />} />
+                                                                    </PieChart>
+                                                                </ResponsiveContainer>
+
+                                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                    <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                        {formatNumber(totalVal)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                            <div className="space-y-1.5 px-2">
+                                                                {[...activeData]
+                                                                    .sort((a: any, b: any) => b.value - a.value)
+                                                                    .slice(0, 3)
+                                                                    .map((item: any, idx: number) => {
+                                                                        const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                        return (
+                                                                            <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                    <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 tabular-nums">
+                                                                                    <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                    <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })()}
+                                                                        );
+                                                                    })}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </CardContent>
@@ -4152,6 +4170,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                                 if (!showPlatform && !showPos && !showSource) return null;
 
+                                                const defaultMode = (posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source';
+                                                const activeMode = eventDistModes[event.eventId] || defaultMode;
+                                                const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                                const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
                                                 return (
                                                     <Card key={event.eventId} className="border border-green-200 dark:border-green-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
                                                         <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 border-b border-green-100 dark:border-green-800">
@@ -4166,8 +4190,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     className="h-8 w-8 flex-shrink-0 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-full"
                                                                     onClick={() => {
                                                                         const dists = { platform: platformData, pos: posData, source: sourceData };
-                                                                        const mode = eventDistModes[event.eventId] || (showPos ? 'pos' : showPlatform ? 'platform' : 'source');
-                                                                        openExpandedPie(mode, `${event.eventName} - ${mode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                        openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, (event as any).isApiEvent);
                                                                     }}
                                                                 >
                                                                     <Maximize2 className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -4175,93 +4198,99 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             </div>
                                                         </CardHeader>
                                                         <CardContent className="p-4">
-                                                            <div className="flex flex-row items-start gap-4 h-full">
-                                                                {/* Distribution Mode Toggle (On the Left) */}
-                                                                <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
-                                                                    {[
-                                                                        { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
-                                                                        { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
-                                                                        { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
-                                                                    ].filter(t => t.show).map((tab) => {
-                                                                        const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
-                                                                        const isActive = activeMode === tab.id;
-                                                                        const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+                                                            {/* Distribution Mode Toggle */}
+                                                            <div className="flex items-center justify-center p-1 mb-4 bg-muted/60 dark:bg-slate-800/60 rounded-xl border border-border/50 shadow-sm">
+                                                                {[
+                                                                    { id: 'platform', label: 'Platform', show: showPlatform, color: 'indigo' },
+                                                                    { id: 'pos', label: 'POS', show: showPos, color: 'emerald' },
+                                                                    { id: 'source', label: 'Source', show: showSource, color: 'amber' }
+                                                                ].filter(t => t.show).map((tab) => {
+                                                                    const isActive = activeMode === tab.id;
+                                                                    const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
 
-                                                                        return (
-                                                                            <button
-                                                                                key={tab.id}
-                                                                                onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
-                                                                                className={cn(
-                                                                                    "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
-                                                                                    isActive
-                                                                                        ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
-                                                                                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                                                                                )}
-                                                                            >
-                                                                                <span>{tab.label}</span>
-                                                                                {dataLength > 1 && (
-                                                                                    <span className={cn(
-                                                                                        "w-1.5 h-1.5 rounded-full",
-                                                                                        isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
-                                                                                    )} />
-                                                                                )}
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
+                                                                    return (
+                                                                        <button
+                                                                            key={tab.id}
+                                                                            onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                            className={cn(
+                                                                                "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-300",
+                                                                                isActive
+                                                                                    ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-md border border-${tab.color}-100 dark:border-${tab.color}-900/50`
+                                                                                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                            )}
+                                                                        >
+                                                                            {tab.label}
+                                                                            {dataLength > 1 && (
+                                                                                <span className={cn(
+                                                                                    "w-1.5 h-1.5 rounded-full animate-pulse",
+                                                                                    isActive ? `bg-${tab.color}-500` : "bg-slate-300 dark:bg-slate-600"
+                                                                                )} />
+                                                                            )}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
 
-                                                                {/* Large Pie Chart View */}
-                                                                <div className="relative flex-1 min-w-0 h-full">
-                                                                    {(() => {
-                                                                        const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
-                                                                        const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
-                                                                        const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
-                                                                        const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
-
-                                                                        return (
-                                                                            <div className="space-y-2 h-full flex flex-col">
-                                                                                <div
-                                                                                    className="h-64 w-full cursor-pointer relative"
-                                                                                    onClick={() => {
-                                                                                        const dists = { platform: platformData, pos: posData, source: sourceData };
-                                                                                        openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, (event as any).isApiEvent);
-                                                                                    }}
+                                                            {/* Large Pie Chart View */}
+                                                            <div className="relative group">
+                                                                <div className="space-y-4">
+                                                                    <div
+                                                                        className="h-44 w-full cursor-pointer transition-transform duration-300 group-hover:scale-105 relative"
+                                                                        onClick={() => {
+                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                            openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                        }}
+                                                                    >
+                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                            <PieChart>
+                                                                                <Pie
+                                                                                    data={activeData}
+                                                                                    cx="50%"
+                                                                                    cy="50%"
+                                                                                    innerRadius={55}
+                                                                                    outerRadius={85}
+                                                                                    paddingAngle={2}
+                                                                                    dataKey="value"
+                                                                                    isAnimationActive={false}
+                                                                                    stroke="none"
                                                                                 >
-                                                                                    <ResponsiveContainer width="100%" height="100%">
-                                                                                        <PieChart>
-                                                                                            <Pie
-                                                                                                data={activeData}
-                                                                                                cx="50%"
-                                                                                                cy="50%"
-                                                                                                innerRadius={45}
-                                                                                                outerRadius={75}
-                                                                                                paddingAngle={2}
-                                                                                                dataKey="value"
-                                                                                                isAnimationActive={false}
-                                                                                                stroke="none"
-                                                                                                label={renderCustomizedLabel}
-                                                                                                labelLine={false}
-                                                                                            >
-                                                                                                {activeData.map((_: any, idx: number) => (
-                                                                                                    <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                                                                                                ))}
-                                                                                            </Pie>
-                                                                                            <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} isAvgEventType={mainPanelAvgEventType} />} />
-                                                                                        </PieChart>
-                                                                                    </ResponsiveContainer>
+                                                                                    {activeData.map((_: any, idx: number) => (
+                                                                                        <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                    ))}
+                                                                                </Pie>
+                                                                                <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={categoryLabel} isAvgEventType={mainPanelAvgEventType} />} />
+                                                                            </PieChart>
+                                                                        </ResponsiveContainer>
 
-                                                                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                                                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
-                                                                                        <span className="text-2xl font-black text-foreground tabular-nums">
-                                                                                            {formatNumber(totalVal)}
-                                                                                        </span>
+                                                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                            <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                {formatNumber(totalVal)}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                    <div className="space-y-1.5 px-2">
+                                                                        {[...activeData]
+                                                                            .sort((a: any, b: any) => b.value - a.value)
+                                                                            .slice(0, 3)
+                                                                            .map((item: any, idx: number) => {
+                                                                                const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                return (
+                                                                                    <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                        <div className="flex items-center gap-2 min-w-0">
+                                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                            <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center gap-2 tabular-nums">
+                                                                                            <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                            <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                        </div>
                                                                                     </div>
-
-                                                                                </div>
-
-                                                                            </div>
-                                                                        );
-                                                                    })()}
+                                                                                );
+                                                                            })}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </CardContent>

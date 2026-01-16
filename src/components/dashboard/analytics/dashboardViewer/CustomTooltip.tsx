@@ -250,9 +250,9 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
     return (
         <div
             className={cn(
-                "relative overflow-hidden",
+                "relative z-[1000] overflow-visible",
                 isPinned
-                    ? "bg-transparent p-3 md:p-4"
+                    ? "bg-transparent p-3 md:p-4 pointer-events-auto"
                     : "bg-white/95 dark:bg-slate-900/95 rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 p-3 backdrop-blur-md min-w-[320px] max-w-[500px]"
             )}
             onMouseMoveCapture={stopEvent}

@@ -1742,6 +1742,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 }
                                             } : undefined}
                                             events={events}
+                                            eventPieCharts={panelData?.eventPieCharts}
                                             onExpand={() => {
                                                 setExpandedChart?.({
                                                     title: `${panel.panelName} - Percentage Analysis`,
@@ -1758,6 +1759,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 showCombinedPercentage={panelConfig.percentageConfig.showCombinedPercentage !== false}
                                                                 isHourly={pIsHourly}
                                                                 events={events}
+                                                                eventPieCharts={panelData?.eventPieCharts}
                                                             />
                                                         </div>
                                                     )
@@ -1840,7 +1842,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         </div>
                                                     )}
 
-                                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
+                                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full relative group">
                                                         {panelApiSeries.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
@@ -1874,7 +1876,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             return value;
                                                                         }}
                                                                     />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                     {apiEventKeyInfos.map((ek, idx) => {
                                                                         const color = EVENT_COLORS[idx % EVENT_COLORS.length];
                                                                         let dataKey = `${ek.eventKey}_count`;
@@ -1989,7 +1991,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                     <Cell key={`p_status_${panel.panelId}_${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                                                                 ))}
                                                                             </Pie>
-                                                                            <Tooltip content={<PieTooltip totalValue={statusData.reduce((acc: number, item: any) => acc + item.value, 0)} category="Status Code" />} />
+                                                                            <Tooltip content={<PieTooltip totalValue={statusData.reduce((acc: number, item: any) => acc + item.value, 0)} category="Status Code" />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                             <Legend iconType="circle" iconSize={8} layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
                                                                         </PieChart>
                                                                     </ResponsiveContainer>
@@ -2022,7 +2024,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                     <Cell key={`p_cache_${panel.panelId}_${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                                                                 ))}
                                                                             </Pie>
-                                                                            <Tooltip content={<PieTooltip totalValue={cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0)} category="Cache Status" />} />
+                                                                            <Tooltip content={<PieTooltip totalValue={cacheStatusData.reduce((acc: number, item: any) => acc + item.value, 0)} category="Cache Status" />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                             <Legend iconType="circle" iconSize={8} layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
                                                                         </PieChart>
                                                                     </ResponsiveContainer>
@@ -2221,7 +2223,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         </div>
                                                     )}
 
-                                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
+                                                    <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full relative group">
                                                         {panelApiSeries.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={panelApiSeries} margin={{ top: 10, right: 30, left: 18, bottom: 50 }}>
@@ -2255,7 +2257,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             return value;
                                                                         }}
                                                                     />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                     {apiEventKeyInfos.map((ek, idx) => {
                                                                         const color = EVENT_COLORS[idx % EVENT_COLORS.length];
                                                                         let dataKey = `${ek.eventKey}_count`;
@@ -2506,7 +2508,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                                                 <XAxis dataKey="date" />
                                                                                 <YAxis />
-                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} />
+                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                                 {pNormalEventKeys.map((ek: any, i: number) => (
                                                                                     <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
                                                                                 ))}
@@ -2582,7 +2584,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                     <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => formatNumber(value)} />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pNormalEventKeys} />} cursor={{ stroke: '#a855f7', strokeWidth: 1, strokeDasharray: '5 5' }} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                     {pNormalEventKeys
                                                                         .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
                                                                         .map((eventKeyInfo: any, index: number) => {
@@ -2828,7 +2830,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                                                 <XAxis dataKey="date" />
                                                                                 <YAxis />
-                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} />
+                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                                 {pAvgEventKeys.map((ek: any, i: number) => (
                                                                                     <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_avgDelay`} stroke={EVENT_COLORS[i % EVENT_COLORS.length]} fill={EVENT_COLORS[i % EVENT_COLORS.length]} fillOpacity={0.3} />
                                                                                 ))}
@@ -3538,7 +3540,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                                                             ))}
                                                                         </Pie>
-                                                                        <Tooltip content={<PieTooltip totalValue={pieTotal} category={pieType} />} />
+                                                                        <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={pieTotal} category={pieType} />} />
                                                                         <Legend iconType="circle" iconSize={8} layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
                                                                     </PieChart>
                                                                 </ResponsiveContainer>
@@ -3606,7 +3608,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 <div className="h-1 w-8 bg-purple-500 rounded-full" />
                                                 <h4 className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Parent Events (Denominator)</h4>
                                             </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                                 {parentEvents.map((event: any) => {
                                                     const pieData = eventPieCharts[event.eventId];
                                                     if (!pieData) return null;
@@ -3631,152 +3633,131 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     const dists = { platform: platformData, pos: posData, source: sourceData };
 
                                                     return (
-                                                        <Card key={event.eventId} className="border border-purple-200/60 dark:border-purple-500/30 bg-white dark:bg-slate-900/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
-                                                            <CardHeader className="py-2.5 px-3 border-b border-purple-100 dark:border-purple-800/60 bg-slate-50/50 dark:bg-slate-900/50">
-                                                                <div className="flex flex-col gap-2">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                                            <div className="h-4 w-4 rounded-full flex-shrink-0 shadow-sm border border-white dark:border-slate-800" style={{ backgroundColor: event.isParent ? '#8b5cf6' : event.color }} />
-                                                                            <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate pr-1">
-                                                                                {event.eventName}
-                                                                            </CardTitle>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-1">
-                                                                            <Button
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-6 w-6 text-slate-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                                                                                onClick={() => openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent)}
-                                                                            >
-                                                                                <Maximize2 className="h-3 w-3" />
-                                                                            </Button>
-                                                                        </div>
+                                                        <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-100 dark:border-purple-800">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
+                                                                        <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
                                                                     </div>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 flex-shrink-0 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full"
+                                                                        onClick={() => {
+                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                            openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
+                                                                        }}
+                                                                    >
+                                                                        <Maximize2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                                    </Button>
                                                                 </div>
                                                             </CardHeader>
                                                             <CardContent className="p-4">
-                                                                <div className="flex flex-row items-start gap-4 h-full">
-                                                                    {/* Distribution Mode Toggle (On the Left) */}
-                                                                    <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
-                                                                        {[
-                                                                            { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
-                                                                            { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
-                                                                            { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
-                                                                        ].filter(t => t.show).map((tab) => {
-                                                                            const activeMode = eventDistModes[event.eventId] || (shouldShowPieChart(pieData?.pos) ? 'pos' : shouldShowPieChart(pieData?.platform) ? 'platform' : 'source');
-                                                                            const isActive = activeMode === tab.id;
-                                                                            const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+                                                                {/* Distribution Mode Toggle */}
+                                                                <div className="flex items-center justify-center p-1 mb-4 bg-muted/60 dark:bg-slate-800/60 rounded-xl border border-border/50 shadow-sm">
+                                                                    {[
+                                                                        { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
+                                                                        { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
+                                                                        { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
+                                                                    ].filter(t => t.show).map((tab) => {
+                                                                        const activeModeInner = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                        const isActive = activeModeInner === tab.id;
+                                                                        const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
 
-                                                                            return (
-                                                                                <button
-                                                                                    key={tab.id}
-                                                                                    onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
-                                                                                    className={cn(
-                                                                                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
-                                                                                        isActive
-                                                                                            ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
-                                                                                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                                                                                    )}
+                                                                        return (
+                                                                            <button
+                                                                                key={tab.id}
+                                                                                onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                                className={cn(
+                                                                                    "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-300",
+                                                                                    isActive
+                                                                                        ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-md border border-${tab.color}-100 dark:border-${tab.color}-900/50`
+                                                                                        : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                                )}
+                                                                            >
+                                                                                {tab.label}
+                                                                                {dataLength > 1 && (
+                                                                                    <span className={cn(
+                                                                                        "w-1.5 h-1.5 rounded-full animate-pulse",
+                                                                                        isActive ? `bg-${tab.color}-500` : "bg-slate-300 dark:bg-slate-600"
+                                                                                    )} />
+                                                                                )}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                {/* Large Pie Chart View */}
+                                                                <div className="relative group">
+                                                                    {(() => {
+                                                                        const activeModeInner = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                        const activeData = activeModeInner === 'platform' ? platformData : activeModeInner === 'pos' ? posData : sourceData;
+                                                                        const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                        const categoryLabel = activeModeInner === 'platform' ? 'Platform' : activeModeInner === 'pos' ? 'POS Site' : 'Source';
+
+                                                                        return (
+                                                                            <div className="space-y-4">
+                                                                                <div
+                                                                                    className="h-44 w-full cursor-pointer transition-transform duration-300 group-hover:scale-105 relative"
+                                                                                    onClick={() => {
+                                                                                        const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                        openExpandedPie(activeModeInner, `${event.eventName} - ${activeModeInner.toUpperCase()}`, dists, event.isApiEvent);
+                                                                                    }}
                                                                                 >
-                                                                                    <span>{tab.label}</span>
-                                                                                    {dataLength > 1 && (
-                                                                                        <span className={cn(
-                                                                                            "w-1.5 h-1.5 rounded-full",
-                                                                                            isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
-                                                                                        )} />
-                                                                                    )}
-                                                                                </button>
-                                                                            );
-                                                                        })}
-                                                                    </div>
+                                                                                    <ResponsiveContainer width="100%" height="100%">
+                                                                                        <PieChart>
+                                                                                            <Pie
+                                                                                                data={activeData}
+                                                                                                cx="50%"
+                                                                                                cy="50%"
+                                                                                                innerRadius={55}
+                                                                                                outerRadius={85}
+                                                                                                paddingAngle={2}
+                                                                                                dataKey="value"
+                                                                                                isAnimationActive={false}
+                                                                                                stroke="none"
+                                                                                            >
+                                                                                                {activeData.map((_: any, idx: number) => (
+                                                                                                    <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                                ))}
+                                                                                            </Pie>
+                                                                                            <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
+                                                                                        </PieChart>
+                                                                                    </ResponsiveContainer>
 
-                                                                    {/* Large Pie Chart View */}
-                                                                    <div className="relative flex-1 min-w-0 h-full">
-                                                                        {(() => {
-                                                                            const activeMode = eventDistModes[event.eventId] || ((pieData?.pos && pieData.pos.length > 0) ? 'pos' : (pieData?.platform && pieData.platform.length > 0) ? 'platform' : 'source');
-                                                                            const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
-                                                                            const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
-                                                                            const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
-
-                                                                            const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
-                                                                                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                                                                                const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-                                                                                const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-
-                                                                                return (
-                                                                                    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-bold">
-                                                                                        {`${(percent * 100).toFixed(2)}%`}
-                                                                                        {` (${Math.floor(value)})`}
-                                                                                    </text>
-                                                                                );
-                                                                            };
-
-                                                                            return (
-                                                                                <div className="space-y-2 h-full flex flex-col">
-                                                                                    <div
-                                                                                        className="h-64 w-full cursor-pointer relative"
-                                                                                        onClick={() => {
-                                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
-                                                                                            openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
-                                                                                        }}
-                                                                                    >
-                                                                                        <ResponsiveContainer width="100%" height="100%">
-                                                                                            <PieChart>
-                                                                                                <Pie
-                                                                                                    data={activeData}
-                                                                                                    cx="50%"
-                                                                                                    cy="50%"
-                                                                                                    innerRadius={45}
-                                                                                                    outerRadius={75}
-                                                                                                    paddingAngle={2}
-                                                                                                    dataKey="value"
-                                                                                                    isAnimationActive={false}
-                                                                                                    stroke="none"
-                                                                                                    label={renderCustomizedLabel}
-                                                                                                    labelLine={false}
-                                                                                                >
-                                                                                                    {activeData.map((_: any, idx: number) => (
-                                                                                                        <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                                                                                                    ))}
-                                                                                                </Pie>
-                                                                                                <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
-                                                                                            </PieChart>
-                                                                                        </ResponsiveContainer>
-
-                                                                                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                                                                            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
-                                                                                            <span className="text-2xl font-black text-foreground tabular-nums">
-                                                                                                {formatNumber(totalVal)}
-                                                                                            </span>
-                                                                                        </div>
-
-                                                                                    </div>
-
-                                                                                    {/* Persistent Legend - Top 3 by Percentage Share */}
-                                                                                    <div className="space-y-1.5 px-2">
-                                                                                        {[...activeData]
-                                                                                            .sort((a: any, b: any) => b.value - a.value)
-                                                                                            .slice(0, 3)
-                                                                                            .map((item: any, idx: number) => {
-                                                                                                const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
-                                                                                                return (
-                                                                                                    <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
-                                                                                                        <div className="flex items-center gap-2 min-w-0">
-                                                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                                                                                                            <span className="truncate text-muted-foreground">{item.name}</span>
-                                                                                                        </div>
-                                                                                                        <div className="flex items-center gap-2 tabular-nums">
-                                                                                                            <span className="text-foreground">{formatNumber(item.value)}</span>
-                                                                                                            <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                );
-                                                                                            })}
+                                                                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                        <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeModeInner}</span>
+                                                                                        <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                            {formatNumber(totalVal)}
+                                                                                        </span>
                                                                                     </div>
                                                                                 </div>
-                                                                            );
-                                                                        })()}
-                                                                    </div>
+
+                                                                                {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                                <div className="space-y-1.5 px-2">
+                                                                                    {[...activeData]
+                                                                                        .sort((a: any, b: any) => b.value - a.value)
+                                                                                        .slice(0, 3)
+                                                                                        .map((item: any, idx: number) => {
+                                                                                            const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                            return (
+                                                                                                <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                        <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                                    </div>
+                                                                                                    <div className="flex items-center gap-2 tabular-nums">
+                                                                                                        <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                                        <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
                                                                 </div>
                                                             </CardContent>
                                                         </Card>
@@ -3811,7 +3792,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 }
 
                                                 return (
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                                         {uniqueChildEvents.map((event: any) => {
                                                             const pieData = eventPieCharts[event.eventId];
                                                             if (!pieData) return null;
@@ -3830,155 +3811,135 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                                                             if (!showPlatform && !showPos && !showSource) return null;
 
+                                                            const defaultMode = (posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source';
+                                                            const activeMode = eventDistModes[event.eventId] || defaultMode;
+
                                                             return (
-                                                                <Card key={event.eventId} className="border border-green-200/60 dark:border-green-500/30 bg-white dark:bg-slate-900/50 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
-                                                                    <CardHeader className="py-2.5 px-3 border-b border-green-100 dark:border-green-800/60 bg-slate-50/50 dark:bg-slate-900/50">
-                                                                        <div className="flex flex-col gap-2">
-                                                                            <div className="flex items-center justify-between">
-                                                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                                                    <div className="h-4 w-4 rounded-full flex-shrink-0 shadow-sm border border-white dark:border-slate-800 animate-pulse" style={{ backgroundColor: event.color }} />
-                                                                                    <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate pr-1">
-                                                                                        {event.eventName}
-                                                                                    </CardTitle>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-1">
-                                                                                    <Button
-                                                                                        variant="ghost"
-                                                                                        size="icon"
-                                                                                        className="h-6 w-6 text-slate-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-                                                                                        onClick={() => {
-                                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
-                                                                                            const mode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
-                                                                                            openExpandedPie(mode, `${event.eventName} - ${mode.toUpperCase()}`, dists, event.isApiEvent);
-                                                                                        }}
-                                                                                    >
-                                                                                        <Maximize2 className="h-3 w-3" />
-                                                                                    </Button>
-                                                                                </div>
+                                                                <Card key={event.eventId} className="border border-green-200 dark:border-green-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                                    <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 border-b border-green-100 dark:border-green-800">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                                                <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
+                                                                                <CardTitle className="text-sm font-bold text-green-700 dark:text-green-300 truncate">{event.eventName}</CardTitle>
                                                                             </div>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-8 w-8 flex-shrink-0 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-full"
+                                                                                onClick={() => {
+                                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                    openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, (event as any).isApiEvent);
+                                                                                }}
+                                                                            >
+                                                                                <Maximize2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                                                            </Button>
                                                                         </div>
                                                                     </CardHeader>
                                                                     <CardContent className="p-4">
-                                                                        <div className="flex flex-row items-start gap-4 h-full">
-                                                                            {/* Distribution Mode Toggle (On the Left) */}
-                                                                            <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
-                                                                                {[
-                                                                                    { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
-                                                                                    { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
-                                                                                    { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
-                                                                                ].filter(t => t.show).map((tab) => {
-                                                                                    const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
-                                                                                    const isActive = activeMode === tab.id;
-                                                                                    const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+                                                                        {/* Distribution Mode Toggle */}
+                                                                        <div className="flex items-center justify-center p-1 mb-4 bg-muted/60 dark:bg-slate-800/60 rounded-xl border border-border/50 shadow-sm">
+                                                                            {[
+                                                                                { id: 'platform', label: 'Platform', show: shouldShowPieChart(pieData?.platform), color: 'indigo' },
+                                                                                { id: 'pos', label: 'POS', show: shouldShowPieChart(pieData?.pos), color: 'emerald' },
+                                                                                { id: 'source', label: 'Source', show: shouldShowPieChart(pieData?.source), color: 'amber' }
+                                                                            ].filter(t => t.show).map((tab) => {
+                                                                                const activeModeInner = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                                const isActive = activeModeInner === tab.id;
+                                                                                const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
 
-                                                                                    return (
-                                                                                        <button
-                                                                                            key={tab.id}
-                                                                                            onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
-                                                                                            className={cn(
-                                                                                                "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
-                                                                                                isActive
-                                                                                                    ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
-                                                                                                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                                                                                            )}
+                                                                                return (
+                                                                                    <button
+                                                                                        key={tab.id}
+                                                                                        onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                                        className={cn(
+                                                                                            "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-300",
+                                                                                            isActive
+                                                                                                ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-md border border-${tab.color}-100 dark:border-${tab.color}-900/50`
+                                                                                                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                                        )}
+                                                                                    >
+                                                                                        {tab.label}
+                                                                                        {dataLength > 1 && (
+                                                                                            <span className={cn(
+                                                                                                "w-1.5 h-1.5 rounded-full animate-pulse",
+                                                                                                isActive ? `bg-${tab.color}-500` : "bg-slate-300 dark:bg-slate-600"
+                                                                                            )} />
+                                                                                        )}
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+
+                                                                        {/* Large Pie Chart View */}
+                                                                        <div className="relative group">
+                                                                            {(() => {
+                                                                                const activeModeInner = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                                const activeData = activeModeInner === 'platform' ? platformData : activeModeInner === 'pos' ? posData : sourceData;
+                                                                                const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                                const categoryLabel = activeModeInner === 'platform' ? 'Platform' : activeModeInner === 'pos' ? 'POS Site' : 'Source';
+
+                                                                                return (
+                                                                                    <div className="space-y-4">
+                                                                                        <div
+                                                                                            className="h-44 w-full cursor-pointer transition-transform duration-300 group-hover:scale-105 relative"
+                                                                                            onClick={() => {
+                                                                                                const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                                openExpandedPie(activeModeInner, `${event.eventName} - ${activeModeInner.toUpperCase()}`, dists, event.isApiEvent);
+                                                                                            }}
                                                                                         >
-                                                                                            <span>{tab.label}</span>
-                                                                                            {dataLength > 1 && (
-                                                                                                <span className={cn(
-                                                                                                    "w-1.5 h-1.5 rounded-full",
-                                                                                                    isActive ? `bg-${tab.color}-500 shadow-[0_0_4px_rgba(${tab.id === 'indigo' ? '99,102,241' : tab.id === 'emerald' ? '16,185,129' : '245,158,11'},0.5)]` : "bg-slate-300 dark:bg-slate-600"
-                                                                                                )} />
-                                                                                            )}
-                                                                                        </button>
-                                                                                    );
-                                                                                })}
-                                                                            </div>
+                                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                                <PieChart>
+                                                                                                    <Pie
+                                                                                                        data={activeData}
+                                                                                                        cx="50%"
+                                                                                                        cy="50%"
+                                                                                                        innerRadius={55}
+                                                                                                        outerRadius={85}
+                                                                                                        paddingAngle={2}
+                                                                                                        dataKey="value"
+                                                                                                        isAnimationActive={false}
+                                                                                                        stroke="none"
+                                                                                                    >
+                                                                                                        {activeData.map((_: any, idx: number) => (
+                                                                                                            <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                                        ))}
+                                                                                                    </Pie>
+                                                                                                    <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
+                                                                                                </PieChart>
+                                                                                            </ResponsiveContainer>
 
-                                                                            {/* Large Pie Chart View */}
-                                                                            <div className="relative flex-1 min-w-0 h-full">
-                                                                                {(() => {
-                                                                                    const activeMode = eventDistModes[event.eventId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
-                                                                                    const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
-                                                                                    const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
-                                                                                    const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
-
-                                                                                    const renderChildLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
-                                                                                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                                                                                        const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-                                                                                        const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-
-                                                                                        return (
-                                                                                            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-bold">
-                                                                                                {`${(percent * 100).toFixed(2)}%`}
-                                                                                                {` (${Math.floor(value)})`}
-                                                                                            </text>
-                                                                                        );
-                                                                                    };
-
-                                                                                    return (
-                                                                                        <div className="space-y-2 h-full flex flex-col">
-                                                                                            <div
-                                                                                                className="h-64 w-full cursor-pointer relative"
-                                                                                                onClick={() => {
-                                                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
-                                                                                                    openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
-                                                                                                }}
-                                                                                            >
-                                                                                                <ResponsiveContainer width="100%" height="100%">
-                                                                                                    <PieChart>
-                                                                                                        <Pie
-                                                                                                            data={activeData}
-                                                                                                            cx="50%"
-                                                                                                            cy="50%"
-                                                                                                            innerRadius={45}
-                                                                                                            outerRadius={75}
-                                                                                                            paddingAngle={2}
-                                                                                                            dataKey="value"
-                                                                                                            isAnimationActive={false}
-                                                                                                            stroke="none"
-                                                                                                            label={renderChildLabel}
-                                                                                                            labelLine={false}
-                                                                                                        >
-                                                                                                            {activeData.map((_: any, idx: number) => (
-                                                                                                                <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                                                                                                            ))}
-                                                                                                        </Pie>
-                                                                                                        <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
-                                                                                                    </PieChart>
-                                                                                                </ResponsiveContainer>
-                                                                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                                                                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
-                                                                                                    <span className="text-2xl font-black text-foreground tabular-nums">
-                                                                                                        {formatNumber(totalVal)}
-                                                                                                    </span>
-                                                                                                </div>
-                                                                                            </div>
-
-                                                                                            {/* Persistent Legend - Top 3 by Percentage Share */}
-                                                                                            <div className="space-y-1.5 px-2">
-                                                                                                {[...activeData]
-                                                                                                    .sort((a: any, b: any) => b.value - a.value)
-                                                                                                    .slice(0, 3)
-                                                                                                    .map((item: any, idx: number) => {
-                                                                                                        const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
-                                                                                                        return (
-                                                                                                            <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
-                                                                                                                <div className="flex items-center gap-2 min-w-0">
-                                                                                                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                                                                                                                    <span className="truncate text-muted-foreground">{item.name}</span>
-                                                                                                                </div>
-                                                                                                                <div className="flex items-center gap-2 tabular-nums">
-                                                                                                                    <span className="text-foreground">{formatNumber(item.value)}</span>
-                                                                                                                    <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
-                                                                                                                </div>
-                                                                                                            </div>
-                                                                                                        );
-                                                                                                    })}
+                                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeModeInner}</span>
+                                                                                                <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                                    {formatNumber(totalVal)}
+                                                                                                </span>
                                                                                             </div>
                                                                                         </div>
-                                                                                    );
-                                                                                })()}
-                                                                            </div>
+
+                                                                                        {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                                        <div className="space-y-1.5 px-2">
+                                                                                            {[...activeData]
+                                                                                                .sort((a: any, b: any) => b.value - a.value)
+                                                                                                .slice(0, 3)
+                                                                                                .map((item: any, idx: number) => {
+                                                                                                    const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                                    return (
+                                                                                                        <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                                                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                                <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                                            </div>
+                                                                                                            <div className="flex items-center gap-2 tabular-nums">
+                                                                                                                <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                                                <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
                                                                         </div>
                                                                     </CardContent>
                                                                 </Card>
@@ -4102,7 +4063,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                                 <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                                                                                             ))}
                                                                                         </Pie>
-                                                                                        <Tooltip content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
+                                                                                        <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
                                                                                     </PieChart>
                                                                                 </ResponsiveContainer>
 

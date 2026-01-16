@@ -3,12 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, AreaChart, ReferenceLine, ComposedChart, Scatter, PieChart, Pie, Cell } from 'recharts';
-import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle, Maximize2 } from 'lucide-react';
+import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle, Maximize2, PieChart as PieChartIcon } from 'lucide-react';
 import { useChartZoom } from '@/hooks/useChartZoom';
 import { ChartZoomControls } from '../components/ChartZoomControls';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { EventConfig } from '@/types/analytics';
+import { PIE_COLORS } from '../dashboardViewer/constants';
+import { PieTooltip } from '../dashboardViewer/PieTooltip';
 
 interface PercentageGraphProps {
     data: any[];
@@ -27,6 +29,7 @@ interface PercentageGraphProps {
     onToggleBackToFunnel?: () => void;
     events?: EventConfig[]; // Event configurations to detect isAvgEvent type
     onExpand?: () => void; // Callback for expansion button
+    eventPieCharts?: Record<string, any>;
 }
 
 /**
@@ -48,6 +51,7 @@ export function PercentageGraph({
     onToggleBackToFunnel,
     events = [],
     onExpand,
+    eventPieCharts = {},
 }: PercentageGraphProps) {
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const debug = false;
@@ -69,6 +73,8 @@ export function PercentageGraph({
     }
 
     const [selectedPoint, setSelectedPoint] = useState<any | null>(null);
+    // Distribution mode state for each event: platform | pos | source
+    const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
     // Line selection state: null = show all, 'all' = show all (explicit), or specific line ID
     const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
 
@@ -1026,6 +1032,7 @@ export function PercentageGraph({
                                     label={{ value: 'Avg', position: 'right', fill: '#facc15', fontSize: 11 }}
                                 />
                                 <Tooltip
+                                    wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
                                     content={({ active, payload }) => {
                                         if (active && payload && payload.length) {
                                             const data = payload[0].payload;
@@ -1444,8 +1451,130 @@ export function PercentageGraph({
                         </div>
                     </div>
 
-                    {/* Child Event Distribution Pie Chart */}
-                    {childEventPieData.length > 0 && (
+                    {/* Per-Event Distribution Analysis Pie Charts - DISABLED redundant section */}
+                    {false && (() => {
+                        const panelId = 'percentage_graph'; // Generic ID for state tracking
+                        const allEventIds = [...parentEvents, ...childEvents];
+                        const uniqueEventIds = Array.from(new Set(allEventIds));
+                        const eventsToAnalyze = uniqueEventIds.map(id => events.find(e => String(e.eventId) === String(id))).filter(Boolean);
+
+                        if (eventsToAnalyze.length === 0) return null;
+
+                        return (
+                            <div className="mt-8 space-y-6 pt-6 border-t border-purple-100 dark:border-purple-900/30">
+                                <div className="flex items-center gap-3 pb-2 border-b border-purple-200 dark:border-purple-800">
+                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                                        <PieChartIcon className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xl font-bold text-foreground">Event Distribution Analysis</h3>
+                                        <p className="text-sm text-muted-foreground font-medium">
+                                            POS, Platform, and Source breakdown for parent and child events
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {eventsToAnalyze.map((event) => {
+                                        if (!event) return null;
+                                        const pieData = eventPieCharts[event.eventId];
+                                        if (!pieData) return null;
+
+                                        // Data transformation (same as MainPanelSection)
+                                        const platformData = pieData?.platform ? Object.entries(pieData.platform).map(([name, value]: [string, any]) => ({ name, value: typeof value === 'object' ? value.count : value })) : [];
+                                        const posData = pieData?.pos ? Object.entries(pieData.pos).map(([name, value]: [string, any]) => ({ name, value: typeof value === 'object' ? value.count : value })) : [];
+                                        const sourceData = pieData?.source ? Object.entries(pieData.source).map(([name, value]: [string, any]) => ({ name, value: typeof value === 'object' ? value.count : value })) : [];
+
+                                        const showPlatform = platformData.length > 0;
+                                        const showPos = posData.length > 0;
+                                        const showSource = sourceData.length > 0;
+
+                                        if (!showPlatform && !showPos && !showSource) return null;
+
+                                        const defaultMode = (posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source';
+                                        const activeMode = eventDistModes[event.eventId] || defaultMode;
+                                        const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                        const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                        const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
+                                        return (
+                                            <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-100 dark:border-purple-800">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
+                                                            <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                        </div>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="p-4">
+                                                    <div className="flex flex-row items-start gap-4 h-full">
+                                                        <div className="flex flex-col gap-1.5 p-1 bg-muted/30 dark:bg-slate-800/30 rounded-xl border border-border/40 shadow-sm w-32 shrink-0">
+                                                            {[
+                                                                { id: 'platform', label: 'Platform', show: showPlatform, color: 'indigo' },
+                                                                { id: 'pos', label: 'POS', show: showPos, color: 'emerald' },
+                                                                { id: 'source', label: 'Source', show: showSource, color: 'amber' }
+                                                            ].filter(t => t.show).map((tab) => {
+                                                                const isActive = activeMode === tab.id;
+                                                                return (
+                                                                    <button
+                                                                        key={tab.id}
+                                                                        onClick={() => setEventDistModes(prev => ({ ...prev, [event.eventId]: tab.id as any }))}
+                                                                        className={cn(
+                                                                            "w-full flex items-center justify-between gap-2 px-2 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-200",
+                                                                            isActive
+                                                                                ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-sm border border-${tab.color}-100 dark:border-${tab.color}-900/40 translate-x-1`
+                                                                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                                                                        )}
+                                                                    >
+                                                                        <span>{tab.label}</span>
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        <div className="relative flex-1 min-w-0 h-full">
+                                                            <div className="h-64 w-full cursor-pointer relative">
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <PieChart>
+                                                                        <Pie
+                                                                            data={activeData}
+                                                                            cx="50%"
+                                                                            cy="50%"
+                                                                            innerRadius={45}
+                                                                            outerRadius={75}
+                                                                            paddingAngle={2}
+                                                                            dataKey="value"
+                                                                            isAnimationActive={false}
+                                                                            stroke="none"
+                                                                        >
+                                                                            {activeData.map((_: any, idx: number) => (
+                                                                                <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                            ))}
+                                                                        </Pie>
+                                                                        <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={categoryLabel} isAvgEventType={event.isAvgEvent} />} />
+                                                                    </PieChart>
+                                                                </ResponsiveContainer>
+                                                                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                    <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                        {totalVal >= 1000 ? `${(totalVal / 1000).toFixed(1)}k` : totalVal.toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Child Event Distribution Pie Chart (Legacy) */}
+                    {false && childEventPieData.length > 0 && (
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <h4 className="text-sm font-semibold text-muted-foreground mb-4 flex items-center gap-2">
                                 <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
@@ -1490,6 +1619,7 @@ export function PercentageGraph({
                                             })}
                                         </Pie>
                                         <Tooltip
+                                            wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
                                             content={({ active, payload }: any) => {
                                                 if (active && payload && payload[0]) {
                                                     const data = payload[0].payload;

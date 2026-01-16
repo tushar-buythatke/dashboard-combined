@@ -54,29 +54,31 @@ export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0 }: 
 
     return (
         <div
-            className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-lg shadow-lg border border-slate-200/60 dark:border-slate-700/60 p-3 min-w-[160px] max-w-[200px]"
+            className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 p-3.5 min-w-[200px] max-w-[240px] z-[1000]"
         >
-            <div className="flex items-center gap-2.5 mb-2">
+            <div className="flex items-center gap-2.5 mb-3 border-b border-slate-100 dark:border-slate-800 pb-2">
                 <div
-                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                    className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
                     style={{ backgroundColor: payload[0]?.payload?.fill || PIE_COLORS[0] }}
                 />
-                <span className="font-medium text-sm text-slate-900 dark:text-slate-100 truncate">
+                <span className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate flex-1">
                     {data.name}
                 </span>
             </div>
-            <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">{getMetricLabel()}</span>
-                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {formatValue(data.value)}
-                    </span>
-                </div>
-                <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-600 dark:text-slate-400">Share</span>
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                        {percentage}%
-                    </span>
+            <div className="space-y-2.5">
+                <div className="flex justify-between items-end gap-4">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-none mb-1">{getMetricLabel()}</span>
+                        <span className="text-lg font-black text-slate-900 dark:text-slate-50">
+                            {formatValue(data.value)}
+                        </span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 leading-none mb-1">Share</span>
+                        <span className="text-base font-extrabold text-indigo-600 dark:text-indigo-400">
+                            {percentage}%
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>

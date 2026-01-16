@@ -304,8 +304,18 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const [hourlyOverride, setHourlyOverrideState] = useState<boolean | null>(null);
 
     // Compute isHourly based on date range (8 days or less = hourly) OR manual override
-    const autoIsHourly = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24)) <= 8;
-    const isHourly = hourlyOverride !== null ? hourlyOverride : autoIsHourly;
+    const autoIsHourly = useMemo(() => {
+        const diffInDays = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+        return diffInDays <= 8;
+    }, [dateRange]);
+
+    const isHourly = useMemo(() => {
+        // Robust check: Force to false if range > 8 days regardless of override
+        const diffInDays = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffInDays > 8) return false;
+        
+        return hourlyOverride !== null ? hourlyOverride : autoIsHourly;
+    }, [hourlyOverride, autoIsHourly, dateRange.from, dateRange.to]);
 
     // Per-panel hourly override state (panelId -> boolean | null)
     // This allows each additional panel to have its own independent hourly/daily toggle
@@ -2532,9 +2542,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
             const limit = 200; // Fetch all alerts upfront for accurate counts
 
-            // Robust isHourly check: Force to false if range > 7 days
-            const diffInDays = (effectiveDateRange.to.getTime() - effectiveDateRange.from.getTime()) / (1000 * 60 * 60 * 24);
-            const finalIsHourly = diffInDays > 7 ? false : effectiveIsHourly;
+            // Robust isHourly check: Force to false if range > 8 days
+            const diffInDays = Math.ceil((effectiveDateRange.to.getTime() - effectiveDateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+            const finalIsHourly = diffInDays > 8 ? false : effectiveIsHourly;
 
             // Format dates with proper start/end times: 00:00:01 for start, 23:59:59 for end
             const formatStartDate = (date: Date) => {

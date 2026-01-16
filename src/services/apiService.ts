@@ -355,9 +355,9 @@ export class APIService {
                 isApiEvent: false
             }));
 
-            // API events from eventMapApi
+            // API events from eventMapApi - prefix ID to prevent collision with regular events
             const apiEvents = Object.entries(result.data.eventMapApi || {}).map(([id, eventData]: [string, any], index) => ({
-                eventId: id,
+                eventId: `api_${id}`,
                 eventName: `${eventData.host} - ${eventData.url}`, // Combined display name
                 color: colors[(regularEvents.length + index) % colors.length],
                 feature: eventData.feature,
