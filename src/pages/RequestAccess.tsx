@@ -19,7 +19,7 @@ interface SelectedPermission {
 }
 
 export default function RequestAccess() {
-    const { user, requestAccess } = useAnalyticsAuth();
+    const { user, requestAccess, refreshUser } = useAnalyticsAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
 
@@ -29,6 +29,8 @@ export default function RequestAccess() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showAll, setShowAll] = useState(false);
+    const [lastChecked, setLastChecked] = useState<Date | null>(null);
+    const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
     // Get user's existing permissions
     const existingPermissions = useMemo(() => {
@@ -36,12 +38,35 @@ export default function RequestAccess() {
         return user.permissions.features as Record<string, 'read' | 'write'>;
     }, [user]);
 
+    // Auto-refresh on mount to get latest approval status
+    useEffect(() => {
+        const checkStatus = async () => {
+            await refreshUser?.();
+            setLastChecked(new Date());
+        };
+        checkStatus();
+    }, []);
+
     // Redirect admins to admin panel
     useEffect(() => {
         if (user?.role === 1) {
             navigate('/admin');
         }
     }, [user, navigate]);
+
+    // Show success message if user was just approved
+    useEffect(() => {
+        if (user?.pending_status === 0 && user?.permissions?.features) {
+            const hasPermissions = Object.keys(user.permissions.features).length > 0;
+            if (hasPermissions) {
+                toast({
+                    title: "✅ Access Granted!",
+                    description: "Your request has been approved. You now have access to the requested features.",
+                    duration: 5000
+                });
+            }
+        }
+    }, [user?.pending_status]);
 
     // Fetch features from API and pre-select existing permissions
     useEffect(() => {
@@ -359,15 +384,60 @@ export default function RequestAccess() {
                         <CardContent className="py-6">
                             <div className="flex items-start gap-4">
                                 <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
-                                    <Clock className="h-6 w-6 text-white" />
+                                    <Clock className="h-6 w-6 text-white animate-pulse" />
                                 </div>
                                 <div className="flex-1">
-                                    <h3 className="text-lg font-bold text-amber-800 dark:text-amber-200">
-                                        ⏳ You Have a Pending Request!
-                                    </h3>
-                                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                                        Waiting for admin approval. Submitting a new request will replace this one.
-                                    </p>
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-bold text-amber-800 dark:text-amber-200">
+                                                ⏳ You Have a Pending Request!
+                                            </h3>
+                                            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                                                Waiting for admin approval. Submitting a new request will replace this one.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={isCheckingStatus}
+                                            onClick={async () => {
+                                                setIsCheckingStatus(true);
+                                                toast({ title: "Checking Status...", description: "Refreshing your approval status" });
+                                                await refreshUser?.();
+                                                setLastChecked(new Date());
+                                                
+                                                // Small delay to ensure state is updated
+                                                setTimeout(() => {
+                                                    if (user?.pending_status === 0) {
+                                                        toast({ 
+                                                            title: "🎉 Approved!", 
+                                                            description: "Your request has been approved! Reload the page to see your new permissions.",
+                                                            duration: 5000
+                                                        });
+                                                        // Auto-reload after 2 seconds
+                                                        setTimeout(() => window.location.reload(), 2000);
+                                                    } else {
+                                                        toast({ 
+                                                            title: "Still Pending", 
+                                                            description: "Your request is still waiting for admin approval."
+                                                        });
+                                                    }
+                                                    setIsCheckingStatus(false);
+                                                }, 500);
+                                            }}
+                                            className="flex-shrink-0 gap-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                                        >
+                                            <CheckCircle className={`h-4 w-4 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+                                            <span>{isCheckingStatus ? 'Checking...' : 'Check Status'}</span>
+                                        </Button>
+                                    </div>
+                                    
+                                    {/* Last checked timestamp */}
+                                    {lastChecked && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                                            Last checked: {lastChecked.toLocaleTimeString()}
+                                        </p>
+                                    )}
                                     
                                     {/* Show requested features */}
                                     <div className="mt-4">

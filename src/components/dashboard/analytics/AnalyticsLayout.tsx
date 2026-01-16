@@ -36,7 +36,7 @@ import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground } from '@/components/ui/animated-background';
 
 export function AnalyticsLayout() {
-    const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers } = useAnalyticsAuth();
+    const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers, refreshUser } = useAnalyticsAuth();
     const navigate = useNavigate();
 
     // Redirect if not authenticated
@@ -412,17 +412,19 @@ export function AnalyticsLayout() {
                                 size="sm"
                                 onClick={() => {
                                     if (user?.pending_status === 1) {
-                                        toast({ title: "Request Pending", description: "You already have a pending request." });
+                                        // Trigger manual refresh to check approval status
+                                        refreshUser?.();
+                                        navigate('/request-access');
                                     } else {
                                         navigate('/request-access');
                                     }
                                 }}
-                                className={`hidden sm:flex gap-2 h-8 ${user?.pending_status === 1 ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10' : ''}`}
+                                className={`hidden sm:flex gap-2 h-8 ${user?.pending_status === 1 ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-600/20' : ''}`}
                             >
                                 {user?.pending_status === 1 ? (
                                     <>
-                                        <Clock className="h-3.5 w-3.5" />
-                                        <span>Request Pending</span>
+                                        <Clock className="h-3.5 w-3.5 animate-pulse" />
+                                        <span>Check Status</span>
                                     </>
                                 ) : (
                                     <>
