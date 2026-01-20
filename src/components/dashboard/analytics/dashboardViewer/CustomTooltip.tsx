@@ -8,8 +8,10 @@ import {
     ChevronUp,
     Clock,
     DollarSign,
-    TrendingDown,
     TrendingUp,
+    Users,
+    UserPlus,
+    Fingerprint,
     XCircle
 } from 'lucide-react';
 
@@ -134,6 +136,11 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
         const eventSuccessRaw = data[`${eventKey}_success`] !== undefined ? Number(data[`${eventKey}_success`]) : 0;
         const eventFail = data[`${eventKey}_fail`] !== undefined ? Number(data[`${eventKey}_fail`]) : 0;
 
+        // Extract User Metrics
+        const totalUsers = data[`${eventKey}_totalUsers`] !== undefined ? Number(data[`${eventKey}_totalUsers`]) : 0;
+        const newUsers = data[`${eventKey}_newUsers`] !== undefined ? Number(data[`${eventKey}_newUsers`]) : 0;
+        const uniqueUsers = data[`${eventKey}_uniqueUsers`] !== undefined ? Number(data[`${eventKey}_uniqueUsers`]) : 0;
+
         const isErrorEvent = ekInfo?.isErrorEvent === 1;
         const metricValue = Number(item.value || 0);
 
@@ -202,7 +209,10 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
             metricLabel: isAvgEvent ? formatMetric(metricValue, metricType, cfg?.feature) : null,
             metricValue,
             metricType,
-            rawKey
+            rawKey,
+            totalUsers,
+            newUsers,
+            uniqueUsers
         };
     }).filter((item: any) => item.count !== undefined && item.count >= 0);
 
@@ -211,6 +221,11 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
     const totalSuccess = eventDataItems.reduce((sum: number, item: any) => sum + (item.successCount || 0), 0);
     const totalErrors = eventDataItems.reduce((sum: number, item: any) => sum + (item.errorCount || 0), 0);
     const overallSuccessRate = totalCount > 0 ? ((totalSuccess / totalCount) * 100) : 0;
+
+    // Calculate user metric totals
+    const sumTotalUsers = eventDataItems.reduce((sum: number, item: any) => sum + (item.totalUsers || 0), 0);
+    const sumNewUsers = eventDataItems.reduce((sum: number, item: any) => sum + (item.newUsers || 0), 0);
+    const sumUniqueUsers = eventDataItems.reduce((sum: number, item: any) => sum + (item.uniqueUsers || 0), 0);
 
     // Check for metrics types across all items
     const someAvgEvents = eventDataItems.some((item: any) => item.isAvgEvent);
@@ -313,6 +328,30 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                     </div>
                 </div>
 
+                {/* User Metrics Summary Bar */}
+                {sumTotalUsers > 0 && (
+                    <div className="flex items-center gap-4 mb-3 px-1 py-1.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-100 dark:border-slate-700/50">
+                        <div className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                {formatMetric(sumTotalUsers, 'count')} <span className="text-[9px] font-medium opacity-70">users</span>
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <UserPlus className="w-3.5 h-3.5 text-teal-500" />
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                {formatMetric(sumNewUsers, 'count')} <span className="text-[9px] font-medium opacity-70">new</span>
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <Fingerprint className="w-3.5 h-3.5 text-indigo-500" />
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                {formatMetric(sumUniqueUsers, 'count')} <span className="text-[9px] font-medium opacity-70">unique</span>
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Click to expand hint when not pinned */}
                 {!isPinned && eventDataItems.length > 0 && (
                     <div className="text-[9px] text-center text-muted-foreground mb-2 opacity-70">
@@ -390,6 +429,24 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                     {item.successRate.toFixed(0)}%
                                 </span>
                             </div>
+
+                            {/* Per-item User Metrics */}
+                            {item.totalUsers > 0 && (
+                                <div className="mt-2 pt-2 border-t border-gray-200/40 dark:border-gray-700/40 flex items-center gap-3">
+                                    <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
+                                        <Users className="w-2.5 h-2.5" />
+                                        {formatMetric(item.totalUsers, 'count')}
+                                    </span>
+                                    <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
+                                        <UserPlus className="w-2.5 h-2.5" />
+                                        {formatMetric(item.newUsers, 'count')}
+                                    </span>
+                                    <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
+                                        <Fingerprint className="w-2.5 h-2.5" />
+                                        {formatMetric(item.uniqueUsers, 'count')}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

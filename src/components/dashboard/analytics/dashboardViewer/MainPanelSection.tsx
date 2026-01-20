@@ -61,6 +61,7 @@ import {
     CartesianGrid,
     Cell,
     Legend,
+    Line,
     Pie,
     PieChart,
     ResponsiveContainer,
@@ -173,6 +174,8 @@ type MainPanelSectionProps = {
     isAdmin?: boolean;
     setVoiceStatus?: (status: any) => void;
 };
+
+import { UserFootfallCard } from './UserFootfallCard';
 
 export const MainPanelSection = React.memo(function MainPanelSection({
     profile,
@@ -4518,6 +4521,19 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 isHourly && graphData.length > 0 && (profile?.panels?.[0] as any)?.filterConfig?.showHourlyStats !== false && !isFirstPanelSpecialGraph && (
                     <div className="mt-6">
                         <HourlyStatsCard graphData={graphData} isHourly={isHourly} eventKeys={eventKeys} events={events} />
+                    </div>
+                )
+            }
+
+            {/* User Footfall Card */}
+            {
+                graphData.length > 0 && !isFirstPanelSpecialGraph && (
+                    <div className="mt-6">
+                        <UserFootfallCard 
+                            graphData={graphData} 
+                            eventKeys={eventKeys} 
+                            events={events} 
+                        />
                     </div>
                 )
             }

@@ -1875,6 +1875,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         count: 0,
                         successCount: 0,
                         failCount: 0,
+                        totalUsers: 0,
+                        newUsers: 0,
+                        uniqueUsers: 0
                     });
                 }
 
@@ -1884,6 +1887,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 existing.count += record.count || 0;
                 existing.successCount += record.successCount || 0;
                 existing.failCount += record.failCount || 0;
+                existing.totalUsers += record.totalUsers || 0;
+                existing.newUsers += record.newUsers || 0;
+                existing.uniqueUsers += record.uniqueUsers || 0;
 
                 // Add per-status data
                 const statusKey = `status_${status}`;
@@ -1891,6 +1897,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     existing[`${statusKey}_count`] = 0;
                     existing[`${statusKey}_success`] = 0;
                     existing[`${statusKey}_fail`] = 0;
+                    existing[`${statusKey}_totalUsers`] = 0;
+                    existing[`${statusKey}_newUsers`] = 0;
+                    existing[`${statusKey}_uniqueUsers`] = 0;
                     existing[`${statusKey}_avgBytesIn`] = 0;
                     existing[`${statusKey}_avgBytesOut`] = 0;
                     existing[`${statusKey}_avgServerToUser`] = 0;
@@ -1901,6 +1910,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 existing[`${statusKey}_count`] += record.count || 0;
                 existing[`${statusKey}_success`] += record.successCount || 0;
                 existing[`${statusKey}_fail`] += record.failCount || 0;
+                existing[`${statusKey}_totalUsers`] += record.totalUsers || 0;
+                existing[`${statusKey}_newUsers`] += record.newUsers || 0;
+                existing[`${statusKey}_uniqueUsers`] += record.uniqueUsers || 0;
 
                 // Accumulate timing metrics for averaging
                 if (record.avgBytesIn) existing[`${statusKey}_avgBytesIn`] += parseFloat(record.avgBytesIn);
@@ -1916,10 +1928,16 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     existing[`${cacheKey}_count`] = 0;
                     existing[`${cacheKey}_success`] = 0;
                     existing[`${cacheKey}_fail`] = 0;
+                    existing[`${cacheKey}_totalUsers`] = 0;
+                    existing[`${cacheKey}_newUsers`] = 0;
+                    existing[`${cacheKey}_uniqueUsers`] = 0;
                 }
                 existing[`${cacheKey}_count`] += record.count || 0;
                 existing[`${cacheKey}_success`] += record.successCount || 0;
                 existing[`${cacheKey}_fail`] += record.failCount || 0;
+                existing[`${cacheKey}_totalUsers`] += record.totalUsers || 0;
+                existing[`${cacheKey}_newUsers`] += record.newUsers || 0;
+                existing[`${cacheKey}_uniqueUsers`] += record.uniqueUsers || 0;
             });
 
             // Calculate averages for timing metrics
@@ -1998,6 +2016,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     count: 0,
                     successCount: 0,
                     failCount: 0,
+                    totalUsers: 0,
+                    newUsers: 0,
+                    uniqueUsers: 0,
                     avgDelay: 0, // For avg events
                     // Per-event data will be added dynamically
                 });
@@ -2012,6 +2033,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             existing.count += record.count || 0;
             existing.successCount += record.successCount || 0;
             existing.failCount += record.failCount || 0;
+            existing.totalUsers += record.totalUsers || 0;
+            existing.newUsers += record.newUsers || 0;
+            existing.uniqueUsers += record.uniqueUsers || 0;
 
             // Add per-event data keyed by safe event name
             const eventName = eventNameMap.get(eventId) || `Event ${eventId}`;
@@ -2021,12 +2045,18 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 existing[`${eventKey}_count`] = 0;
                 existing[`${eventKey}_success`] = 0;
                 existing[`${eventKey}_fail`] = 0;
+                existing[`${eventKey}_totalUsers`] = 0;
+                existing[`${eventKey}_newUsers`] = 0;
+                existing[`${eventKey}_uniqueUsers`] = 0;
                 existing[`${eventKey}_avgDelay`] = 0;
                 existing[`${eventKey}_delayCount`] = 0; // For calculating average
             }
             existing[`${eventKey}_count`] += record.count || 0;
             existing[`${eventKey}_success`] += record.successCount || 0;
             existing[`${eventKey}_fail`] += record.failCount || 0;
+            existing[`${eventKey}_totalUsers`] += record.totalUsers || 0;
+            existing[`${eventKey}_newUsers`] += record.newUsers || 0;
+            existing[`${eventKey}_uniqueUsers`] += record.uniqueUsers || 0;
 
             // Also aggregate by raw numeric eventId for special graphs (percentage/funnel)
             if (!existing[`${eventId}_count`]) {
@@ -2513,7 +2543,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Wrapper for setAlertIsHourly that auto-adjusts alert date range
     const handleAlertIsHourlyChange = useCallback((isHourly: boolean) => {
         setAlertIsHourly(isHourly);
-        
+
         // Auto-adjust alert date range: 8 days for hourly, 30 days for daily
         const daysBack = isHourly ? 8 : 30;
         setAlertDateRange({
@@ -3604,7 +3634,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                                 if (profile?.panels) {
                                                     const updatedPanelRanges: Record<string, DateRangeState> = {};
                                                     const updatedFilterChanges: Record<string, boolean> = {};
-                                                    
+
                                                     profile.panels.forEach(panel => {
                                                         updatedPanelRanges[panel.panelId] = newDateRange;
                                                         updatedFilterChanges[panel.panelId] = true;

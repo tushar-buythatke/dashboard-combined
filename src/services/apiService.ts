@@ -3,7 +3,7 @@ import type { AnalyticsDataResponse, EventConfig } from '@/types/analytics';
 
 // Direct API URLs - backend now handles CORS
 const API_BASE_URL = 'https://ext1.buyhatke.com/feature-tracking/dashboard';
-const POS_API_BASE_URL = import.meta.env.DEV 
+const POS_API_BASE_URL = import.meta.env.DEV
     ? 'http://localhost:8096/buyhatkeAdDashboard/ads'
     : 'https://search-new.bitbns.com/buyhatkeAdDashboard/ads';
 
@@ -457,7 +457,7 @@ export class APIService {
         // In development, use Vite proxy. In production, use CORS proxy.
         const isDev = import.meta.env.DEV;
         const DIRECT_URL = 'https://search-new.bitbns.com/extension/configs-coupons/prod/ALL_CONFIG_COUPON.json';
-        const COUPON_CONFIG_URL = isDev 
+        const COUPON_CONFIG_URL = isDev
             ? '/coupon-config'  // Vite proxy (defaults to ALL_CONFIG_COUPON.json)
             : '/api/coupon-config';  // Same-origin serverless proxy on Vercel
 
@@ -608,7 +608,7 @@ export class APIService {
         panelId?: number // DB panel ID for isApi=2 (percent/funnel alerts)
     ): Promise<any> {
         const isApiVal = typeof isApi === 'boolean' ? (isApi ? 1 : 0) : isApi;
-        
+
         const body: any = {
             filter: {
                 eventId: eventIds,
@@ -821,7 +821,11 @@ export class APIService {
                 avgServerToCloud: (record as any).avgServerToCloud,
                 avgCloudToUser: (record as any).avgCloudToUser,
                 medianBytesIn: (record as any).medianBytesIn,
-                medianBytesOut: (record as any).medianBytesOut
+                medianBytesOut: (record as any).medianBytesOut,
+                // New User Metrics from graphV2
+                totalUsers: (record as any).totalUsers || 0,
+                newUsers: (record as any).newUsers || 0,
+                uniqueUsers: (record as any).uniqueUsers || 0
             })) as any[];
 
             return {
@@ -1124,7 +1128,7 @@ export class APIService {
             if (result.status !== 1 && result.status !== 200) {
                 throw new Error(result.message || 'Failed to upload child config');
             }
-            
+
             console.log('✅ Child config uploaded successfully for panelId:', panelId);
         } catch (error) {
             console.error('Failed to upload child config:', error);

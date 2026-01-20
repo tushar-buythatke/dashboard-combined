@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Filter, TrendingDown, X, BarChart3, TrendingUp, Users } from 'lucide-react';
+import { Filter, TrendingDown, X, BarChart3, TrendingUp, Users, UserPlus } from 'lucide-react';
 import { useChartZoom } from '@/hooks/useChartZoom';
 import { ChartZoomControls } from '../components/ChartZoomControls';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,9 @@ interface FunnelStageData {
     percentage: number;
     dropoffPercentage: number;
     color: string;
+    totalUsers?: number;
+    newUsers?: number;
+    uniqueUsers?: number;
     isMultiple?: boolean;
     isAvgMetric?: boolean; // Indicates this is avgDelay metric
     children?: Array<{
@@ -44,6 +47,9 @@ interface FunnelStageData {
         avgDelay?: number;
         percentage: number;
         color: string;
+        totalUsers?: number;
+        newUsers?: number;
+        uniqueUsers?: number;
     }>;
 }
 
@@ -75,6 +81,11 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
 
             data.forEach((record) => {
+                // Aggregate user metrics for the stage
+                const stageTotalUsers = Number(record[`${stage.eventId}_totalUsers`] || 0);
+                const stageNewUsers = Number(record[`${stage.eventId}_newUsers`] || 0);
+                const stageUniqueUsers = Number(record[`${stage.eventId}_uniqueUsers`] || 0);
+
                 if (hasStatusFilter || hasCacheFilter) {
                     const baseName = eventNames[String(stage.eventId)] || `Event ${stage.eventId}`;
                     const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
@@ -137,7 +148,21 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             // Calculate average delay if in avgDelay mode
             const avgDelay = delayCountBase > 0 ? weightedDelaySum / delayCountBase : 0;
 
-            return { ...stage, count, avgDelay, isAvgMetric: isAvgDelayMode && hasAvgData };
+            // Aggregate user metrics for the stage
+            let stageTotalUsers = 0;
+            let stageNewUsers = 0;
+            let stageUniqueUsers = 0;
+
+            data.forEach((record) => {
+                const baseName = eventNames[String(stage.eventId)] || `Event ${stage.eventId}`;
+                const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+                
+                stageTotalUsers += Number(record[`${eventKey}_totalUsers`] || record[`${stage.eventId}_totalUsers`] || 0);
+                stageNewUsers += Number(record[`${eventKey}_newUsers`] || record[`${stage.eventId}_newUsers`] || 0);
+                stageUniqueUsers += Number(record[`${eventKey}_uniqueUsers`] || record[`${stage.eventId}_uniqueUsers`] || 0);
+            });
+
+            return { ...stage, count, avgDelay, totalUsers: stageTotalUsers, newUsers: stageNewUsers, uniqueUsers: stageUniqueUsers, isAvgMetric: isAvgDelayMode && hasAvgData };
         });
 
         const baseCount = stageCounts[0]?.count || 1;
@@ -157,6 +182,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 eventName: stage.eventName || eventNames[String(stage.eventId)] || `Event ${stage.eventId}`,
                 count: stage.count,
                 avgDelay: stage.avgDelay,
+                totalUsers: stage.totalUsers,
+                newUsers: stage.newUsers,
+                uniqueUsers: stage.uniqueUsers,
                 percentage: (stage.count / baseCount) * 100,
                 dropoffPercentage: dropoff,
                 color: funnelPalette[index % funnelPalette.length],
@@ -170,11 +198,21 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             // Final stage is an aggregate of multiple child events (AC_process_success, AC_process_failed)
             const lastStageChildren = multipleChildEvents.map((childEventId, idx) => {
                 let count = 0;
+                let childTotalUsers = 0;
+                let childNewUsers = 0;
+                let childUniqueUsers = 0;
 
                 // Check if data is raw
                 const isRawData = data.length > 0 && data[0].eventId !== undefined;
                 const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
                 data.forEach((record) => {
+                    const baseName = eventNames[String(childEventId)] || `Event ${childEventId}`;
+                    const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                    childTotalUsers += Number(record[`${eventKey}_totalUsers`] || record[`${childEventId}_totalUsers`] || 0);
+                    childNewUsers += Number(record[`${eventKey}_newUsers`] || record[`${childEventId}_newUsers`] || 0);
+                    childUniqueUsers += Number(record[`${eventKey}_uniqueUsers`] || record[`${childEventId}_uniqueUsers`] || 0);
+
                     if (hasStatusFilter || hasCacheFilter) {
                         const baseName = eventNames[String(childEventId)] || `Event ${childEventId}`;
                         const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
@@ -208,12 +246,18 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     eventId: childEventId,
                     eventName: eventNames[String(childEventId)] || `Event ${childEventId}`,
                     count,
+                    totalUsers: childTotalUsers,
+                    newUsers: childNewUsers,
+                    uniqueUsers: childUniqueUsers,
                     percentage: (count / baseCount) * 100,
                     color: funnelPalette[idx % funnelPalette.length],
                 };
             });
 
             const totalLastStageCount = lastStageChildren.reduce((sum, child) => sum + child.count, 0);
+            const totalLastStageUsers = lastStageChildren.reduce((sum, child) => sum + (child.totalUsers || 0), 0);
+            const totalLastStageNewUsers = lastStageChildren.reduce((sum, child) => sum + (child.newUsers || 0), 0);
+            const totalLastStageUniqueUsers = lastStageChildren.reduce((sum, child) => sum + (child.uniqueUsers || 0), 0);
             const prevCount = regularStages[regularStages.length - 1]?.count || totalLastStageCount;
             const dropoff = prevCount > 0 ? ((prevCount - totalLastStageCount) / prevCount) * 100 : 0;
 
@@ -221,6 +265,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 eventId: 'final_multiple',
                 eventName: 'Final Stage (Combined)',
                 count: totalLastStageCount,
+                totalUsers: totalLastStageUsers,
+                newUsers: totalLastStageNewUsers,
+                uniqueUsers: totalLastStageUniqueUsers,
                 percentage: (totalLastStageCount / baseCount) * 100,
                 dropoffPercentage: dropoff,
                 color: funnelPalette[(processedStages.length) % funnelPalette.length],
@@ -229,7 +276,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             });
         }
 
-        return processedStages;
+        // Filter out stages with 0 count to avoid "ugly" empty bars
+        const filteredProcessedStages = processedStages.filter(stage => stage.count > 0);
+
+        return filteredProcessedStages;
     }, [data, stages, multipleChildEvents, eventColors, eventNames, filters]);
 
     if (!funnelData || funnelData.length === 0) {
@@ -351,10 +401,24 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                 <div className="font-bold text-gray-900 dark:text-gray-100 text-sm mb-2 truncate" title={stage.eventName}>
                                                     {index + 1}. {stage.eventName}
                                                 </div>
+                                                <div className="grid grid-cols-3 gap-2 mb-3 border-b border-gray-100 dark:border-gray-800 pb-2">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] text-gray-500 uppercase">Users</span>
+                                                        <span className="font-bold text-blue-600 dark:text-blue-400">{(stage.totalUsers || 0).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] text-gray-500 uppercase">New</span>
+                                                        <span className="font-bold text-teal-600 dark:text-teal-400">{(stage.newUsers || 0).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] text-gray-500 uppercase">Unique</span>
+                                                        <span className="font-bold text-indigo-600 dark:text-indigo-400">{(stage.uniqueUsers || 0).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
                                                 <div className="space-y-1.5 text-xs">
                                                     <div className="flex items-center justify-between gap-4">
-                                                        <span className="text-gray-500">Count:</span>
-                                                        <span className="font-bold text-indigo-600 dark:text-indigo-400">{stage.count.toLocaleString()}</span>
+                                                        <span className="text-gray-500">Hits:</span>
+                                                        <span className="font-bold text-gray-700 dark:text-gray-300">{stage.count.toLocaleString()}</span>
                                                     </div>
                                                     <div className="flex items-center justify-between gap-4">
                                                         <span className="text-gray-500">Percentage:</span>
@@ -412,17 +476,33 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                     </div>
                                                 )}
                                                 
-                                                {/* DUAL METRICS: Percentage + Count inside bar (only when percentage >= 10%) */}
-                                                {stage.percentage >= 10 && (
-                                                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
-                                                        <span className="text-white font-bold text-base sm:text-lg md:text-xl drop-shadow-lg">
+                                                {/* Percentage and User Badges */}
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
+                                                    <div className="flex flex-col items-center gap-0.5">
+                                                        <span className="text-white font-bold text-base sm:text-lg md:text-xl drop-shadow-lg leading-none">
                                                             {stage.percentage.toFixed(1)}%
                                                         </span>
-                                                        <span className="text-white/90 font-semibold text-xs sm:text-sm drop-shadow-lg">
-                                                            {stage.count.toLocaleString()}
+                                                        <span className="text-white/80 font-semibold text-[10px] sm:text-xs drop-shadow-lg leading-none">
+                                                            {stage.count.toLocaleString()} hits
                                                         </span>
                                                     </div>
-                                                )}
+                                                    
+                                                    {/* User Badges inside bar if space permits and data exists */}
+                                                    {stage.percentage > 25 && (stage.totalUsers || 0) > 0 && (
+                                                        <div className="mt-3 flex flex-col gap-1.5 w-full px-2">
+                                                            <div className="flex items-center justify-between bg-black/10 backdrop-blur-sm rounded-md px-2 py-0.5 border border-white/10">
+                                                                <Users className="h-2.5 w-2.5 text-white/70" />
+                                                                <span className="text-[9px] font-bold text-white">{(stage.totalUsers || 0).toLocaleString()}</span>
+                                                            </div>
+                                                            {(stage.newUsers || 0) > 0 && (
+                                                                <div className="flex items-center justify-between bg-teal-500/20 backdrop-blur-sm rounded-md px-2 py-0.5 border border-white/10">
+                                                                    <UserPlus className="h-2.5 w-2.5 text-white/70" />
+                                                                    <span className="text-[9px] font-bold text-white">{(stage.newUsers || 0).toLocaleString()}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
 
                                                 {/* High drop-off indicator */}
                                                 {stage.dropoffPercentage > 20 && stage.percentage >= 10 && (
@@ -514,16 +594,32 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                         <div className="grid grid-cols-4 gap-4 text-center">
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-200/50 dark:border-indigo-500/30">
-                                <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-                                    {funnelData[0]?.count.toLocaleString() || 0}
+                                <div className="flex flex-col items-center">
+                                    <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                                        {funnelData[0]?.count.toLocaleString() || 0}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground mt-1 font-medium">Total Hits</div>
+                                    {(funnelData[0]?.totalUsers || 0) > 0 && (
+                                        <div className="mt-2 flex items-center gap-2 text-[10px] bg-indigo-100/50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-full">
+                                            <Users className="h-3 w-3 text-indigo-500" />
+                                            <span className="text-indigo-700 dark:text-indigo-300 font-bold">{(funnelData[0]?.totalUsers || 0).toLocaleString()} users</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-1 font-medium">Started</div>
                             </div>
                             <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200/50 dark:border-emerald-500/30">
-                                <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                                    {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
+                                <div className="flex flex-col items-center">
+                                    <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                                        {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground mt-1 font-medium">Completed</div>
+                                    {(funnelData[funnelData.length - 1]?.totalUsers || 0) > 0 && (
+                                        <div className="mt-2 flex items-center gap-2 text-[10px] bg-emerald-100/50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                            <Users className="h-3 w-3 text-emerald-500" />
+                                            <span className="text-emerald-700 dark:text-emerald-300 font-bold">{(funnelData[funnelData.length - 1]?.totalUsers || 0).toLocaleString()} users</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-1 font-medium">Completed</div>
                             </div>
                             <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-500/30">
                                 <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">

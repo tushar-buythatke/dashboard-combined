@@ -131,6 +131,7 @@ export interface PanelConfig {
         isApiEvent?: boolean; // Toggle for API events vs regular events
         showHourlyStats?: boolean; // Enable hourly/daily toggle for this panel
         showEventPieCharts?: boolean; // New: Show separate pie charts for each event
+        showUserFootfall?: boolean; // New: Show user total/new/unique footfall metrics as series
 
         // Graph-specific configurations maintained in filter state
         userFlowConfig?: UserFlowGraphConfig;

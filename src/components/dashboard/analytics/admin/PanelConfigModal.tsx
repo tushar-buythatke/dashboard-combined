@@ -219,7 +219,33 @@ export function PanelConfigModal({ isOpen, onClose, onSave, initialPanel, availa
                                         </Label>
                                     </div>
                                 );
-                            })}</div>
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Additional Visualizations */}
+                    <div className="grid grid-cols-4 items-start gap-4">
+                        <Label className="text-right pt-2">Footfall Metrics</Label>
+                        <div className="col-span-3 space-y-2">
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="showUserFootfall"
+                                checked={(panel as any).filterConfig?.showUserFootfall ?? false}
+                                    onCheckedChange={(checked) => {
+                                        setPanel({
+                                            ...panel,
+                                            filterConfig: {
+                                                ...(panel as any).filterConfig,
+                                                showUserFootfall: !!checked
+                                            }
+                                        });
+                                    }}
+                                />
+                                <Label htmlFor="showUserFootfall" className="cursor-pointer">
+                                    Show User Footfall Metrics (Total/New/Unique Users)
+                                </Label>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Aggregation Method */}

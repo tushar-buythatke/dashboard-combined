@@ -54,6 +54,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
     showHourlyStats: boolean;
     showEventPieCharts?: boolean;
     dailyDeviationCurve?: boolean;
+    showUserFootfall?: boolean; // New: Show user total/new/unique footfall metrics as series
     isApiEvent?: boolean; // Toggle for API events vs regular events
     autoApiConfig?: boolean; // Auto-detect and configure API events
     // Per-panel critical alert configuration
@@ -475,6 +476,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             showEventPieCharts: savedConfig?.showEventPieCharts || false, // Default to false
                             // Default deviation curve to enabled unless explicitly disabled
                             dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false,
+                            showUserFootfall: savedConfig?.showUserFootfall || false, // Load user footfall toggle
                             // Load API event flag - preserve from filterConfig OR detect from events
                             isApiEvent: (() => {
                                 // First priority: explicit saved config
@@ -989,6 +991,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     showHourlyStats: p.showHourlyStats,
                     showEventPieCharts: p.showEventPieCharts,
                     dailyDeviationCurve: p.dailyDeviationCurve,
+                    showUserFootfall: p.showUserFootfall || false, // Save user footfall toggle
                     isApiEvent: p.isApiEvent || false // Save API event flag
                 };
 
@@ -2386,6 +2389,23 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     />
                                                                                     <Label htmlFor={`${panel.panelId}-daily-deviation`} className="cursor-pointer">
                                                                                         Daily Deviation Curve (8-Day Overlay for ≤8 day ranges)
+                                                                                    </Label>
+                                                                                </div>
+                                                                                <div className="flex items-center space-x-2">
+                                                                                    <Checkbox
+                                                                                        id={`${panel.panelId}-show-user-footfall`}
+                                                                                        checked={panel.showUserFootfall ?? false}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            setPanels(prev => prev.map(p =>
+                                                                                                p.panelId === panel.panelId
+                                                                                                    ? { ...p, showUserFootfall: !!checked }
+                                                                                                    : p
+                                                                                            ));
+                                                                                        }}
+                                                                                    />
+                                                                                    <Label htmlFor={`${panel.panelId}-show-user-footfall`} className="cursor-pointer flex flex-col">
+                                                                                        <span className="font-medium text-indigo-600 dark:text-indigo-400">Show User Footfall Metrics</span>
+                                                                                        <span className="text-[10px] text-muted-foreground">Display Total, New, and Unique users as series in the chart</span>
                                                                                     </Label>
                                                                                 </div>
                                                                             </>
