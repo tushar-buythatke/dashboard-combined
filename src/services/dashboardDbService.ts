@@ -218,22 +218,55 @@ class DashboardDbService {
     }
 
     /**
+     * Normalize event feature IDs in a panel config
+     * This ensures events from migrated features use the correct current feature ID
+     * @param panel - Panel configuration to normalize
+     * @param featureId - Target feature ID to set on all events
+     * @returns Normalized panel configuration
+     */
+    private normalizeEventFeatureIds(panel: PanelConfig, featureId: number): PanelConfig {
+        // Deep clone to avoid mutating original
+        const normalizedPanel = JSON.parse(JSON.stringify(panel)) as PanelConfig;
+
+        // Normalize events array
+        if (normalizedPanel.events && Array.isArray(normalizedPanel.events)) {
+            normalizedPanel.events = normalizedPanel.events.map(event => ({
+                ...event,
+                feature: featureId, // Override with correct feature ID
+            }));
+        }
+
+        // Also normalize filterConfig.events if present (these are numeric IDs, not objects)
+        // The feature mapping is handled at the event object level
+
+        console.log(`🔄 Normalized ${normalizedPanel.events?.length || 0} events to feature ID ${featureId}`);
+        return normalizedPanel;
+    }
+
+    /**
      * Create or update a panel
      * @param pannelId - Panel ID (0 or undefined for new panel)
      * @param profileId - Profile ID this panel belongs to
      * @param json - Panel configuration object
+     * @param featureId - Optional feature ID to normalize events to
      * @returns Created/updated panel ID or null on error
      */
     async savePanel(
         pannelId: number | undefined,
         profileId: number,
-        json: PanelConfig
+        json: PanelConfig,
+        featureId?: number
     ): Promise<number | null> {
         try {
+            // Normalize event feature IDs if featureId is provided
+            const normalizedJson = featureId 
+                ? this.normalizeEventFeatureIds(json, featureId)
+                : json;
+
             const body = {
                 pannelId: pannelId || 0,
                 profileId,
-                json,
+                json: normalizedJson,
             };
 
             const response = await fetch(`${DASHBOARD_API_BASE_URL}/pannel`, {
@@ -312,19 +345,26 @@ class DashboardDbService {
      * Saves each panel and returns mapping of panelId -> dbId
      * @param profileId - Database profile ID
      * @param panels - Array of panel configurations
+     * @param featureId - Optional feature ID to normalize events to (for migrated features)
      * @returns Mapping of panel IDs to database IDs
      */
     async savePanelsBulk(
         profileId: number,
-        panels: PanelConfig[]
+        panels: PanelConfig[],
+        featureId?: number
     ): Promise<Record<string, number>> {
         const mapping: Record<string, number> = {};
+
+        if (featureId) {
+            console.log(`🔄 Bulk saving ${panels.length} panels with feature ID normalization to ${featureId}`);
+        }
 
         for (const panel of panels) {
             // Check if panel already has a dbId stored (for updates)
             const existingDbId = (panel as any)._dbPanelId;
 
-            const dbId = await this.savePanel(existingDbId, profileId, panel);
+            // Pass featureId to normalize events in each panel
+            const dbId = await this.savePanel(existingDbId, profileId, panel, featureId);
             if (dbId) {
                 mapping[panel.panelId] = dbId;
             }

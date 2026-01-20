@@ -604,7 +604,8 @@ class FirebaseConfigService {
 
             // Also save panels to DB if present
             if (profile.panels && profile.panels.length > 0) {
-              const panelMapping = await dashboardDbService.savePanelsBulk(dbProfileId, profile.panels);
+              // Pass featureIdNum to normalize event feature IDs (handles migrated features like 20 -> 8)
+              const panelMapping = await dashboardDbService.savePanelsBulk(dbProfileId, profile.panels, featureIdNum);
               // Store panel DB IDs mapping
               (data as any)._dbPanelIds = panelMapping;
             }
