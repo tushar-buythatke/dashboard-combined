@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,23 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
     const [highlightedStageId, setHighlightedStageId] = useState<string | null>(null);
     // Hovered stage for tooltip
     const [hoveredStage, setHoveredStage] = useState<FunnelStageData | null>(null);
+    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+    const handleMouseEnter = (stage: FunnelStageData, e: React.MouseEvent) => {
+        // Target the bar container (first child) for accurate measurement
+        const barContainer = e.currentTarget.firstElementChild;
+        if (!barContainer) return;
+
+        const rect = barContainer.getBoundingClientRect();
+        const heightPct = Math.max(Math.min(stage.percentage, 100), 2);
+        const barHeight = (rect.height * heightPct) / 100;
+        
+        setTooltipPos({
+            x: rect.left + rect.width / 2,
+            y: rect.bottom - barHeight - 12 // Reduced margin slightly for tighter feel
+        });
+        setHoveredStage(stage);
+    };
 
     const funnelData = useMemo<FunnelStageData[]>(() => {
         if (!data || data.length === 0 || stages.length === 0) return [];
@@ -154,12 +172,40 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             let stageUniqueUsers = 0;
 
             data.forEach((record) => {
-                const baseName = eventNames[String(stage.eventId)] || `Event ${stage.eventId}`;
-                const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
-                
-                stageTotalUsers += Number(record[`${eventKey}_totalUsers`] || record[`${stage.eventId}_totalUsers`] || 0);
-                stageNewUsers += Number(record[`${eventKey}_newUsers`] || record[`${stage.eventId}_newUsers`] || 0);
-                stageUniqueUsers += Number(record[`${eventKey}_uniqueUsers`] || record[`${stage.eventId}_uniqueUsers`] || 0);
+                const isMatch = isRawData 
+                    ? String(record.eventId) === String(stage.eventId)
+                    : true; // For processed data, we assume the keys are stage-specific
+
+                if (isMatch) {
+                    const baseName = eventNames[String(stage.eventId)] || `Event ${stage.eventId}`;
+                    const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+                    
+                    // Priority 1: Keyed by event name (e.g., "GiftVoucher_totalUsers")
+                    // Priority 2: Keyed by event ID (e.g., "45_totalUsers")
+                    // Priority 3: Common snake_case keys
+                    // Priority 4: Direct keys if it's raw data and the ID matches
+                    stageTotalUsers += Number(
+                        record[`${eventKey}_totalUsers`] || 
+                        record[`${stage.eventId}_totalUsers`] || 
+                        record[`${eventKey}_users`] || 
+                        record[`${stage.eventId}_users`] || 
+                        (isRawData ? (record.totalUsers || record.users || 0) : 0)
+                    );
+                    stageNewUsers += Number(
+                        record[`${eventKey}_newUsers`] || 
+                        record[`${stage.eventId}_newUsers`] || 
+                        record[`${eventKey}_new_users`] || 
+                        record[`${stage.eventId}_new_users`] || 
+                        (isRawData ? (record.newUsers || record.new_users || 0) : 0)
+                    );
+                    stageUniqueUsers += Number(
+                        record[`${eventKey}_uniqueUsers`] || 
+                        record[`${stage.eventId}_uniqueUsers`] || 
+                        record[`${eventKey}_unique_users`] || 
+                        record[`${stage.eventId}_unique_users`] || 
+                        (isRawData ? (record.uniqueUsers || record.unique_users || 0) : 0)
+                    );
+                }
             });
 
             return { ...stage, count, avgDelay, totalUsers: stageTotalUsers, newUsers: stageNewUsers, uniqueUsers: stageUniqueUsers, isAvgMetric: isAvgDelayMode && hasAvgData };
@@ -177,6 +223,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             const prevCount = index > 0 ? regularStages[index - 1].count : stage.count;
             const dropoff = prevCount > 0 ? ((prevCount - stage.count) / prevCount) * 100 : 0;
 
+            // Cap percentage at 100% for visualization purposes, but keep real value for labels if needed
+            const rawPercentage = (stage.count / baseCount) * 100;
+            
             return {
                 eventId: stage.eventId,
                 eventName: stage.eventName || eventNames[String(stage.eventId)] || `Event ${stage.eventId}`,
@@ -185,7 +234,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 totalUsers: stage.totalUsers,
                 newUsers: stage.newUsers,
                 uniqueUsers: stage.uniqueUsers,
-                percentage: (stage.count / baseCount) * 100,
+                percentage: rawPercentage,
                 dropoffPercentage: dropoff,
                 color: funnelPalette[index % funnelPalette.length],
                 isMultiple: false,
@@ -206,12 +255,36 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 const isRawData = data.length > 0 && data[0].eventId !== undefined;
                 const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
                 data.forEach((record) => {
-                    const baseName = eventNames[String(childEventId)] || `Event ${childEventId}`;
-                    const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+                    const isMatch = isRawData 
+                        ? String(record.eventId) === String(childEventId)
+                        : true;
 
-                    childTotalUsers += Number(record[`${eventKey}_totalUsers`] || record[`${childEventId}_totalUsers`] || 0);
-                    childNewUsers += Number(record[`${eventKey}_newUsers`] || record[`${childEventId}_newUsers`] || 0);
-                    childUniqueUsers += Number(record[`${eventKey}_uniqueUsers`] || record[`${childEventId}_uniqueUsers`] || 0);
+                    if (isMatch) {
+                        const baseName = eventNames[String(childEventId)] || `Event ${childEventId}`;
+                        const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+
+                        childTotalUsers += Number(
+                            record[`${eventKey}_totalUsers`] || 
+                            record[`${childEventId}_totalUsers`] || 
+                            record[`${eventKey}_users`] || 
+                            record[`${childEventId}_users`] || 
+                            (isRawData ? (record.totalUsers || record.users || 0) : 0)
+                        );
+                        childNewUsers += Number(
+                            record[`${eventKey}_newUsers`] || 
+                            record[`${childEventId}_newUsers`] || 
+                            record[`${eventKey}_new_users`] || 
+                            record[`${childEventId}_new_users`] || 
+                            (isRawData ? (record.newUsers || record.new_users || 0) : 0)
+                        );
+                        childUniqueUsers += Number(
+                            record[`${eventKey}_uniqueUsers`] || 
+                            record[`${childEventId}_uniqueUsers`] || 
+                            record[`${eventKey}_unique_users`] || 
+                            record[`${childEventId}_unique_users`] || 
+                            (isRawData ? (record.uniqueUsers || record.unique_users || 0) : 0)
+                        );
+                    }
 
                     if (hasStatusFilter || hasCacheFilter) {
                         const baseName = eventNames[String(childEventId)] || `Event ${childEventId}`;
@@ -390,63 +463,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     key={stage.eventId}
                                     className="flex flex-col items-center group w-24 sm:w-32 md:w-40 h-full cursor-pointer relative z-10"
                                     onClick={() => setSelectedStage(stage)}
-                                    onMouseEnter={() => setHoveredStage(stage)}
+                                    onMouseEnter={(e) => handleMouseEnter(stage, e)}
                                     onMouseLeave={() => setHoveredStage(null)}
                                 >
-                                    {/* Premium Hover Tooltip */}
-                                    {hoveredStage?.eventId === stage.eventId && (
-                                        <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
-                                            <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border-2 border-indigo-200 dark:border-indigo-500/40 p-4 min-w-[200px]">
-                                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-slate-900 rotate-45 border-r-2 border-b-2 border-indigo-200 dark:border-indigo-500/40" />
-                                                <div className="font-bold text-gray-900 dark:text-gray-100 text-sm mb-2 truncate" title={stage.eventName}>
-                                                    {index + 1}. {stage.eventName}
-                                                </div>
-                                                <div className="grid grid-cols-3 gap-2 mb-3 border-b border-gray-100 dark:border-gray-800 pb-2">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-gray-500 uppercase">Users</span>
-                                                        <span className="font-bold text-blue-600 dark:text-blue-400">{(stage.totalUsers || 0).toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-gray-500 uppercase">New</span>
-                                                        <span className="font-bold text-teal-600 dark:text-teal-400">{(stage.newUsers || 0).toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[10px] text-gray-500 uppercase">Unique</span>
-                                                        <span className="font-bold text-indigo-600 dark:text-indigo-400">{(stage.uniqueUsers || 0).toLocaleString()}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-1.5 text-xs">
-                                                    <div className="flex items-center justify-between gap-4">
-                                                        <span className="text-gray-500">Hits:</span>
-                                                        <span className="font-bold text-gray-700 dark:text-gray-300">{stage.count.toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between gap-4">
-                                                        <span className="text-gray-500">Percentage:</span>
-                                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{stage.percentage.toFixed(2)}%</span>
-                                                    </div>
-                                                    {index > 0 && (
-                                                        <>
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-gray-500">Drop-off:</span>
-                                                                <span className={cn(
-                                                                    "font-bold",
-                                                                    stage.dropoffPercentage > 30 ? "text-red-600 dark:text-red-400" :
-                                                                        stage.dropoffPercentage > 15 ? "text-orange-600 dark:text-orange-400" :
-                                                                            "text-yellow-600 dark:text-yellow-400"
-                                                                )}>-{stage.dropoffPercentage.toFixed(2)}%</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-gray-500">From previous:</span>
-                                                                <span className="font-semibold text-gray-700 dark:text-gray-300">
-                                                                    {funnelData[index - 1]?.count.toLocaleString() || 0}
-                                                                </span>
-                                                            </div>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                                     {/* Bar container - aligned to bottom (0%) */}
                                     <div className="flex-1 flex items-end w-full relative">
                                         {!isFinalMultiple ? (
@@ -466,9 +485,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             >
                                                 {/* Labels ABOVE bar when percentage < 10% - positioned at top of bar with negative offset */}
                                                 {stage.percentage < 10 && (
-                                                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 whitespace-nowrap">
+                                                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 whitespace-nowrap transition-opacity duration-200 group-hover:opacity-0">
                                                         <span className="font-bold text-base sm:text-lg text-indigo-600 dark:text-indigo-400 drop-shadow-sm">
-                                                            {stage.percentage.toFixed(1)}%
+                                                            {Math.min(stage.percentage, 100).toFixed(1)}%
                                                         </span>
                                                         <span className="font-semibold text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                                             {stage.count.toLocaleString()}
@@ -480,7 +499,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
                                                     <div className="flex flex-col items-center gap-0.5">
                                                         <span className="text-white font-bold text-base sm:text-lg md:text-xl drop-shadow-lg leading-none">
-                                                            {stage.percentage.toFixed(1)}%
+                                                            {Math.min(stage.percentage, 100).toFixed(1)}%
                                                         </span>
                                                         <span className="text-white/80 font-semibold text-[10px] sm:text-xs drop-shadow-lg leading-none">
                                                             {stage.count.toLocaleString()} hits
@@ -489,15 +508,15 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                     
                                                     {/* User Badges inside bar if space permits and data exists */}
                                                     {stage.percentage > 25 && (stage.totalUsers || 0) > 0 && (
-                                                        <div className="mt-3 flex flex-col gap-1.5 w-full px-2">
-                                                            <div className="flex items-center justify-between bg-black/10 backdrop-blur-sm rounded-md px-2 py-0.5 border border-white/10">
-                                                                <Users className="h-2.5 w-2.5 text-white/70" />
-                                                                <span className="text-[9px] font-bold text-white">{(stage.totalUsers || 0).toLocaleString()}</span>
+                                                        <div className="mt-3 flex flex-col gap-1.5 w-full px-2 max-w-[120px]">
+                                                            <div className="flex items-center justify-between bg-black/20 backdrop-blur-md rounded-md px-2 py-1 border border-white/10">
+                                                                <Users className="h-2.5 w-2.5 text-white/80" />
+                                                                <span className="text-[10px] font-bold text-white">{(stage.totalUsers || 0).toLocaleString()}</span>
                                                             </div>
                                                             {(stage.newUsers || 0) > 0 && (
-                                                                <div className="flex items-center justify-between bg-teal-500/20 backdrop-blur-sm rounded-md px-2 py-0.5 border border-white/10">
-                                                                    <UserPlus className="h-2.5 w-2.5 text-white/70" />
-                                                                    <span className="text-[9px] font-bold text-white">{(stage.newUsers || 0).toLocaleString()}</span>
+                                                                <div className="flex items-center justify-between bg-teal-500/30 backdrop-blur-md rounded-md px-2 py-1 border border-white/10">
+                                                                    <UserPlus className="h-2.5 w-2.5 text-white/80" />
+                                                                    <span className="text-[10px] font-bold text-white">{(stage.newUsers || 0).toLocaleString()}</span>
                                                                 </div>
                                                             )}
                                                         </div>
@@ -506,8 +525,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
                                                 {/* High drop-off indicator */}
                                                 {stage.dropoffPercentage > 20 && stage.percentage >= 10 && (
-                                                    <div className="absolute top-1 right-1 bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5">
-                                                        <span className="text-white text-[10px] font-bold">-{stage.dropoffPercentage.toFixed(0)}%</span>
+                                                    <div className="absolute top-2 right-2 bg-red-500/40 backdrop-blur-md rounded-full px-2 py-1 border border-white/20">
+                                                        <span className="text-white text-[10px] font-bold">{stage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(stage.dropoffPercentage).toFixed(0)}%</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -547,7 +566,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                             {child.percentage > 10 && (
                                                                 <div className="absolute inset-0 flex items-center justify-center">
                                                                     <span className="text-white font-bold text-xs sm:text-sm drop-shadow-lg">
-                                                                        {child.percentage.toFixed(1)}%
+                                                                        {Math.min(child.percentage, 100).toFixed(1)}%
                                                                     </span>
                                                                 </div>
                                                             )}
@@ -623,7 +642,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             </div>
                             <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-500/30">
                                 <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">
-                                    {funnelData[funnelData.length - 1]?.percentage.toFixed(1)}%
+                                    {Math.min(funnelData[funnelData.length - 1]?.percentage || 0, 100).toFixed(1)}%
                                 </div>
                                 <div className="text-sm text-muted-foreground mt-1 font-medium">Conversion Rate</div>
                             </div>
@@ -713,7 +732,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             <span className="text-sm font-medium text-muted-foreground">Conversion %</span>
                                         </div>
                                         <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                                            {selectedStage.percentage.toFixed(1)}%
+                                            {Math.min(selectedStage.percentage, 100).toFixed(1)}%
                                         </div>
                                     </div>
                                 </div>
@@ -729,7 +748,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                         </div>
                                         <div className="flex items-baseline gap-2">
                                             <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                                                {selectedStage.dropoffPercentage.toFixed(1)}%
+                                                {selectedStage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(selectedStage.dropoffPercentage).toFixed(1)}%
                                             </span>
                                             <span className="text-sm text-muted-foreground">
                                                 dropped from previous stage
@@ -761,7 +780,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                     <div className="text-right">
                                                         <div className="text-sm font-bold">{child.count.toLocaleString()}</div>
                                                         <div className="text-xs text-muted-foreground">
-                                                            {child.percentage.toFixed(1)}%
+                                                            {Math.min(child.percentage, 100).toFixed(1)}%
                                                         </div>
                                                     </div>
                                                 </div>
@@ -782,6 +801,72 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     )}
                 </DialogContent>
             </Dialog >
+            {/* Global Portal Tooltip - Renders outside stacking contexts */}
+            {hoveredStage && createPortal(
+                <div 
+                    className="fixed z-[99999] pointer-events-none animate-in fade-in-0 duration-300 ease-out"
+                    style={{ 
+                        left: tooltipPos.x,
+                        top: tooltipPos.y,
+                        transform: 'translate(-50%, -100%)'
+                    }}
+                >
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4)] border-2 border-indigo-500/50 dark:border-indigo-400/40 p-5 min-w-[280px] isolation-auto relative">
+                        {/* Tooltip Arrow */}
+                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-slate-900 rotate-45 border-r-2 border-b-2 border-indigo-500/50 dark:border-indigo-400/40" />
+                        
+                        <div className="font-bold text-gray-900 dark:text-gray-100 text-sm mb-3 truncate max-w-[240px] relative z-10" title={hoveredStage.eventName}>
+                            {funnelData.findIndex(s => s.eventId === hoveredStage.eventId) + 1}. {hoveredStage.eventName}
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mb-4 border-b border-gray-100 dark:border-gray-800 pb-3 relative z-10">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 uppercase font-semibold">Users</span>
+                                <span className="font-bold text-blue-600 dark:text-blue-400">{(hoveredStage.totalUsers || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 uppercase font-semibold">New</span>
+                                <span className="font-bold text-teal-600 dark:text-teal-400">{(hoveredStage.newUsers || 0).toLocaleString()}</span>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-gray-500 uppercase font-semibold">Unique</span>
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{(hoveredStage.uniqueUsers || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        <div className="space-y-2 text-xs relative z-10">
+                            <div className="flex items-center justify-between gap-6">
+                                <span className="text-gray-500 font-medium">Hits:</span>
+                                <span className="font-bold text-gray-800 dark:text-gray-200">{hoveredStage.count.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-6">
+                                <span className="text-gray-500 font-medium">Percentage:</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{Math.min(hoveredStage.percentage, 100).toFixed(1)}%</span>
+                            </div>
+                            {funnelData.findIndex(s => s.eventId === hoveredStage.eventId) > 0 && (
+                                <>
+                                    <div className="flex items-center justify-between gap-6">
+                                        <span className="text-gray-500 font-medium">{hoveredStage.dropoffPercentage > 0 ? 'Drop-off:' : 'Increase:'}</span>
+                                        <span className={cn(
+                                            "font-bold",
+                                            hoveredStage.dropoffPercentage > 30 ? "text-red-600 dark:text-red-400" :
+                                                hoveredStage.dropoffPercentage > 0 ? (hoveredStage.dropoffPercentage > 15 ? "text-orange-600 dark:text-orange-400" : "text-yellow-600 dark:text-yellow-400") :
+                                                    "text-emerald-600 dark:text-emerald-400"
+                                        )}>
+                                            {hoveredStage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(hoveredStage.dropoffPercentage).toFixed(1)}%
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-6">
+                                        <span className="text-gray-500 font-medium">From previous:</span>
+                                        <span className="font-semibold text-gray-700 dark:text-gray-300">
+                                            {funnelData[funnelData.findIndex(s => s.eventId === hoveredStage.eventId) - 1]?.count.toLocaleString() || 0}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </>
     );
 }
