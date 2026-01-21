@@ -19,7 +19,8 @@ import type { User as AppUser } from '@/types/analytics'
 const FEATURE_TRACKING_AUTH_API = 'https://ext1.buyhatke.com/feature-tracking/auth'
 const getAuthUrl = () => FEATURE_TRACKING_AUTH_API
 
-type AuthFlowState = 'login' | 'signup' | 'setup2fa' | 'waiting' | 'verifyotp'
+type AuthFlowState = 'login' | 'signup' | 'setup2fa' | 'waiting' | 'verifyotp' | 'forgot'
+type ForgotPasswordStep = 'email' | 'otp' | 'password'
 
 interface UserData {
     id: number | string
@@ -59,6 +60,15 @@ export default function AuthLogin() {
     // 2FA state
     const [secretData, setSecretData] = useState<{ tempSecret: string; qrCode: string } | null>(null)
     const [otpCode, setOtpCode] = useState('')
+
+    // Forgot password state
+    const [forgotStep, setForgotStep] = useState<ForgotPasswordStep>('email')
+    const [resetEmail, setResetEmail] = useState('')
+    const [resetOtp, setResetOtp] = useState('')
+    const [resetPassword, setResetPassword] = useState('')
+    const [resetConfirmPassword, setResetConfirmPassword] = useState('')
+    const [resetLoading, setResetLoading] = useState(false)
+    const [resetUserData, setResetUserData] = useState<{ userId: number; userName: string } | null>(null)
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -381,6 +391,133 @@ export default function AuthLogin() {
         }
     }
 
+    // Step 1: Check if user exists
+    const handleForgotEmailSubmit = async (e: FormEvent) => {
+        e.preventDefault()
+        if (!resetEmail.trim()) {
+            setError('Please enter your username or email')
+            return
+        }
+
+        setResetLoading(true)
+        setError(null)
+
+        try {
+            const response = await fetch(`${getAuthUrl()}/forgot/start`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userName: resetEmail.trim()
+                })
+            })
+
+            const result = await response.json()
+            if (result.status === 1) {
+                setResetUserData({
+                    userId: result.data.userId,
+                    userName: result.data.userName
+                })
+                setForgotStep('otp')
+                toast.success('Account found! Please enter your authenticator OTP.')
+            } else {
+                setError(result.message || 'Account not found or not eligible for password reset')
+            }
+        } catch (err) {
+            setError('Failed to verify account. Please try again.')
+        } finally {
+            setResetLoading(false)
+        }
+    }
+
+    // Step 2: Verify OTP
+    const handleForgotOtpSubmit = async (e: FormEvent) => {
+        e.preventDefault()
+        if (!resetOtp.trim() || resetOtp.length !== 6) {
+            setError('Please enter a valid 6-digit OTP code')
+            return
+        }
+
+        setResetLoading(true)
+        setError(null)
+
+        try {
+            const response = await fetch(`${getAuthUrl()}/forgot/verifyOtp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userName: resetEmail.trim(),
+                    otp: resetOtp.trim()
+                })
+            })
+
+            const result = await response.json()
+            if (result.status === 1) {
+                setForgotStep('password')
+                toast.success('OTP verified! Now set your new password.')
+            } else {
+                setError(result.message || 'Invalid OTP code')
+                setResetOtp('')
+            }
+        } catch (err) {
+            setError('OTP verification failed. Please try again.')
+        } finally {
+            setResetLoading(false)
+        }
+    }
+
+    // Step 3: Reset password
+    const handleForgotPasswordSubmit = async (e: FormEvent) => {
+        e.preventDefault()
+
+        if (!resetPassword.trim() || !resetConfirmPassword.trim()) {
+            setError('Please fill all password fields')
+            return
+        }
+
+        if (resetPassword !== resetConfirmPassword) {
+            setError('Passwords do not match')
+            return
+        }
+
+        if (resetPassword.length < 6) {
+            setError('Password must be at least 6 characters')
+            return
+        }
+
+        setResetLoading(true)
+        setError(null)
+
+        try {
+            const response = await fetch(`${getAuthUrl()}/forgotPassword`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userName: resetEmail.trim(),
+                    newPassword: resetPassword.trim()
+                })
+            })
+
+            const result = await response.json()
+            if (result.status === 1) {
+                toast.success('Password updated successfully! Please sign in with your new password.')
+                setUsername(resetEmail.trim())
+                setPassword('')
+                setResetOtp('')
+                setResetPassword('')
+                setResetConfirmPassword('')
+                setResetUserData(null)
+                setForgotStep('email')
+                setFlowState('login')
+            } else {
+                setError(result.message || 'Password reset failed')
+            }
+        } catch (err) {
+            setError('Password reset failed. Please try again.')
+        } finally {
+            setResetLoading(false)
+        }
+    }
+
     const copySecret = () => {
         if (secretData?.tempSecret) {
             navigator.clipboard.writeText(secretData.tempSecret)
@@ -394,6 +531,13 @@ export default function AuthLogin() {
         setSecretData(null)
         setOtpCode('')
         setError(null)
+        setResetEmail('')
+        setResetOtp('')
+        setResetPassword('')
+        setResetConfirmPassword('')
+        setResetLoading(false)
+        setForgotStep('email')
+        setResetUserData(null)
     }
 
     // Render functions
@@ -415,6 +559,17 @@ export default function AuthLogin() {
             </button>
         </div>
     )
+
+    const openForgotPassword = () => {
+        setResetEmail(username.trim())
+        setResetOtp('')
+        setResetPassword('')
+        setResetConfirmPassword('')
+        setError(null)
+        setForgotStep('email')
+        setResetUserData(null)
+        setFlowState('forgot')
+    }
 
     const renderLoginForm = () => (
         <form onSubmit={handleLogin} className="space-y-5">
@@ -463,8 +618,179 @@ export default function AuthLogin() {
             <Button type="submit" className="w-full h-12" disabled={loading}>
                 {loading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Signing In...</> : <>Sign In</>}
             </Button>
+
+            <div className="text-center">
+                <button
+                    type="button"
+                    onClick={openForgotPassword}
+                    className="text-sm text-primary hover:underline font-medium"
+                    disabled={loading}
+                >
+                    Forgot your password?
+                </button>
+            </div>
         </form>
     )
+
+    const renderForgotPassword = () => {
+        // Step 1: Enter Email
+        if (forgotStep === 'email') {
+            return (
+                <form onSubmit={handleForgotEmailSubmit} className="space-y-5">
+                    <div className="text-center space-y-2">
+                        <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                            <User className="h-8 w-8 text-primary" />
+                        </div>
+                        <h3 className="text-2xl font-bold">Reset Password</h3>
+                        <p className="text-sm text-muted-foreground">Enter your username or email to verify your account</p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><User className="h-4 w-4 text-primary" />Username or Email</Label>
+                        <Input
+                            type="text"
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            placeholder="Enter username or email"
+                            disabled={resetLoading}
+                            className="h-12"
+                            autoFocus
+                        />
+                    </div>
+
+                    <Button type="submit" className="w-full h-12" disabled={resetLoading}>
+                        {resetLoading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Checking...</> : <>Continue</>}
+                    </Button>
+
+                    <div className="text-center">
+                        <button type="button" onClick={resetToLogin} className="text-sm text-muted-foreground hover:text-foreground">
+                            ← Back to login
+                        </button>
+                    </div>
+                </form>
+            )
+        }
+
+        // Step 2: Enter OTP
+        if (forgotStep === 'otp') {
+            return (
+                <form onSubmit={handleForgotOtpSubmit} className="space-y-5">
+                    <div className="text-center space-y-2">
+                        <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
+                            <Smartphone className="h-8 w-8 text-primary" />
+                        </div>
+                        <h3 className="text-2xl font-bold">Enter OTP</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Enter the 6-digit code from your authenticator app
+                        </p>
+                        {resetUserData && (
+                            <div className="bg-muted p-2 rounded-lg mt-2">
+                                <p className="text-xs text-muted-foreground">
+                                    Account: <span className="font-semibold text-foreground">{resetUserData.userName}</span>
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><Smartphone className="h-4 w-4 text-primary" />Authenticator OTP</Label>
+                        <Input
+                            type="text"
+                            value={resetOtp}
+                            onChange={(e) => setResetOtp(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                            placeholder="000000"
+                            maxLength={6}
+                            disabled={resetLoading}
+                            className="h-12 text-center text-2xl tracking-widest font-mono"
+                            autoFocus
+                        />
+                    </div>
+
+                    <Button type="submit" className="w-full h-12" disabled={resetLoading || resetOtp.length !== 6}>
+                        {resetLoading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Verifying...</> : <>Verify OTP</>}
+                    </Button>
+
+                    <div className="text-center space-y-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setForgotStep('email')
+                                setResetOtp('')
+                                setError(null)
+                            }}
+                            className="text-sm text-muted-foreground hover:text-foreground"
+                        >
+                            ← Back to email
+                        </button>
+                    </div>
+                </form>
+            )
+        }
+
+        // Step 3: Set New Password
+        return (
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
+                <div className="text-center space-y-2">
+                    <div className="w-16 h-16 mx-auto bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                        <ShieldCheck className="h-8 w-8 text-emerald-600" />
+                    </div>
+                    <h3 className="text-2xl font-bold">Set New Password</h3>
+                    <p className="text-sm text-muted-foreground">Create a new password for your account</p>
+                    {resetUserData && (
+                        <div className="bg-muted p-2 rounded-lg mt-2">
+                            <p className="text-xs text-muted-foreground">
+                                Account: <span className="font-semibold text-foreground">{resetUserData.userName}</span>
+                            </p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><Lock className="h-4 w-4 text-primary" />New Password</Label>
+                    <Input
+                        type="password"
+                        value={resetPassword}
+                        onChange={(e) => setResetPassword(e.target.value)}
+                        placeholder="Minimum 6 characters"
+                        disabled={resetLoading}
+                        className="h-12"
+                        autoFocus
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="flex items-center gap-2"><Lock className="h-4 w-4 text-primary" />Confirm Password</Label>
+                    <Input
+                        type="password"
+                        value={resetConfirmPassword}
+                        onChange={(e) => setResetConfirmPassword(e.target.value)}
+                        placeholder="Re-enter password"
+                        disabled={resetLoading}
+                        className="h-12"
+                    />
+                </div>
+
+                <Button type="submit" className="w-full h-12 bg-emerald-600 hover:bg-emerald-700" disabled={resetLoading || !resetPassword || !resetConfirmPassword}>
+                    {resetLoading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Updating...</> : <>Reset Password</>}
+                </Button>
+
+                <div className="text-center">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setForgotStep('otp')
+                            setResetPassword('')
+                            setResetConfirmPassword('')
+                            setError(null)
+                        }}
+                        className="text-sm text-muted-foreground hover:text-foreground"
+                    >
+                        ← Back to OTP
+                    </button>
+                </div>
+            </form>
+        )
+    }
 
     const renderSignupForm = () => (
         <form onSubmit={handleSignup} className="space-y-6">
@@ -752,6 +1078,7 @@ export default function AuthLogin() {
                             <motion.div key={flowState} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                                 {(flowState === 'login' || flowState === 'signup') && renderTabs()}
                                 {flowState === 'login' && renderLoginForm()}
+                                {flowState === 'forgot' && renderForgotPassword()}
                                 {flowState === 'signup' && renderSignupForm()}
                                 {flowState === 'setup2fa' && render2FASetup()}
                                 {flowState === 'waiting' && renderWaitingApproval()}
