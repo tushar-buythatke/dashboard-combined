@@ -4,6 +4,7 @@ import type { DashboardProfile } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { firebaseConfigService } from '@/services/firebaseConfigService';
 import { apiService } from '@/services/apiService';
+import { dashboardDbService } from '@/services/dashboardDbService';
 import { Button } from '@/components/ui/button';
 import { Plus, ChevronLeft, ChevronRight, Menu, X, Trash2, MoreVertical, AlertTriangle, ChevronDown, ChevronUp, Layers, BarChart3, TrendingUp, Sparkles, Search, LayoutDashboard, Shield, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -201,8 +202,31 @@ export const ProfileSidebar = memo(function ProfileSidebar({
         if (!profileToDelete || !hasWriteAccess) return;
 
         const profileId = profileToDelete.profileId;
+        const dbProfileId = (profileToDelete as any)._dbProfileId;
 
-        // OPTIMISTIC UI UPDATE: Remove profile from list immediately
+        // Close dialog first
+        setDeleteDialogOpen(false);
+        setProfileToDelete(null);
+
+        // Call database API to delete the profile
+        if (dbProfileId) {
+            try {
+                const success = await dashboardDbService.deleteProfile(dbProfileId, parseInt(featureId));
+                
+                if (!success) {
+                    console.error('Failed to delete profile from database');
+                    // Don't update UI if DB delete failed
+                    return;
+                }
+                
+                console.log('✅ Profile deleted from database');
+            } catch (error) {
+                console.error('Error deleting profile:', error);
+                return;
+            }
+        }
+
+        // OPTIMISTIC UI UPDATE: Remove profile from list after successful DB deletion
         setProfiles(prev => prev.filter(p => p.profileId !== profileId));
 
         // If we deleted the currently selected profile, select the first remaining one
@@ -213,23 +237,10 @@ export const ProfileSidebar = memo(function ProfileSidebar({
             }
         }
 
-        // Close dialog immediately for snappy UX
-        setDeleteDialogOpen(false);
-        setProfileToDelete(null);
-
-        // Call API in background - if it fails, we could re-add but usually it succeeds
+        // Also call Firebase for backup sync (optional)
         const result = await firebaseConfigService.deleteProfile(profileId, featureId);
         if (!result.success) {
-            // API failed - refresh the list to restore
-            console.error('Delete failed, refreshing profiles...');
-            const refreshResult = await firebaseConfigService.getProfiles(featureId, 'default');
-            if (refreshResult.success) {
-                const data = refreshResult.items.map(p => ({
-                    ...p,
-                    lastModified: p.updatedAt || p.createdAt,
-                })) as DashboardProfile[];
-                setProfiles(data);
-            }
+            console.warn('Firebase delete failed, but DB delete succeeded');
         }
     };
 

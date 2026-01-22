@@ -3654,7 +3654,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 <div className="h-1 w-8 bg-purple-500 rounded-full" />
                                                 <h4 className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Parent Events (Denominator)</h4>
                                             </div>
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                            <div className={cn("grid gap-4", parentEvents.length === 1 ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2")}>
                                                 {parentEvents.map((event: any) => {
                                                     const pieData = eventPieCharts[event.eventId];
                                                     if (!pieData) return null;
@@ -3673,7 +3673,91 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                                                     if (!showPlatform && !showPos && !showSource) return null;
 
-                                                    // Prioritize POS if it has any data, regardless of shouldShowPieChart
+                                                    // Single event: show all 3 pie charts side-by-side
+                                                    if (parentEvents.length === 1) {
+                                                        const availableCharts = [
+                                                            { id: 'platform', label: 'Platform', data: platformData, show: showPlatform, color: 'indigo' },
+                                                            { id: 'pos', label: 'POS', data: posData, show: showPos, color: 'emerald' },
+                                                            { id: 'source', label: 'Source', data: sourceData, show: showSource, color: 'amber' }
+                                                        ].filter(c => c.show);
+
+                                                        return (
+                                                            <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm">
+                                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-100 dark:border-purple-800">
+                                                                    <div className="flex items-center gap-2.5">
+                                                                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
+                                                                        <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                                    </div>
+                                                                </CardHeader>
+                                                                <CardContent className="p-4">
+                                                                    <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-3" : availableCharts.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                                                        {availableCharts.map((chart) => {
+                                                                            const totalVal = chart.data.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                            return (
+                                                                                <div key={chart.id} className="space-y-3">
+                                                                                    <div className="text-center">
+                                                                                        <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">{chart.label}</span>
+                                                                                    </div>
+                                                                                    <div
+                                                                                        className="h-40 w-full cursor-pointer transition-transform duration-300 hover:scale-105 relative"
+                                                                                        onClick={() => {
+                                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                            openExpandedPie(chart.id as any, `${event.eventName} - ${chart.label}`, dists, event.isApiEvent);
+                                                                                        }}
+                                                                                    >
+                                                                                        <ResponsiveContainer width="100%" height="100%">
+                                                                                            <PieChart>
+                                                                                                <Pie
+                                                                                                    data={chart.data}
+                                                                                                    cx="50%"
+                                                                                                    cy="50%"
+                                                                                                    innerRadius={45}
+                                                                                                    outerRadius={70}
+                                                                                                    paddingAngle={2}
+                                                                                                    dataKey="value"
+                                                                                                    isAnimationActive={false}
+                                                                                                    stroke="none"
+                                                                                                >
+                                                                                                    {chart.data.map((_: any, idx: number) => (
+                                                                                                        <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                                    ))}
+                                                                                                </Pie>
+                                                                                                <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={chart.label} />} />
+                                                                                            </PieChart>
+                                                                                        </ResponsiveContainer>
+                                                                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                                            <span className="text-xl font-black text-foreground tabular-nums">
+                                                                                                {formatNumber(totalVal)}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="space-y-1 px-1">
+                                                                                        {[...chart.data]
+                                                                                            .sort((a: any, b: any) => b.value - a.value)
+                                                                                            .slice(0, 2)
+                                                                                            .map((item: any, idx: number) => {
+                                                                                                const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                                return (
+                                                                                                    <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
+                                                                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                            <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                                        </div>
+                                                                                                        <span className="text-indigo-500">{percentage.toFixed(0)}%</span>
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })}
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </CardContent>
+                                                            </Card>
+                                                        );
+                                                    }
+
+                                                    // Multiple events: show tabbed interface
                                                     const defaultMode = (posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source';
                                                     const activeMode = eventDistModes[event.eventId] || defaultMode;
                                                     const dists = { platform: platformData, pos: posData, source: sourceData };
@@ -3838,7 +3922,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 }
 
                                                 return (
-                                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    <div className={cn("grid gap-4", uniqueChildEvents.length === 1 ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2")}>
                                                         {uniqueChildEvents.map((event: any) => {
                                                             const pieData = eventPieCharts[event.eventId];
                                                             if (!pieData) return null;
@@ -3857,6 +3941,91 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                                                             if (!showPlatform && !showPos && !showSource) return null;
 
+                                                            // Single child event: show all 3 pie charts side-by-side
+                                                            if (uniqueChildEvents.length === 1) {
+                                                                const availableCharts = [
+                                                                    { id: 'platform', label: 'Platform', data: platformData, show: showPlatform, color: 'indigo' },
+                                                                    { id: 'pos', label: 'POS', data: posData, show: showPos, color: 'emerald' },
+                                                                    { id: 'source', label: 'Source', data: sourceData, show: showSource, color: 'amber' }
+                                                                ].filter(c => c.show);
+
+                                                                return (
+                                                                    <Card key={event.eventId} className="border border-green-200 dark:border-green-800 rounded-xl overflow-hidden shadow-sm">
+                                                                        <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 border-b border-green-100 dark:border-green-800">
+                                                                            <div className="flex items-center gap-2.5">
+                                                                                <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
+                                                                                <CardTitle className="text-sm font-bold text-green-700 dark:text-green-300 truncate">{event.eventName}</CardTitle>
+                                                                            </div>
+                                                                        </CardHeader>
+                                                                        <CardContent className="p-4">
+                                                                            <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-3" : availableCharts.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                                                                {availableCharts.map((chart) => {
+                                                                                    const totalVal = chart.data.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                                    return (
+                                                                                        <div key={chart.id} className="space-y-3">
+                                                                                            <div className="text-center">
+                                                                                                <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">{chart.label}</span>
+                                                                                            </div>
+                                                                                            <div
+                                                                                                className="h-40 w-full cursor-pointer transition-transform duration-300 hover:scale-105 relative"
+                                                                                                onClick={() => {
+                                                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                                    openExpandedPie(chart.id as any, `${event.eventName} - ${chart.label}`, dists, (event as any).isApiEvent);
+                                                                                                }}
+                                                                                            >
+                                                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                                                    <PieChart>
+                                                                                                        <Pie
+                                                                                                            data={chart.data}
+                                                                                                            cx="50%"
+                                                                                                            cy="50%"
+                                                                                                            innerRadius={45}
+                                                                                                            outerRadius={70}
+                                                                                                            paddingAngle={2}
+                                                                                                            dataKey="value"
+                                                                                                            isAnimationActive={false}
+                                                                                                            stroke="none"
+                                                                                                        >
+                                                                                                            {chart.data.map((_: any, idx: number) => (
+                                                                                                                <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                                            ))}
+                                                                                                        </Pie>
+                                                                                                        <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={chart.label} />} />
+                                                                                                    </PieChart>
+                                                                                                </ResponsiveContainer>
+                                                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                                                    <span className="text-xl font-black text-foreground tabular-nums">
+                                                                                                        {formatNumber(totalVal)}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div className="space-y-1 px-1">
+                                                                                                {[...chart.data]
+                                                                                                    .sort((a: any, b: any) => b.value - a.value)
+                                                                                                    .slice(0, 2)
+                                                                                                    .map((item: any, idx: number) => {
+                                                                                                        const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                                        return (
+                                                                                                            <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
+                                                                                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                                                                                    <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                                    <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                                                </div>
+                                                                                                                <span className="text-indigo-500">{percentage.toFixed(0)}%</span>
+                                                                                                            </div>
+                                                                                                        );
+                                                                                                    })}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        </CardContent>
+                                                                    </Card>
+                                                                );
+                                                            }
+
+                                                            // Multiple child events: show tabbed interface
                                                             const defaultMode = (posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source';
                                                             const activeMode = eventDistModes[event.eventId] || defaultMode;
 

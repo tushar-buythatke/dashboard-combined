@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import type { DashboardProfile, PanelConfig, EventConfig } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { apiService, PLATFORMS, SOURCES, getFeatureName, getFeatureShortName } from '@/services/apiService';
+import { dashboardDbService } from '@/services/dashboardDbService';
 import type { SiteDetail } from '@/services/apiService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -666,7 +667,46 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         setCurrentPanelIndex(panels.length); // Navigate to the new panel
     };
 
-    const deletePanel = (panelId: string) => {
+    const deletePanel = async (panelId: string) => {
+        const panelToDelete = panels.find(p => p.panelId === panelId);
+        
+        // If panel exists in database, call API to delete it
+        if (panelToDelete && (panelToDelete as any)._dbPanelId && dbProfileId) {
+            const dbPanelId = (panelToDelete as any)._dbPanelId;
+            
+            try {
+                const success = await dashboardDbService.deletePanel(dbPanelId, dbProfileId);
+                
+                if (!success) {
+                    toast({
+                        title: 'Error',
+                        description: 'Failed to delete panel from database',
+                        variant: 'destructive',
+                    });
+                    return;
+                }
+                
+                // Remove from dbPanelIds tracking
+                const updatedDbPanelIds = { ...dbPanelIds };
+                delete updatedDbPanelIds[panelId];
+                setDbPanelIds(updatedDbPanelIds);
+                
+                toast({
+                    title: 'Success',
+                    description: 'Panel deleted successfully',
+                });
+            } catch (error) {
+                console.error('Error deleting panel:', error);
+                toast({
+                    title: 'Error',
+                    description: 'Failed to delete panel',
+                    variant: 'destructive',
+                });
+                return;
+            }
+        }
+        
+        // Remove from local state
         setPanels(panels.filter(p => p.panelId !== panelId));
     };
 
