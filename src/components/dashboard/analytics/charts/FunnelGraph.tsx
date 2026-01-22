@@ -334,9 +334,14 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             const prevCount = regularStages[regularStages.length - 1]?.count || totalLastStageCount;
             const dropoff = prevCount > 0 ? ((prevCount - totalLastStageCount) / prevCount) * 100 : 0;
 
+            // If only 1 event in final stage, show its name; otherwise show "Final Stage (Combined)"
+            const finalStageName = lastStageChildren.length === 1 
+                ? lastStageChildren[0].eventName 
+                : 'Final Stage (Combined)';
+
             processedStages.push({
                 eventId: 'final_multiple',
-                eventName: 'Final Stage (Combined)',
+                eventName: finalStageName,
                 count: totalLastStageCount,
                 totalUsers: totalLastStageUsers,
                 newUsers: totalLastStageNewUsers,
@@ -344,7 +349,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 percentage: (totalLastStageCount / baseCount) * 100,
                 dropoffPercentage: dropoff,
                 color: funnelPalette[(processedStages.length) % funnelPalette.length],
-                isMultiple: true,
+                isMultiple: lastStageChildren.length > 1,
                 children: lastStageChildren,
             });
         }
