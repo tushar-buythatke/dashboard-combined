@@ -358,18 +358,19 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                 const rawPanelGraphData = panelData?.graphData || [];
                 const pEventKeys = panelData?.eventKeys || [];
                 const pPieData = panelData?.pieChartData;
+                const panelConfig = (panel as any)?.filterConfig;
                 const currentPanelFilters = panelFiltersState?.[panel.panelId] || panelData?.filters || {
                     events: [],
                     platforms: [],
                     pos: [],
-                    sources: []
+                    sources: [],
+                    sourceStrs: panelConfig?.sourceStr || [] // Load saved job IDs from filterConfig
                 };
 
                 const currentPanelDateRange = panelDateRanges?.[panel.panelId] || dateRange;
 
                 const isPanelLoading = panelLoading?.[panel.panelId] || false;
 
-                const panelConfig = (panel as any)?.filterConfig;
                 const panelGraphType = panelConfig?.graphType || 'line';
 
                 const filteredGraphData = applyApiFiltering(
