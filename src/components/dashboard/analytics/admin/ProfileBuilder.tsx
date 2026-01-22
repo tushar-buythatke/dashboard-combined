@@ -2176,6 +2176,24 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         />
                                                                         <p className="text-xs text-muted-foreground mt-1">These events will be shown with different colors in the final bar</p>
                                                                     </div>
+
+                                                                    {/* Events Analysis Toggle */}
+                                                                    <div className="mt-4 pt-4 border-t border-blue-200 dark:border-blue-500/30">
+                                                                        <div className="flex items-center justify-between gap-4">
+                                                                            <div className="flex flex-col gap-0.5">
+                                                                                <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Events Analysis</Label>
+                                                                                <span className="text-[9px] text-muted-foreground">Show detailed pie charts for each event</span>
+                                                                            </div>
+                                                                            <Switch
+                                                                                checked={(panel as any).showEventPieCharts ?? false}
+                                                                                onCheckedChange={(checked) => setPanels(prev => prev.map(p =>
+                                                                                    p.panelId === panel.panelId
+                                                                                        ? { ...p, showEventPieCharts: checked }
+                                                                                        : p
+                                                                                ))}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         ) : panel.graphType === 'user_flow' ? (
