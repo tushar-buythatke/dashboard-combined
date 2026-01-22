@@ -411,6 +411,63 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 // Load site details for POS
                 const sites = await apiService.getSiteDetails(parseInt(featureId) || undefined);
                 setSiteDetails(sites);
+
+                // Auto-create individual API panels if API events exist and no panels exist yet
+                const apiEvents = events.filter(e => e.isApiEvent === true);
+                if (apiEvents.length > 0 && panels.length === 0 && !initialProfileId) {
+                    // Create individual percentage graph panel for each API event
+                    const newPanels: ExtendedPanelConfig[] = apiEvents.map((apiEvent, index) => {
+                        const apiEventId = parseInt(apiEvent.eventId.replace('api_', ''));
+                        return {
+                            panelId: `api_${apiEventId}`,
+                            panelName: apiEvent.eventName,
+                            type: 'special',
+                            position: { row: index * 4, col: 1, width: 12, height: 6 },
+                            visualizations: {
+                                lineGraph: { enabled: false, aggregationMethod: 'sum', showLegend: false, yAxisLabel: '' },
+                                pieCharts: []
+                            },
+                            events: [{
+                                eventId: apiEvent.eventId,
+                                eventName: apiEvent.eventName,
+                                color: apiEvent.color
+                            }],
+                            filters: {
+                                events: [apiEventId],
+                                platforms: [],
+                                pos: [],
+                                sources: [],
+                                sourceStr: []
+                            },
+                            graphType: 'percentage',
+                            dateRange: {
+                                from: subDays(new Date(), 7),
+                                to: new Date()
+                            },
+                            showHourlyStats: true,
+                            showEventPieCharts: false,
+                            dailyDeviationCurve: true,
+                            showUserFootfall: false,
+                            isApiEvent: true,
+                            percentageConfig: {
+                                parentEvents: [String(apiEventId)],
+                                childEvents: [String(apiEventId)],
+                                showCombinedPercentage: true,
+                                filters: {
+                                    statusCodes: ['200'],
+                                    cacheStatus: []
+                                }
+                            },
+                            criticalAlertConfig: {
+                                enabled: true,
+                                alertEventFilters: [apiEventId],
+                                alertsIsApi: 1,
+                                alertsIsHourly: true
+                            }
+                        };
+                    });
+                    setPanels(newPanels);
+                }
             } catch (error) {
                 console.error('Failed to load API data:', error);
             }

@@ -42,6 +42,8 @@ export interface DbApiResponse<T = unknown> {
 // ============ Dashboard Database Service ============
 
 class DashboardDbService {
+    // Mutex to prevent concurrent auto-sync calls
+    private autoSyncLocks: Map<number, Promise<boolean>> = new Map();
 
     // ==================== PROFILES ====================
 
@@ -394,6 +396,177 @@ class DashboardDbService {
             return response.ok;
         } catch (error) {
             console.error('❌ DB connection check failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Auto-sync API events: Creates/updates API profile with panels for all API events
+     * This runs automatically when profiles are loaded
+     * @param featureId - Feature ID
+     * @param apiEvents - Array of API events from eventMapApi
+     * @returns true if sync successful
+     */
+    async autoSyncApiPanels(featureId: number, apiEvents: any[]): Promise<boolean> {
+        if (!apiEvents || apiEvents.length === 0) {
+            return true; // No API events, nothing to sync
+        }
+
+        // Check if sync is already in progress for this feature
+        const existingLock = this.autoSyncLocks.get(featureId);
+        if (existingLock) {
+            console.log(`⏳ Auto-sync already in progress for feature ${featureId}, waiting...`);
+            return await existingLock;
+        }
+
+        // Create new lock promise
+        const syncPromise = this._performAutoSync(featureId, apiEvents);
+        this.autoSyncLocks.set(featureId, syncPromise);
+
+        try {
+            const result = await syncPromise;
+            return result;
+        } finally {
+            // Remove lock after completion
+            this.autoSyncLocks.delete(featureId);
+        }
+    }
+
+    /**
+     * Internal method that performs the actual auto-sync logic
+     * @private
+     */
+    private async _performAutoSync(featureId: number, apiEvents: any[]): Promise<boolean> {
+        try {
+            console.log(`🔄 Auto-syncing ${apiEvents.length} API events for feature ${featureId}...`);
+
+            // 1. Get existing profiles for this feature from database
+            const profiles = await this.getProfiles(featureId);
+            
+            // Check for existing "APIs" profile (case-insensitive)
+            const apiProfile = profiles.find(p => p.name?.toLowerCase() === 'apis');
+
+            let profileId: number;
+
+            // 2. Create "APIs" profile ONLY if it doesn't exist
+            if (!apiProfile) {
+                console.log('📝 No existing "APIs" profile found, creating new one...');
+                const newProfileId = await this.saveProfile(undefined, 'APIs', featureId);
+                if (!newProfileId) {
+                    console.error('❌ Failed to create APIs profile');
+                    return false;
+                }
+                profileId = newProfileId;
+                console.log(`✅ Created new "APIs" profile with ID ${profileId}`);
+            } else {
+                profileId = apiProfile.id;
+                console.log(`✅ Found existing "APIs" profile with ID ${profileId}, updating panels...`);
+            }
+
+            // 3. Get existing panels for this profile
+            const existingPanels = await this.getPanels(profileId);
+            const existingPanelEventIds = new Set(
+                existingPanels.map(p => p.json?.filterConfig?.events?.[0]).filter(Boolean)
+            );
+
+            // 4. Create panels for new API events
+            let newPanelsCreated = 0;
+            for (const apiEvent of apiEvents) {
+                const apiEventId = parseInt(apiEvent.eventId.replace('api_', ''));
+                
+                // Skip if panel already exists for this event
+                if (existingPanelEventIds.has(apiEventId)) {
+                    continue;
+                }
+
+                // Create panel config matching the pattern
+                const panelConfig: any = {
+                    type: 'special',
+                    panelId: `api_${apiEventId}`,
+                    panelName: apiEvent.eventName,
+                    position: {
+                        row: existingPanels.length * 4 + newPanelsCreated * 4,
+                        col: 1,
+                        width: 12,
+                        height: 6
+                    },
+                    events: [{
+                        eventId: apiEvent.eventId,
+                        eventName: apiEvent.eventName,
+                        color: apiEvent.color,
+                        isApiEvent: true,
+                        host: apiEvent.host,
+                        url: apiEvent.url,
+                        callUrl: apiEvent.callUrl,
+                        feature: apiEvent.feature,
+                        org: 0,
+                        isErrorEvent: 0,
+                        isAvgEvent: 0
+                    }],
+                    filterConfig: {
+                        events: [apiEventId],
+                        platforms: [],
+                        pos: [],
+                        sources: [],
+                        sourceStr: [],
+                        graphType: 'percentage',
+                        isApiEvent: true,
+                        showHourlyStats: true,
+                        dailyDeviationCurve: true,
+                        dateRange: {
+                            from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                            to: new Date().toISOString()
+                        },
+                        percentageConfig: {
+                            parentEvents: [String(apiEventId)],
+                            childEvents: [String(apiEventId)],
+                            showCombinedPercentage: true,
+                            filters: {
+                                statusCodes: ['200'],
+                                cacheStatus: []
+                            }
+                        }
+                    },
+                    visualizations: {
+                        lineGraph: {
+                            enabled: false,
+                            aggregationMethod: 'sum',
+                            showLegend: false,
+                            yAxisLabel: ''
+                        },
+                        pieCharts: []
+                    },
+                    alertsConfig: {
+                        enabled: true,
+                        isApi: 1,
+                        isHourly: true,
+                        position: 'top',
+                        maxAlerts: 5,
+                        filterByPOS: [],
+                        filterByEvents: [String(apiEventId)],
+                        refreshInterval: 30
+                    }
+                };
+
+                // Save panel to database
+                const panelId = await this.savePanel(undefined, profileId, panelConfig);
+                if (panelId) {
+                    newPanelsCreated++;
+                    console.log(`✅ Created panel for ${apiEvent.eventName}`);
+                } else {
+                    console.error(`❌ Failed to create panel for ${apiEvent.eventName}`);
+                }
+            }
+
+            if (newPanelsCreated > 0) {
+                console.log(`✅ Auto-sync complete: Created ${newPanelsCreated} new API panels`);
+            } else {
+                console.log(`✅ Auto-sync complete: All API events already have panels`);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('❌ Auto-sync API panels failed:', error);
             return false;
         }
     }

@@ -113,6 +113,49 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                     onSelectProfile(defaultProfile.profileId);
                 }
             }
+
+            // Auto-sync API panels in background (non-blocking)
+            // Only run if we have loaded profiles to check against
+            if (featureId && result.success) {
+                (async () => {
+                    try {
+                        const apiService = await import('@/services/apiService');
+                        const dashboardDbService = await import('@/services/dashboardDbService');
+                        
+                        // Get all events for this feature
+                        const events = await apiService.apiService.getEventsList(featureId);
+                        const apiEvents = events.filter(e => e.isApiEvent === true);
+                        
+                        // Auto-sync API panels (creates/updates as needed)
+                        // Pass existing profiles to avoid duplicates
+                        if (apiEvents.length > 0) {
+                            const existingProfiles = result.items;
+                            const hasApiProfile = existingProfiles.some(p => p.profileName === 'APIs');
+                            
+                            // Only sync if there are new API events or no API profile exists
+                            const shouldSync = !hasApiProfile || apiEvents.length > 0;
+                            
+                            if (shouldSync) {
+                                await dashboardDbService.dashboardDbService.autoSyncApiPanels(
+                                    parseInt(featureId),
+                                    apiEvents
+                                );
+                                // Refresh profiles after sync to show new panels
+                                const refreshResult = await firebaseConfigService.getProfiles(featureId, 'default');
+                                if (refreshResult.success) {
+                                    const refreshedData = refreshResult.items.map(p => ({
+                                        ...p,
+                                        lastModified: p.updatedAt || p.createdAt,
+                                    })) as DashboardProfile[];
+                                    setProfiles(refreshedData);
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Auto-sync API panels failed:', error);
+                    }
+                })();
+            }
         };
         loadProfiles();
     }, [featureId, refreshTrigger]);

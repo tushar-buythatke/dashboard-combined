@@ -18,6 +18,8 @@ export const PLATFORMS = [
     { id: 6, name: 'Firefox Extension' },
     { id: 7, name: 'Mail' },
     { id: 8, name: 'Graph' },
+    { id: 9, name: 'Desktop Web' },
+    { id: 10, name: 'Mobile Web' },
 ];
 
 // Source mappings (fixed values)
@@ -26,6 +28,8 @@ export const SOURCES = [
     { id: 1, name: 'Spidy' },
     { id: 2, name: 'Kafka' },
     { id: 3, name: 'Self' },
+    { id: 6, name: 'Server Crawling' },
+    { id: 7, name: 'Self Extension Crawling' },
     { id: 8, name: 'Graph' },
     { id: -1, name: 'Not Applicable' }, // Sends -1 to API
 ];
