@@ -786,7 +786,7 @@ export class APIService {
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
                 source: toNumbers(sourceIds),
-                sourceStr: sourceStrs || [],
+                sourceStr: [], // Client-side filter - always send empty array to server
                 // For API events, send empty arrays to get ALL status codes and cache statuses
                 // Backend needs these fields to return data broken down by status
                 ...(isApiEvent ? { status: [], cacheStatus: [] } : {})
@@ -913,7 +913,7 @@ export class APIService {
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
                 source: toNumbers(sourceIds),
-                sourceStr: sourceStrs || [] // Filter by sourceStr
+                sourceStr: [] // Client-side filter - always send empty array to server
             },
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),

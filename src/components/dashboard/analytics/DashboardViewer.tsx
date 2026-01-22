@@ -1595,6 +1595,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             setPanelLegendExpanded({});
             setPanelSelectedEventKey({});
 
+            // Fix: Reset sourceStr filters on profile load to prevent persistence
+            setSelectedSourceStrs([]);
+            _setPanelSelectedSourceStrs({});
+
             setLoading(true);
             setError(null);
 
@@ -3033,22 +3037,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // Upload child config when profile is loaded (once per hour max)
             uploadChildConfigIfNeeded(false);
 
-            // Initialize selectedSourceStrs from panel config (Main Panel)
-            if (profile.panels[0]) {
-                const config = (profile.panels[0] as any).filterConfig;
-                const savedSourceStrs = config?.sourceStr || [];
-                setSelectedSourceStrs(savedSourceStrs);
-
-                // If Job IDs were saved in config and we have data, trigger auto-refresh
-                // This ensures Job ID filter is applied immediately on profile load
-                if (savedSourceStrs.length > 0 && graphData.length > 0) {
-                    // console.log('🔄 Auto-applying Job ID filter from saved config:', savedSourceStrs);
-                    // Trigger refresh for main panel with saved Job IDs
-                    if (profile.panels[0]?.panelId) {
-                        refreshPanelData(profile.panels[0].panelId);
-                    }
-                }
-            }
+            // FIX: Do NOT auto-load sourceStr from saved config as it causes client-side filtering
+            // issues when the saved Job IDs no longer exist in the data, resulting in empty graphs.
+            // Users can manually select Job IDs via the UI dropdown if needed.
+            // The sourceStr is now handled purely as a session-based UI preference.
 
             // Initialize alert filters from active panel's alertsConfig when profile loads
             // This will be updated when active panel changes via useEffect
