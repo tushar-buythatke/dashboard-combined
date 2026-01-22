@@ -611,77 +611,87 @@ export const ProfileSidebar = memo(function ProfileSidebar({
 
                                                     const isPanelActive = activePanelId && (panel.panelId === activePanelId || `panel-${panel.panelId}` === activePanelId);
 
+                                                    const panelName = panel.panelName || `Panel ${pIndex + 1}`;
+                                                    const panelParts = panelName.split(' - ');
+                                                    const hasDomainAndEndpoint = panelParts.length === 2 && panelParts[1].trim().startsWith('/');
+                                                    const domainName = hasDomainAndEndpoint ? panelParts[0].trim() : '';
+                                                    const displayName = hasDomainAndEndpoint ? panelParts[1].trim() : panelName;
+                                                    
                                                     return (
-                                                        <motion.button
-                                                            key={panel.panelId}
-                                                            whileHover={{ x: 2 }}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                // Jump to panel and mark as active
-                                                                onJumpToPanel?.(panel.panelId, panel.panelName || `Panel ${pIndex + 1}`);
-                                                            }}
-                                                            className={cn(
-                                                                "w-full relative py-1.5 px-2 rounded-md flex items-center gap-2 group/panel transition-all border",
-                                                                isPanelActive
-                                                                    ? "bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/60 dark:to-purple-900/60 text-indigo-900 dark:text-indigo-100 border-indigo-200 dark:border-indigo-500/30 font-semibold shadow-sm"
-                                                                    : "bg-transparent hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:border-purple-100 dark:hover:border-purple-500/10 hover:shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
-                                                            )}
-                                                        >
-                                                            {/* Horizontal connector line */}
-                                                            <div className={cn(
-                                                                "absolute -left-[14px] top-1/2 w-3 h-[1px]",
-                                                                isPanelActive ? "bg-indigo-400 dark:bg-indigo-500" : "bg-purple-200 dark:bg-purple-800/60"
-                                                            )} />
+                                                        <TooltipProvider key={panel.panelId} delayDuration={200}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <motion.button
+                                                                        whileHover={{ x: 2 }}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onJumpToPanel?.(panel.panelId, panel.panelName || `Panel ${pIndex + 1}`);
+                                                                        }}
+                                                                        className={cn(
+                                                                            "w-full relative py-1.5 px-2 rounded-md flex items-center gap-2 group/panel transition-all border",
+                                                                            isPanelActive
+                                                                                ? "bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/60 dark:to-purple-900/60 text-indigo-900 dark:text-indigo-100 border-indigo-200 dark:border-indigo-500/30 font-semibold shadow-sm"
+                                                                                : "bg-transparent hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:border-purple-100 dark:hover:border-purple-500/10 hover:shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
+                                                                        )}
+                                                                    >
+                                                                        <div className={cn(
+                                                                            "absolute -left-[14px] top-1/2 w-3 h-[1px]",
+                                                                            isPanelActive ? "bg-indigo-400 dark:bg-indigo-500" : "bg-purple-200 dark:bg-purple-800/60"
+                                                                        )} />
 
-                                                            <div className={cn(
-                                                                "w-4 h-4 rounded-sm flex items-center justify-center",
-                                                                isPanelActive
-                                                                    ? "bg-white dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300"
-                                                                    : "bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover/panel:text-purple-600 dark:group-hover/panel:text-purple-400"
-                                                            )}>
-                                                                {getChartIcon(panel)}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0 flex items-center justify-start text-left">
-                                                                <span className={cn(
-                                                                    "text-[11px] truncate block w-full text-left transition-colors",
-                                                                    isPanelActive
-                                                                        ? "text-indigo-900 dark:text-indigo-100"
-                                                                        : "font-medium text-slate-500 dark:text-slate-400 group-hover/panel:text-purple-900 dark:group-hover/panel:text-purple-100"
-                                                                )} title={panel.panelName?.includes(' - /') ? panel.panelName.split(' - ')[0] : panel.panelName}>
-                                                                    {(() => {
-                                                                        const name = panel.panelName || `Panel ${pIndex + 1}`;
-                                                                        const parts = name.split(' - ');
-                                                                        if (parts.length === 2 && parts[1].trim().startsWith('/')) {
-                                                                            return parts[1].trim();
-                                                                        }
-                                                                        return name;
-                                                                    })()}
-                                                                </span>
-                                                            </div>
-
-                                                            {panelAlerts > 0 && (
-                                                                <TooltipProvider delayDuration={100}>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <span className="flex items-center gap-1 font-black text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(220,38,38,0.4)] animate-pulse-subtle cursor-help">
-                                                                                <AlertTriangle className="w-3 h-3 fill-white/20" /> {panelAlerts}
+                                                                        <div className={cn(
+                                                                            "w-4 h-4 rounded-sm flex items-center justify-center",
+                                                                            isPanelActive
+                                                                                ? "bg-white dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300"
+                                                                                : "bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover/panel:text-purple-600 dark:group-hover/panel:text-purple-400"
+                                                                        )}>
+                                                                            {getChartIcon(panel)}
+                                                                        </div>
+                                                                        <div className="flex-1 min-w-0 flex items-center justify-start text-left">
+                                                                            <span className={cn(
+                                                                                "text-[11px] truncate block w-full text-left transition-colors",
+                                                                                isPanelActive
+                                                                                    ? "text-indigo-900 dark:text-indigo-100"
+                                                                                    : "font-medium text-slate-500 dark:text-slate-400 group-hover/panel:text-purple-900 dark:group-hover/panel:text-purple-100"
+                                                                            )}>
+                                                                                {displayName}
                                                                             </span>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent side="right" className="bg-red-950 text-white border-red-800 p-3 max-w-xs shadow-2xl">
-                                                                            <div className="space-y-1">
-                                                                                <p className="font-bold flex items-center gap-2 text-sm">
-                                                                                    <AlertTriangle className="w-4 h-4 text-orange-400" />
-                                                                                    Critical Alerts Detected
-                                                                                </p>
-                                                                                <p className="text-red-200 text-[11px] leading-relaxed">
-                                                                                    There are {panelAlerts} high-severity events in this panel. Please check the dashboard for details.
-                                                                                </p>
-                                                                            </div>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                </TooltipProvider>
-                                                            )}
-                                                        </motion.button>
+                                                                        </div>
+
+                                                                        {panelAlerts > 0 && (
+                                                                            <TooltipProvider delayDuration={100}>
+                                                                                <Tooltip>
+                                                                                    <TooltipTrigger asChild>
+                                                                                        <span className="flex items-center gap-1 font-black text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(220,38,38,0.4)] animate-pulse-subtle cursor-help">
+                                                                                            <AlertTriangle className="w-3 h-3 fill-white/20" /> {panelAlerts}
+                                                                                        </span>
+                                                                                    </TooltipTrigger>
+                                                                                    <TooltipContent side="right" className="bg-red-950 text-white border-red-800 p-3 max-w-xs shadow-2xl">
+                                                                                        <div className="space-y-1">
+                                                                                            <p className="font-bold flex items-center gap-2 text-sm">
+                                                                                                <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                                                                                Critical Alerts Detected
+                                                                                            </p>
+                                                                                            <p className="text-red-200 text-[11px] leading-relaxed">
+                                                                                                There are {panelAlerts} high-severity events in this panel. Please check the dashboard for details.
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    </TooltipContent>
+                                                                                </Tooltip>
+                                                                            </TooltipProvider>
+                                                                        )}
+                                                                    </motion.button>
+                                                                </TooltipTrigger>
+                                                                {domainName && (
+                                                                    <TooltipContent side="right" className="bg-slate-900 text-white border-slate-700 px-3 py-2">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Activity className="w-3.5 h-3.5 text-blue-400" />
+                                                                            <span className="font-semibold text-xs">{domainName}</span>
+                                                                        </div>
+                                                                    </TooltipContent>
+                                                                )}
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     );
                                                 })}
                                             </motion.div>

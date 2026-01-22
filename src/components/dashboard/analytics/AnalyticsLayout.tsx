@@ -34,6 +34,7 @@ import { firebaseConfigService } from '@/services/firebaseConfigService';
 import { getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground } from '@/components/ui/animated-background';
+import { CustomEventLabelsProvider } from '@/contexts/CustomEventLabelsContext';
 
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers, refreshUser } = useAnalyticsAuth();
@@ -626,7 +627,8 @@ export function AnalyticsLayout() {
     }
 
     return (
-        <div className="flex flex-col bg-gradient-to-br from-background via-background to-purple-50/20 dark:to-purple-950/5 relative">
+        <CustomEventLabelsProvider>
+            <div className="flex flex-col bg-gradient-to-br from-background via-background to-purple-50/20 dark:to-purple-950/5 relative">
             <header className="sticky top-0 border-b border-border/50 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between bg-card/95 backdrop-blur-md z-50 shadow-sm">
                 <div className="flex items-center gap-2 lg:gap-4">
                     {/* Mobile Menu Button */}
@@ -991,5 +993,6 @@ export function AnalyticsLayout() {
                 </DialogContent>
             </Dialog>
         </div>
+        </CustomEventLabelsProvider>
     );
 }

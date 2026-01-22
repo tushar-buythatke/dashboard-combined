@@ -47,6 +47,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { getPOSName } from '@/lib/posMapping';
+import { getEventDisplayName } from '@/hooks/useEventName';
 
 import { PercentageGraph } from '../charts/PercentageGraph';
 import { FunnelGraph } from '../charts/FunnelGraph';
@@ -374,7 +375,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
     const eventNames = useMemo(() => {
         const map: Record<string, string> = {};
-        (events || []).forEach((e: any) => { map[String(e.eventId)] = e.eventName; });
+        (events || []).forEach((e: any) => { map[String(e.eventId)] = getEventDisplayName(e); });
         return map;
     }, [events]);
 
@@ -822,7 +823,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                 .map(e => ({
                                                                     value: String(e.eventId),
-                                                                    label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                    label: getEventDisplayName(e),
                                                                     color: e.color
                                                                 }))}
                                                             selected={currentFilters.activePercentageEvents || percentageConfig.parentEvents}
@@ -848,7 +849,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                 .map(e => ({
                                                                     value: String(e.eventId),
-                                                                    label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                    label: getEventDisplayName(e),
                                                                     color: e.color
                                                                 }))}
                                                             selected={currentFilters.activePercentageChildEvents || percentageConfig.childEvents}
@@ -977,7 +978,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
                                                                         .map(ev => (
                                                                             <option key={ev.eventId} value={ev.eventId}>
-                                                                                {ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName}
+                                                                                {getEventDisplayName(ev)}
                                                                             </option>
                                                                         ))}
                                                                 </select>
@@ -1022,7 +1023,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
                                                                 .map(ev => ({
                                                                     value: String(ev.eventId),
-                                                                    label: ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url}` : ev.eventName
+                                                                    label: getEventDisplayName(ev),
                                                                 }))}
                                                             selected={activeChildEventsForMain}
                                                             onChange={(values) => handleFilterChange('activeFunnelChildEvents', values)}
@@ -1280,7 +1281,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <MultiSelectDropdown
                                             options={availableSourceStrs.map(s => ({ value: s, label: s }))}
                                             selected={selectedSourceStrs}
-                                            onChange={(values) => setSelectedSourceStrs(values)}
+                                            onChange={(values) => {
+                                                console.log('🔄 SourceStr changed, triggering panel refresh:', values);
+                                                setSelectedSourceStrs(values);
+                                                // Trigger panel refresh with new sourceStr filter
+                                                setTimeout(() => handleApplyFilters(), 100);
+                                            }}
                                             placeholder="All Job IDs"
                                             className="bg-white dark:bg-gray-800"
                                         />
@@ -1289,7 +1295,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => setSelectedSourceStrs([])}
+                                            onClick={() => {
+                                                console.log('🔄 Clearing sourceStr filter, triggering refresh');
+                                                setSelectedSourceStrs([]);
+                                                setTimeout(() => handleApplyFilters(), 100);
+                                            }}
                                             className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100 dark:hover:bg-cyan-900/30"
                                         >
                                             Clear
@@ -1598,7 +1608,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     const graphType = filterConfig?.graphType;
 
                     const eventColors = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.color }), {});
-                    const eventNames = events.reduce((acc, e) => ({ ...acc, [e.eventId]: e.eventName }), {});
+                    const eventNames = events.reduce((acc, e) => ({ ...acc, [e.eventId]: getEventDisplayName(e) }), {});
 
                     // Percentage Graph - EXCLUSIVE RENDERING
                     const percentageConfig = filterConfig?.percentageConfig;

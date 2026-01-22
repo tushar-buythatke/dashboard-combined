@@ -14,7 +14,7 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell, Users, LayoutDashboard, Percent } from 'lucide-react';
+import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell, Users, LayoutDashboard, Percent, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,6 +35,9 @@ import { DayWiseComparisonChart, HourlyDeviationChart, DailyAverageChart } from 
 import { PercentageGraph } from './charts/PercentageGraph';
 import { FunnelGraph } from './charts/FunnelGraph';
 import { UserFlowVisualization } from './charts/UserFlowVisualization';
+import { CustomEventLabelsModal } from './admin/CustomEventLabelsModal';
+import { useCustomEventLabels } from '@/contexts/CustomEventLabelsContext';
+import { useEventName } from '@/hooks/useEventName';
 import {
     ResponsiveContainer,
     AreaChart,
@@ -290,8 +293,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // Theme and organization context
     const { currentTheme, isAutosnipe, themePalette } = useTheme();
     const { selectedOrganization } = useOrganization();
+    const { triggerRefresh, refreshTrigger } = useCustomEventLabels();
+    const { getEventDisplayName } = useEventName();
 
     const [profile, setProfile] = useState<DashboardProfile | null>(null);
+    const [customLabelsModalOpen, setCustomLabelsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [dataLoading, setDataLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -1616,6 +1622,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     ]);
 
                     setSiteDetails(sites);
+                    console.log('Loaded events with customName:', featureEvents.map(e => ({ id: e.eventId, name: e.eventName, customName: (e as any).customName || (e as any).custom_name })));
                     setEvents(featureEvents);
 
                     // Initialize panel filter states from admin configs (these reset on refresh)
@@ -1623,7 +1630,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     const initialPanelDateRanges: Record<string, DateRangeState> = {};
                     const initialPanelChartTypes: Record<string, 'default' | 'deviation'> = {};
 
-                    loadedProfile.panels.forEach((panel) => {
+                    loadedProfile.panels.forEach((panel, index) => {
                         const panelConfig = (panel as any).filterConfig || {};
 
                         const defaultFilters: FilterState = {
@@ -1634,6 +1641,17 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         };
 
                         initialPanelFilters[panel.panelId] = defaultFilters;
+
+                        // Load saved sourceStr filter from panel config
+                        const savedSourceStr = panelConfig.sourceStr || [];
+                        if (index === 0 && savedSourceStr.length > 0) {
+                            // Main panel - set in main state
+                            console.log('📌 Loading saved sourceStr for main panel:', savedSourceStr);
+                            setSelectedSourceStrs(savedSourceStr);
+                        } else if (savedSourceStr.length > 0) {
+                            // Additional panel - will set after state initialization
+                            console.log(`📌 Loading saved sourceStr for panel ${panel.panelId}:`, savedSourceStr);
+                        }
 
                         // ALWAYS use dynamic defaults based on showHourlyStats, NEVER use old saved dates
                         // This prevents showing outdated data from profile builder
@@ -1703,7 +1721,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         };
 
         loadInitialData();
-    }, [profileId]);
+    }, [profileId, refreshTrigger]);
 
     // Initialize API filter defaults when raw data becomes available
     useEffect(() => {
@@ -3456,14 +3474,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 return 0;
             })
             .map(e => {
-                let label = e.isApiEvent && e.host && e.url
-                    ? `${e.host} - ${e.url}`
-                    : e.eventName;
+                let label = getEventDisplayName(e);
                 const tags: string[] = [];
                 if (e.isErrorEvent === 1) tags.push('[isError]');
                 if (e.isAvgEvent === 1) tags.push('[isAvg]');
                 if (tags.length > 0) {
-                    label = `${e.eventName} ${tags.join(' ')}`;
+                    label = `${getEventDisplayName(e)} ${tags.join(' ')}`;
                 }
                 return {
                     value: e.eventId,
@@ -3586,16 +3602,30 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     actions={
                         <div className="flex flex-wrap items-center gap-2">
                             {onEditProfile && (
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => onEditProfile(profile)}
-                                    className="bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm"
-                                >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    <span className="hidden sm:inline">Edit Panels</span>
-                                    <span className="sm:hidden">Edit</span>
-                                </Button>
+                                <>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => onEditProfile(profile)}
+                                        className="bg-white/20 hover:bg-white/30 text-white border-white/20 backdrop-blur-sm"
+                                    >
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        <span className="hidden sm:inline">Edit Panels</span>
+                                        <span className="sm:hidden">Edit</span>
+                                    </Button>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => setCustomLabelsModalOpen(true)}
+                                        className="relative bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg shadow-purple-500/50 animate-pulse-subtle overflow-hidden group"
+                                    >
+                                        <span className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></span>
+                                        <Tag className="mr-2 h-4 w-4 relative z-10" />
+                                        <span className="hidden sm:inline relative z-10 font-semibold">Custom Labels</span>
+                                        <span className="sm:hidden relative z-10 font-semibold">Labels</span>
+                                        <Sparkles className="ml-2 h-3 w-3 relative z-10 animate-spin-slow" />
+                                    </Button>
+                                </>
                             )}
                             <Popover>
                                 <PopoverTrigger asChild>
@@ -4172,6 +4202,25 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     }
                 }}
             </ChartExpandedView>
+
+            {/* Custom Event Labels Modal */}
+            <CustomEventLabelsModal
+                open={customLabelsModalOpen}
+                onOpenChange={(open) => {
+                    setCustomLabelsModalOpen(open);
+                    // When modal closes, refresh to fetch updated customNames
+                    if (!open) {
+                        console.log('🔄 Modal closed - triggering data refresh');
+                        triggerRefresh();
+                        setLastUpdated(new Date());
+                    }
+                }}
+                events={events}
+                featureId={profile?.featureId || ''}
+                onLabelsUpdated={() => {
+                    // Just show toast, don't close modal
+                }}
+            />
         </>
     );
 }

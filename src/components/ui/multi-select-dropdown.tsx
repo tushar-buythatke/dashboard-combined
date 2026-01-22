@@ -7,9 +7,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MultiSelectDropdownProps<T extends string | number = string> {
-    options: { value: T; label: string }[];
+    options: { value: T; label: string; tooltip?: string }[];
     selected: T[];
     onChange: (selected: T[]) => void;
     placeholder?: string;
@@ -173,28 +174,47 @@ export function MultiSelectDropdown<T extends string | number = string>({
                 <div className="max-h-64 overflow-y-auto p-2">
                     <div className="space-y-1">
                         {/* Individual options */}
-                        {filteredOptions.map((option) => (
-                            <div
-                                key={String(option.value)}
-                                className={cn(
-                                    "flex items-center space-x-2 p-2 hover:bg-accent rounded cursor-pointer transition-colors",
-                                    selected.includes(option.value) && "bg-accent/50"
-                                )}
-                                onClick={() => handleToggle(option.value)}
-                            >
-                                <Checkbox
-                                    id={`option-${option.value}`}
-                                    checked={selected.includes(option.value)}
-                                    className="pointer-events-none"
-                                />
-                                <Label className="flex-1 cursor-pointer text-sm">
-                                    {option.label}
-                                </Label>
-                                {selected.includes(option.value) && (
-                                    <Check className="h-4 w-4 text-primary shrink-0" />
-                                )}
-                            </div>
-                        ))}
+                        {filteredOptions.map((option) => {
+                            const optionContent = (
+                                <div
+                                    key={String(option.value)}
+                                    className={cn(
+                                        "flex items-center space-x-2 p-2 hover:bg-accent rounded cursor-pointer transition-colors",
+                                        selected.includes(option.value) && "bg-accent/50"
+                                    )}
+                                    onClick={() => handleToggle(option.value)}
+                                >
+                                    <Checkbox
+                                        id={`option-${option.value}`}
+                                        checked={selected.includes(option.value)}
+                                        className="pointer-events-none"
+                                    />
+                                    <Label className="flex-1 cursor-pointer text-sm">
+                                        {option.label}
+                                    </Label>
+                                    {selected.includes(option.value) && (
+                                        <Check className="h-4 w-4 text-primary shrink-0" />
+                                    )}
+                                </div>
+                            );
+
+                            if (option.tooltip) {
+                                return (
+                                    <TooltipProvider key={String(option.value)} delayDuration={300}>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                {optionContent}
+                                            </TooltipTrigger>
+                                            <TooltipContent side="right" className="bg-slate-900 text-white border-slate-700 px-3 py-2 max-w-md">
+                                                <div className="text-xs font-mono">{option.tooltip}</div>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                );
+                            }
+
+                            return optionContent;
+                        })}
 
                         {filteredOptions.length === 0 && searchQuery && (
                             <div className="text-center text-muted-foreground py-4 text-sm">

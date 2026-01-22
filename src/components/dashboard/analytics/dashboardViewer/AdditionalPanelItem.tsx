@@ -27,6 +27,7 @@ import { InteractiveButton } from '@/components/ui/interactive-button';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { cn } from '@/lib/utils';
 import { getPOSName } from '@/lib/posMapping';
+import { getEventDisplayName } from '@/hooks/useEventName';
 import { PLATFORMS, SOURCES } from '@/services/apiService';
 import { AnimatedNumber } from './AnimatedNumber';
 import { CollapsibleLegend } from './CollapsibleLegend';
@@ -225,7 +226,7 @@ export const AdditionalPanelItem = React.memo(({
 
     const eventNames = useMemo(() => {
         const map: Record<string, string> = {};
-        (events || []).forEach((e: any) => { map[String(e.eventId)] = e.eventName; });
+        (events || []).forEach((e: any) => { map[String(e.eventId)] = getEventDisplayName(e); });
         return map;
     }, [events]);
 
@@ -640,11 +641,11 @@ export const AdditionalPanelItem = React.memo(({
                                                 options={events
                                                     .filter((e: any) => e.isApiEvent === true)
                                                     .map((e: any) => {
-                                                        let label = e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName;
+                                                        let label = getEventDisplayName(e);
                                                         const tags: string[] = [];
                                                         if (e.isErrorEvent === 1) tags.push('[isError]');
                                                         if (e.isAvgEvent === 1) tags.push('[isAvg]');
-                                                        if (tags.length > 0) label = `${e.eventName} ${tags.join(' ')}`;
+                                                        if (tags.length > 0) label = `${getEventDisplayName(e)} ${tags.join(' ')}`;
                                                         return {
                                                             value: e.eventId,
                                                             label,
@@ -698,7 +699,7 @@ export const AdditionalPanelItem = React.memo(({
                                                 options={events
                                                     .filter((e: any) => e.isApiEvent !== true)
                                                     .map((e: any) => {
-                                                        const label = `${e.eventName}`;
+                                                        const label = getEventDisplayName(e);
                                                         return {
                                                             value: e.eventId,
                                                             label,

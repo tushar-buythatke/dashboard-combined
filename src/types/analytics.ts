@@ -50,6 +50,7 @@ export interface EventConfig {
     org?: number;
     isErrorEvent?: number;
     isAvgEvent?: number;
+    customName?: string; // Custom label for the event
     // API Event specific fields
     isApiEvent?: boolean;
     host?: string;

@@ -352,6 +352,7 @@ export class APIService {
             const regularEvents = Object.entries(result.data.eventMap).map(([id, eventData]: [string, any], index) => ({
                 eventId: id, // Numeric string ID like "1", "2", etc.
                 eventName: eventData.eventName,
+                customName: eventData.customName || '', // Custom label from API
                 color: colors[index % colors.length],
                 feature: eventData.feature,
                 org: eventData.org,
@@ -791,7 +792,7 @@ export class APIService {
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
                 source: toNumbers(sourceIds),
-                sourceStr: [], // Client-side filter - always send empty array to server
+                sourceStr: sourceStrs || [], // Send actual sourceStr values for server-side filtering
                 // For API events, send empty arrays to get ALL status codes and cache statuses
                 // Backend needs these fields to return data broken down by status
                 ...(isApiEvent ? { status: [], cacheStatus: [] } : {})
@@ -918,11 +919,12 @@ export class APIService {
                 pos: toNumbers(posIds),
                 platform: toNumbers(platformIds),
                 source: toNumbers(sourceIds),
-                sourceStr: [] // Client-side filter - always send empty array to server
+                sourceStr: sourceStrs || [] // Send actual sourceStr values for server-side filtering
             },
             startTime: this.formatDate(startDate, false),
             endTime: this.formatDate(endDate, true),
-            isHourly
+            isHourly,
+            isApi: isApiEvent ? 1 : 0
         };
 
         // console.log('PieChart API Request:', requestBody);

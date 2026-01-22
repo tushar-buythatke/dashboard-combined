@@ -39,6 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { TooltipProvider, Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { getPOSName } from '@/lib/posMapping';
+import { getEventDisplayName } from '@/hooks/useEventName';
 
 import { PLATFORMS, SOURCES } from '@/services/apiService';
 
@@ -257,7 +258,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     const eventNames = useMemo(() => {
         const map: Record<string, string> = {};
         (events || []).forEach((e: any) => {
-            map[String(e.eventId)] = e.eventName;
+            map[String(e.eventId)] = getEventDisplayName(e);
         });
         return map;
     }, [events]);
@@ -853,7 +854,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             .filter((e: any) => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                             .map((e: any) => ({
                                                                                 value: String(e.eventId),
-                                                                                label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                                label: getEventDisplayName(e),
                                                                                 color: e.color
                                                                             }))}
                                                                         selected={currentPanelFilters.activePercentageEvents || panelConfig.percentageConfig.parentEvents}
@@ -884,7 +885,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             .filter((e: any) => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                             .map((e: any) => ({
                                                                                 value: String(e.eventId),
-                                                                                label: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName,
+                                                                                label: getEventDisplayName(e),
                                                                                 color: e.color
                                                                             }))}
                                                                         selected={currentPanelFilters.activePercentageChildEvents || panelConfig.percentageConfig.childEvents}
@@ -1152,7 +1153,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                     .filter((ev: any) => panelConfig?.isApiEvent ? ev.isApiEvent === true : ev.isApiEvent !== true)
                                                                                     .map((ev: any) => (
                                                                                         <option key={ev.eventId} value={ev.eventId}>
-                                                                                            {ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url} ` : ev.eventName}
+                                                                                            {getEventDisplayName(ev)}
                                                                                         </option>
                                                                                     ))}
                                                                             </select>
@@ -1215,7 +1216,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         .filter((ev: any) => panelConfig?.isApiEvent ? ev.isApiEvent === true : ev.isApiEvent !== true)
                                                                         .map((ev: any) => ({
                                                                             value: String(ev.eventId),
-                                                                            label: ev.isApiEvent && ev.host && ev.url ? `${ev.host} - ${ev.url} ` : ev.eventName
+                                                                            label: getEventDisplayName(ev)
                                                                         }))}
                                                                     selected={currentPanelFilters.activeFunnelChildEvents || panelConfig.funnelConfig.multipleChildEvents}
                                                                     onChange={(values) => {
@@ -1351,7 +1352,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 options={events
                                                                     .filter((e: any) => panelConfig?.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                     .map((e: any) => {
-                                                                        let label = e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName;
+                                                                        let label = getEventDisplayName(e);
                                                                         const tags: string[] = [];
                                                                         if (e.isErrorEvent === 1) tags.push('[isError]');
                                                                         if (e.isAvgEvent === 1) tags.push('[isAvg]');

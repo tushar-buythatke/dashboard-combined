@@ -25,6 +25,7 @@ import { TutorialOverlay, type TutorialStep } from '../components/TutorialOverla
 import { InfoTooltip } from '../components/InfoTooltip';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useEventName } from '@/hooks/useEventName';
 
 interface ProfileBuilderProps {
     featureId: string;
@@ -70,6 +71,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {
     const { user } = useAnalyticsAuth();
     const { toast } = useToast();
+    const { getEventDisplayName } = useEventName();
     const [profileName, setProfileName] = useState('New Profile');
     const [panels, setPanels] = useState<ExtendedPanelConfig[]>([]);
     const [alertEventFilters, setAlertEventFilters] = useState<number[]>([]); // Event IDs for critical alerts
@@ -1279,16 +1281,19 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                     Type: <span className="font-medium">{panel.type}</span>
                                                 </div>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {panel.events.map(e => (
-                                                        <span
-                                                            key={e.eventId}
-                                                            className="text-sm font-medium px-3 py-1.5 rounded bg-secondary"
-                                                            style={{ borderLeft: `4px solid ${e.color}` }}
-                                                            title={e.eventName}
-                                                        >
-                                                            {e.eventName}
-                                                        </span>
-                                                    ))}
+                                                    {panel.events.map(e => {
+                                                        const displayName = getEventDisplayName(e);
+                                                        return (
+                                                            <span
+                                                                key={e.eventId}
+                                                                className="text-sm font-medium px-3 py-1.5 rounded bg-secondary"
+                                                                style={{ borderLeft: `4px solid ${e.color}` }}
+                                                                title={displayName}
+                                                            >
+                                                                {displayName}
+                                                            </span>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -1554,7 +1559,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     .filter(e => e.isApiEvent === true)
                                                                                     .map(e => ({
                                                                                         value: e.eventId,
-                                                                                        label: e.host && e.url ? `${e.host} - ${e.url}` : e.eventName
+                                                                                        label: getEventDisplayName(e),
+                                                                                        tooltip: e.host && e.url ? `${e.host} - ${e.url}` : undefined
                                                                                     }));
                                                                             } else {
                                                                                 // Regular events only (for REGULAR)
@@ -1562,7 +1568,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     .filter(e => e.isApiEvent !== true)
                                                                                     .map(e => ({
                                                                                         value: e.eventId,
-                                                                                        label: e.eventName
+                                                                                        label: getEventDisplayName(e)
                                                                                     }));
                                                                             }
                                                                         })()}
@@ -1639,9 +1645,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                             .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                             .map(e => ({
                                                                                 value: e.eventId,
-                                                                                label: e.isApiEvent
-                                                                                    ? `${e.host} - ${e.url}`
-                                                                                    : e.eventName
+                                                                                label: getEventDisplayName(e),
+                                                                                tooltip: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : undefined
                                                                             }))}
                                                                         selected={panel.filters.events.map(id => id.toString())}
                                                                         onChange={(values) => updatePanelFilter(panel.panelId, 'events', values)}
@@ -1920,9 +1925,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                                     .map(e => ({
                                                                                         value: e.eventId,
-                                                                                        label: e.isApiEvent && e.host && e.url
-                                                                                            ? `${e.host} - ${e.url}`
-                                                                                            : e.eventName
+                                                                                        label: getEventDisplayName(e),
+                                                                                        tooltip: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : undefined
                                                                                     }))}
                                                                                 selected={(panel as any).percentageConfig?.parentEvents || []}
                                                                                 onChange={(values) => {
@@ -1945,9 +1949,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                                     .map(e => ({
                                                                                         value: e.eventId,
-                                                                                        label: e.isApiEvent && e.host && e.url
-                                                                                            ? `${e.host} - ${e.url}`
-                                                                                            : e.eventName
+                                                                                        label: getEventDisplayName(e),
+                                                                                        tooltip: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : undefined
                                                                                     }))}
                                                                                 selected={(panel as any).percentageConfig?.childEvents || []}
                                                                                 onChange={(values) => {
@@ -2144,9 +2147,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                             .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                                             .map(e => ({
                                                                                                 value: e.eventId,
-                                                                                                label: e.isApiEvent && e.host && e.url
-                                                                                                    ? `${e.host} - ${e.url}`
-                                                                                                    : e.eventName
+                                                                                                label: getEventDisplayName(e),
+                                                                                                tooltip: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : undefined
                                                                                             }))}
                                                                                         selected={stage.eventId ? [stage.eventId] : []}
                                                                                         onChange={(values) => {
@@ -2216,9 +2218,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                 .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                                 .map(e => ({
                                                                                     value: e.eventId,
-                                                                                    label: e.isApiEvent && e.host && e.url
-                                                                                        ? `${e.host} - ${e.url}`
-                                                                                        : e.eventName
+                                                                                    label: getEventDisplayName(e),
+                                                                                    tooltip: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : undefined
                                                                                 }))}
                                                                             selected={(panel as any).funnelConfig?.multipleChildEvents || []}
                                                                             onChange={(values) => {
@@ -2317,9 +2318,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                             .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
                                                                                             .map(e => ({
                                                                                                 value: e.eventId,
-                                                                                                label: e.isApiEvent && e.host && e.url
-                                                                                                    ? `${e.host} - ${e.url}`
-                                                                                                    : e.eventName
+                                                                                                label: getEventDisplayName(e),
+                                                                                                tooltip: e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : undefined
                                                                                             }))}
                                                                                         selected={stage.eventIds || []}
                                                                                         onChange={(values) => {
