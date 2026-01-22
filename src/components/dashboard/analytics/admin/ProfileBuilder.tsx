@@ -2081,34 +2081,37 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         {((panel as any).funnelConfig?.stages || []).map((stage: any, index: number) => (
                                                                             <div key={index} className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 rounded border border-blue-200 dark:border-blue-500/30">
                                                                                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400 w-8">e{index + 1}</span>
-                                                                                <select
-                                                                                    value={stage.eventId || ''}
-                                                                                    onChange={(e) => {
-                                                                                        const eventId = e.target.value;
-                                                                                        const selectedEvent = availableEvents.find(ev => ev.eventId === eventId);
-                                                                                        const eventName = selectedEvent?.isApiEvent && selectedEvent?.host && selectedEvent?.url
-                                                                                            ? `${selectedEvent.host} - ${selectedEvent.url}`
-                                                                                            : selectedEvent?.eventName || '';
-                                                                                        setPanels(prev => prev.map(p => {
-                                                                                            if (p.panelId === panel.panelId) {
-                                                                                                const stages = [...((p as any).funnelConfig?.stages || [])];
-                                                                                                stages[index] = { eventId, eventName };
-                                                                                                return { ...p, funnelConfig: { ...(p as any).funnelConfig, stages } };
-                                                                                            }
-                                                                                            return p;
-                                                                                        }));
-                                                                                    }}
-                                                                                    className="flex-1 h-8 px-2 rounded border text-xs bg-white dark:bg-slate-700 border-blue-300 dark:border-blue-600"
-                                                                                >
-                                                                                    <option value="">Select event</option>
-                                                                                    {availableEvents
-                                                                                        .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
-                                                                                        .map(e => (
-                                                                                            <option key={e.eventId} value={e.eventId}>
-                                                                                                {e.isApiEvent && e.host && e.url ? `${e.host} - ${e.url}` : e.eventName}
-                                                                                            </option>
-                                                                                        ))}
-                                                                                </select>
+                                                                                <div className="flex-1">
+                                                                                    <MultiSelectDropdown
+                                                                                        options={availableEvents
+                                                                                            .filter(e => panel.isApiEvent ? e.isApiEvent === true : e.isApiEvent !== true)
+                                                                                            .map(e => ({
+                                                                                                value: e.eventId,
+                                                                                                label: e.isApiEvent && e.host && e.url
+                                                                                                    ? `${e.host} - ${e.url}`
+                                                                                                    : e.eventName
+                                                                                            }))}
+                                                                                        selected={stage.eventId ? [stage.eventId] : []}
+                                                                                        onChange={(values) => {
+                                                                                            const eventId = values[0] || '';
+                                                                                            const selectedEvent = availableEvents.find(ev => ev.eventId === eventId);
+                                                                                            const eventName = selectedEvent?.isApiEvent && selectedEvent?.host && selectedEvent?.url
+                                                                                                ? `${selectedEvent.host} - ${selectedEvent.url}`
+                                                                                                : selectedEvent?.eventName || '';
+                                                                                            setPanels(prev => prev.map(p => {
+                                                                                                if (p.panelId === panel.panelId) {
+                                                                                                    const stages = [...((p as any).funnelConfig?.stages || [])];
+                                                                                                    stages[index] = { eventId, eventName };
+                                                                                                    return { ...p, funnelConfig: { ...(p as any).funnelConfig, stages } };
+                                                                                                }
+                                                                                                return p;
+                                                                                            }));
+                                                                                        }}
+                                                                                        placeholder={`Select stage ${index + 1} event`}
+                                                                                        maxDisplayItems={1}
+                                                                                        className="h-8"
+                                                                                    />
+                                                                                </div>
                                                                                 <Button
                                                                                     variant="ghost"
                                                                                     size="sm"
