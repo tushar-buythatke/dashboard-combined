@@ -22,6 +22,7 @@ export const PLATFORMS = [
 
 // Source mappings (fixed values)
 export const SOURCES = [
+    { id: 0, name: 'Extension' },
     { id: 1, name: 'Spidy' },
     { id: 2, name: 'Kafka' },
     { id: 3, name: 'Self' },
