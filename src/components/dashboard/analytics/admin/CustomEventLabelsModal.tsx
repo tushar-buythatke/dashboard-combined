@@ -3,17 +3,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-    Tag,
     Save,
     X,
     RefreshCw,
     Search as SearchIcon,
-    Sparkles,
     Activity,
-    CheckCircle2,
-    Command,
+    Check,
     ArrowRight,
-    Zap
+    Bookmark
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +47,7 @@ const EventLabelRow = memo(({
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [hasValue, setHasValue] = useState(Boolean(initialValue));
+    const [isFocused, setIsFocused] = useState(false);
 
     // Only sync on mount or when modal reopens with new values
     useEffect(() => {
@@ -64,6 +62,7 @@ const EventLabelRow = memo(({
     };
 
     const handleBlur = () => {
+        setIsFocused(false);
         if (inputRef.current) {
             onBlur(inputRef.current.value);
         }
@@ -80,72 +79,108 @@ const EventLabelRow = memo(({
     return (
         <div
             className={cn(
-                "group relative p-3.5 rounded-xl border-2 transition-all",
-                hasValue
-                    ? "bg-gradient-to-r from-purple-50/80 to-pink-50/80 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-300 dark:border-purple-500/40 shadow-sm"
-                    : "bg-white dark:bg-gray-900/60 border-gray-200 dark:border-gray-700/60 hover:border-purple-200 dark:hover:border-purple-700/40"
+                "group relative rounded-2xl transition-all duration-300 overflow-hidden",
+                "bg-white/70 dark:bg-gray-800/50 backdrop-blur-xl",
+                "border border-gray-200/60 dark:border-gray-700/50",
+                "hover:shadow-lg hover:shadow-indigo-100/50 dark:hover:shadow-gray-900/30",
+                "hover:border-indigo-200/80 dark:hover:border-indigo-600/40",
+                hasValue && "ring-2 ring-indigo-500/20 border-indigo-300/60 dark:border-indigo-500/40"
             )}
+            style={{
+                animationDelay: `${index * 30}ms`,
+            }}
         >
-            <div className="flex items-center gap-4">
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                            Source Event
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 flex items-center justify-center shrink-0 border border-purple-200/50 dark:border-purple-700/30">
-                            <span className="text-[10px] font-mono font-bold text-purple-700 dark:text-purple-300">{event.eventId}</span>
-                        </div>
-                        <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
-                                {event.eventName}
-                            </h4>
-                            {event.isApiEvent && (
-                                <p className="text-[10px] font-mono font-medium text-pink-600 dark:text-pink-400 truncate">
-                                    {event.host}{event.url}
-                                </p>
-                            )}
-                        </div>
-                    </div>
+            {/* Subtle gradient accent for items with values */}
+            {hasValue && (
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-50/60 via-blue-50/40 to-transparent dark:from-indigo-900/15 dark:via-blue-900/10 dark:to-transparent pointer-events-none" />
+            )}
+
+            <div className="relative p-4 flex items-center gap-4">
+                {/* Event ID Badge - Clean numeric display */}
+                <div className={cn(
+                    "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300",
+                    "font-mono font-bold text-sm",
+                    event.isApiEvent
+                        ? "bg-gradient-to-br from-violet-100 to-purple-50 dark:from-violet-900/40 dark:to-purple-900/20 text-violet-600 dark:text-violet-400 border border-violet-200/50 dark:border-violet-700/30"
+                        : "bg-gradient-to-br from-indigo-100 to-blue-50 dark:from-indigo-900/40 dark:to-blue-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-700/30"
+                )}>
+                    {event.eventId}
                 </div>
 
-                <ArrowRight className="w-4 h-4 text-purple-300 dark:text-purple-600 shrink-0" />
-
+                {/* Event Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400">
-                            Display Name
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <span className={cn(
+                            "text-[10px] font-semibold uppercase tracking-wider",
+                            event.isApiEvent ? "text-violet-400 dark:text-violet-500" : "text-indigo-400 dark:text-indigo-500"
+                        )}>
+                            {event.isApiEvent ? 'Endpoint' : 'Event'}
                         </span>
                     </div>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate leading-tight">
+                        {event.eventName}
+                    </h4>
+                    {event.isApiEvent && (
+                        <p className="text-[11px] font-mono text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                            {event.host}{event.url}
+                        </p>
+                    )}
+                </div>
+
+                {/* Arrow Indicator */}
+                <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all duration-300",
+                    "bg-gray-100/80 dark:bg-gray-700/50",
+                    isFocused && "bg-indigo-100 dark:bg-indigo-900/40"
+                )}>
+                    <ArrowRight className={cn(
+                        "w-4 h-4 transition-all duration-300",
+                        isFocused ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400 dark:text-gray-500"
+                    )} />
+                </div>
+
+                {/* Custom Label Input - Clean, no icon */}
+                <div className="flex-1 min-w-0 max-w-[220px]">
                     <div className="relative">
                         <input
                             ref={inputRef}
                             type="text"
                             defaultValue={initialValue}
                             onInput={handleInput}
+                            onFocus={() => setIsFocused(true)}
                             onBlur={handleBlur}
                             onKeyDown={(e) => e.stopPropagation()}
-                            placeholder="Enter custom name..."
+                            placeholder="Enter label..."
                             className={cn(
-                                "w-full h-9 px-3.5 text-sm font-semibold rounded-lg border-2 transition-all outline-none",
-                                "bg-white dark:bg-gray-900 placeholder:text-gray-400 placeholder:font-medium",
-                                "focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500",
-                                hasValue
-                                    ? "border-purple-400 dark:border-purple-500/50 text-purple-900 dark:text-purple-100"
-                                    : "border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                                "w-full h-10 px-4 pr-9 text-sm font-medium rounded-xl transition-all duration-200 outline-none",
+                                "bg-gray-50/80 dark:bg-gray-900/50 placeholder:text-gray-300 dark:placeholder:text-gray-600",
+                                "border-2",
+                                isFocused
+                                    ? "border-indigo-400 dark:border-indigo-500/60 ring-4 ring-indigo-500/10 bg-white dark:bg-gray-900"
+                                    : hasValue
+                                        ? "border-indigo-300 dark:border-indigo-600/40 text-indigo-700 dark:text-indigo-300"
+                                        : "border-gray-200 dark:border-gray-700/60 text-gray-700 dark:text-gray-200"
                             )}
                         />
                         {hasValue && (
                             <button
                                 onClick={handleClear}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-400 hover:text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-900/30 transition-colors"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>
                         )}
                     </div>
                 </div>
+
+                {/* Status Indicator */}
+                {hasValue && (
+                    <div className="shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm shadow-indigo-500/30">
+                            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -204,15 +239,15 @@ export function CustomEventLabelsModal({
                 toast({
                     title: (
                         <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                                <CheckCircle2 className="w-3 h-3 text-white" />
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center">
+                                <Check className="w-3 h-3 text-white" strokeWidth={3} />
                             </div>
-                            <span className="font-bold text-sm">Labels Updated!</span>
+                            <span className="font-semibold text-sm">Labels Saved</span>
                         </div>
                     ) as any,
                     description: (
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">
-                            {Object.values(customLabels).filter(Boolean).length} labels saved. Refresh for full sync.
+                        <p className="text-xs text-muted-foreground mt-1">
+                            {Object.values(customLabels).filter(Boolean).length} custom labels applied. Refresh to sync charts.
                         </p>
                     ) as any,
                     duration: 4000,
@@ -267,103 +302,115 @@ export function CustomEventLabelsModal({
         setSearchQuery(searchInputRef.current?.value || '');
     };
 
+    const activeLabelsCount = Object.values(customLabels).filter(Boolean).length;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[85vh] p-0 overflow-hidden flex flex-col gap-0 border-0 shadow-2xl rounded-2xl [&>button]:hidden">
-                {/* Purple-Pink Gradient Header */}
-                <div className="relative shrink-0 overflow-hidden bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 p-6 text-white">
-                    <div className="absolute inset-0 opacity-40">
-                        <div className="absolute top-[-40%] left-[-15%] w-[70%] h-[180%] bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.2)_0,transparent_50%)] blur-2xl" />
-                        <div className="absolute bottom-[-40%] right-[-15%] w-[70%] h-[180%] bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.4)_0,transparent_50%)] blur-2xl" />
+            <DialogContent className="max-w-3xl max-h-[88vh] p-0 overflow-hidden flex flex-col gap-0 border-0 shadow-2xl rounded-3xl [&>button]:hidden bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
+                {/* Glassmorphism Header */}
+                <div className="relative shrink-0 overflow-hidden">
+                    {/* Background Gradient Orbs */}
+                    <div className="absolute inset-0 overflow-hidden">
+                        <div className="absolute -top-20 -left-20 w-60 h-60 bg-gradient-to-br from-indigo-200/40 to-blue-300/30 dark:from-indigo-600/20 dark:to-blue-600/10 rounded-full blur-3xl" />
+                        <div className="absolute -top-10 right-10 w-40 h-40 bg-gradient-to-br from-blue-200/40 to-sky-300/30 dark:from-blue-600/20 dark:to-sky-600/10 rounded-full blur-3xl" />
+                        <div className="absolute top-20 right-0 w-32 h-32 bg-gradient-to-br from-violet-200/30 to-purple-300/20 dark:from-violet-600/10 dark:to-purple-600/5 rounded-full blur-3xl" />
                     </div>
 
-                    <div className="relative z-10 flex items-start justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center shadow-lg">
-                                <Tag className="w-6 h-6 text-white" />
+                    {/* Header Content */}
+                    <div className="relative z-10 p-6 pb-5">
+                        <div className="flex items-start justify-between mb-5">
+                            <div className="flex items-center gap-4">
+                                {/* Icon Container with Glassmorphism */}
+                                <div className="w-14 h-14 rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 shadow-lg shadow-indigo-200/30 dark:shadow-gray-900/50 flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-inner">
+                                        <Bookmark className="w-5 h-5 text-white" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <DialogTitle className="text-xl font-bold tracking-tight text-gray-800 dark:text-gray-100 mb-1">
+                                        Custom Event Labels
+                                    </DialogTitle>
+                                    <DialogDescription className="text-gray-500 dark:text-gray-400 text-sm font-medium">
+                                        Personalize how events appear in your dashboard
+                                    </DialogDescription>
+                                </div>
                             </div>
-                            <div>
-                                <DialogTitle className="text-xl font-black tracking-tight text-white mb-1">
-                                    Event Labels
-                                </DialogTitle>
-                                <DialogDescription className="text-pink-100 text-sm font-semibold flex items-center gap-2">
-                                    <Command className="w-3.5 h-3.5" />
-                                    Personalize your analytics dashboard workspace
-                                </DialogDescription>
+                            <button
+                                onClick={() => onOpenChange(false)}
+                                className="p-2.5 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200/60 dark:border-gray-700/50 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-white dark:hover:bg-gray-800 transition-all shadow-sm"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Search Bar & Stats */}
+                        <div className="flex gap-3 items-center">
+                            <div className="relative flex-1">
+                                <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                    ref={searchInputRef}
+                                    type="text"
+                                    placeholder="Search events..."
+                                    defaultValue=""
+                                    onInput={handleSearchInput}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    className="w-full h-12 pl-11 pr-10 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/60 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-xl placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 dark:focus:border-indigo-500/50 transition-all shadow-sm"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => {
+                                            if (searchInputRef.current) {
+                                                searchInputRef.current.value = '';
+                                                setSearchQuery('');
+                                            }
+                                        }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-gray-600"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Stats Pills */}
+                            <div className="flex gap-2">
+                                <div className="h-12 px-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/60 rounded-xl flex items-center gap-2.5 shadow-sm">
+                                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">{events.length}</span>
+                                    <span className="text-xs text-gray-400 hidden sm:inline">Events</span>
+                                </div>
+                                {activeLabelsCount > 0 && (
+                                    <div className="h-12 px-4 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/30 dark:to-blue-900/30 border border-indigo-200/80 dark:border-indigo-700/40 rounded-xl flex items-center gap-2.5 shadow-sm">
+                                        <div className="w-2 h-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500" />
+                                        <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">{activeLabelsCount}</span>
+                                        <span className="text-xs text-indigo-500 hidden sm:inline">Labeled</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                        <button
-                            onClick={() => onOpenChange(false)}
-                            className="p-2.5 rounded-xl hover:bg-white/20 text-white/80 hover:text-white transition-all"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
                     </div>
 
-                    {/* Search & Stats Bar */}
-                    <div className="relative z-10 mt-5 flex gap-3 items-center">
-                        <div className="relative flex-1">
-                            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                placeholder="Search by name, ID, or custom label..."
-                                defaultValue=""
-                                onInput={handleSearchInput}
-                                onKeyDown={(e) => e.stopPropagation()}
-                                className="w-full h-11 pl-11 pr-10 bg-white/15 border-2 border-white/20 text-white text-sm font-semibold rounded-xl placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/40 transition-all backdrop-blur-sm"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => {
-                                        if (searchInputRef.current) {
-                                            searchInputRef.current.value = '';
-                                            setSearchQuery('');
-                                        }
-                                    }}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/20 rounded-lg text-white/60 hover:text-white"
-                                >
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            )}
-                        </div>
-                        <Badge className="h-11 px-5 bg-white/20 border-2 border-white/25 text-white text-sm rounded-xl flex items-center gap-2 font-bold backdrop-blur-sm">
-                            <Sparkles className="w-4 h-4 text-yellow-300" />
-                            {events.length} Total
-                        </Badge>
-                    </div>
+                    {/* Subtle Divider */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-200/80 dark:via-gray-700/60 to-transparent" />
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto bg-gradient-to-b from-purple-50/50 to-pink-50/30 dark:from-gray-950 dark:to-gray-900 p-5 space-y-5 custom-scrollbar">
-                    {/* Summary Info */}
-                    {!searchQuery && (
-                        <div className="bg-gradient-to-r from-purple-100/80 to-pink-100/80 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200/60 dark:border-purple-700/30 rounded-xl p-4 flex items-start gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shrink-0 shadow-md">
-                                <Zap className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                                <h4 className="text-sm font-bold text-purple-900 dark:text-purple-100 mb-0.5">How it works</h4>
-                                <p className="text-xs text-purple-700 dark:text-purple-300 leading-relaxed font-medium">
-                                    Changes saved here will instantly reflect across your session. Refresh for complex data charts.
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
+                <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
                     {/* Regular Events Section */}
                     {regularEvents.length > 0 && (
                         <div className="space-y-3">
-                            <div className="flex items-center gap-2.5 px-1">
-                                <div className="w-2 h-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-sm" />
-                                <h3 className="text-xs font-black uppercase tracking-widest text-purple-700 dark:text-purple-300">
-                                    System Events
-                                </h3>
-                                <Badge className="text-[10px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700/40 h-5 px-2">
+                            <div className="flex items-center gap-3 px-1">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500" />
+                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                                        System Events
+                                    </h3>
+                                </div>
+                                <div className="h-px flex-1 bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent" />
+                                <span className="text-xs font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
                                     {regularEvents.length}
-                                </Badge>
+                                </span>
                             </div>
-                            <div className="space-y-2.5">
+                            <div className="space-y-2">
                                 {regularEvents.map((event, idx) => (
                                     <EventLabelRow
                                         key={`${event.eventId}_0`}
@@ -381,16 +428,19 @@ export function CustomEventLabelsModal({
                     {/* API Events Section */}
                     {apiEvents.length > 0 && (
                         <div className="space-y-3">
-                            <div className="flex items-center gap-2.5 px-1 pt-3">
-                                <div className="w-2 h-2 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 shadow-sm" />
-                                <h3 className="text-xs font-black uppercase tracking-widest text-pink-700 dark:text-pink-300">
-                                    API Endpoints
-                                </h3>
-                                <Badge className="text-[10px] font-bold bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-700/40 h-5 px-2">
+                            <div className="flex items-center gap-3 px-1">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500" />
+                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                                        API Endpoints
+                                    </h3>
+                                </div>
+                                <div className="h-px flex-1 bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent" />
+                                <span className="text-xs font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
                                     {apiEvents.length}
-                                </Badge>
+                                </span>
                             </div>
-                            <div className="space-y-2.5">
+                            <div className="space-y-2">
                                 {apiEvents.map((event, idx) => (
                                     <EventLabelRow
                                         key={`${event.eventId}_1`}
@@ -405,79 +455,94 @@ export function CustomEventLabelsModal({
                         </div>
                     )}
 
+                    {/* Empty State */}
                     {filteredEvents.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-16 text-center">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 flex items-center justify-center mb-4 border-2 border-purple-200/50 dark:border-purple-700/30">
-                                <Activity className="w-8 h-8 text-purple-400" />
+                            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center mb-5 border border-gray-200/60 dark:border-gray-700/50 shadow-inner">
+                                <Activity className="w-9 h-9 text-gray-300 dark:text-gray-600" />
                             </div>
-                            <h3 className="text-base font-bold text-gray-800 dark:text-gray-200 mb-1">No results found</h3>
-                            <p className="text-sm text-gray-500 font-medium max-w-xs">
-                                No events matching "{searchQuery}". Try a different term.
+                            <h3 className="text-base font-semibold text-gray-700 dark:text-gray-200 mb-1.5">No matching events</h3>
+                            <p className="text-sm text-gray-400 dark:text-gray-500 max-w-xs">
+                                No events found for "<span className="font-medium text-gray-500">{searchQuery}</span>"
                             </p>
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 bg-white dark:bg-gray-900 border-t-2 border-purple-100 dark:border-purple-900/30 flex items-center justify-between">
-                    <div className="hidden sm:flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 animate-pulse" />
-                        <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                            {Object.values(customLabels).filter(Boolean).length} Active overrides
-                        </p>
-                    </div>
+                <div className="relative shrink-0">
+                    {/* Top Border Gradient */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-gray-200/80 dark:via-gray-700/60 to-transparent" />
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
-                        <Button
-                            variant="ghost"
-                            onClick={() => {
-                                if (isSaved) window.location.reload();
-                                else onOpenChange(false);
-                            }}
-                            className={cn(
-                                "h-10 px-6 font-bold text-sm transition-all rounded-xl flex-1 sm:flex-none",
-                                isSaved
-                                    ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400"
-                                    : "hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-600 dark:text-gray-300"
-                            )}
-                        >
-                            {isSaved ? (
-                                <div className="flex items-center gap-2">
-                                    <RefreshCw className="w-4 h-4" />
-                                    Refresh
-                                </div>
-                            ) : (
-                                "Dismiss"
-                            )}
-                        </Button>
+                    <div className="p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl flex items-center justify-between gap-4">
+                        {/* Status Indicator */}
+                        <div className="hidden sm:flex items-center gap-3">
+                            <div className={cn(
+                                "w-2 h-2 rounded-full transition-colors duration-300",
+                                activeLabelsCount > 0
+                                    ? "bg-gradient-to-r from-indigo-500 to-blue-600"
+                                    : "bg-gray-300 dark:bg-gray-600"
+                            )} />
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                {activeLabelsCount > 0 ? (
+                                    <span className="text-indigo-600 dark:text-indigo-400">{activeLabelsCount} label{activeLabelsCount !== 1 ? 's' : ''} active</span>
+                                ) : (
+                                    <span>No labels set</span>
+                                )}
+                            </p>
+                        </div>
 
-                        <Button
-                            onClick={saveCustomLabels}
-                            disabled={isSaving}
-                            className={cn(
-                                "h-10 px-7 font-bold text-sm transition-all rounded-xl shadow-lg flex-1 sm:flex-none",
-                                !isSaved
-                                    ? "bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-pink-700 text-white shadow-purple-500/25"
-                                    : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/25"
-                            )}
-                        >
-                            {isSaving ? (
-                                <div className="flex items-center gap-2">
-                                    <RefreshCw className="w-4 h-4 animate-spin" />
-                                    Saving...
-                                </div>
-                            ) : isSaved ? (
-                                <div className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    Saved!
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <Save className="w-4 h-4" />
-                                    Save Changes
-                                </div>
-                            )}
-                        </Button>
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <Button
+                                variant="ghost"
+                                onClick={() => {
+                                    if (isSaved) window.location.reload();
+                                    else onOpenChange(false);
+                                }}
+                                className={cn(
+                                    "h-11 px-5 font-medium text-sm transition-all rounded-xl flex-1 sm:flex-none border",
+                                    isSaved
+                                        ? "bg-indigo-50 border-indigo-200 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-700/40 dark:text-indigo-400"
+                                        : "border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
+                                )}
+                            >
+                                {isSaved ? (
+                                    <div className="flex items-center gap-2">
+                                        <RefreshCw className="w-4 h-4" />
+                                        Refresh
+                                    </div>
+                                ) : (
+                                    "Cancel"
+                                )}
+                            </Button>
+
+                            <Button
+                                onClick={saveCustomLabels}
+                                disabled={isSaving}
+                                className={cn(
+                                    "h-11 px-6 font-semibold text-sm transition-all rounded-xl shadow-lg flex-1 sm:flex-none",
+                                    "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-indigo-500/25"
+                                )}
+                            >
+                                {isSaving ? (
+                                    <div className="flex items-center gap-2">
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                        Saving...
+                                    </div>
+                                ) : isSaved ? (
+                                    <div className="flex items-center gap-2">
+                                        <Check className="w-4 h-4" strokeWidth={3} />
+                                        Saved
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <Save className="w-4 h-4" />
+                                        Save
+                                    </div>
+                                )}
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </DialogContent>
@@ -491,11 +556,11 @@ export function CustomEventLabelsModal({
                     background: transparent;
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: linear-gradient(to bottom, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3));
+                    background: linear-gradient(to bottom, rgba(99, 102, 241, 0.3), rgba(59, 130, 246, 0.3));
                     border-radius: 10px;
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: linear-gradient(to bottom, rgba(168, 85, 247, 0.5), rgba(236, 72, 153, 0.5));
+                    background: linear-gradient(to bottom, rgba(99, 102, 241, 0.5), rgba(59, 130, 246, 0.5));
                 }
             `}} />
         </Dialog>

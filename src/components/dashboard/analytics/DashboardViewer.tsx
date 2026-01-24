@@ -14,7 +14,7 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RefreshCw, Calendar as CalendarIcon, Edit, Sparkles, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell, Users, LayoutDashboard, Percent, Tag } from 'lucide-react';
+import { RefreshCw, Calendar as CalendarIcon, Edit, TrendingUp, TrendingDown, Activity, Zap, CheckCircle2, XCircle, BarChart3, ArrowUpRight, ArrowDownRight, Flame, Target, Hash, Maximize2, Clock, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Filter, Navigation, Layers, X, AlertTriangle, Bell, Users, LayoutDashboard, Percent, Tag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
@@ -3617,13 +3617,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                         variant="secondary"
                                         size="sm"
                                         onClick={() => setCustomLabelsModalOpen(true)}
-                                        className="relative bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0 shadow-lg shadow-purple-500/50 animate-pulse-subtle overflow-hidden group"
+                                        className="relative bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-lg shadow-indigo-500/30 overflow-hidden group transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/40 hover:scale-[1.02]"
                                     >
-                                        <span className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></span>
+                                        <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out"></span>
                                         <Tag className="mr-2 h-4 w-4 relative z-10" />
                                         <span className="hidden sm:inline relative z-10 font-semibold">Custom Labels</span>
                                         <span className="sm:hidden relative z-10 font-semibold">Labels</span>
-                                        <Sparkles className="ml-2 h-3 w-3 relative z-10 animate-spin-slow" />
                                     </Button>
                                 </>
                             )}
