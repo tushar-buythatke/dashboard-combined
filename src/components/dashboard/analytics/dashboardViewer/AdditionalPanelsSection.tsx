@@ -44,6 +44,7 @@ import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { format } from 'date-fns';
 import { getPOSName } from '@/lib/posMapping';
 import { getEventDisplayName } from '@/hooks/useEventName';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 import { PLATFORMS, SOURCES } from '@/services/apiService';
 
@@ -143,6 +144,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     setVoiceStatus = () => { },
 }: any) {
     const { t: themeClasses } = useAccentTheme();
+    const isMobile = useIsMobile();
     const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
     const [chatbotOpen, setChatbotOpen] = useState<Record<string, boolean>>({});
 
@@ -2655,7 +2657,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden">
+                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
                                                     {/* Zoom Controls for Event Trends */}
                                                     <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <ChartZoomControls
@@ -2675,6 +2677,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     data={filteredGraphData}
                                                                     margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                     onClick={(chartState: any) => {
+                                                                        if (isMobile) return;
                                                                         if (chartState && chartState.activeIndex !== undefined) {
                                                                             const index = parseInt(chartState.activeIndex);
                                                                             const dataPoint = filteredGraphData[index];
@@ -3043,6 +3046,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     data={filteredGraphData}
                                                                     margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                     onClick={(chartState: any) => {
+                                                                        if (isMobile) return;
                                                                         if (chartState && chartState.activeIndex !== undefined) {
                                                                             const index = parseInt(chartState.activeIndex);
                                                                             const dataPoint = filteredGraphData[index];
@@ -3090,7 +3094,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             return `${value.toFixed(1)}s`;
                                                                         }}
                                                                     />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pAvgEventKeys} />} cursor={{ stroke: '#f59e0b', strokeWidth: 1, strokeDasharray: '5 5' }} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                     {pAvgEventKeys
                                                                         .filter((ek: any) => !panelAvgSelectedEventKey?.[panel.panelId] || ek.eventKey === panelAvgSelectedEventKey?.[panel.panelId])
                                                                         .map((eventKeyInfo: any, index: number) => {
@@ -3227,7 +3231,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                                                 <XAxis dataKey="date" />
                                                                                 <YAxis />
-                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} />
+                                                                                <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                                 {pErrorEventKeys.map((ek: any, i: number) => (
                                                                                     <Area key={ek.eventKey} type="monotone" dataKey={`${ek.eventKey}_count`} stroke={ERROR_COLORS[i % ERROR_COLORS.length]} fill={ERROR_COLORS[i % ERROR_COLORS.length]} fillOpacity={0.3} />
                                                                                 ))}
@@ -3306,7 +3310,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                                                                     <XAxis dataKey="date" tick={<CustomXAxisTick />} tickLine={false} height={45} interval={Math.floor(filteredGraphData.length / 6)} />
                                                                     <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => formatNumber(value)} />
-                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} />
+                                                                    <Tooltip content={<CustomTooltip events={events} eventKeys={pErrorEventKeys} />} cursor={{ stroke: '#ef4444', strokeWidth: 1, strokeDasharray: '5 5' }} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                                                     {pErrorEventKeys
                                                                         .filter((ek: any) => !panelSelectedEventKey?.[panel.panelId] || ek.eventKey === panelSelectedEventKey?.[panel.panelId])
                                                                         .map((eventKeyInfo: any, idx: number) => {

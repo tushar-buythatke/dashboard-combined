@@ -38,7 +38,7 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
                 {/* Header */}
                 <div className={cn("flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b z-20 bg-white dark:bg-slate-950", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
                     <h2 className={cn("text-base sm:text-xl font-bold flex items-center gap-2 truncate flex-1 mr-2", themeClasses.textPrimary, themeClasses.textPrimaryDark)}>
-                        <Maximize2 className={cn("h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0", themeClasses.textAccent, themeClasses.textAccentDark)} />
+                        <Maximize2 className={cn("h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0", themeClasses.textPrimary, themeClasses.textPrimaryDark)} />
                         <span className="truncate">{title}</span>
                     </h2>
                     <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">

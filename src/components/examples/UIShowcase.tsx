@@ -167,7 +167,7 @@ export function UIShowcase() {
               icon={<Activity className="h-6 w-6 text-white" />}
               title="Glass Card"
               subtitle="Glassmorphism effect"
-              iconColor="from-blue-500 to-cyan-600"
+              iconGradient="from-blue-500 to-cyan-600"
             />
             <p className="text-sm text-muted-foreground">
               Beautiful glass effect with backdrop blur.
@@ -179,7 +179,7 @@ export function UIShowcase() {
               icon={<Zap className="h-6 w-6 text-white" />}
               title="Gradient Card"
               subtitle="With glow effect"
-              iconColor="from-purple-500 to-violet-600"
+              iconGradient="from-purple-500 to-violet-600"
             />
             <p className="text-sm text-muted-foreground">
               Gradient background with animated glow.

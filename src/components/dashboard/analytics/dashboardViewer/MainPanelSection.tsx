@@ -52,6 +52,7 @@ import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { getPOSName } from '@/lib/posMapping';
 import { getEventDisplayName } from '@/hooks/useEventName';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 import { PercentageGraph } from '../charts/PercentageGraph';
 import { FunnelGraph } from '../charts/FunnelGraph';
@@ -261,6 +262,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     setVoiceStatus = () => { },
 }: MainPanelSectionProps) {
     const { t: themeClasses } = useAccentTheme();
+    const isMobile = useIsMobile();
     const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
     const [refreshFlash, setRefreshFlash] = useState(false);
     const [localChatbotOpen, setLocalChatbotOpen] = useState(false);
@@ -2622,6 +2624,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
                                                                         barCategoryGap="15%"
                                                                         onClick={(chartState: any) => {
+                                                                            if (isMobile) return;
                                                                             if (chartState && chartState.activeIndex !== undefined) {
                                                                                 const index = parseInt(chartState.activeIndex);
                                                                                 const dataPoint = graphData[index];
@@ -2712,6 +2715,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         data={graphData}
                                                                         margin={{ top: 10, right: 10, left: 0, bottom: 50 }}
                                                                         onClick={(chartState: any) => {
+                                                                            if (isMobile) return;
                                                                             if (chartState && chartState.activeIndex !== undefined) {
                                                                                 const index = parseInt(chartState.activeIndex);
                                                                                 const dataPoint = graphData[index];
