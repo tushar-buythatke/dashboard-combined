@@ -468,21 +468,18 @@ Otherwise, just respond naturally with helpful information.`;
         }
 
         const inferredPos = inferPosFromMessage();
-        if (inferredPos !== null) {
-            const existingPos = parsedResponse?.shouldUpdateFilters?.pos;
+        const hasExplicitPos =
+            !!parsedResponse?.shouldUpdateFilters &&
+            Object.prototype.hasOwnProperty.call(parsedResponse.shouldUpdateFilters, 'pos');
 
-            let nextPos = existingPos;
-            if (inferredPos.shouldForceReset) {
-                nextPos = inferredPos.pos;
-            } else if (!Array.isArray(existingPos) || existingPos.length === 0) {
-                nextPos = inferredPos.pos;
-            }
-
+        // Only use client-side POS inference as a LAST RESORT when the model/proxy did not provide pos at all.
+        // Never override an explicit model decision (including pos: [] meaning "all sites").
+        if (inferredPos !== null && !hasExplicitPos) {
             parsedResponse = {
                 ...parsedResponse,
                 shouldUpdateFilters: {
                     ...(parsedResponse?.shouldUpdateFilters || {}),
-                    pos: nextPos,
+                    pos: inferredPos.pos,
                 }
             };
         }
