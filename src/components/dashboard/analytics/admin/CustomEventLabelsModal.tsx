@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface EventDefinition {
     eventId: string;
@@ -112,7 +113,7 @@ const EventLabelRow = memo(({
                     <div className="flex items-center gap-2 mb-0.5">
                         <span className={cn(
                             "text-[10px] font-semibold uppercase tracking-wider",
-                            event.isApiEvent ? "text-violet-400 dark:text-violet-500" : "text-indigo-400 dark:text-indigo-500"
+                            event.isApiEvent ? "text-gray-400 dark:text-gray-500" : "text-indigo-400 dark:text-indigo-500"
                         )}>
                             {event.isApiEvent ? 'Endpoint' : 'Event'}
                         </span>
@@ -201,6 +202,7 @@ export function CustomEventLabelsModal({
     const [searchQuery, setSearchQuery] = useState('');
     const searchInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+    const { t: themeClasses } = useAccentTheme();
 
     useEffect(() => {
         if (open && events.length > 0) {
@@ -309,11 +311,11 @@ export function CustomEventLabelsModal({
             <DialogContent className="max-w-3xl max-h-[88vh] p-0 overflow-hidden flex flex-col gap-0 border-0 shadow-2xl rounded-3xl [&>button]:hidden bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
                 {/* Glassmorphism Header */}
                 <div className="relative shrink-0 overflow-hidden">
-                    {/* Background Gradient Orbs */}
+                    {/* Background Gradient Orbs - Theme aware */}
                     <div className="absolute inset-0 overflow-hidden">
-                        <div className="absolute -top-20 -left-20 w-60 h-60 bg-gradient-to-br from-indigo-200/40 to-blue-300/30 dark:from-indigo-600/20 dark:to-blue-600/10 rounded-full blur-3xl" />
-                        <div className="absolute -top-10 right-10 w-40 h-40 bg-gradient-to-br from-blue-200/40 to-sky-300/30 dark:from-blue-600/20 dark:to-sky-600/10 rounded-full blur-3xl" />
-                        <div className="absolute top-20 right-0 w-32 h-32 bg-gradient-to-br from-violet-200/30 to-purple-300/20 dark:from-violet-600/10 dark:to-purple-600/5 rounded-full blur-3xl" />
+                        <div className={cn("absolute -top-20 -left-20 w-60 h-60 rounded-full blur-3xl", themeClasses.orbPrimary, themeClasses.orbPrimaryDark)} />
+                        <div className={cn("absolute -top-10 right-10 w-40 h-40 rounded-full blur-3xl", themeClasses.orbSecondary, themeClasses.orbSecondaryDark)} />
+                        <div className={cn("absolute top-20 right-0 w-32 h-32 rounded-full blur-3xl", themeClasses.orbTertiary, themeClasses.orbTertiaryDark)} />
                     </div>
 
                     {/* Header Content */}
@@ -321,8 +323,8 @@ export function CustomEventLabelsModal({
                         <div className="flex items-start justify-between mb-5">
                             <div className="flex items-center gap-4">
                                 {/* Icon Container with Glassmorphism */}
-                                <div className="w-14 h-14 rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 shadow-lg shadow-indigo-200/30 dark:shadow-gray-900/50 flex items-center justify-center">
-                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-inner">
+                                <div className="w-14 h-14 rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/50 dark:border-gray-700/50 shadow-lg flex items-center justify-center">
+                                    <div className={cn("w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-inner", themeClasses.buttonGradient)}>
                                         <Bookmark className="w-5 h-5 text-white" />
                                     </div>
                                 </div>
@@ -430,7 +432,7 @@ export function CustomEventLabelsModal({
                         <div className="space-y-3">
                             <div className="flex items-center gap-3 px-1">
                                 <div className="flex items-center gap-2.5">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500" />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-gray-500 to-slate-500" />
                                     <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
                                         API Endpoints
                                     </h3>
@@ -522,7 +524,9 @@ export function CustomEventLabelsModal({
                                 disabled={isSaving}
                                 className={cn(
                                     "h-11 px-6 font-semibold text-sm transition-all rounded-xl shadow-lg flex-1 sm:flex-none",
-                                    "bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white shadow-indigo-500/25"
+                                    "bg-gradient-to-r text-white",
+                                    themeClasses.buttonGradient,
+                                    themeClasses.buttonHover
                                 )}
                             >
                                 {isSaving ? (

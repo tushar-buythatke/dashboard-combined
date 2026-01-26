@@ -1,0 +1,439 @@
+// Import callGeminiAPI - will be available after aiService exports it
+// For now, we'll define it here to avoid circular dependency
+const getApiKeys = (): string[] => {
+    const keysArray = import.meta.env.VITE_GEMINI_API_KEYS_ARRAY;
+    if (keysArray) {
+        try {
+            if (typeof keysArray === 'string') {
+                return JSON.parse(keysArray);
+            }
+            return keysArray;
+        } catch {
+            return keysArray.split(',').map((k: string) => k.trim().replace(/["\[\]]/g, ''));
+        }
+    }
+    const singleKey = import.meta.env.VITE_GEMINI_API_KEY;
+    return singleKey ? [singleKey] : [];
+};
+
+const API_KEYS = getApiKeys();
+const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
+
+let currentKeyIndex = 0;
+const getNextApiKey = (): string => {
+    if (API_KEYS.length === 0) throw new Error('No Gemini API keys available');
+    return API_KEYS[currentKeyIndex % API_KEYS.length];
+};
+
+const rotateKey = () => {
+    currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+};
+
+const callGeminiAPI = async (prompt: string, config: any = {}, maxRetries = 3): Promise<any> => {
+    let lastError: any = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            const apiKey = getNextApiKey();
+            const url = `${BASE_API_URL}?key=${apiKey}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: config.temperature ?? 0.7,
+                        maxOutputTokens: config.maxOutputTokens ?? 1000,
+                        response_mime_type: config.response_mime_type || undefined,
+                        ...config
+                    }
+                })
+            });
+
+            if (response.ok) {
+                return await response.json();
+            } else if (response.status === 429 || response.status === 403) {
+                console.warn(`API key ${apiKey.substring(0, 10)}... failed with ${response.status}, rotating...`);
+                rotateKey();
+                lastError = new Error(`API Error: ${response.statusText}`);
+                continue;
+            } else {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+        } catch (error: any) {
+            lastError = error;
+            if (attempt < maxRetries - 1) {
+                rotateKey();
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            }
+        }
+    }
+    
+    throw lastError || new Error('Failed to call Gemini API after retries');
+};
+
+const KNOWLEDGE_BASE_KEY = 'dashboard_chatbot_knowledge_base';
+const CHAT_HISTORY_KEY = 'dashboard_chatbot_history';
+
+export interface ChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+}
+
+export interface ChatbotContext {
+    currentFilters?: any;
+    currentDateRange?: { from: Date; to: Date };
+    availableOptions?: {
+        platforms: { id: number; name: string }[];
+        pos: { id: number; name: string }[];
+        sources: (string | { id: number; name: string })[];
+        events: { id: number; name: string }[];
+    };
+    panelName?: string;
+    graphData?: any[];
+    metricType?: 'count' | 'timing' | 'percentage' | 'funnel' | 'other';
+}
+
+// Load knowledge base from localStorage
+export const loadKnowledgeBase = (): string => {
+    try {
+        return localStorage.getItem(KNOWLEDGE_BASE_KEY) || '';
+    } catch {
+        return '';
+    }
+};
+
+// Save knowledge base to localStorage with size limit
+const MAX_KNOWLEDGE_BASE_SIZE = 50000; // ~50KB limit to prevent localStorage bloat
+
+export const saveKnowledgeBase = (knowledge: string): void => {
+    try {
+        // Limit knowledge base size to prevent localStorage overflow
+        const limitedKnowledge = knowledge.length > MAX_KNOWLEDGE_BASE_SIZE
+            ? knowledge.substring(0, MAX_KNOWLEDGE_BASE_SIZE) + '... [truncated]'
+            : knowledge;
+        localStorage.setItem(KNOWLEDGE_BASE_KEY, limitedKnowledge);
+    } catch (error) {
+        console.error('Failed to save knowledge base:', error);
+        // If storage is full, try to clear old data
+        try {
+            localStorage.removeItem(KNOWLEDGE_BASE_KEY);
+            const limitedKnowledge = knowledge.substring(0, MAX_KNOWLEDGE_BASE_SIZE / 2);
+            localStorage.setItem(KNOWLEDGE_BASE_KEY, limitedKnowledge);
+        } catch (e) {
+            console.error('Failed to recover from storage error:', e);
+        }
+    }
+};
+
+// Load chat history from localStorage
+export const loadChatHistory = (panelId?: string): ChatMessage[] => {
+    try {
+        const key = panelId ? `${CHAT_HISTORY_KEY}_${panelId}` : CHAT_HISTORY_KEY;
+        const history = localStorage.getItem(key);
+        return history ? JSON.parse(history) : [];
+    } catch {
+        return [];
+    }
+};
+
+// Save chat history to localStorage with size limit
+const MAX_CHAT_HISTORY_MESSAGES = 30; // Reduced from 50 to prevent bloat
+const MAX_CHAT_HISTORY_SIZE = 100000; // ~100KB limit per panel
+
+export const saveChatHistory = (messages: ChatMessage[], panelId?: string): void => {
+    try {
+        const key = panelId ? `${CHAT_HISTORY_KEY}_${panelId}` : CHAT_HISTORY_KEY;
+        // Keep only last N messages
+        let recentMessages = messages.slice(-MAX_CHAT_HISTORY_MESSAGES);
+        
+        // Check size and trim if needed
+        let jsonString = JSON.stringify(recentMessages);
+        if (jsonString.length > MAX_CHAT_HISTORY_SIZE) {
+            // Reduce message count until size is acceptable
+            while (jsonString.length > MAX_CHAT_HISTORY_SIZE && recentMessages.length > 5) {
+                recentMessages = recentMessages.slice(1);
+                jsonString = JSON.stringify(recentMessages);
+            }
+        }
+        
+        localStorage.setItem(key, jsonString);
+    } catch (error: any) {
+        console.error('Failed to save chat history:', error);
+        // If storage quota exceeded, clear old history
+        if (error.name === 'QuotaExceededError' || error.code === 22) {
+            try {
+                const key = panelId ? `${CHAT_HISTORY_KEY}_${panelId}` : CHAT_HISTORY_KEY;
+                // Keep only last 10 messages
+                const minimalMessages = messages.slice(-10);
+                localStorage.setItem(key, JSON.stringify(minimalMessages));
+            } catch (e) {
+                console.error('Failed to recover from storage quota error:', e);
+            }
+        }
+    }
+};
+
+// Generate chatbot response
+export const generateChatbotResponse = async (
+    userMessage: string,
+    context: ChatbotContext,
+    panelId?: string
+): Promise<{ response: string; shouldUpdateFilters?: any; explanation?: string }> => {
+    try {
+        const knowledgeBase = loadKnowledgeBase();
+        const chatHistory = loadChatHistory(panelId);
+        
+        // Build context prompt with currently selected events
+        const selectedEventIds = context.currentFilters?.events || [];
+        const selectedEvents = context.availableOptions?.events.filter((e: any) => selectedEventIds.includes(e.id)) || [];
+        const selectedEventNames = selectedEvents.map((e: any) => e.name).join(', ');
+
+        const contextInfo = `
+Current Dashboard Context:
+- Panel: ${context.panelName || 'Main Panel'}
+- Metric Type: ${context.metricType || 'count'}
+- Date Range: ${context.currentDateRange?.from.toLocaleDateString()} to ${context.currentDateRange?.to.toLocaleDateString()}
+- Current Filters:
+  * Platforms: ${context.currentFilters?.platforms?.length || 0} selected
+  * POS: ${context.currentFilters?.pos?.length || 0} selected
+  * Sources: ${context.currentFilters?.sources?.length || 0} selected
+  * Events: ${selectedEventIds.length || 0} selected ${selectedEventIds.length > 0 ? `(${selectedEventNames})` : ''}
+
+Currently Selected Events (use these if user's query is vague):
+${selectedEventIds.length > 0 ? selectedEvents.map((e: any) => `- ${e.name} (ID: ${e.id})`).join('\n') : '- None selected - select all available events'}
+
+Available Options:
+- Platforms: ${context.availableOptions?.platforms.map((p: any) => `${p.name} (${p.id})`).join(', ') || 'N/A'}
+- POS: ${context.availableOptions?.pos.map((p: any) => `${p.name} (${p.id})`).join(', ') || 'N/A'}
+- Sources: ${Array.isArray(context.availableOptions?.sources) ? context.availableOptions.sources.map((s: any) => typeof s === 'object' ? `${s.name || s.id}` : s).join(', ') : 'N/A'}
+- Events: ${context.availableOptions?.events.map((e: any) => `${e.name} (${e.id})`).join(', ') || 'N/A'}
+`;
+
+        const systemPrompt = `You are an intelligent dashboard assistant for Buyhatke Analytics. Your role is to:
+1. Answer questions about the dashboard data, filters, and analytics
+2. IMMEDIATELY adjust filters based on user queries - NO CONFIRMATION NEEDED
+3. Provide insights about the data
+4. Only answer questions relevant to the dashboard - politely decline off-topic questions
+
+${knowledgeBase ? `\nKnowledge Base:\n${knowledgeBase}\n` : ''}
+
+CRITICAL RULES - READ CAREFULLY:
+- TAKE IMMEDIATE ACTION - Never ask for confirmation or say "Here's what I'll do" or "Please confirm"
+- When user asks to see data/insights/stats, INSTANTLY apply the filter changes and report what you did
+- Be decisive and action-oriented - users want instant results, not permission requests
+- ALWAYS return the shouldUpdateFilters JSON when filters need changing
+
+FILTER RESET LOGIC - EXTREMELY IMPORTANT:
+- **POS/SITE**: If NOT mentioned in query, set to [] (empty = ALL sites). Don't carry over previous POS filters.
+- **PLATFORMS**: If NOT mentioned, set to [] (empty = ALL platforms). Don't carry over.
+- **SOURCES**: If NOT mentioned, set to [] (empty = ALL sources). Don't carry over.
+- Only keep previous filters if user explicitly refers to them (e.g., "show same data for yesterday")
+- Each query should be independent unless context clearly indicates continuation
+
+EVENT SELECTION INTELLIGENCE:
+- **SPECIFIC EVENT MENTIONS**: If user mentions specific event (e.g., "self update", "checkout", "price alert"), select ONLY that event
+  * "self update" / "shelf update" → Select only PA_SELF_UPDATED or SELF_UPDATE events
+  * "success" / "successful" → Select only events with "success" or "SUCCESS" in name
+  * "error" / "failure" → Select only events with "error", "ERROR", "failure", "FAIL" in name
+  * "checkout" → Select only checkout-related events
+  * "price alert" / "price drop" → Select only price alert events
+- **VAGUE QUERIES**: If NO specific event mentioned, use currently selected events from context
+- **"ALL" KEYWORD**: Only select ALL available events if user explicitly says "all events" or "everything"
+- Use intelligent semantic matching: "kitne updates hue" = select update events only
+
+- Be concise, helpful, and professional
+- Use the context provided to give accurate answers
+- If you don't know something, say so honestly
+
+When user asks to change filters or see specific data, respond in this JSON format:
+{
+  "response": "✅ Applied filters: Showing all sites data for SELF_UPDATE events over last 6 days.",
+  "shouldUpdateFilters": {
+    "platforms": [],
+    "pos": [],
+    "sources": [],
+    "events": [101],
+    "dateRange": {
+      "from": "2026-01-20T00:00:00.000Z",
+      "to": "2026-01-26T00:00:00.000Z"
+    }
+  },
+  "explanation": "Showing all sites, SELF_UPDATE events only, last 6 days"
+}
+
+EXAMPLES:
+- "flipkart ke stats" → pos: [flipkart_id], events: currently selected
+- "last 6 days me kitne updates" → pos: [], events: [update_event_ids_only]
+- "myntra success rate" → pos: [myntra_id], events: [success_event_ids_only]
+- "overall error stats" → pos: [], events: [error_event_ids_only]
+
+NEVER say "Please confirm" or "Here's what I'll do" or ask permission. Just DO IT and inform the user what was done.
+
+Otherwise, just respond naturally with helpful information.`;
+
+        // Build conversation history for Gemini API
+        const conversationHistory = chatHistory.slice(-10).map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.content }]
+        }));
+
+        // Build the full prompt with system instructions
+        const systemMessage = `${systemPrompt}\n\n${contextInfo}`;
+        
+        // Create contents array with system message and conversation history
+        const contents = [
+            { role: 'user', parts: [{ text: systemMessage }] },
+            { role: 'model', parts: [{ text: 'I understand. I\'m ready to help with dashboard questions and filter adjustments.' }] },
+            ...conversationHistory,
+            { role: 'user', parts: [{ text: userMessage }] }
+        ];
+
+        // Use proxy in production, direct API in development
+        const PROXY_URL = '/api/analyze';
+        let result: any;
+
+        if (import.meta.env.PROD) {
+            // Use proxy to hide API keys
+            const response = await fetch(PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: 'chatbot',
+                    userMessage,
+                    context: {
+                        systemPrompt,
+                        contextInfo,
+                        conversationHistory
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Proxy Error: ${response.statusText}`);
+            }
+
+            result = await response.json();
+        } else {
+            // Development: Direct API call with key rotation
+            const apiKey = getNextApiKey();
+            const url = `${BASE_API_URL}?key=${apiKey}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: contents,
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 1000,
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                if (response.status === 429 || response.status === 403) {
+                    rotateKey();
+                    // Retry with next key
+                    const retryKey = getNextApiKey();
+                    const retryUrl = `${BASE_API_URL}?key=${retryKey}`;
+                    const retryResponse = await fetch(retryUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: contents,
+                            generationConfig: {
+                                temperature: 0.7,
+                                maxOutputTokens: 1000,
+                            }
+                        })
+                    });
+                    if (!retryResponse.ok) {
+                        throw new Error(`API Error: ${retryResponse.statusText}`);
+                    }
+                    result = await retryResponse.json();
+                } else {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+            } else {
+                result = await response.json();
+            }
+        }
+
+        // Handle response (from proxy or direct)
+        let parsedResponse: any;
+        if (import.meta.env.PROD) {
+            // Proxy already returns parsed response
+            parsedResponse = result;
+        } else {
+            // Direct API returns raw text
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error('No response from AI');
+
+            // Try to parse JSON response if it contains filter updates
+            parsedResponse = { response: text };
+            try {
+                // Check if response contains JSON
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.shouldUpdateFilters || parsed.explanation) {
+                        parsedResponse = parsed;
+                    }
+                }
+            } catch {
+                // Not JSON, use as plain text response
+            }
+        }
+
+        // Save to chat history
+        const newMessages: ChatMessage[] = [
+            ...chatHistory,
+            { role: 'user', content: userMessage, timestamp: Date.now() },
+            { role: 'assistant', content: parsedResponse.response, timestamp: Date.now() }
+        ];
+        saveChatHistory(newMessages, panelId);
+
+        return parsedResponse;
+    } catch (error: any) {
+        console.error('Chatbot response generation failed:', error);
+        throw new Error(error.message || 'Failed to generate response');
+    }
+};
+
+// Update knowledge base periodically
+export const updateKnowledgeBase = async (recentQuestions: string[], recentAnswers: string[]): Promise<void> => {
+    try {
+        const currentKnowledge = loadKnowledgeBase();
+        
+        const prompt = `You are maintaining a knowledge base for a dashboard chatbot. 
+
+Current Knowledge Base:
+${currentKnowledge || 'Empty - starting fresh'}
+
+Recent Q&A pairs:
+${recentQuestions.map((q, i) => `Q: ${q}\nA: ${recentAnswers[i] || 'N/A'}`).join('\n\n')}
+
+Update the knowledge base with:
+1. Important patterns from recent questions
+2. Common user intents
+3. Dashboard-specific terminology
+4. Filter adjustment patterns
+
+Keep it concise (max 500 words). Return only the updated knowledge base text, no explanations.`;
+
+        const result = await callGeminiAPI(prompt, {
+            temperature: 0.3,
+            maxOutputTokens: 800,
+        });
+
+        const updatedKnowledge = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (updatedKnowledge) {
+            saveKnowledgeBase(updatedKnowledge.trim());
+        }
+    } catch (error) {
+        console.error('Failed to update knowledge base:', error);
+    }
+};

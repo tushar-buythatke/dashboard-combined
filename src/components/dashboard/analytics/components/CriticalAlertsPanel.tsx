@@ -8,6 +8,7 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Switch } from '@/components/ui/switch';
 import { Bell, CheckCircle2, ChevronDown, Filter, CalendarIcon, RefreshCw, X, AlertTriangle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { PLATFORMS, PLATFORM_NAMES, SOURCE_NAMES } from '@/services/apiService';
 import type { SiteDetail } from '@/services/apiService';
@@ -105,6 +106,8 @@ export function CriticalAlertsPanel({
         return Array.from(map.values());
     }, [criticalAlerts]);
 
+    const { t: themeClasses } = useAccentTheme();
+    
     // State for drill-down view: null = show summary (if multiple events), number = show alerts for that event
     const [selectedEventIdForDrilldown, setSelectedEventIdForDrilldown] = useState<number | null>(null);
 
@@ -144,19 +147,19 @@ export function CriticalAlertsPanel({
                     : alertsPanelCollapsed
                         ? criticalAlerts.length > 0
                             ? "border border-red-200/60 dark:border-red-500/30 shadow-[0_8px_30px_rgba(239,68,68,0.12)] bg-gradient-to-br from-red-50/40 via-white to-orange-50/30 dark:from-red-900/10 dark:via-slate-900/80 dark:to-orange-900/5"
-                            : "border border-purple-200/60 dark:border-purple-500/30 shadow-[0_8px_30px_rgba(147,51,234,0.12)]"
+                            : cn("border shadow-lg", themeClasses.borderAccent, themeClasses.borderAccentDark)
                         : criticalAlerts.length > 0
                             ? "border border-red-300/60 dark:border-red-500/40 shadow-[0_15px_40px_rgba(239,68,68,0.25)] bg-gradient-to-br from-red-50/80 via-white to-orange-50/60 dark:from-red-900/20 dark:via-slate-900/50 dark:to-orange-900/10"
-                            : "border border-purple-300/60 dark:border-purple-500/40 shadow-[0_15px_40px_rgba(147,51,234,0.20)] bg-gradient-to-br from-purple-50/80 via-white to-pink-50/60 dark:from-purple-900/20 dark:via-slate-900/50 dark:to-pink-900/10"
+                            : cn("border shadow-xl", themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.cardAccentBg, themeClasses.cardAccentBgDark)
             )}>
                 {/* Animated top border accent */}
                 <div className={cn(
-                    "absolute top-0 left-0 w-full h-1",
+                    "absolute top-0 left-0 w-full h-1 bg-gradient-to-r",
                     isAutosnipe
-                        ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-500"
+                        ? "from-green-500 via-emerald-400 to-green-500"
                         : criticalAlerts.length > 0
-                            ? "bg-gradient-to-r from-red-500 via-orange-500 to-red-500"
-                            : "bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500"
+                            ? "from-red-500 via-orange-500 to-red-500"
+                            : themeClasses.headerGradient
                 )} />
 
                 {/* Collapsed Header Bar */}
@@ -169,8 +172,8 @@ export function CriticalAlertsPanel({
                                 : "bg-gradient-to-r from-green-950/50 via-gray-900 to-emerald-950/50"
                         ) : (
                             alertsPanelCollapsed
-                                ? "bg-gradient-to-r from-purple-100/80 via-violet-100/60 to-fuchsia-100/40 dark:from-purple-900/30 dark:via-violet-900/20 dark:to-fuchsia-900/10"
-                                : "bg-gradient-to-r from-purple-100/90 via-violet-100/70 to-fuchsia-100/50 dark:from-purple-900/40 dark:via-violet-900/30 dark:to-fuchsia-900/20"
+                                ? cn(themeClasses.sidebarActive, themeClasses.sidebarActiveDark)
+                                : cn(themeClasses.sidebarActive, themeClasses.sidebarActiveDark, "opacity-90")
                         )
                     )}
                     onClick={onToggleCollapse}
@@ -178,14 +181,14 @@ export function CriticalAlertsPanel({
                     <div className="flex items-center gap-3">
                         <div
                             className={cn(
-                                "h-10 w-10 rounded-xl flex items-center justify-center shadow-lg",
+                                "h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-br",
                                 criticalAlerts.length > 0
                                     ? isAutosnipe
-                                        ? "bg-gradient-to-br from-red-500 to-orange-600 shadow-red-500/30"
-                                        : "bg-gradient-to-br from-purple-500 to-violet-600 shadow-purple-500/30"
+                                        ? "from-red-500 to-orange-600 shadow-red-500/30"
+                                        : "from-red-500 to-orange-600 shadow-red-500/30"
                                     : isAutosnipe
-                                        ? "bg-gradient-to-br from-green-500 to-emerald-600 shadow-green-500/30"
-                                        : "bg-gradient-to-br from-purple-500 to-pink-600 shadow-purple-500/30"
+                                        ? "from-green-500 to-emerald-600 shadow-green-500/30"
+                                        : themeClasses.buttonGradient
                             )}
                         >
                             {criticalAlerts.length > 0 ? (
@@ -200,7 +203,7 @@ export function CriticalAlertsPanel({
                                     "bg-clip-text text-transparent",
                                     isAutosnipe
                                         ? "bg-gradient-to-r from-green-400 to-emerald-400"
-                                        : "bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600"
+                                        : "bg-gradient-to-r from-gray-500 via-gray-600 to-slate-600"
                                 )}>
                                     Critical Alerts Monitor
                                 </span>
@@ -208,7 +211,7 @@ export function CriticalAlertsPanel({
                                     "text-xs font-normal px-2 py-0.5 rounded-full",
                                     isAutosnipe
                                         ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                                        : "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30"
+                                        : "bg-gray-100 dark:bg-gray-600/20 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-500/30"
                                 )}>
                                     Panel 0
                                 </span>
@@ -219,13 +222,13 @@ export function CriticalAlertsPanel({
                                         <span
                                             className={cn(
                                                 "inline-block w-2 h-2 rounded-full",
-                                                isAutosnipe ? "bg-red-500" : "bg-purple-500"
+                                                isAutosnipe ? "bg-red-500" : "bg-gray-500"
                                             )}
                                         />
                                         {criticalAlerts.length} active alert{criticalAlerts.length !== 1 ? 's' : ''} require attention
                                     </span>
                                 ) : (
-                                    <span className={isAutosnipe ? "text-green-400" : "text-purple-600 dark:text-purple-400"}>
+                                    <span className={isAutosnipe ? "text-green-400" : "text-gray-700 dark:text-gray-400"}>
                                         ✓ All systems operating normally
                                     </span>
                                 )}
@@ -239,7 +242,7 @@ export function CriticalAlertsPanel({
                                     "px-3 py-1.5 rounded-full text-white text-sm font-bold shadow-lg",
                                     isAutosnipe
                                         ? "bg-gradient-to-r from-red-500 to-orange-500 shadow-red-500/30"
-                                        : "bg-gradient-to-r from-purple-500 to-violet-500 shadow-purple-500/30"
+                                        : "bg-gradient-to-r from-gray-500 to-slate-500 shadow-gray-500/30"
                                 )}
                             >
                                 {criticalAlerts.length}
@@ -248,7 +251,7 @@ export function CriticalAlertsPanel({
                         <div className={cn(alertsPanelCollapsed ? "" : "rotate-180", "transition-transform duration-300")}>
                             <ChevronDown className={cn(
                                 "h-5 w-5",
-                                isAutosnipe ? "text-green-400" : "text-purple-600 dark:text-purple-400"
+                                isAutosnipe ? "text-green-400" : "text-gray-700 dark:text-gray-400"
                             )} />
                         </div>
                     </div>
@@ -262,16 +265,16 @@ export function CriticalAlertsPanel({
                             "px-4 py-3 border-b",
                             isAutosnipe
                                 ? "bg-gray-900/50 border-green-500/20"
-                                : "bg-gradient-to-r from-purple-50 via-white to-pink-50 dark:from-purple-900/20 dark:via-slate-900/30 dark:to-pink-900/10 border-purple-200 dark:border-purple-500/30"
+                                : "bg-gradient-to-r from-gray-50 via-white to-slate-50 dark:from-gray-800/20 dark:via-slate-900/30 dark:to-slate-800/10 border-gray-200 dark:border-gray-500/30"
                         )}>
                             <div className="flex items-center gap-2 mb-3">
                                 <Filter className={cn(
                                     "h-4 w-4",
-                                    isAutosnipe ? "text-green-400" : "text-purple-500"
+                                    isAutosnipe ? "text-green-400" : "text-current"
                                 )} />
                                 <span className={cn(
                                     "text-sm font-medium",
-                                    isAutosnipe ? "text-green-300" : "text-purple-700 dark:text-purple-300"
+                                    isAutosnipe ? "text-green-300" : "text-gray-700 dark:text-gray-300"
                                 )}>Alert Filters</span>
                                 <span className="text-xs text-muted-foreground">(Independent from dashboard)</span>
                             </div>
@@ -387,7 +390,7 @@ export function CriticalAlertsPanel({
                                             className={cn(
                                                 "flex-1 px-1 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
                                                 alertIsApi === 1
-                                                    ? "bg-purple-600 text-white shadow-sm scale-[1.02]"
+                                                    ? "bg-indigo-600 text-white shadow-sm scale-[1.02]"
                                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
                                             )}
                                         >
@@ -463,10 +466,10 @@ export function CriticalAlertsPanel({
                                         disabled={alertsLoading}
                                         size="sm"
                                         className={cn(
-                                            "w-full h-9",
+                                            "w-full h-9 bg-gradient-to-r text-white shadow-lg",
                                             isAutosnipe
-                                                ? "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-lg shadow-green-500/30"
-                                                : "bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-lg shadow-purple-500/30"
+                                                ? "from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-green-500/30"
+                                                : cn(themeClasses.buttonGradient, themeClasses.buttonHover)
                                         )}
                                     >
                                         {alertsLoading ? (
@@ -506,7 +509,7 @@ export function CriticalAlertsPanel({
                                         <div className="text-xs text-muted-foreground">Impacted Events</div>
                                     </div>
                                     <div className="text-center">
-                                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                        <div className="text-2xl font-bold text-gray-700 dark:text-gray-400">
                                             {new Set(criticalAlerts.map(alert => alert.eventId)).size || Object.keys(derivedAlertSummary).length}
                                         </div>
                                         <div className="text-xs text-muted-foreground">Event Types</div>
@@ -584,7 +587,7 @@ export function CriticalAlertsPanel({
                                                                 {count}
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center justify-end mt-2 text-xs text-purple-600 dark:text-purple-400">
+                                                        <div className="flex items-center justify-end mt-2 text-xs text-gray-700 dark:text-gray-400">
                                                             View Details <ArrowRight className="w-3 h-3 ml-1" />
                                                         </div>
                                                     </button>
@@ -602,7 +605,7 @@ export function CriticalAlertsPanel({
                                                 variant="outline"
                                                 size="sm"
                                                 onClick={() => setSelectedEventIdForDrilldown(null)}
-                                                className="text-purple-600 border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-500/30 dark:hover:bg-purple-900/20"
+                                                className="text-gray-700 border-gray-200 hover:bg-gray-50 dark:text-gray-400 dark:border-gray-500/30 dark:hover:bg-gray-700/20"
                                             >
                                                 ← Back to Summary
                                             </Button>
@@ -695,7 +698,7 @@ export function CriticalAlertsPanel({
                                                                         <span className="text-muted-foreground">Others</span>
                                                                     )}
                                                                     <span className="text-muted-foreground ml-2">·</span>
-                                                                    <span className="ml-1 font-semibold text-purple-600 dark:text-purple-400">POS</span>
+                                                                    <span className="ml-1 font-semibold text-gray-700 dark:text-gray-400">POS</span>
                                                                     <span className="ml-1 font-bold text-foreground">{alert.pos}</span>
                                                                 </div>
                                                             </div>
@@ -721,7 +724,7 @@ export function CriticalAlertsPanel({
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="icon"
-                                                                    className="h-8 w-8 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full transition-all duration-200 group-hover:scale-110"
+                                                                    className="h-8 w-8 text-gray-700 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/40 rounded-full transition-all duration-200 group-hover:scale-110"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         const eventIdStr = String(alert.eventId);

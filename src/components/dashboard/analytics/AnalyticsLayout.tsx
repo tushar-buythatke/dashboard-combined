@@ -7,7 +7,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sparkles, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
@@ -35,6 +35,9 @@ import { getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground } from '@/components/ui/animated-background';
 import { CustomEventLabelsProvider } from '@/contexts/CustomEventLabelsContext';
+import { AccentThemeSelector } from '@/components/ui/accent-theme-selector';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { PremiumSearch } from './components/PremiumSearch';
 
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers, refreshUser } = useAnalyticsAuth();
@@ -52,6 +55,7 @@ export function AnalyticsLayout() {
 
     const { organizations, selectedOrganization, setSelectedOrganization } = useOrganization();
     const { mode, toggleMode } = useTheme();
+    const { t: themeClasses } = useAccentTheme();
     const { toast } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(() => searchParams.get('feature'));
@@ -61,6 +65,37 @@ export function AnalyticsLayout() {
     const [featureSelectorKey, setFeatureSelectorKey] = useState(0);
     const [criticalAlertsData, setCriticalAlertsData] = useState<any[]>([]);
     const [activePanelId, setActivePanelId] = useState<string | null>(null);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [dashboardEvents, setDashboardEvents] = useState<any[]>([]);
+    const [allProfiles, setAllProfiles] = useState<Array<{ profileId: string; profileName: string; featureId: string; panels?: Array<{ panelId: string; panelName?: string }> }>>([]);
+
+    // Load all profiles for search when search opens
+    useEffect(() => {
+        const loadAllProfiles = async () => {
+            if (!searchOpen) return;
+            
+            try {
+                const result = await firebaseConfigService.getAllProfiles();
+                if (result.success) {
+                    const profilesWithPanels = result.items.map(profile => ({
+                        profileId: profile.profileId,
+                        profileName: profile.profileName,
+                        featureId: profile.featureId,
+                        panels: profile.panels?.map(panel => ({
+                            panelId: panel.panelId,
+                            panelName: panel.panelName || panel.panelId
+                        })) || []
+                    }));
+                    setAllProfiles(profilesWithPanels);
+                }
+            } catch (error) {
+                console.error('Failed to load profiles for search', error);
+                setAllProfiles([]);
+            }
+        };
+        
+        loadAllProfiles();
+    }, [searchOpen]);
 
     // Admin Access Management
     const [pendingUsers, setPendingUsers] = useState<any[]>([]);
@@ -78,6 +113,35 @@ export function AnalyticsLayout() {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // Intercept Cmd+F / Ctrl+F for custom search - Global handler
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Check for Cmd+F or Ctrl+F
+            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                // Only intercept if not actively typing in an input/textarea
+                const target = e.target as HTMLElement;
+                const isInput = target.tagName === 'INPUT' || 
+                              target.tagName === 'TEXTAREA' || 
+                              target.isContentEditable;
+                
+                // If search is already open and user is typing, don't intercept
+                if (searchOpen && isInput) {
+                    return; // Let default behavior happen
+                }
+                
+                // Otherwise, intercept and open/close search
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                setSearchOpen(prev => !prev);
+            }
+        };
+
+        // Use capture phase with highest priority to catch before other handlers
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
+    }, [searchOpen]);
 
     // Keep selected feature/profile in sync with URL
     useEffect(() => {
@@ -353,7 +417,7 @@ export function AnalyticsLayout() {
     // Show loading state while checking authentication
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-purple-50/30 dark:to-purple-950/10">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-gray-50/30 dark:to-gray-950/10">
                 <div className="text-center space-y-4">
                     <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
                     <p className="text-muted-foreground">Checking authentication...</p>
@@ -364,7 +428,7 @@ export function AnalyticsLayout() {
 
     if (!selectedFeatureId) {
         return (
-            <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-purple-50/30 dark:to-purple-950/10 relative overflow-hidden">
+            <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-gray-50/30 dark:to-gray-950/10 relative overflow-hidden">
                 {/* Background effects */}
                 <div className="pointer-events-none">
                     <GradientMeshBackground />
@@ -372,15 +436,15 @@ export function AnalyticsLayout() {
 
                 <header className="border-b border-border/50 px-3 lg:px-4 py-4 lg:py-5 flex justify-between items-center bg-card/95 backdrop-blur-md shadow-sm relative z-10">
                     <div className="flex items-center gap-2 lg:gap-3">
-                        <div className="h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl bg-white dark:bg-slate-800 p-1 lg:p-1.5 shadow-lg border border-purple-100 dark:border-purple-500/20 overflow-hidden">
+                        <div className="h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl bg-white dark:bg-slate-800 p-1 lg:p-1.5 shadow-lg border border-gray-100 dark:border-gray-500/20 overflow-hidden">
                             <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                         </div>
                         <div className="flex flex-col">
                             {/* Organization Selector Dropdown */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className="flex items-center gap-1.5 font-bold text-sm lg:text-lg text-foreground leading-tight hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
-                                        <Building2 className="h-4 w-4 text-purple-500" />
+                                    <button className="flex items-center gap-1.5 font-bold text-sm lg:text-lg text-foreground leading-tight hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                                        <Building2 className="h-4 w-4 text-gray-500" />
                                         {selectedOrganization?.name || 'Select Organization'}
                                         <ChevronDown className="h-3 w-3 opacity-50" />
                                     </button>
@@ -394,13 +458,13 @@ export function AnalyticsLayout() {
                                         >
                                             <span>{org.name}</span>
                                             {selectedOrganization?.id === org.id && (
-                                                <Check className="h-4 w-4 text-purple-600" />
+                                                <Check className="h-4 w-4 text-gray-600" />
                                             )}
                                         </DropdownMenuItem>
                                     ))}
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                            <span className="text-[10px] lg:text-xs text-purple-600 dark:text-purple-400 font-medium hidden sm:block">
+                            <span className="text-[10px] lg:text-xs text-gray-600 dark:text-gray-400 font-medium hidden sm:block">
                                 Analytics Dashboard
                             </span>
                         </div>
@@ -463,12 +527,12 @@ export function AnalyticsLayout() {
                         )}
 
                         {/* Live Clock */}
-                        <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-50/50 to-violet-50/50 dark:from-purple-900/20 dark:to-violet-900/20 border border-purple-200/50 dark:border-purple-500/30">
+                        <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-lg bg-gradient-to-r from-gray-50/50 to-slate-50/50 dark:from-gray-800/20 dark:to-slate-800/20 border border-gray-200/50 dark:border-gray-500/30">
                             <div className="flex items-center gap-1.5">
                                 <div className="text-sm font-bold text-foreground font-mono tabular-nums">
                                     {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                 </div>
-                                <div className="text-xs font-semibold text-purple-600 dark:text-purple-400 font-mono">
+                                <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 font-mono">
                                     :{currentTime.getSeconds().toString().padStart(2, '0')}
                                 </div>
                             </div>
@@ -481,16 +545,20 @@ export function AnalyticsLayout() {
                             variant="outline"
                             size="icon"
                             onClick={toggleMode}
-                            className="rounded-full border-purple-200 dark:border-purple-500/30 hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8 w-8"
+                            className="rounded-full border-gray-200 dark:border-gray-500/30 hover:bg-gray-50 dark:hover:bg-gray-500/10 h-8 w-8"
                         >
-                            {mode === 'dark' ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-purple-600" />}
+                            {mode === 'dark' ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-gray-600" />}
                         </Button>
 
                         {hasWriteAccess(selectedFeatureId || newConfigFeature) && (
                             <Button
                                 onClick={() => setShowNewConfigModal(true)}
                                 size="sm"
-                                className="gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 shadow-lg shadow-purple-500/20 h-8"
+                                className={cn(
+                                    "gap-2 bg-gradient-to-r shadow-lg h-8 rounded-xl",
+                                    themeClasses.buttonGradient,
+                                    themeClasses.buttonHover
+                                )}
                             >
                                 <Plus className="h-4 w-4" />
                                 <span className="hidden lg:inline">New Config</span>
@@ -505,6 +573,35 @@ export function AnalyticsLayout() {
                     </div>
                 </header>
                 <FeatureSelector key={featureSelectorKey} onSelectFeature={setSelectedFeatureId} />
+
+                {/* Premium Search Modal - Available on feature selector page */}
+                <PremiumSearch
+                    isOpen={searchOpen}
+                    onClose={() => setSearchOpen(false)}
+                    onSelectFeature={(featureId) => {
+                        setSelectedFeatureId(featureId);
+                        setSelectedProfileId(null);
+                        setSearchOpen(false);
+                    }}
+                    onSelectProfile={(featureId, profileId) => {
+                        setSelectedFeatureId(featureId);
+                        setSelectedProfileId(profileId);
+                        setSearchOpen(false);
+                    }}
+                    onSelectPanel={(featureId, profileId, panelId) => {
+                        setSelectedFeatureId(featureId);
+                        setSelectedProfileId(profileId);
+                        setActivePanelId(panelId);
+                        setSearchOpen(false);
+                        // Scroll to panel after a short delay to allow navigation
+                        setTimeout(() => {
+                            handleJumpToPanel(panelId);
+                        }, 300);
+                    }}
+                    currentFeatureId={selectedFeatureId}
+                    events={dashboardEvents}
+                    profiles={allProfiles}
+                />
 
                 {/* New Config Modal */}
                 <Dialog open={showNewConfigModal} onOpenChange={setShowNewConfigModal}>
@@ -628,20 +725,20 @@ export function AnalyticsLayout() {
 
     return (
         <CustomEventLabelsProvider>
-            <div className="flex flex-col bg-gradient-to-br from-background via-background to-purple-50/20 dark:to-purple-950/5 relative">
-            <header className="sticky top-0 border-b border-border/50 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between bg-card/95 backdrop-blur-md z-50 shadow-sm">
+            <div className="flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-indigo-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950/20 relative min-h-screen">
+            <header className="sticky top-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] bg-white/30 dark:bg-gray-900/30 backdrop-blur-2xl border-b border-gray-200/30 dark:border-gray-700/30 shadow-sm">
                 <div className="flex items-center gap-2 lg:gap-4">
                     {/* Mobile Menu Button */}
                     <div className="md:hidden">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setMobileSidebarOpen(true)}
-                            className="hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8 w-8"
-                        >
-                            <Menu className="h-4 w-4" />
-                        </Button>
-                    </div>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setMobileSidebarOpen(true)}
+                        className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 text-gray-600 dark:text-gray-300"
+                    >
+                        <Menu className="h-4 w-4" />
+                    </Button>
+                </div>
                     <Button
                         variant="ghost"
                         size="icon"
@@ -652,33 +749,36 @@ export function AnalyticsLayout() {
                             // Force fresh remount of FeatureSelector to avoid stale loading state
                             setFeatureSelectorKey(prev => prev + 1);
                         }}
-                        className="hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8 w-8 lg:h-9 lg:w-9"
+                        className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 lg:h-9 lg:w-9 text-gray-600 dark:text-gray-300"
                     >
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div className="flex items-center gap-2 lg:gap-3">
-                        <div className="h-7 w-7 lg:h-8 lg:w-8 rounded-lg bg-white dark:bg-slate-800 p-0.5 lg:p-1 shadow border border-purple-100 dark:border-purple-500/20">
+                        <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl bg-white dark:bg-gray-800 p-1 shadow-md shadow-indigo-100/50 dark:shadow-gray-900/50 border border-gray-200/80 dark:border-gray-700/50">
                             <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                         </div>
-                        <div className="flex items-center gap-1 lg:gap-2">
-                            <span className="font-semibold text-foreground text-sm lg:text-base">
+                        <div className="flex items-center gap-1.5 lg:gap-2">
+                            <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm lg:text-base">
                                 {selectedFeatureId ? getFeatureName(selectedFeatureId) : 'Analytics'}
                             </span>
-                            <span className="text-xs text-muted-foreground hidden md:inline">
+                            <span className="text-xs text-gray-400 dark:text-gray-500 hidden md:inline font-medium">
                                 — {selectedOrganization?.name || 'Organization'}
                             </span>
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5 lg:gap-3">
+                <div className="flex items-center gap-1.5 lg:gap-2">
+                    {/* Accent Theme Selector */}
+                    <AccentThemeSelector />
+
                     {/* Theme Toggle */}
                     <Button
                         variant="outline"
                         size="icon"
                         onClick={toggleMode}
-                        className="rounded-full border-purple-200 dark:border-purple-500/30 hover:bg-purple-50 dark:hover:bg-purple-500/10 h-8 w-8"
+                        className="rounded-full border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm"
                     >
-                        {mode === 'dark' ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-purple-600" />}
+                        {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-600" />}
                     </Button>
 
                     {/* Admin Access Panel Button */}
@@ -688,19 +788,19 @@ export function AnalyticsLayout() {
                             size="sm"
                             onClick={() => navigate('/admin')}
                             className={cn(
-                                "hidden sm:flex items-center gap-1.5 h-8 px-3 transition-all duration-300",
+                                "hidden sm:flex items-center gap-1.5 h-8 px-3 transition-all duration-300 rounded-xl",
                                 pendingUsers.length > 0
-                                    ? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 animate-pulse hover:bg-red-100 dark:hover:bg-red-900/50 shadow-[0_0_8px_rgba(220,38,38,0.3)]"
-                                    : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                                    ? "bg-red-50/80 dark:bg-red-900/30 border-red-200 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
+                                    : "bg-amber-50/80 dark:bg-amber-900/20 border-amber-200/80 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400"
                             )}
                         >
                             <ShieldAlert className={cn(
                                 "h-3.5 w-3.5",
                                 pendingUsers.length > 0 ? "text-red-500" : "text-amber-600 dark:text-amber-400"
                             )} />
-                            <span className="text-xs font-bold hidden lg:inline">Admin Panel</span>
+                            <span className="text-xs font-semibold hidden lg:inline">Admin Panel</span>
                             {pendingUsers.length > 0 && (
-                                <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-red-600 text-white font-bold shadow-sm">
+                                <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-red-500 text-white font-bold">
                                     {pendingUsers.length}
                                 </span>
                             )}
@@ -712,31 +812,35 @@ export function AnalyticsLayout() {
                             <Button
                                 onClick={() => setShowNewConfigModal(true)}
                                 size="sm"
-                                className="gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 shadow-lg shadow-purple-500/20 h-8"
+                                className={cn(
+                                    "gap-2 bg-gradient-to-r shadow-lg h-8 rounded-xl",
+                                    themeClasses.buttonGradient,
+                                    themeClasses.buttonHover
+                                )}
                             >
                                 <Plus className="h-4 w-4" />
-                                <span className="hidden lg:inline">New Config</span>
+                                <span className="hidden lg:inline font-semibold">New Config</span>
                             </Button>
                         </div>
                     )}
-                    <span className="text-xs lg:text-sm px-2 lg:px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 font-medium hidden sm:inline-flex">
-                        {isAdmin ? ' Super Admin 🤟🏻😎' : (hasWriteAccess(selectedFeatureId) ? '😼 Editor' : '🦁 Viewer')}
+                    <span className="text-xs lg:text-sm px-3 lg:px-4 py-1.5 rounded-xl font-bold hidden sm:inline-flex border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm">
+                        {isAdmin ? 'Super Admin' : (hasWriteAccess(selectedFeatureId) ? 'Editor' : 'Viewer')}
                     </span>
-                    <Button variant="ghost" size="icon" onClick={logout} className="hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 h-8 w-8">
+                    <Button variant="ghost" size="icon" onClick={logout} className="hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 h-8 w-8 text-gray-500 dark:text-gray-400">
                         <LogOut className="h-4 w-4" />
                     </Button>
                 </div>
             </header>
 
-            <div className="flex">
+            <div className="flex min-h-[calc(100vh-3.5rem)] lg:min-h-[calc(100vh-4rem)]">
                 {/* Mobile Sidebar Overlay - No animation, just show/hide */}
                 {mobileSidebarOpen && (
                     <>
                         <div
-                            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                            className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 md:hidden"
                             onClick={() => setMobileSidebarOpen(false)}
                         />
-                        <div className="fixed left-0 top-14 bottom-0 w-[280px] bg-background border-r border-border/40 z-50 md:hidden overflow-hidden">
+                        <div className="fixed left-0 top-14 bottom-0 w-[280px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-gray-700/60 z-50 md:hidden overflow-hidden shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50">
                             <div className="absolute top-2 right-2">
                                 <Button
                                     variant="ghost"
@@ -775,7 +879,7 @@ export function AnalyticsLayout() {
                 {/* Desktop Sidebar - instant width change, no animation */}
                 <div className="hidden md:block flex-shrink-0">
                     <div
-                        className="border-r border-border/40 bg-background flex flex-col sticky top-14 lg:top-16"
+                        className="border-r border-gray-200/80 dark:border-gray-700/60 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl flex flex-col sticky top-14 lg:top-16"
                         style={{ width: sidebarCollapsed ? 60 : 280 }}
                     >
                         <ProfileSidebar
@@ -800,10 +904,13 @@ export function AnalyticsLayout() {
                 </div>
 
                 <main className="flex-1 relative min-w-0">
-                    {/* Subtle dot pattern background */}
-                    <div className="absolute inset-0 bg-dot-pattern opacity-30 pointer-events-none" />
+                    {/* Clean subtle background - no accent orbs */}
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 bg-gray-200/20 dark:bg-gray-800/20" />
+                        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 bg-gray-100/20 dark:bg-gray-900/20" />
+                    </div>
 
-                    <div className="relative z-10 p-4 lg:p-6">
+                    <div className="relative pt-4 lg:pt-5 px-4 pb-4 lg:px-6 lg:pb-6">
 
                         {isCreatingProfile ? (
                             <ProfileBuilder
@@ -821,20 +928,50 @@ export function AnalyticsLayout() {
                                     } : undefined}
                                     onAlertsUpdate={setCriticalAlertsData}
                                     onPanelActive={setActivePanelId}
+                                    onEventsLoaded={setDashboardEvents}
                                 />
                             </ChartErrorBoundary>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center mb-6 shadow-lg">
-                                    <Sparkles className="h-12 w-12 text-primary" />
+                            <div className="flex flex-col items-center justify-center h-full">
+                                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900/30 dark:to-blue-900/30 flex items-center justify-center mb-5 shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 border border-indigo-200/50 dark:border-indigo-700/30">
+                                    <Layers className="h-10 w-10 text-indigo-500 dark:text-indigo-400" />
                                 </div>
-                                <p className="text-xl font-medium">Select a profile to view dashboard</p>
-                                <p className="text-sm mt-2 opacity-60">Choose from the sidebar to get started</p>
+                                <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">Select a profile to view</p>
+                                <p className="text-sm mt-1.5 text-gray-400 dark:text-gray-500 font-medium">Choose from the sidebar to get started</p>
                             </div>
                         )}
                     </div>
                 </main>
             </div>
+
+            {/* Premium Search Modal - Available on all pages */}
+            <PremiumSearch
+                isOpen={searchOpen}
+                onClose={() => setSearchOpen(false)}
+                onSelectFeature={(featureId) => {
+                    setSelectedFeatureId(featureId);
+                    setSelectedProfileId(null);
+                    setSearchOpen(false);
+                }}
+                onSelectProfile={(featureId, profileId) => {
+                    setSelectedFeatureId(featureId);
+                    setSelectedProfileId(profileId);
+                    setSearchOpen(false);
+                }}
+                onSelectPanel={(featureId, profileId, panelId) => {
+                    setSelectedFeatureId(featureId);
+                    setSelectedProfileId(profileId);
+                    setActivePanelId(panelId);
+                    setSearchOpen(false);
+                    // Scroll to panel after a short delay to allow navigation
+                    setTimeout(() => {
+                        handleJumpToPanel(panelId);
+                    }, 300);
+                }}
+                currentFeatureId={selectedFeatureId}
+                events={dashboardEvents}
+                profiles={allProfiles}
+            />
 
             {/* New Config Modal (also available when feature is selected) */}
             <Dialog open={showNewConfigModal} onOpenChange={setShowNewConfigModal}>

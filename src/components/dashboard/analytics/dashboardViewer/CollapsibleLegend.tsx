@@ -153,8 +153,8 @@ export const CollapsibleLegend = ({
                         className={cn(
                             "flex items-center gap-2 md:gap-2.5 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all whitespace-nowrap",
                             isSelected
-                                ? "border-purple-500 ring-2 ring-purple-500/30"
-                                : "border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500/50"
+                                ? "border-indigo-500 ring-2 ring-indigo-500/30"
+                                : "border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500/50"
                         )}
                         onClick={() => onEventClick?.(eventKeyInfo.eventKey)}
                     >
@@ -215,7 +215,7 @@ export const CollapsibleLegend = ({
             {eventKeys.length > maxVisibleItems && (
                 <button
                     onClick={onToggle}
-                    className="flex items-center gap-1.5 h-9 px-3 md:px-4 text-xs md:text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded-lg transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1.5 h-9 px-3 md:px-4 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-500/20 rounded-lg transition-colors whitespace-nowrap"
                 >
                     {isExpanded ? (
                         <>

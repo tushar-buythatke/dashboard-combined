@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface MultiSelectDropdownProps<T extends string | number = string> {
     options: { value: T; label: string; tooltip?: string }[];
@@ -32,6 +33,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
     searchable = true, // Now defaults to true
     disabled = false
 }: MultiSelectDropdownProps<T>) {
+    const { t: themeClasses } = useAccentTheme();
     const [open, setOpen] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
 
@@ -116,11 +118,16 @@ export function MultiSelectDropdown<T extends string | number = string>({
                     className={cn(
                         'w-full justify-between min-h-[44px] h-auto text-sm',
                         selected.length === 0 && 'text-muted-foreground',
+                        themeClasses.borderAccent,
+                        themeClasses.borderAccentDark,
+                        themeClasses.borderHover,
+                        themeClasses.borderHoverDark,
+                        'hover:bg-accent/30',
                         className
                     )}
                 >
                     <span className="truncate flex-1 text-left">{displayText}</span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    <ChevronsUpDown className={cn("ml-2 h-4 w-4 shrink-0 opacity-50", themeClasses.textPrimary, themeClasses.textPrimaryDark)} />
                 </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -152,7 +159,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 h-8 text-xs font-medium hover:bg-primary/10 hover:text-primary"
+                            className={cn("flex-1 h-8 text-xs font-medium", themeClasses.textPrimary, themeClasses.textPrimaryDark, "hover:bg-accent")}
                             onClick={handleSelectAll}
                             disabled={isAllSelected}
                         >
@@ -179,8 +186,9 @@ export function MultiSelectDropdown<T extends string | number = string>({
                                 <div
                                     key={String(option.value)}
                                     className={cn(
-                                        "flex items-center space-x-2 p-2 hover:bg-accent rounded cursor-pointer transition-colors",
-                                        selected.includes(option.value) && "bg-accent/50"
+                                        "flex items-center space-x-2 p-2 rounded cursor-pointer transition-colors",
+                                        "hover:bg-accent/50",
+                                        selected.includes(option.value) && cn("bg-accent/50", themeClasses.badgeBg, themeClasses.badgeBgDark)
                                     )}
                                     onClick={() => handleToggle(option.value)}
                                 >
@@ -193,7 +201,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
                                         {option.label}
                                     </Label>
                                     {selected.includes(option.value) && (
-                                        <Check className="h-4 w-4 text-primary shrink-0" />
+                                        <Check className={cn("h-4 w-4 shrink-0", themeClasses.textPrimary, themeClasses.textPrimaryDark)} />
                                     )}
                                 </div>
                             );

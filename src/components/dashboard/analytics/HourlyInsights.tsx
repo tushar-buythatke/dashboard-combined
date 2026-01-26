@@ -176,7 +176,7 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                 "rounded-2xl transition-all duration-150",
                 isAutosnipe
                     ? "border border-green-500/40 bg-gradient-to-br from-gray-950 via-green-950/20 to-gray-950 shadow-[0_8px_30px_rgba(34,197,94,0.15)] hover:shadow-[0_20px_40px_rgba(34,197,94,0.25)]"
-                    : "border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/60 dark:from-purple-900/20 dark:via-slate-900/80 dark:to-indigo-900/20 shadow-[0_8px_30px_rgba(147,51,234,0.1)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.15)]"
+                    : "border border-gray-200/60 dark:border-gray-500/30 bg-gradient-to-br from-gray-50/80 via-white to-slate-50/60 dark:from-gray-800/20 dark:via-slate-900/80 dark:to-slate-800/20 shadow-[0_8px_30px_rgba(100,116,139,0.1)] hover:shadow-[0_20px_40px_rgba(100,116,139,0.15)]"
             )}
         >
             {/* Top accent bar */}
@@ -184,7 +184,7 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                 "absolute top-0 left-0 w-full h-1 rounded-t-2xl",
                 isAutosnipe
                     ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-500"
-                    : "bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500"
+                    : "bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500"
             )} />
 
             <CardHeader className="pb-3 px-3 md:px-6 pt-5">
@@ -206,7 +206,7 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                                     "bg-clip-text text-transparent",
                                     isAutosnipe
                                         ? "bg-gradient-to-r from-green-400 to-emerald-400"
-                                        : "bg-gradient-to-r from-cyan-600 to-purple-600"
+                                        : "bg-gradient-to-r from-cyan-600 to-blue-600"
                                 )}>
                                     Hourly Insights
                                 </span>
@@ -356,19 +356,19 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                             "p-2.5 rounded-xl border transition-all duration-150 hover:scale-[1.02]",
                             isAutosnipe
                                 ? "bg-gradient-to-br from-cyan-500/10 to-teal-500/5 border-cyan-500/30 hover:border-cyan-400/50"
-                                : "bg-gradient-to-br from-purple-500/10 to-violet-500/5 border-purple-200/50 dark:border-purple-500/20"
+                                : "bg-gradient-to-br from-gray-500/10 to-slate-500/5 border-gray-200/50 dark:border-gray-500/20"
                         )}
                     >
                         <div className="flex items-center gap-1 mb-1">
-                            <Hash className={cn("h-3 w-3", isAutosnipe ? "text-cyan-500" : "text-purple-500")} />
+                            <Hash className={cn("h-3 w-3", isAutosnipe ? "text-cyan-500" : "text-gray-500")} />
                             <span className={cn(
                                 "text-[10px] font-medium uppercase",
-                                isAutosnipe ? "text-cyan-400" : "text-purple-600 dark:text-purple-400"
+                                isAutosnipe ? "text-cyan-400" : "text-gray-600 dark:text-gray-400"
                             )}>
                                 {isAvgEvent ? 'Avg Delay/Hour' : 'Avg/Hour'}
                             </span>
                         </div>
-                        <div className={cn("text-lg font-bold", isAutosnipe ? "text-cyan-400" : "text-purple-600")}>
+                        <div className={cn("text-lg font-bold", isAutosnipe ? "text-cyan-400" : "text-gray-600")}>
                             {isAvgEvent ? formatDelay(avgPerHour) : Math.round(avgPerHour).toLocaleString()}
                         </div>
                     </div>

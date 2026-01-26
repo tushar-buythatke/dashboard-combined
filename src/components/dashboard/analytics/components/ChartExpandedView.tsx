@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { X, Maximize2 } from 'lucide-react';
 import { ChartZoomControls } from './ChartZoomControls';
 import { useChartZoom } from '@/hooks/useChartZoom';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { cn } from '@/lib/utils';
 
 interface ChartExpandedViewProps {
     isOpen: boolean;
@@ -12,6 +14,7 @@ interface ChartExpandedViewProps {
 }
 
 export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, onClose, title, children }) => {
+    const { t: themeClasses } = useAccentTheme();
     // Independent zoom state for the full-screen view
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 5, initialZoom: 1 });
 
@@ -27,15 +30,15 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" style={{ paddingTop: '64px' }}>
             <div
-                className="bg-white dark:bg-slate-900 w-full h-full sm:w-[95vw] sm:h-[85vh] sm:rounded-2xl shadow-2xl flex flex-col relative overflow-hidden sm:mt-16"
+                className="w-full h-full sm:w-[95vw] sm:h-[calc(100vh-64px)] sm:max-h-[calc(100vh-64px)] sm:rounded-2xl shadow-2xl flex flex-col relative overflow-hidden bg-white dark:bg-slate-950"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-slate-900 z-20">
-                    <h2 className="text-base sm:text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 truncate flex-1 mr-2">
-                        <Maximize2 className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-500 flex-shrink-0" />
+                <div className={cn("flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b z-20 bg-white dark:bg-slate-950", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                    <h2 className={cn("text-base sm:text-xl font-bold flex items-center gap-2 truncate flex-1 mr-2", themeClasses.textPrimary, themeClasses.textPrimaryDark)}>
+                        <Maximize2 className={cn("h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0", themeClasses.textAccent, themeClasses.textAccentDark)} />
                         <span className="truncate">{title}</span>
                     </h2>
                     <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
@@ -45,21 +48,21 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
                             onZoomOut={zoomOut}
                             onReset={resetZoom}
                         />
-                        <div className="hidden sm:block w-px h-6 bg-gray-200 dark:bg-gray-700" />
+                        <div className={cn("hidden sm:block w-px h-6", themeClasses.borderAccent, themeClasses.borderAccentDark)} />
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={onClose}
-                            className="h-9 w-9 sm:h-8 sm:w-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 touch-manipulation"
+                            className={cn("h-9 w-9 sm:h-8 sm:w-8 rounded-full touch-manipulation", themeClasses.buttonHover)}
                         >
-                            <X className="h-5 w-5 sm:h-5 sm:w-5 text-gray-500" />
+                            <X className={cn("h-5 w-5 sm:h-5 sm:w-5", themeClasses.textSecondary, themeClasses.textSecondaryDark)} />
                         </Button>
                     </div>
                 </div>
 
                 {/* Content Area - Scrollable with Zoom */}
                 <div
-                    className="flex-1 w-full relative overflow-auto bg-gray-50/50 dark:bg-slate-950/50 flex flex-col"
+                    className="flex-1 w-full relative overflow-auto flex flex-col bg-white dark:bg-slate-950"
                     onWheel={handleWheel}
                 >
                     <div

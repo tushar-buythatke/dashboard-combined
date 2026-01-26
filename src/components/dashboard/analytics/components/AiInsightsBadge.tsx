@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { generatePanelInsights, type AiInsightContext } from '../../../../services/aiService';
 import { cn } from "@/lib/utils";
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface AiInsightsBadgeProps {
     panelId: string;
@@ -27,6 +28,7 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
     isHourly = false,
     eventKeys = []
 }) => {
+    const { t: themeClasses } = useAccentTheme();
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [insights, setInsights] = useState<string[] | null>(null);
@@ -120,17 +122,17 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                     variant="outline"
                     size="sm"
                     className={cn(
-                        "h-8 gap-1.5 px-3 border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-all duration-300 shadow-sm",
+                        "h-8 gap-1.5 px-3 border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-all duration-300 shadow-sm",
                         "group"
                     )}
                 >
-                    <Sparkles className="h-4 w-4 text-violet-500 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300" />
+                    <Sparkles className="h-4 w-4 text-gray-500 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-300" />
                     <span className="font-semibold text-xs tracking-wide">AI Insights</span>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[380px] p-0 overflow-hidden border-violet-200 dark:border-violet-800 shadow-xl rounded-2xl">
+            <PopoverContent align="end" className={cn("w-[380px] p-0 overflow-hidden shadow-xl rounded-2xl border", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
                 {/* Header */}
-                <div className="bg-gradient-to-r from-violet-500 to-fuchsia-600 p-4 relative overflow-hidden">
+                <div className={cn("bg-gradient-to-r p-4 relative overflow-hidden", themeClasses.headerGradient)}>
                     <div className="absolute top-0 right-0 p-2 opacity-10">
                         <Sparkles className="h-24 w-24 text-white" />
                     </div>
@@ -140,7 +142,7 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                                 <Lightbulb className="h-5 w-5 text-yellow-300 fill-yellow-300" />
                                 Smart Analysis
                             </h3>
-                            <p className="text-violet-100 text-xs mt-1">
+                            <p className="text-gray-100 text-xs mt-1">
                                 Data-driven insights
                             </p>
                         </div>
@@ -151,7 +153,7 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 text-violet-100 hover:bg-white/20 hover:text-white rounded-full"
+                                className="h-6 w-6 text-gray-100 hover:bg-white/20 hover:text-white rounded-full"
                                 onClick={() => setIsOpen(false)}
                             >
                                 <X className="h-4 w-4" />
@@ -164,8 +166,8 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                 <div className="p-5 bg-white dark:bg-slate-950 min-h-[200px] flex flex-col relative">
                     {!loading && !insights && !error ? (
                         <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4 py-4">
-                            <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-full">
-                                <Sparkles className="h-8 w-8 text-violet-500" />
+                            <div className="bg-gray-50 dark:bg-gray-800/20 p-4 rounded-full">
+                                <Sparkles className="h-8 w-8 text-gray-500" />
                             </div>
                             <div>
                                 <h4 className="font-semibold text-slate-800 dark:text-slate-100 mb-1">Ready to Analyze?</h4>
@@ -177,8 +179,9 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                                 onClick={handleGenerate}
                                 disabled={credits <= 0}
                                 className={cn(
-                                    "bg-gradient-to-r from-violet-500 to-fuchsia-600 text-white shadow-md transition-all duration-300",
-                                    credits > 0 ? "hover:from-violet-600 hover:to-fuchsia-700 hover:shadow-lg hover:scale-105" : "opacity-50 cursor-not-allowed grayscale"
+                                    "bg-gradient-to-r text-white shadow-md transition-all duration-300",
+                                    themeClasses.buttonGradient,
+                                    credits > 0 ? cn(themeClasses.buttonHover, "hover:shadow-lg hover:scale-105") : "opacity-50 cursor-not-allowed grayscale"
                                 )}
                             >
                                 <Sparkles className="h-4 w-4 mr-2" />
@@ -191,12 +194,12 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                     ) : loading ? (
                         <div className="flex-1 flex flex-col items-center justify-center space-y-4 py-8">
                             <div className="relative">
-                                <div className="h-12 w-12 rounded-full border-4 border-violet-100 dark:border-violet-900 border-t-violet-500 animate-spin"></div>
+                                <div className="h-12 w-12 rounded-full border-4 border-gray-100 dark:border-gray-700 border-t-gray-500 animate-spin"></div>
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                    <Sparkles className="h-5 w-5 text-violet-500 animate-pulse" />
+                                    <Sparkles className="h-5 w-5 text-gray-500 animate-pulse" />
                                 </div>
                             </div>
-                            <p className="text-xs font-medium text-violet-600 dark:text-violet-400 animate-pulse">
+                            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 animate-pulse">
                                 Analyzing {data.length} data points...
                             </p>
                         </div>
@@ -217,15 +220,15 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
                             {insights?.map((point, i) => (
                                 <div key={i} className="flex gap-3 group">
-                                    <div className="mt-1 flex-shrink-0 h-5 w-5 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
-                                        <span className="text-[10px] font-bold text-violet-600 dark:text-violet-400">{i + 1}</span>
+                                    <div className="mt-1 flex-shrink-0 h-5 w-5 rounded-full bg-gray-100 dark:bg-gray-700/40 flex items-center justify-center">
+                                        <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400">{i + 1}</span>
                                     </div>
                                     <p className="text-sm text-slate-700 dark:text-slate-300 leading-snug group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
                                         {/* Rich Text Parsing for **Bold** */}
                                         {point.split(/(\*\*.*?\*\*)/).map((part, index) => {
                                             if (part.startsWith('**') && part.endsWith('**')) {
                                                 return (
-                                                    <span key={index} className="font-bold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/40 px-1 rounded-sm">
+                                                    <span key={index} className="font-bold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 px-1 rounded-sm">
                                                         {part.slice(2, -2)}
                                                     </span>
                                                 );
@@ -255,7 +258,7 @@ export const AiInsightsBadge: React.FC<AiInsightsBadgeProps> = ({
                             size="sm"
                             className={cn(
                                 "h-7 text-xs text-muted-foreground",
-                                credits > 0 ? "hover:text-violet-600" : "opacity-50 cursor-not-allowed"
+                                credits > 0 ? "hover:text-indigo-600" : "opacity-50 cursor-not-allowed"
                             )}
                             onClick={handleGenerate}
                             disabled={credits <= 0}

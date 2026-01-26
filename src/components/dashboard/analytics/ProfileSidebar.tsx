@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -71,6 +72,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     const [profileToDelete, setProfileToDelete] = useState<DashboardProfile | null>(null);
     const [panelTreeExpanded, setPanelTreeExpanded] = useState(true);
     const { user } = useAnalyticsAuth();
+    const { t } = useAccentTheme();
     const isAdmin = useMemo(() => user?.role === 1, [user?.role]);
 
     // Helper to check write access for this specific feature
@@ -369,7 +371,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                 variant="ghost"
                 size="icon"
                 onClick={onToggleCollapse}
-                className="h-8 w-8 mx-auto mb-4 hover:bg-purple-100 dark:hover:bg-purple-500/20"
+                className={cn("h-8 w-8 mx-auto mb-4", t.cardHoverBorder, t.cardHoverBorderDark)}
             >
                 <ChevronRight className="h-4 w-4" />
             </Button>
@@ -379,7 +381,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                 <Button
                     onClick={onCreateProfile}
                     size="icon"
-                    className="h-8 w-8 mx-auto mb-4 bg-purple-600 hover:bg-purple-700"
+                    className={cn("h-8 w-8 mx-auto mb-4 bg-gradient-to-br text-white", t.buttonGradient, t.buttonHover)}
                     title="Create New Profile"
                 >
                     <Plus className="h-4 w-4" />
@@ -397,7 +399,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                             className={cn(
                                 "w-full h-10 rounded-lg flex items-center justify-center transition-colors duration-200",
                                 isSelected
-                                    ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-2 border-purple-400 dark:border-purple-500/50"
+                                    ? cn(t.sidebarActive, t.sidebarActiveDark, t.sidebarActiveText, t.sidebarActiveTextDark, "border-2", t.borderAccent, t.borderAccentDark)
                                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-transparent"
                             )}
                             title={profile.profileName}
@@ -412,71 +414,68 @@ export const ProfileSidebar = memo(function ProfileSidebar({
 
     // Expanded Content JSX moved to separate variable for cleaner render
     const expandedContentJSX = (
-        <div className="flex flex-col h-full bg-gradient-to-b from-purple-50/50 via-white to-indigo-50/30 dark:from-purple-900/20 dark:via-slate-900 dark:to-indigo-900/10">
-            {/* Header - Premium gradient */}
-            <div className="p-3 flex items-center justify-between border-b border-purple-200/40 dark:border-purple-500/20 bg-gradient-to-r from-purple-100/80 to-indigo-100/60 dark:from-purple-900/40 dark:to-indigo-900/30">
-                <div className="flex items-center gap-2">
-                    <div>
-                        <h2 className="font-bold text-xs bg-gradient-to-r from-purple-700 to-indigo-600 bg-clip-text text-transparent flex items-center gap-1">
-                            Profiles
-                        </h2>
-                        <p className="text-[10px] text-purple-500 dark:text-purple-400">{profiles.length} dashboards</p>
-                    </div>
-                    {showSmartGuide && (
-                        <div className="ml-auto flex items-center gap-1 mr-2 px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 shadow-sm">
-                            <Sparkles className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                            <span className="text-[9px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-tighter">Smart Guide</span>
-                            <InfoTooltip
-                                content="✨ PRO TIP: Use the profile tree below to instantly jump to specific panels. Profiles with the 'API' badge are optimized for background services."
-                            />
+        <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+            {/* Unified Header + Search Section - Seamless */}
+            <div className={cn(
+                "border-b",
+                t.borderAccent, t.borderAccentDark
+            )}>
+                {/* Top Row: Title + Actions */}
+                <div className="px-3 pt-3 pb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div>
+                            <h2 className={cn("font-bold text-sm bg-gradient-to-r bg-clip-text text-transparent flex items-center gap-1", t.headerGradient)}>
+                                Profiles
+                            </h2>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">{profiles.length} dashboards</p>
                         </div>
-                    )}
-                </div>
-                <div className="flex items-center gap-1">
-                    {hasWriteAccess && (
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {hasWriteAccess && (
+                            <Button
+                                onClick={onCreateProfile}
+                                size="sm"
+                                className={cn("h-6 px-2.5 text-[10px] bg-gradient-to-r text-white rounded-lg shadow-sm", t.buttonGradient, t.buttonHover)}
+                            >
+                                <Plus className="h-3 w-3 mr-1" />
+                                New
+                            </Button>
+                        )}
                         <Button
-                            onClick={onCreateProfile}
-                            size="sm"
-                            className="h-6 px-2 text-[10px] bg-purple-600 hover:bg-purple-700"
+                            variant="ghost"
+                            size="icon"
+                            onClick={onToggleCollapse}
+                            className="h-6 w-6 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
-                            <Plus className="h-3 w-3 mr-1" />
-                            New
+                            <ChevronLeft className="h-3 w-3" />
                         </Button>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onToggleCollapse}
-                        className="h-6 w-6 hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                        <ChevronLeft className="h-3 w-3" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 lg:hidden"
-                        onClick={() => setIsMobileOpen(false)}
-                    >
-                        <X className="h-4 w-4" />
-                    </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 lg:hidden"
+                            onClick={() => setIsMobileOpen(false)}
+                        >
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </div>
-            </div>
-
-            {/* Search Bar - Premium Glassmorphism */}
-            <div className="px-3 py-2 border-b border-purple-200/40 dark:border-purple-500/20">
-                <div className="relative group">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-purple-400 group-focus-within:text-purple-600 transition-colors" />
-                    <Input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search profiles or panels..."
-                        className="h-8 pl-8 text-xs bg-white/50 dark:bg-slate-950/50 border-purple-100 dark:border-purple-500/20 focus:ring-purple-500/30 rounded-full"
-                    />
+                
+                {/* Search - Integrated seamlessly */}
+                <div className="px-3 pb-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Input
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search profiles or panels..."
+                            className="h-9 pl-9 text-sm bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-offset-0"
+                        />
+                    </div>
                 </div>
             </div>
 
             {/* Profile List - Tree Hierarchy */}
-            <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-purple-200 dark:scrollbar-thumb-purple-900/40">
+            <div className="flex-1 overflow-y-auto p-2">
                 <div className="space-y-1">
                     <AnimatePresence mode="popLayout">
                         {filteredProfiles.map((profile) => {
@@ -498,15 +497,15 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                             className={cn(
                                                 "flex-1 text-left p-2 rounded-lg transition-all duration-200 flex items-center gap-2 group/btn",
                                                 isSelected
-                                                    ? "bg-gradient-to-r from-indigo-200 to-purple-200 dark:from-indigo-900/90 dark:to-purple-900/90 shadow-md border border-indigo-300 dark:border-indigo-500/50"
-                                                    : "hover:bg-purple-50/80 dark:hover:bg-purple-900/10 border border-transparent"
+                                                    ? cn("shadow-md border", t.sidebarActive, t.sidebarActiveDark, t.borderAccent, t.borderAccentDark)
+                                                    : cn("border border-transparent", t.cardHoverBorder, t.cardHoverBorderDark)
                                             )}
                                         >
                                             <div className={cn(
                                                 "w-6 h-6 rounded-md flex items-center justify-center transition-all shadow-sm border",
                                                 isSelected
-                                                    ? "bg-gradient-to-br from-indigo-600 to-blue-600 text-white border-indigo-400"
-                                                    : "bg-white dark:bg-slate-800 text-indigo-400 border-slate-200 dark:border-slate-700 group-hover/btn:text-indigo-600 group-hover/btn:border-indigo-200"
+                                                    ? cn("bg-gradient-to-br text-white", t.buttonGradient, t.borderAccent)
+                                                    : cn("bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700", t.textPrimary, t.textPrimaryDark)
                                             )}>
                                                 <Layers className="w-3.5 h-3.5" />
                                             </div>
@@ -514,7 +513,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                             <div className="flex-1 min-w-0 flex flex-col items-start text-left">
                                                 <span className={cn(
                                                     "text-[12.5px] font-bold truncate w-full transition-colors",
-                                                    isSelected ? "text-indigo-900 dark:text-indigo-50" : "text-slate-600 dark:text-slate-400 group-hover/btn:text-indigo-600"
+                                                    isSelected ? "text-gray-900 dark:text-gray-50" : cn("text-slate-600 dark:text-slate-400", t.linkHover, t.linkHoverDark)
                                                 )} title={profile.profileName.includes(' - /') ? profile.profileName.split(' - ')[0] : profile.profileName}>
                                                     {(() => {
                                                         const parts = profile.profileName.split(' - ');
@@ -587,7 +586,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                 initial={{ height: 0, opacity: 0 }}
                                                 animate={{ height: 'auto', opacity: 1 }}
                                                 exit={{ height: 0, opacity: 0 }}
-                                                className="overflow-hidden ml-5 mt-1 border-l-2 border-dashed border-purple-100 dark:border-purple-800/40 pl-3 space-y-1 relative"
+                                                className={cn("overflow-hidden ml-5 mt-1 border-l-2 border-dashed pl-3 space-y-1 relative", t.borderAccent, t.borderAccentDark)}
                                             >
                                                 {profile.panels.map((panel, pIndex) => {
                                                     // Get alert count for THIS specific panel based on its alertsConfig
@@ -630,20 +629,20 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                                         className={cn(
                                                                             "w-full relative py-1.5 px-2 rounded-md flex items-center gap-2 group/panel transition-all border",
                                                                             isPanelActive
-                                                                                ? "bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/60 dark:to-purple-900/60 text-indigo-900 dark:text-indigo-100 border-indigo-200 dark:border-indigo-500/30 font-semibold shadow-sm"
-                                                                                : "bg-transparent hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent hover:border-purple-100 dark:hover:border-purple-500/10 hover:shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
+                                                                                ? cn("shadow-sm font-semibold", t.sidebarActive, t.sidebarActiveDark, t.sidebarActiveText, t.sidebarActiveTextDark, t.borderAccent, t.borderAccentDark)
+                                                                                : cn("bg-transparent hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent", t.cardHoverBorder, t.cardHoverBorderDark)
                                                                         )}
                                                                     >
                                                                         <div className={cn(
                                                                             "absolute -left-[14px] top-1/2 w-3 h-[1px]",
-                                                                            isPanelActive ? "bg-indigo-400 dark:bg-indigo-500" : "bg-purple-200 dark:bg-purple-800/60"
+                                                                            isPanelActive ? cn(t.textPrimary, t.textPrimaryDark).replace('text-', 'bg-') : "bg-gray-200 dark:bg-gray-700"
                                                                         )} />
 
                                                                         <div className={cn(
                                                                             "w-4 h-4 rounded-sm flex items-center justify-center",
                                                                             isPanelActive
-                                                                                ? "bg-white dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300"
-                                                                                : "bg-slate-50 dark:bg-slate-900 text-slate-400 group-hover/panel:text-purple-600 dark:group-hover/panel:text-purple-400"
+                                                                                ? cn("bg-white dark:bg-gray-900", t.textPrimary, t.textPrimaryDark)
+                                                                                : "bg-slate-50 dark:bg-slate-900 text-slate-400"
                                                                         )}>
                                                                             {getChartIcon(panel)}
                                                                         </div>
@@ -651,8 +650,8 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                                             <span className={cn(
                                                                                 "text-[11px] truncate block w-full text-left transition-colors",
                                                                                 isPanelActive
-                                                                                    ? "text-indigo-900 dark:text-indigo-100"
-                                                                                    : "font-medium text-slate-500 dark:text-slate-400 group-hover/panel:text-purple-900 dark:group-hover/panel:text-purple-100"
+                                                                                    ? cn(t.sidebarActiveText, t.sidebarActiveTextDark)
+                                                                                    : "font-medium text-slate-500 dark:text-slate-400"
                                                                             )}>
                                                                                 {displayName}
                                                                             </span>
@@ -730,7 +729,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
         <>
             {/* Mobile toggle button - only show if NOT in mobile drawer */}
             <button
-                className="fixed bottom-4 left-4 z-50 lg:hidden h-12 w-12 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center"
+                className={cn("fixed bottom-4 left-4 z-50 lg:hidden h-12 w-12 rounded-full text-white shadow-lg flex items-center justify-center bg-gradient-to-br", t.buttonGradient)}
                 onClick={() => setIsMobileOpen(true)}
             >
                 <Menu className="h-5 w-5" />

@@ -285,7 +285,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                 "h-9 w-9 md:h-11 md:w-11 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg",
                                 someAvgEvents
                                     ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-amber-500/30"
-                                    : "bg-gradient-to-br from-purple-500 via-purple-600 to-violet-600 shadow-purple-500/30"
+                                    : "bg-gradient-to-br from-gray-500 via-gray-600 to-slate-600 shadow-gray-500/30"
                             )}
                         >
                             {someBytesEvents ? (
@@ -312,7 +312,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                                 "text-xl md:text-2xl font-extrabold bg-clip-text text-transparent",
                                 someAvgEvents
                                     ? "bg-gradient-to-r from-amber-600 to-orange-600"
-                                    : "bg-gradient-to-r from-purple-600 to-violet-600"
+                                    : "bg-gradient-to-r from-gray-600 to-slate-600"
                             )}
                         >
                             {someAvgEvents && formattedAvgMetric ? formattedAvgMetric : formatMetric(totalCount, 'count')}
@@ -361,13 +361,13 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
 
                 {/* Per-Event Data with Success/Fail / Delay */}
                 <div className={cn(
-                    "space-y-2.5 md:space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-purple-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-thumb]:bg-purple-700",
+                    "space-y-2.5 md:space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-thumb]:bg-gray-600",
                     isPinned ? "max-h-[300px] md:max-h-[400px]" : "max-h-60 md:max-h-72"
                 )}>
                     {visibleItems.map((item: any, index: number) => (
                         <div
                             key={index}
-                            className="p-2.5 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-800/40 dark:to-gray-800/20 border border-gray-200/40 dark:border-gray-700/20 hover:border-purple-300 dark:hover:border-purple-500/40 transition-all group"
+                            className="p-2.5 md:p-3 rounded-lg md:rounded-xl bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-800/40 dark:to-gray-800/20 border border-gray-200/40 dark:border-gray-700/20 hover:border-gray-300 dark:hover:border-gray-500/40 transition-all group"
                         >
                             {/* Title Line */}
                             <div className="flex items-center justify-between mb-2">
@@ -458,7 +458,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                             e.stopPropagation();
                             setIsExpanded(!isExpanded);
                         }}
-                        className="w-full mt-3 py-2 px-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-500/10 dark:to-violet-500/10 text-purple-700 dark:text-purple-300 text-[10px] font-bold hover:from-purple-100 hover:to-violet-100 dark:hover:from-purple-500/20 dark:hover:to-violet-500/20 transition-all flex items-center justify-center gap-1.5 border border-purple-200/50 dark:border-purple-500/30 shadow-sm"
+                        className="w-full mt-3 py-2 px-4 rounded-xl bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-500/10 dark:to-slate-500/10 text-gray-700 dark:text-gray-300 text-[10px] font-bold hover:from-gray-100 hover:to-slate-100 dark:hover:from-gray-500/20 dark:hover:to-slate-500/20 transition-all flex items-center justify-center gap-1.5 border border-gray-200/50 dark:border-gray-500/30 shadow-sm"
                     >
                         {isExpanded ? (
                             <>

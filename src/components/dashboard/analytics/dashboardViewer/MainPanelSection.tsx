@@ -35,8 +35,11 @@ import {
     Sparkles,
     TrendingUp,
     Zap,
+    Command,
 } from 'lucide-react';
 import { AiInsightsBadge } from '../components/AiInsightsBadge';
+import { DashboardChatbot } from '../components/DashboardChatbot';
+import type { ChatbotContext } from '@/services/chatbotService';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +49,7 @@ import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { getPOSName } from '@/lib/posMapping';
 import { getEventDisplayName } from '@/hooks/useEventName';
 
@@ -256,14 +260,29 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     isAdmin = false,
     setVoiceStatus = () => { },
 }: MainPanelSectionProps) {
+    const { t: themeClasses } = useAccentTheme();
     const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
     const [refreshFlash, setRefreshFlash] = useState(false);
+    const [localChatbotOpen, setLocalChatbotOpen] = useState(false);
+
+    // Toggle local chatbot state
+    const toggleChatbot = () => {
+        setLocalChatbotOpen(prev => !prev);
+    };
 
     // Keyboard shortcuts: Command+Enter to refresh, Command+Shift to toggle hourly/daily
     const [filtersFlash, setFiltersFlash] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Command+L to open/close chatbot and snap to right
+            if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleChatbot();
+                return;
+            }
+            
             // Command+Enter to refresh panel
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -411,7 +430,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {/* Fixed Position Refresh Notification Banner - visible when scrolled */}
             {/* Fixed Position Refresh Notification Banner - visible when scrolled (Portal) */}
             {filtersFlash && createPortal(
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-2xl shadow-purple-500/50 flex items-center gap-2 animate-bounce font-sans antialiased pointer-events-none">
+                <div className={cn("fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2 bg-gradient-to-r text-white rounded-full shadow-2xl flex items-center gap-2 animate-bounce font-sans antialiased pointer-events-none", themeClasses.buttonGradient)}>
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                     <span className="font-bold text-xs tracking-wide">Refreshing Panel...</span>
                 </div>,
@@ -421,16 +440,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
                 className={cn(
-                    "rounded-2xl overflow-hidden group transition-all duration-300 relative",
-                    filtersFlash && "ring-4 ring-purple-400 shadow-lg shadow-purple-400/50"
+                    "rounded-2xl overflow-hidden group transition-all duration-300 relative mb-6",
+                    filtersFlash && cn("ring-4 shadow-lg", themeClasses.ringAccent)
                 )}
             >
                 {/* Flash Overlay */}
                 {filtersFlash && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-indigo-400/20 animate-pulse pointer-events-none z-20" />
+                    <div className={cn("absolute inset-0 animate-pulse pointer-events-none z-20 opacity-20 bg-gradient-to-r", themeClasses.buttonGradient)} />
                 )}
-                {/* Purple/Pink Gradient Accent Bar */}
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+                {/* Gradient Accent Bar - Theme aware */}
+                <div className={cn("absolute top-0 left-0 w-full h-1 bg-gradient-to-r", themeClasses.headerGradient)} />
 
                 <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
                     <div className="flex items-center justify-between">
@@ -441,7 +460,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <span className="font-bold text-lg">Filters</span>
                             {/* API Event Badge */}
                             {isMainPanelApi && (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md animate-none">
+                                <span className={cn("px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)}>
                                     API
                                 </span>
                             )}
@@ -514,7 +533,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <p className="flex items-center gap-2">
                                                         {voiceStatus === 'idle' && <span className="w-2 h-2 rounded-full bg-slate-400" />}
                                                         {voiceStatus === 'listening' && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                                                        {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-purple-400" />}
+                                                        {voiceStatus === 'parsing' && <RefreshCw className="h-3 w-3 animate-spin text-gray-400" />}
                                                         {voiceStatus === 'applying' && <Zap className="h-3 w-3 text-amber-400 animate-bounce" />}
                                                         {voiceStatus === 'done' && <CheckCircle2 className="h-3 w-3 text-green-400" />}
                                                         {voiceStatus === 'error' && <XCircle className="h-3 w-3 text-red-400" />}
@@ -598,7 +617,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         size="sm"
                                                         disabled={!manualTranscript.trim() || isParsingVoice || isRecording}
                                                         onClick={() => handleVoiceTranscript(manualTranscript)}
-                                                        className="flex-1 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-xl font-bold text-white shadow-lg shadow-indigo-500/20"
+                                                        className={cn("flex-1 gap-2 bg-gradient-to-r rounded-xl font-bold text-white shadow-lg", themeClasses.buttonGradient, themeClasses.buttonHover)}
                                                     >
                                                         {voiceStatus === 'parsing' ? (
                                                             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -622,13 +641,32 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                         </PopoverContent>
                                     </Popover>
-                                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">⌘K</span>
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘K</span>
                                 </div>
                             )}
+                            {/* Chatbot Button */}
+                            <div className="flex flex-col items-center gap-0.5">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        setLocalChatbotOpen(true);
+                                    }}
+                                    className={cn(
+                                        "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-white/60 dark:bg-slate-900/40 text-indigo-700 dark:text-indigo-300",
+                                        "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:text-indigo-800 dark:hover:text-indigo-200",
+                                        "transition-all duration-300 shadow-sm relative overflow-hidden group/chat ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
+                                    )}
+                                >
+                                    <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
+                                    <span className="hidden sm:inline">AI Chat</span>
+                                </Button>
+                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘L</span>
+                            </div>
                             {/* Quick Refresh Shortcut Hint */}
-                            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-purple-100/80 dark:bg-purple-900/40 rounded-lg border border-purple-300 dark:border-purple-600">
-                                <span className="text-sm text-purple-700 dark:text-purple-300 font-bold">⌘+Enter</span>
-                                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">Refresh</span>
+                            <div className={cn("hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border shadow-sm", "bg-gradient-to-r", themeClasses.buttonGradient, "border-transparent")}>
+                                <span className="text-sm font-bold text-white drop-shadow-sm">⌘+Enter</span>
+                                <span className="text-xs font-medium text-white/90">Refresh</span>
                             </div>
                             <Button
                                 variant="ghost"
@@ -645,9 +683,18 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     </div>
                 </CardHeader>
                 {!filtersCollapsed && (
-                    <CardContent>
+                    <CardContent className="pb-6">
                         <div className="flex justify-between items-center mb-4">
-                            <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
+                            <div className="flex items-center gap-3">
+                                <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
+                                        <Command className="h-3 w-3" />
+                                        <span className="font-medium">L</span>
+                                    </span>
+                                    <span>for AI Chat</span>
+                                </div>
+                            </div>
                             {/* Hourly/Daily Toggle in Filter Panel */}
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-muted-foreground">Data Resolution:</span>
@@ -656,7 +703,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
                                         {dataLoading && (
                                             <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
-                                                <RefreshCw className="h-3 w-3 animate-spin text-purple-600" />
+                                                <RefreshCw className="h-3 w-3 animate-spin text-gray-700" />
                                             </div>
                                         )}
                                         <button
@@ -665,7 +712,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             className={cn(
                                                 "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
                                                 isHourly
-                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                    ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
                                                 dataLoading && "opacity-50 cursor-not-allowed"
                                             )}
@@ -678,7 +725,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             className={cn(
                                                 "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
                                                 !isHourly
-                                                    ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                    ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
                                                 dataLoading && "opacity-50 cursor-not-allowed"
                                             )}
@@ -687,13 +734,13 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </button>
                                     </div>
                                     {/* Shortcut hint */}
-                                    <span className="px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-bold rounded-md border border-purple-300 dark:border-purple-600" title="Press ⌘+Shift to toggle">⌘+Shift</span>
+                                    <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800/60 text-gray-800 dark:text-gray-200 font-bold rounded-md border border-gray-300 dark:border-gray-600" title="Press ⌘+Shift to toggle">⌘+Shift</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className={cn(
-                            "grid gap-3 sm:gap-4",
+                            "grid gap-4 sm:gap-5",
                             isMainPanelApi
                                 ? "grid-cols-1"
                                 : "grid-cols-1" // Will be overridden by inner content
@@ -762,21 +809,21 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <div className="col-span-12 space-y-4">
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
-                                                    <Percent className="h-4 w-4 text-purple-500" />
-                                                    <span className="text-sm font-semibold text-purple-700 dark:text-purple-300">Percentage Graph - Event Selection</span>
+                                                    <Percent className="h-4 w-4 text-current" />
+                                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Percentage Graph - Event Selection</span>
                                                 </div>
 
                                                 <div className="flex items-center gap-4">
                                                     {/* Event Distribution Toggle */}
-                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-100 dark:border-purple-800 shadow-sm">
+                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/20 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                                                         <input
                                                             type="checkbox"
                                                             id="percentage-show-events"
-                                                            className="h-4 w-4 rounded border-purple-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                                                            className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400 cursor-pointer"
                                                             checked={currentFilters.showEventPieCharts ?? false}
                                                             onChange={(e) => handleFilterChange('showEventPieCharts', e.target.checked)}
                                                         />
-                                                        <label htmlFor="percentage-show-events" className="text-xs font-bold text-purple-700 dark:text-purple-300 cursor-pointer uppercase tracking-wider">
+                                                        <label htmlFor="percentage-show-events" className="text-xs font-bold text-gray-800 dark:text-gray-200 cursor-pointer uppercase tracking-wider">
                                                             Events Analysis
                                                         </label>
                                                     </div>
@@ -817,7 +864,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             Parent Events (Denominator)
                                                         </label>
                                                     </div>
-                                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-purple-100 dark:border-purple-900/30 shadow-sm">
+                                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-gray-100 dark:border-gray-700/40 shadow-sm">
                                                         <MultiSelectDropdown
                                                             options={events
                                                                 .filter(e => isMainPanelApi ? e.isApiEvent === true : e.isApiEvent !== true)
@@ -867,7 +914,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                             {/* Platform, POS, Source filters for percentage graph - hide for API events */}
                                             {!isMainPanelApi && (
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                                     <div className="space-y-1.5">
                                                         <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Platforms</Label>
                                                         <MultiSelectDropdown
@@ -905,13 +952,13 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 if (isUserFlowGraph) {
                                     return (
                                         <div className="col-span-12 space-y-4">
-                                            <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:bg-slate-900 rounded-lg p-4 border border-violet-200 dark:border-violet-500/30 flex items-center justify-between">
+                                            <div className="bg-gradient-to-br from-gray-50 to-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-gray-200 dark:border-gray-500/30 flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="bg-white dark:bg-violet-900/20 p-2 rounded-lg border border-violet-100 dark:border-violet-500/20 shadow-sm">
-                                                        <GitBranch className="h-5 w-5 text-violet-500" />
+                                                    <div className="bg-white dark:bg-gray-800/30 p-2 rounded-lg border border-gray-100 dark:border-gray-500/20 shadow-sm">
+                                                        <GitBranch className="h-5 w-5 text-gray-500" />
                                                     </div>
                                                     <div>
-                                                        <h4 className="text-sm font-semibold text-violet-700 dark:text-violet-300">User Flow Configuration</h4>
+                                                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">User Flow Configuration</h4>
                                                         <p className="text-xs text-muted-foreground mt-1">
                                                             Configure stages and events directly on the visualization card below.
                                                         </p>
@@ -1038,7 +1085,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                             {/* Platform, POS, Source filters - hide for API events */}
                                             {!isMainPanelApi && (
-                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                                     <div className="space-y-1.5">
                                                         <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Platforms</Label>
                                                         <MultiSelectDropdown
@@ -1076,7 +1123,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 // User Flow keeps Platform/POS/Source active but disables the global Events dropdown
                                 return (
                                     <div className={cn(
-                                        "grid gap-3 sm:gap-4",
+                                        "grid gap-4 sm:gap-5",
                                         isMainPanelApi
                                             ? "grid-cols-1"
                                             : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
@@ -1136,7 +1183,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 const selectedEvent = events.find(e => e.eventId === String(selectedEventId));
                                                 return selectedEvent?.callUrl ? (
                                                     <p className="text-xs text-muted-foreground mt-1">
-                                                        Call URL: <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                        Call URL: <code className="px-1 bg-gray-100 dark:bg-gray-800/50 rounded">{selectedEvent.callUrl}</code>
                                                     </p>
                                                 ) : null;
                                             })()}
@@ -1150,9 +1197,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         {/* API Events Info Banner with Filters */}
                         {isMainPanelApi && (
                             <div className="mt-4 space-y-3">
-                                <div className="p-3 bg-purple-50/50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-500/20">
+                                <div className="p-3 bg-gray-50/50 dark:bg-gray-800/20 rounded-lg border border-gray-200 dark:border-gray-500/20">
                                     <p className="text-xs text-muted-foreground">
-                                        <span className="font-semibold text-purple-600 dark:text-purple-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
+                                        <span className="font-semibold text-gray-700 dark:text-gray-400">API Events:</span> Data grouped by <code className="px-1 bg-white dark:bg-gray-800 rounded">status</code> codes and <code className="px-1 bg-white dark:bg-gray-800 rounded">cacheStatus</code>. Metrics include response time, bytes transferred, and error rates.
                                     </p>
                                 </div>
 
@@ -1162,7 +1209,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <Activity className="h-4 w-4" />
                                         API Filters (Status & Cache)
                                     </h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                         <div className="space-y-1.5">
                                             <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Status Codes</Label>
                                             {/* Show 2xx and 3xx individually, group only 4xx and 5xx */}
@@ -1310,18 +1357,18 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         )}
 
                         {/* Apply Filters Button and Auto-refresh Config */}
-                        <div className="flex flex-wrap items-center justify-between gap-4 mt-4 pt-4 border-t border-border/50">
-                            <div className="flex items-center gap-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 pb-4 border-t border-border/50">
+                            <div className="flex items-center gap-4 flex-wrap">
                                 {/* Prominent Apply Filters button with clear visual cue */}
                                 <Button
                                     onClick={handleApplyFilters}
                                     disabled={dataLoading}
                                     size="lg"
                                     className={cn(
-                                        "relative transition-all duration-300 font-semibold",
+                                        "relative transition-all duration-300 font-semibold px-6 py-3",
                                         pendingRefresh
                                             ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300"
-                                            : "bg-primary hover:bg-primary/90",
+                                            : cn("text-white", themeClasses.buttonGradient, themeClasses.buttonHover),
                                         refreshFlash && "ring-4 ring-green-400 ring-opacity-75"
                                     )}
                                 >
@@ -1338,7 +1385,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <span className="ml-2 px-2 py-0.5 text-[11px] bg-white/20 rounded-md font-semibold">⌘+Enter</span>
                                     {pendingRefresh && (
                                         <div
-                                            className="absolute -top-2 -right-2 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg"
+                                            className="absolute -top-1 -right-1 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border-2 border-red-300"
                                         >
                                             !
                                         </div>
@@ -1398,30 +1445,25 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     }
 
                     return (
-                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mt-6">
+                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 mt-5">
                             {/* Total Count Card */}
                             <div
                                 className="group"
                             >
-                                <Card className="relative rounded-2xl bg-gradient-to-br from-purple-500/10 via-violet-500/8 to-fuchsia-500/10 dark:from-purple-500/15 dark:via-violet-500/12 dark:to-fuchsia-500/15 border border-purple-200/60 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-500/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-[0_8px_25px_rgba(147,51,234,0.08)] hover:shadow-[0_15px_35px_rgba(147,51,234,0.20)]">
-                                    {/* Purple/Pink Gradient Accent Bar */}
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+                                <Card className={cn("relative rounded-2xl transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg border bg-white/95 dark:bg-gray-900/95", themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.cardHoverBorder)}>
+                                    {/* Gradient Accent Bar */}
+                                    <div className={cn("absolute top-0 left-0 w-full h-1 bg-gradient-to-r", themeClasses.headerGradient)} />
 
-                                    {/* Animated background shimmer */}
-                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/8 to-purple-500/0" />
-                                    {/* Glow effect on hover */}
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/15 via-violet-400/10 to-fuchsia-400/15" />
-
-                                    <CardContent className="pt-3 pb-3 relative">
+                                    <CardContent className="pt-4 pb-4 relative">
                                         <div className="flex items-start justify-between">
                                             <div>
                                                 <div
-                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 via-violet-500 to-fuchsia-600 flex items-center justify-center shadow-md shadow-purple-500/20 mb-2"
+                                                    className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md mb-2", themeClasses.buttonGradient)}
                                                 >
                                                     <Hash className="h-4 w-4 text-white" />
                                                 </div>
                                                 <div
-                                                    className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 bg-clip-text text-transparent min-h-[32px]"
+                                                    className={cn("text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent min-h-[32px]", themeClasses.headerGradient)}
                                                 >
                                                     {dataLoading ? <Skeleton className="h-8 w-24" /> : <AnimatedNumber value={totalCount} />}
                                                 </div>
@@ -1433,7 +1475,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <div className="flex flex-col items-end gap-1">
                                                 <MiniSparkline data={graphData.slice(-7).map(d => d.count || 0)} color="#a855f7" />
                                                 <span
-                                                    className="flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400"
+                                                    className="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-400"
                                                 >
                                                     <Activity className="h-3 w-3" />
                                                     <span>{Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))} days</span>
@@ -1448,13 +1490,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <div
                                 className="group"
                             >
-                                <Card className="relative bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-teal-500/10 border-green-500/20 hover:border-green-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                                    <div
-                                        className="absolute inset-0 bg-gradient-to-r from-green-500/0 via-green-400/10 to-green-500/0"
-                                    />
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-green-400/20 to-transparent" />
+                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-green-200/60 dark:border-green-500/30 hover:border-green-400/60 dark:hover:border-green-400/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
+                                    {/* Gradient Accent Bar */}
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-400" />
 
-                                    <CardContent className="pt-3 pb-3 relative">
+                                    <CardContent className="pt-4 pb-4 relative">
                                         <div className="flex items-start justify-between">
                                             <div>
                                                 <div
@@ -1495,13 +1535,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <div
                                 className="group"
                             >
-                                <Card className="relative bg-gradient-to-br from-red-500/10 via-orange-500/5 to-amber-500/10 border-red-500/20 hover:border-red-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                                    <div
-                                        className="absolute inset-0 bg-gradient-to-r from-red-500/0 via-red-400/10 to-red-500/0"
-                                    />
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-red-400/20 to-transparent" />
+                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-red-200/60 dark:border-red-500/30 hover:border-red-400/60 dark:hover:border-red-400/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
+                                    {/* Gradient Accent Bar */}
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-amber-400" />
 
-                                    <CardContent className="pt-3 pb-3 relative">
+                                    <CardContent className="pt-4 pb-4 relative">
                                         <div className="flex items-start justify-between">
                                             <div>
                                                 <div
@@ -1540,32 +1578,30 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <div
                                 className="group"
                             >
-                                <Card className="relative bg-gradient-to-br from-purple-500/10 via-violet-500/5 to-fuchsia-500/10 border-purple-500/20 hover:border-purple-400/50 transition-all duration-300 cursor-pointer overflow-hidden">
-                                    <div
-                                        className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-400/10 to-purple-500/0"
-                                    />
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-purple-400/20 to-transparent" />
+                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-gray-200/60 dark:border-gray-600/40 hover:border-gray-300/80 dark:hover:border-gray-500/60 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
+                                    {/* Gradient Accent Bar */}
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-400 via-slate-500 to-gray-600" />
 
-                                    <CardContent className="pt-3 pb-3 relative">
+                                    <CardContent className="pt-4 pb-4 relative">
                                         <div className="flex items-start justify-between mb-1.5">
                                             <div>
                                                 <div
-                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md shadow-purple-500/25"
+                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-md shadow-gray-500/25"
                                                 >
                                                     <Target className="h-4 w-4 text-white" />
                                                 </div>
                                                 <span
-                                                    className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
+                                                    className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-200"
                                                 >
                                                     <AnimatedNumber value={selectedEventsList.length} suffix={` event${selectedEventsList.length !== 1 ? 's' : ''}`} />
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto scrollbar-thin scrollbar-thumb-purple-300 dark:scrollbar-thumb-purple-600">
+                                        <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 pr-2">
                                             {selectedEventsList.length > 0 ? selectedEventsList.slice(0, 6).map((eventName, idx) => (
                                                 <span
                                                     key={eventName}
-                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gradient-to-r from-purple-100 to-violet-100 text-purple-700 dark:from-purple-500/20 dark:to-violet-500/20 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 dark:from-gray-700/30 dark:to-slate-700/30 dark:text-gray-200 border border-gray-200 dark:border-gray-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
                                                 >
                                                     {eventName}
                                                 </span>
@@ -1578,7 +1614,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             )}
                                             {selectedEventsList.length > 6 && (
                                                 <span
-                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-purple-500 to-violet-500 text-white shadow-lg"
+                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg"
                                                 >
                                                     +{selectedEventsList.length - 6} more
                                                 </span>
@@ -1921,11 +1957,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                         // Merge filter state with config
                         return (
-                            <Card className="border border-violet-200/60 dark:border-violet-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 mt-4">
-                                <CardHeader className="pb-2 bg-gradient-to-r from-violet-50/80 to-fuchsia-50/60 dark:from-violet-900/20 dark:to-fuchsia-900/10 border-b border-violet-200/40 dark:border-violet-500/20">
+                            <Card className="border border-gray-200/60 dark:border-gray-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 mt-4">
+                                <CardHeader className="pb-2 bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/30 dark:to-slate-800/20 border-b border-gray-200/40 dark:border-gray-500/20">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg shadow-gray-500/20">
                                                 <GitBranch className="h-6 w-6 text-white" />
                                             </div>
                                             <div>
@@ -1933,7 +1969,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <p className="text-xs text-muted-foreground mt-0.5">Track user journey through defined stages</p>
                                             </div>
                                         </div>
-                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-violet-100 text-violet-600 dark:bg-violet-500/20 dark:text-violet-400">Flow Analysis</span>
+                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-300">Flow Analysis</span>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-6">
@@ -2312,7 +2348,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <CardTitle className="text-base md:text-lg flex items-center gap-2">
                                                     {/* API Event Indicator Badge */}
                                                     {profile?.panels?.[0]?.filterConfig?.isApiEvent === true && (
-                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-md">
                                                             API
                                                         </span>
                                                     )}
@@ -2394,7 +2430,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     className={cn(
                                                         "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                         isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                            ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                             : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
                                                     )}
                                                 >
@@ -2405,7 +2441,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     className={cn(
                                                         "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                         !isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-md ring-1 ring-purple-200 dark:ring-purple-500/30"
+                                                            ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                             : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
                                                     )}
                                                 >
@@ -2834,9 +2870,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 {/* Card Content */}
                                                 <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200/60 dark:border-gray-700/60 overflow-hidden">
                                                     {/* Decorative header gradient */}
-                                                    <div className="h-1.5 w-full bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500" />
+                                                    <div className="h-1.5 w-full bg-gradient-to-r from-gray-400 via-gray-500 to-gray-600" />
 
-                                                    <div className="max-h-[70vh] overflow-y-auto p-1">
+                                                    <div className="max-h-[70vh] overflow-y-auto p-1 pr-3">
                                                         <CustomTooltip
                                                             active={true}
                                                             payload={eventKeys.map((ek, idx) => {
@@ -3406,7 +3442,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 className={cn(
                                                     "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
                                                     isHourly
-                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                                                 )}
                                             >
@@ -3417,7 +3453,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 className={cn(
                                                     "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
                                                     !isHourly
-                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                                                 )}
                                             >
@@ -3586,7 +3622,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 {/* Status Code Distribution */}
                                 {showStatus && (
                                     <div>
-                                        <Card className="border border-blue-200/60 dark:border-blue-500/30 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-500/5 dark:to-indigo-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                        <Card className="relative border border-blue-200/60 dark:border-blue-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400" />
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
@@ -3659,23 +3696,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 {/* Cache Status Distribution */}
                                 {showCacheStatus && (
                                     <div>
-                                        <Card className="border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/50 to-fuchsia-50/30 dark:from-purple-500/5 dark:to-fuchsia-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+                                        <Card className="relative border border-gray-200/60 dark:border-gray-600/40 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-500 via-slate-500 to-gray-400" />
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-fuchsia-600 flex items-center justify-center shadow-md">
+                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-md">
                                                             <Zap className="h-4 w-4 text-white" />
                                                         </div>
                                                         <CardTitle className="text-sm font-semibold text-foreground">Cache Status</CardTitle>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300">
+                                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-200">
                                                             {cacheStatusData.length} types
                                                         </span>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-7 w-7 hover:bg-purple-100 dark:hover:bg-purple-500/20"
+                                                            className="h-7 w-7 hover:bg-gray-100 dark:hover:bg-gray-500/20"
                                                             onClick={() => openExpandedPie('cacheStatus', 'Cache Status', { cacheStatus: cacheStatusData }, false)}
                                                         >
                                                             <Maximize2 className="h-3.5 w-3.5" />
@@ -3764,232 +3802,265 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     return (
                         <div className={cn("grid gap-3 md:gap-4", gridClass)}>
                             {/* Platform Distribution */}
-                            {showPlatform && (
-                                <div>
-                                    <Card className="border border-indigo-200/60 dark:border-indigo-500/30 bg-gradient-to-br from-indigo-50/50 to-violet-50/30 dark:from-indigo-500/5 dark:to-violet-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md">
-                                                        <Activity className="h-4 w-4 text-white" />
+                            {showPlatform && (() => {
+                                const platformTotal = platformData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                return (
+                                    <div>
+                                        <Card className="relative border border-indigo-200/60 dark:border-indigo-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-400" />
+                                            <CardHeader className="pb-2 px-4 pt-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md">
+                                                            <Activity className="h-4 w-4 text-white" />
+                                                        </div>
+                                                        <CardTitle className="text-sm font-semibold text-foreground">Platform</CardTitle>
                                                     </div>
-                                                    <CardTitle className="text-sm font-semibold text-foreground">Platform</CardTitle>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
-                                                        {platformData.length} types
-                                                    </span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
-                                                        onClick={() => {
-                                                            const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
-                                                            openExpandedPie('platform', 'Platform', dists, isMainPanelApi);
-                                                        }}
-                                                    >
-                                                        <Maximize2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="h-52">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <PieChart>
-                                                        <Pie
-                                                            data={platformData}
-                                                            cx="50%"
-                                                            cy="45%"
-                                                            innerRadius={35}
-                                                            outerRadius={65}
-                                                            paddingAngle={2}
-                                                            dataKey="value"
-                                                            strokeWidth={2}
-                                                            stroke="#fff"
-                                                            isAnimationActive={false}
-                                                            animationDuration={0}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                                                            {platformData.length} types
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 hover:bg-indigo-100 dark:hover:bg-indigo-500/20"
+                                                            onClick={() => {
+                                                                const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
+                                                                openExpandedPie('platform', 'Platform', dists, isMainPanelApi);
+                                                            }}
                                                         >
-                                                            {platformData.map((_: any, index: number) => (
-                                                                <Cell
-                                                                    key={`platform-cell-${index}`}
-                                                                    fill={PIE_COLORS[index % PIE_COLORS.length]}
-                                                                />
-                                                            ))}
-                                                        </Pie>
-                                                        <Tooltip
-                                                            content={<PieTooltip
-                                                                totalValue={platformData.reduce((acc: number, item: any) => acc + item.value, 0)}
-                                                                category="Platform"
-                                                                isAvgEventType={mainPanelAvgEventType}
-                                                            />}
-                                                        />
-                                                        <Legend
-                                                            iconType="circle"
-                                                            iconSize={8}
-                                                            layout="horizontal"
-                                                            verticalAlign="bottom"
-                                                            wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                                                        />
-                                                    </PieChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            )}
+                                                            <Maximize2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="px-4 pb-4">
+                                                <div className="h-44 relative">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <PieChart>
+                                                            <Pie
+                                                                data={platformData}
+                                                                cx="50%"
+                                                                cy="50%"
+                                                                innerRadius={45}
+                                                                outerRadius={70}
+                                                                paddingAngle={2}
+                                                                dataKey="value"
+                                                                isAnimationActive={false}
+                                                                stroke="none"
+                                                            >
+                                                                {platformData.map((_: any, index: number) => (
+                                                                    <Cell
+                                                                        key={`platform-cell-${index}`}
+                                                                        fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                                    />
+                                                                ))}
+                                                            </Pie>
+                                                            <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={platformTotal} category="Platform" isAvgEventType={mainPanelAvgEventType} />} />
+                                                        </PieChart>
+                                                    </ResponsiveContainer>
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <span className="text-xl font-black text-foreground tabular-nums">
+                                                            {formatNumber(platformTotal)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="absolute bottom-0 left-0 right-0 space-y-1 px-2 pb-2">
+                                                        {[...platformData]
+                                                            .sort((a: any, b: any) => b.value - a.value)
+                                                            .slice(0, 2)
+                                                            .map((item: any, idx: number) => {
+                                                                const percentage = platformTotal > 0 ? (item.value / platformTotal) * 100 : 0;
+                                                                return (
+                                                                    <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
+                                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                            <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                        </div>
+                                                                        <span className="text-indigo-500">{percentage.toFixed(0)}%</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                );
+                            })()}
 
                             {/* POS Distribution */}
-                            {showPos && (
-                                <div>
-                                    <Card className="border border-emerald-200/60 dark:border-emerald-500/30 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-500/5 dark:to-teal-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
-                                                        <Target className="h-4 w-4 text-white" />
+                            {showPos && (() => {
+                                const posTotal = posData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                return (
+                                    <div>
+                                        <Card className="relative border border-emerald-200/60 dark:border-emerald-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400" />
+                                            <CardHeader className="pb-2 px-4 pt-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
+                                                            <Target className="h-4 w-4 text-white" />
+                                                        </div>
+                                                        <CardTitle className="text-sm font-semibold text-foreground">POS</CardTitle>
                                                     </div>
-                                                    <CardTitle className="text-sm font-semibold text-foreground">POS</CardTitle>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                                                        {posData.length} types
-                                                    </span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
-                                                        onClick={() => {
-                                                            const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
-                                                            openExpandedPie('pos', 'POS', dists, isMainPanelApi);
-                                                        }}
-                                                    >
-                                                        <Maximize2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="h-52">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <PieChart>
-                                                        <Pie
-                                                            data={posData}
-                                                            cx="50%"
-                                                            cy="45%"
-                                                            innerRadius={35}
-                                                            outerRadius={65}
-                                                            paddingAngle={2}
-                                                            dataKey="value"
-                                                            strokeWidth={2}
-                                                            stroke="#fff"
-                                                            isAnimationActive={false}
-                                                            animationDuration={0}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                                                            {posData.length} types
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 hover:bg-emerald-100 dark:hover:bg-emerald-500/20"
+                                                            onClick={() => {
+                                                                const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
+                                                                openExpandedPie('pos', 'POS', dists, isMainPanelApi);
+                                                            }}
                                                         >
-                                                            {posData.map((_: any, index: number) => (
-                                                                <Cell
-                                                                    key={`pos-cell-${index}`}
-                                                                    fill={PIE_COLORS[index % PIE_COLORS.length]}
-                                                                />
-                                                            ))}
-                                                        </Pie>
-                                                        <Tooltip
-                                                            content={<PieTooltip
-                                                                totalValue={posData.reduce((acc: number, item: any) => acc + item.value, 0)}
-                                                                category="POS"
-                                                                isAvgEventType={mainPanelAvgEventType}
-                                                            />}
-                                                        />
-                                                        <Legend
-                                                            iconType="circle"
-                                                            iconSize={8}
-                                                            layout="horizontal"
-                                                            verticalAlign="bottom"
-                                                            wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                                                        />
-                                                    </PieChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            )}
+                                                            <Maximize2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="px-4 pb-4">
+                                                <div className="h-44 relative">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <PieChart>
+                                                            <Pie
+                                                                data={posData}
+                                                                cx="50%"
+                                                                cy="50%"
+                                                                innerRadius={45}
+                                                                outerRadius={70}
+                                                                paddingAngle={2}
+                                                                dataKey="value"
+                                                                isAnimationActive={false}
+                                                                stroke="none"
+                                                            >
+                                                                {posData.map((_: any, index: number) => (
+                                                                    <Cell
+                                                                        key={`pos-cell-${index}`}
+                                                                        fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                                    />
+                                                                ))}
+                                                            </Pie>
+                                                            <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={posTotal} category="POS" isAvgEventType={mainPanelAvgEventType} />} />
+                                                        </PieChart>
+                                                    </ResponsiveContainer>
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <span className="text-xl font-black text-foreground tabular-nums">
+                                                            {formatNumber(posTotal)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="absolute bottom-0 left-0 right-0 space-y-1 px-2 pb-2">
+                                                        {[...posData]
+                                                            .sort((a: any, b: any) => b.value - a.value)
+                                                            .slice(0, 2)
+                                                            .map((item: any, idx: number) => {
+                                                                const percentage = posTotal > 0 ? (item.value / posTotal) * 100 : 0;
+                                                                return (
+                                                                    <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
+                                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                            <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                        </div>
+                                                                        <span className="text-indigo-500">{percentage.toFixed(0)}%</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                );
+                            })()}
 
                             {/* Source Distribution */}
-                            {showSource && (
-                                <div>
-                                    <Card className="border border-amber-200/60 dark:border-amber-500/30 bg-gradient-to-br from-amber-50/50 to-orange-50/30 dark:from-amber-500/5 dark:to-orange-500/5 overflow-hidden group rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
-                                        <CardHeader className="pb-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md">
-                                                        <Zap className="h-4 w-4 text-white" />
+                            {showSource && (() => {
+                                const sourceTotal = sourceData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                return (
+                                    <div>
+                                        <Card className="relative border border-amber-200/60 dark:border-amber-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400" />
+                                            <CardHeader className="pb-2 px-4 pt-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-md">
+                                                            <Zap className="h-4 w-4 text-white" />
+                                                        </div>
+                                                        <CardTitle className="text-sm font-semibold text-foreground">Source</CardTitle>
                                                     </div>
-                                                    <CardTitle className="text-sm font-semibold text-foreground">Source</CardTitle>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                                                        {sourceData.length} types
-                                                    </span>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 hover:bg-amber-100 dark:hover:bg-amber-500/20"
-                                                        onClick={() => {
-                                                            const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
-                                                            openExpandedPie('source', 'Source', dists, isMainPanelApi);
-                                                        }}
-                                                    >
-                                                        <Maximize2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <div className="h-52">
-                                                <ResponsiveContainer width="100%" height="100%">
-                                                    <PieChart>
-                                                        <Pie
-                                                            data={sourceData}
-                                                            cx="50%"
-                                                            cy="45%"
-                                                            innerRadius={35}
-                                                            outerRadius={65}
-                                                            paddingAngle={2}
-                                                            dataKey="value"
-                                                            strokeWidth={2}
-                                                            stroke="#fff"
-                                                            isAnimationActive={false}
-                                                            animationDuration={0}
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                                                            {sourceData.length} types
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 hover:bg-amber-100 dark:hover:bg-amber-500/20"
+                                                            onClick={() => {
+                                                                const dists = { platform: pieChartData?.platform, pos: pieChartData?.pos, source: pieChartData?.source };
+                                                                openExpandedPie('source', 'Source', dists, isMainPanelApi);
+                                                            }}
                                                         >
-                                                            {sourceData.map((_: any, index: number) => (
-                                                                <Cell
-                                                                    key={`source-cell-${index}`}
-                                                                    fill={PIE_COLORS[index % PIE_COLORS.length]}
-                                                                />
-                                                            ))}
-                                                        </Pie>
-                                                        <Tooltip
-                                                            content={<PieTooltip
-                                                                totalValue={sourceData.reduce((acc: number, item: any) => acc + item.value, 0)}
-                                                                category="Source"
-                                                                isAvgEventType={mainPanelAvgEventType}
-                                                            />}
-                                                        />
-                                                        <Legend
-                                                            iconType="circle"
-                                                            iconSize={8}
-                                                            layout="horizontal"
-                                                            verticalAlign="bottom"
-                                                            wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }}
-                                                        />
-                                                    </PieChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            )}
+                                                            <Maximize2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="px-4 pb-4">
+                                                <div className="h-44 relative">
+                                                    <ResponsiveContainer width="100%" height="100%">
+                                                        <PieChart>
+                                                            <Pie
+                                                                data={sourceData}
+                                                                cx="50%"
+                                                                cy="50%"
+                                                                innerRadius={45}
+                                                                outerRadius={70}
+                                                                paddingAngle={2}
+                                                                dataKey="value"
+                                                                isAnimationActive={false}
+                                                                stroke="none"
+                                                            >
+                                                                {sourceData.map((_: any, index: number) => (
+                                                                    <Cell
+                                                                        key={`source-cell-${index}`}
+                                                                        fill={PIE_COLORS[index % PIE_COLORS.length]}
+                                                                    />
+                                                                ))}
+                                                            </Pie>
+                                                            <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={sourceTotal} category="Source" isAvgEventType={mainPanelAvgEventType} />} />
+                                                        </PieChart>
+                                                    </ResponsiveContainer>
+                                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                        <span className="text-xl font-black text-foreground tabular-nums">
+                                                            {formatNumber(sourceTotal)}
+                                                        </span>
+                                                    </div>
+                                                    <div className="absolute bottom-0 left-0 right-0 space-y-1 px-2 pb-2">
+                                                        {[...sourceData]
+                                                            .sort((a: any, b: any) => b.value - a.value)
+                                                            .slice(0, 2)
+                                                            .map((item: any, idx: number) => {
+                                                                const percentage = sourceTotal > 0 ? (item.value / sourceTotal) * 100 : 0;
+                                                                return (
+                                                                    <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
+                                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                                            <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                            <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                        </div>
+                                                                        <span className="text-indigo-500">{percentage.toFixed(0)}%</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     );
                 })()
@@ -4019,8 +4090,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                 return (
                     <div className="mt-8 space-y-6">
-                        <div className="flex items-center gap-3 pb-2 border-b border-purple-200 dark:border-purple-800">
-                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                        <div className="flex items-center gap-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+                            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
                                 <PieChartIcon className="h-6 w-6 text-white" />
                             </div>
                             <div>
@@ -4037,8 +4108,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         {isPercentageGraph && parentEvents.length > 0 && (
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 px-2">
-                                    <div className="h-1 w-8 bg-purple-500 rounded-full" />
-                                    <h4 className="text-sm font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider">Parent Events (Denominator)</h4>
+                                    <div className="h-1 w-8 bg-gray-500 rounded-full" />
+                                    <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">Parent Events (Denominator)</h4>
                                 </div>
                                 <div className={cn("grid gap-4", parentEvents.length === 1 ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2")}>
                                     {parentEvents.map((event) => {
@@ -4069,11 +4140,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             ].filter(c => c.show);
 
                                             return (
-                                                <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm">
-                                                    <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-100 dark:border-purple-800">
-                                                        <div className="flex items-center gap-2.5">
-                                                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
-                                                            <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                <Card key={event.eventId} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                                                    <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/40 dark:to-slate-800/30 border-b border-gray-100 dark:border-gray-700">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2.5">
+                                                                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
+                                                                <CardTitle className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{event.eventName}</CardTitle>
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700/40 rounded-full"
+                                                                onClick={() => {
+                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                    openExpandedPie('platform', `${event.eventName} - Distribution`, dists, event.isApiEvent);
+                                                                }}
+                                                            >
+                                                                <Maximize2 className="h-4 w-4 text-gray-700 dark:text-gray-400" />
+                                                            </Button>
                                                         </div>
                                                     </CardHeader>
                                                     <CardContent className="p-4">
@@ -4152,23 +4236,23 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
 
                                         return (
-                                            <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-100 dark:border-purple-800">
+                                            <Card key={event.eventId} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/40 dark:to-slate-800/30 border-b border-gray-100 dark:border-gray-700">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                                             <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
-                                                            <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                            <CardTitle className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{event.eventName}</CardTitle>
                                                         </div>
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-8 w-8 flex-shrink-0 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full"
+                                                            className="h-8 w-8 flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700/40 rounded-full"
                                                             onClick={() => {
                                                                 const dists = { platform: platformData, pos: posData, source: sourceData };
                                                                 openExpandedPie(activeMode, `${event.eventName} - ${activeMode.toUpperCase()}`, dists, event.isApiEvent);
                                                             }}
                                                         >
-                                                            <Maximize2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                            <Maximize2 className="h-4 w-4 text-gray-700 dark:text-gray-400" />
                                                         </Button>
                                                     </div>
                                                 </CardHeader>
@@ -4298,8 +4382,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         );
                                     }
 
+                                    // Use uniqueChildEvents.length for single event check (same as parent events logic)
+                                    // This ensures we show all 3 charts when there's only one unique child event
+                                    const isSingleChildEvent = uniqueChildEvents.length === 1;
+
                                     return (
-                                        <div className={cn("grid gap-4", uniqueChildEvents.length === 1 ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2")}>
+                                        <div className={cn("grid gap-4", isSingleChildEvent ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2")}>
                                             {uniqueChildEvents.map((event) => {
                                                 const pieData = eventPieCharts[event.eventId];
                                                 if (!pieData) return null;
@@ -4318,8 +4406,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                                 if (!showPlatform && !showPos && !showSource) return null;
 
-                                                // Single child event: show all 3 pie charts side-by-side
-                                                if (uniqueChildEvents.length === 1) {
+                                                // Single child event: show all 3 pie charts side-by-side (same logic as parent events)
+                                                if (isSingleChildEvent) {
                                                     const availableCharts = [
                                                         { id: 'platform', label: 'Platform', data: platformData, show: showPlatform, color: 'indigo' },
                                                         { id: 'pos', label: 'POS', data: posData, show: showPos, color: 'emerald' },
@@ -4329,9 +4417,22 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     return (
                                                         <Card key={event.eventId} className="border border-green-200 dark:border-green-800 rounded-xl overflow-hidden shadow-sm">
                                                             <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 border-b border-green-100 dark:border-green-800">
-                                                                <div className="flex items-center gap-2.5">
-                                                                    <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
-                                                                    <CardTitle className="text-sm font-bold text-green-700 dark:text-green-300 truncate">{event.eventName}</CardTitle>
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2.5">
+                                                                        <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
+                                                                        <CardTitle className="text-sm font-bold text-green-700 dark:text-green-300 truncate">{event.eventName}</CardTitle>
+                                                                    </div>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="h-8 w-8 flex-shrink-0 hover:bg-green-100 dark:hover:bg-green-900/40 rounded-full"
+                                                                        onClick={() => {
+                                                                            const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                            openExpandedPie('platform', `${event.eventName} - Distribution`, dists, (event as any).isApiEvent);
+                                                                        }}
+                                                                    >
+                                                                        <Maximize2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                                                    </Button>
                                                                 </div>
                                                             </CardHeader>
                                                             <CardContent className="p-4">
@@ -4566,11 +4667,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         ].filter(c => c.show);
 
                                         return (
-                                            <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm">
-                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/10 border-b border-purple-100 dark:border-purple-800">
+                                            <Card key={event.eventId} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/40 dark:to-slate-800/30 border-b border-gray-100 dark:border-gray-700">
                                                     <div className="flex items-center gap-2.5">
                                                         <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
-                                                        <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                        <CardTitle className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{event.eventName}</CardTitle>
                                                     </div>
                                                 </CardHeader>
                                                 <CardContent className="p-4">
@@ -4643,24 +4744,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                     // Multiple events: show tabbed interface
                                     return (
-                                        <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-                                            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/10 border-b border-purple-100 dark:border-purple-800">
+                                        <Card key={event.eventId} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/40 dark:to-slate-800/30 border-b border-gray-100 dark:border-gray-700">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                                         <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: event.color }} />
-                                                        <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                        <CardTitle className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{event.eventName}</CardTitle>
                                                     </div>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        className="h-8 w-8 flex-shrink-0 hover:bg-purple-100 dark:hover:bg-purple-900/40 rounded-full"
+                                                        className="h-8 w-8 flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700/40 rounded-full"
                                                         onClick={() => {
                                                             const dists = { platform: platformData, pos: posData, source: sourceData };
                                                             const mode = eventDistModes[event.eventId] || (showPlatform ? 'platform' : showPos ? 'pos' : 'source');
                                                             openExpandedPie(mode, `${event.eventName} - ${mode.toUpperCase()}`, dists, (event as any).isApiEvent);
                                                         }}
                                                     >
-                                                        <Maximize2 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                                        <Maximize2 className="h-4 w-4 text-gray-700 dark:text-gray-400" />
                                                     </Button>
                                                 </div>
                                             </CardHeader>
@@ -4801,6 +4902,52 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     </div>
                 )
             }
+
+            {/* Dashboard Chatbot - Local instance */}
+            <DashboardChatbot
+                isOpen={localChatbotOpen}
+                onClose={() => {
+                    setLocalChatbotOpen(false);
+                }}
+                context={{
+                    currentFilters: panelFiltersState[profile?.panels?.[0]?.panelId || ''] || {},
+                    currentDateRange: dateRange,
+                    availableOptions: {
+                        platforms: platformOptions.map(opt => ({ id: parseInt(opt.value), name: opt.label })),
+                        pos: posOptions.map(opt => ({ id: parseInt(opt.value), name: opt.label })),
+                        sources: sourceOptions.map(opt => ({ id: opt.value, name: opt.label })),
+                        events: eventOptions.map(opt => ({ id: parseInt(opt.value), name: opt.label }))
+                    },
+                    panelName: profile?.panels?.[0]?.panelName || 'Main Panel',
+                    graphData: graphData,
+                    metricType: isFirstPanelSpecialGraph ? 'other' : 'count'
+                }}
+                featureId={profile?.featureId}
+                externalMessage={manualTranscript}
+                onExternalMessageProcessed={() => setManualTranscript('')}
+                onUpdateFilters={(filters) => {
+                    const mainPanelId = profile?.panels?.[0]?.panelId;
+                    if (!mainPanelId) return;
+
+                    if (filters.platforms !== undefined) {
+                        handleFilterChange('platforms', filters.platforms);
+                    }
+                    if (filters.pos !== undefined) {
+                        handleFilterChange('pos', filters.pos);
+                    }
+                    if (filters.sources !== undefined) {
+                        handleFilterChange('sources', filters.sources);
+                    }
+                    if (filters.events !== undefined) {
+                        handleFilterChange('events', filters.events);
+                    }
+                    
+                    setTimeout(() => {
+                        handleApplyFilters();
+                    }, 300);
+                }}
+            />
+
         </div>
     );
 });

@@ -24,6 +24,7 @@ import type { DateRange } from 'react-day-picker';
 import { TutorialOverlay, type TutorialStep } from '../components/TutorialOverlay';
 import { InfoTooltip } from '../components/InfoTooltip';
 import { cn } from '@/lib/utils';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import { useEventName } from '@/hooks/useEventName';
 
@@ -69,6 +70,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
 }
 
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {
+    const { t: themeClasses } = useAccentTheme();
     const { user } = useAnalyticsAuth();
     const { toast } = useToast();
     const { getEventDisplayName } = useEventName();
@@ -1336,10 +1338,10 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                         ) : (
                             <>
                                 {/* Panel Navigation Header */}
-                                <div className="flex items-center justify-between bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 p-4 rounded-lg border-2 border-violet-200 dark:border-violet-500/30">
+                                <div className="flex items-center justify-between bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/30 dark:to-slate-800/20 p-4 rounded-lg border-2 border-gray-200 dark:border-gray-500/30">
                                     <div className="flex items-center gap-3">
-                                        <LayoutDashboard className="h-5 w-5 text-violet-600" />
-                                        <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
+                                        <LayoutDashboard className="h-5 w-5 text-gray-600" />
+                                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                                             Panel {currentPanelIndex + 1} of {panels.filter(p => p.type !== 'alerts').length}
                                         </span>
                                     </div>
@@ -1368,7 +1370,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                             variant="outline"
                                             size="sm"
                                             onClick={handleAddPanel}
-                                            className="h-8 bg-violet-600 text-white hover:bg-violet-700 border-violet-600"
+                                            className="h-8 bg-indigo-600 text-white hover:bg-indigo-700 border-indigo-600"
                                         >
                                             <Plus className="h-4 w-4 mr-1" />
                                             Add Panel
@@ -1450,8 +1452,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     <div className="text-2xl font-bold text-orange-600">∞</div>
                                                                     <div className="text-xs text-muted-foreground">POS Monitored</div>
                                                                 </div>
-                                                                <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                                                                    <div className="text-2xl font-bold text-purple-600">7d</div>
+                                                                <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/30 rounded-lg">
+                                                                    <div className="text-2xl font-bold text-gray-700">7d</div>
                                                                     <div className="text-xs text-muted-foreground">Default Range</div>
                                                                 </div>
                                                                 <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -1482,7 +1484,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                             className={cn(
                                                                                 "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
                                                                                 (panel.criticalAlertConfig?.alertsIsApi ?? 0) === 1
-                                                                                    ? "bg-purple-600 text-white shadow-md"
+                                                                                    ? "bg-indigo-600 text-white shadow-md"
                                                                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                                                             )}
                                                                         >
@@ -1592,15 +1594,15 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                 {/* SECTION 2: Dashboard Panel Configuration */}
                                                 <div className="space-y-6">
                                                     <div className="flex items-center gap-3 pb-3 border-b">
-                                                        <LayoutDashboard className="h-5 w-5 text-violet-600" />
-                                                        <h3 className="text-lg font-bold text-violet-700 dark:text-violet-300">Dashboard Configuration</h3>
+                                                        <LayoutDashboard className="h-5 w-5 text-gray-600" />
+                                                        <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">Dashboard Configuration</h3>
                                                     </div>
 
                                                     {/* API Events Toggle */}
                                                     <div className={cn(
                                                         "flex items-center justify-between p-4 rounded-lg border",
                                                         availableEvents.filter(e => e.isApiEvent === true).length > 0 && panel.graphType !== 'percentage' && panel.graphType !== 'funnel'
-                                                            ? "bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200 dark:border-purple-500/30"
+                                                            ? "bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/30 dark:to-slate-800/20 border-gray-200 dark:border-gray-500/30"
                                                             : "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700 opacity-60"
                                                     )}>
                                                         <div className="flex flex-col">
@@ -1909,8 +1911,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         {panel.graphType === 'percentage' ? (
                                                             /* Percentage Graph Configuration */
                                                             <div className="space-y-3 col-span-2">
-                                                                <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-lg border-2 border-purple-300 dark:border-purple-500/50">
-                                                                    <Label className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-3 block">
+                                                                <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/30 dark:to-slate-800/20 rounded-lg border-2 border-gray-300 dark:border-gray-500/40">
+                                                                    <Label className="text-sm font-semibold text-gray-800 dark:text-gray-300 mb-3 block">
                                                                         📊 Percentage Graph Configuration
                                                                     </Label>
                                                                     <p className="text-xs text-muted-foreground mb-4">
@@ -1968,7 +1970,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     </div>
 
                                                                     {/* Events Analysis Toggle */}
-                                                                    <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
+                                                                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-500/30">
                                                                         <div className="flex items-center justify-between gap-4">
                                                                             <div className="flex flex-col gap-0.5">
                                                                                 <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Events Analysis</Label>
@@ -1986,7 +1988,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                     </div>
 
                                                                     {/* Child Events Grouping Toggle */}
-                                                                    <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
+                                                                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-500/30">
                                                                         <div className="flex items-center justify-between gap-4">
                                                                             <div className="flex flex-col gap-0.5">
                                                                                 <Label className="font-semibold uppercase text-[11px] tracking-wider text-muted-foreground">Child Events Display</Label>
@@ -2003,7 +2005,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     className={cn(
                                                                                         "flex-1 px-2 py-1.5 text-[10px] font-bold rounded-md transition-all duration-200",
                                                                                         (panel as any).percentageConfig?.groupChildEvents !== false
-                                                                                            ? "bg-purple-600 text-white shadow-md"
+                                                                                            ? "bg-indigo-600 text-white shadow-md"
                                                                                             : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                                                                                     )}
                                                                                 >
@@ -2031,7 +2033,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
 
                                                                     {/* API Event filters for status code and cache status */}
                                                                     {panel.isApiEvent && (
-                                                                        <div className="mt-4 pt-4 border-t border-purple-200 dark:border-purple-500/30">
+                                                                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-500/30">
                                                                             <div className="flex items-center justify-between mb-3">
                                                                                 <Label className="text-xs font-medium flex items-center gap-2">
                                                                                     <Activity className="h-3 w-3" />
@@ -2042,7 +2044,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     variant="outline"
                                                                                     onClick={() => fetchAvailableJobIds(panel.panelId)}
                                                                                     disabled={loadingJobIds || panel.filters.events.length === 0}
-                                                                                    className="h-7 text-xs bg-purple-50 hover:bg-purple-100 border-purple-300"
+                                                                                    className="h-7 text-xs bg-gray-50 hover:bg-gray-100 border-gray-300"
                                                                                 >
                                                                                     {loadingJobIds ? (
                                                                                         <>
@@ -2257,8 +2259,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                         ) : panel.graphType === 'user_flow' ? (
                                                             /* User Flow Graph Configuration */
                                                             <div className="space-y-3 col-span-2">
-                                                                <div className="p-4 bg-gradient-to-br from-violet-50 to-fuchsia-50 dark:from-violet-900/20 dark:to-fuchsia-900/20 rounded-lg border-2 border-violet-300 dark:border-violet-500/50">
-                                                                    <Label className="text-sm font-semibold text-violet-700 dark:text-violet-300 mb-3 block">
+                                                                <div className="p-4 bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-800/30 dark:to-slate-800/20 rounded-lg border-2 border-gray-300 dark:border-gray-500/40">
+                                                                    <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 block">
                                                                         <div className="flex items-center gap-2">
                                                                             <GitBranch className="h-4 w-4" />
                                                                             User Flow Configuration
@@ -2270,7 +2272,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
 
                                                                     <div className="space-y-4">
                                                                         {((panel as any).userFlowConfig?.stages || []).map((stage: any, index: number) => (
-                                                                            <div key={stage.id || index} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-violet-200 dark:border-violet-500/30 shadow-sm relative group">
+                                                                            <div key={stage.id || index} className="p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-500/30 shadow-sm relative group">
                                                                                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                                     <Button
                                                                                         variant="ghost"
@@ -2292,11 +2294,11 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                 </div>
 
                                                                                 <div className="flex items-center gap-2 mb-2">
-                                                                                    <div className="flex items-center justify-center bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 h-5 w-5 rounded-full text-[10px] font-bold">
+                                                                                    <div className="flex items-center justify-center bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-300 h-5 w-5 rounded-full text-[10px] font-bold">
                                                                                         {index + 1}
                                                                                     </div>
                                                                                     <Input
-                                                                                        className="h-7 text-xs font-semibold border-transparent hover:border-violet-200 focus:border-violet-400 px-1 w-[200px]"
+                                                                                        className="h-7 text-xs font-semibold border-transparent hover:border-gray-200 focus:border-gray-400 px-1 w-[200px]"
                                                                                         value={stage.label || ''}
                                                                                         placeholder={`Stage ${index + 1} Label`}
                                                                                         onChange={(e) => {
@@ -2344,7 +2346,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                         {(stage.eventIds || []).map((eid: string) => {
                                                                                             const ev = availableEvents.find(e => e.eventId === eid);
                                                                                             return ev ? (
-                                                                                                <span key={eid} className="text-[10px] px-1.5 py-0.5 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 rounded border border-violet-100 dark:border-violet-800">
+                                                                                                <span key={eid} className="text-[10px] px-1.5 py-0.5 bg-gray-50 text-gray-700 dark:bg-gray-700/30 dark:text-gray-300 rounded border border-gray-100 dark:border-gray-700">
                                                                                                     {ev.eventName}
                                                                                                 </span>
                                                                                             ) : null;
@@ -2371,7 +2373,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                     return p;
                                                                                 }));
                                                                             }}
-                                                                            className="w-full h-8 text-xs border-dashed border-violet-300 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20"
+                                                                            className="w-full h-8 text-xs border-dashed border-gray-300 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/20"
                                                                         >
                                                                             <Plus className="h-3 w-3 mr-1" />
                                                                             Add Flow Stage
@@ -2434,8 +2436,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         {panel.isApiEvent ? (
                                                                             /* API Event Visualizations */
                                                                             <>
-                                                                                <div className="p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
-                                                                                    <p className="text-xs font-semibold text-purple-700 dark:text-purple-300 mb-2">
+                                                                                <div className="p-3 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/30 dark:to-slate-800/20 rounded-lg border border-gray-200 dark:border-gray-500/30">
+                                                                                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-300 mb-2">
                                                                                         🚀 API Performance Metrics
                                                                                     </p>
                                                                                     <ul className="text-xs text-muted-foreground space-y-1">

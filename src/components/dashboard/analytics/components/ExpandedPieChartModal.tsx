@@ -9,6 +9,7 @@ import { getPOSName } from '@/lib/posMapping';
 import { useChartZoom } from '@/hooks/useChartZoom';
 import { useChartKeyboardNav } from '@/hooks/useAccessibility';
 import { ChartZoomControls } from './ChartZoomControls';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 // Professional Pie Tooltip
 // Professional Pie Tooltip
@@ -26,14 +27,18 @@ const formatRupee = (num: number | null | undefined) => {
 };
 
 export const PIE_COLORS = [
-    '#818cf8', // indigo-400 - deeper, more vibrant
-    '#34d399', // emerald-400 - richer green
-    '#fbbf24', // amber-400 - more golden
-    '#f87171', // red-400 - stronger, more confident
-    '#a78bfa', // violet-400 - more royal purple
-    '#22d3ee', // cyan-400 - more vivid blue
-    '#f472b6', // pink-400 - more saturated
-    '#2dd4bf', // teal-400 - richer aqua
+    '#3b82f6', // Blue 500 - Primary, confident
+    '#10b981', // Emerald 500 - Fresh green
+    '#f59e0b', // Amber 500 - Warm golden
+    '#ef4444', // Red 500 - Bold red
+    '#8b5cf6', // Violet 500 - Rich purple
+    '#06b6d4', // Cyan 500 - Vivid cyan
+    '#ec4899', // Pink 500 - Strong pink
+    '#14b8a6', // Teal 500 - Deep teal
+    '#f97316', // Orange 500 - Vibrant orange
+    '#84cc16', // Lime 500 - Fresh lime
+    '#6366f1', // Indigo 500 - Deep indigo
+    '#a855f7', // Purple 500 - Royal purple
 ];
 
 // Professional Pie Tooltip
@@ -99,6 +104,7 @@ interface ExpandedPieChartModalProps {
 }
 
 export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType = 0 }: ExpandedPieChartModalProps) {
+    const { t: themeClasses } = useAccentTheme();
     // Local state to manage the currently selected distribution type within the modal
     const [activeType, setActiveType] = useState<'platform' | 'pos' | 'source'>('platform');
     const [minPercentage, setMinPercentage] = useState(0);
@@ -242,13 +248,13 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent
                 showCloseButton={true}
-                className="w-[98vw] max-w-[1800px] h-[92vh] overflow-hidden p-0 bg-white dark:bg-slate-950 flex flex-col md:flex-row gap-0 shadow-2xl"
+                className="w-[98vw] max-w-[1800px] h-[92vh] max-h-[calc(100vh-64px)] overflow-hidden p-0 bg-white dark:bg-slate-950 flex flex-col md:flex-row gap-0 shadow-2xl !top-[calc(50%+32px)] !left-[50%] !translate-x-[-50%] !translate-y-[-50%]"
             >
                 {/* Left Sidebar - Navigation */}
-                <div className="w-full md:w-64 bg-slate-50 dark:bg-slate-900 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 flex flex-col flex-shrink-0">
-                    <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+                <div className={cn("w-full md:w-64 border-b md:border-b-0 md:border-r flex flex-col flex-shrink-0 bg-slate-50 dark:bg-slate-900", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                    <div className={cn("p-4 border-b", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
                         <div className="flex items-center gap-2.5 mb-3">
-                            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+                            <div className={cn("h-7 w-7 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", themeClasses.buttonGradient)}>
                                 <PieChartIcon className="h-3.5 w-3.5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -264,7 +270,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                 placeholder="Search..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-8 px-8 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                className="w-full h-8 px-8 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             />
                             <svg className="absolute left-2.5 top-2.5 h-3 w-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -298,15 +304,15 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                         className={cn(
                                             "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200",
                                             isActive
-                                                ? "bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm ring-1 ring-purple-200 dark:ring-purple-500/30"
-                                                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
+                                                ? cn("shadow-sm ring-1", themeClasses.badgeBg, themeClasses.badgeBgDark, themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.textPrimary, themeClasses.textPrimaryDark)
+                                                : cn("hover:bg-opacity-50", themeClasses.textSecondary, themeClasses.textSecondaryDark, "hover:bg-slate-100 dark:hover:bg-slate-800/50")
                                         )}
                                     >
-                                        <Icon className={cn("h-3.5 w-3.5", isActive ? "text-purple-500" : "text-slate-400")} />
+                                        <Icon className={cn("h-3.5 w-3.5", isActive ? "text-indigo-500" : "text-slate-400")} />
                                         <span>{item.label}</span>
                                         <span className={cn(
                                             "ml-auto text-[10px] px-1.5 py-0.5 rounded-full font-bold",
-                                            isActive ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                                            isActive ? "bg-gray-100 dark:bg-gray-600/20 text-gray-700 dark:text-gray-300" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
                                         )}>
                                             {item.count}
                                         </span>
@@ -326,8 +332,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                         className={cn(
                                             "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
                                             topItems === count
-                                                ? "bg-purple-600 text-white shadow-sm"
-                                                : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                                                ? cn("text-white shadow-sm", themeClasses.buttonGradient)
+                                                : cn("text-slate-500 hover:text-slate-700 dark:hover:text-slate-300", themeClasses.badgeBg, themeClasses.badgeBgDark)
                                         )}
                                     >
                                         {count === 'all' ? 'All' : `Top ${count}`}
@@ -340,7 +346,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                         <div className="space-y-2 px-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                             <div className="flex justify-between items-center">
                                 <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Filter by Min %</span>
-                                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">{minPercentage}%</span>
+                                <span className="text-[10px] font-bold text-gray-600 dark:text-gray-400">{minPercentage}%</span>
                             </div>
                             <input
                                 type="range"
@@ -349,7 +355,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                 step="0.5"
                                 value={minPercentage}
                                 onChange={(e) => setMinPercentage(parseFloat(e.target.value))}
-                                className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                                className={cn("w-full h-1 rounded-lg appearance-none cursor-pointer", themeClasses.badgeBg, themeClasses.badgeBgDark)}
+                                style={{ accentColor: '#6366f1' }}
                             />
                             <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase">
                                 <span>0%</span>
@@ -358,8 +365,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                         </div>
                     </div>
 
-                    <div className="p-4 mt-auto border-t border-slate-200 dark:border-slate-800 md:block hidden">
-                        <Button variant="outline" className="w-full justify-center h-9 text-xs" onClick={onClose}>
+                    <div className={cn("p-4 mt-auto border-t md:block hidden", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                        <Button variant="outline" className={cn("w-full justify-center h-9 text-xs", themeClasses.buttonGradient, themeClasses.buttonHover)} onClick={onClose}>
                             Close View
                         </Button>
                     </div>
@@ -368,7 +375,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white dark:bg-slate-950">
                     {/* Header for Mobile/Desktop */}
-                    <div className="px-4 py-2 md:px-6 md:py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-950 z-10 min-h-[56px]">
+                    <div className={cn("px-4 py-2 md:px-6 md:py-2.5 border-b flex items-center justify-between z-10 min-h-[56px] bg-white dark:bg-slate-950", themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.textPrimary, themeClasses.textPrimaryDark)}>
                         <div>
                             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 capitalize">
                                 {activeType} Breakdown
@@ -393,11 +400,11 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                     </div>
 
                     {/* Chart Container */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 bg-slate-50/30 dark:bg-slate-900/10">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 bg-white dark:bg-slate-950">
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6 max-w-none mx-auto h-full items-start">
 
                             {/* Chart Section */}
-                            <div className="xl:col-span-7 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm relative min-h-[400px]">
+                            <div className="xl:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm relative min-h-[400px]">
                                 {/* Zoom Controls */}
                                 <div className="absolute top-4 right-4 z-10">
                                     <ChartZoomControls
@@ -470,14 +477,14 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                         <span className="text-5xl font-black text-slate-900 dark:text-white tabular-nums tracking-tighter">
                                             {pieData.isApiEvent ? formatRupee(total).split('.')[0] : formatNumber(total)}
                                         </span>
-                                        <div className="h-1 w-12 bg-purple-500/50 rounded-full mt-4" />
+                                        <div className="h-1 w-12 bg-gray-500/50 rounded-full mt-4" />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Data Table Section */}
-                            <div className="xl:col-span-5 flex flex-col bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full max-h-[750px]">
-                                <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex justify-between items-center">
+                            <div className="xl:col-span-5 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full max-h-[750px]">
+                                <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
                                     <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
                                         {searchQuery ? `Search Results (${filteredData.length})` : 'Detailed Breakdown'}
                                     </h4>
@@ -493,7 +500,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                         return (
                                             <div
                                                 key={item.name}
-                                                className="flex items-center gap-3 p-3 w-full border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                                className="flex items-center gap-3 p-3 w-full border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                             >
                                                 <div
                                                     className={cn(

@@ -3,12 +3,36 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const { data, context, mode, transcript, options, currentDate } = req.body;
-    const apiKey = process.env.VITE_GEMINI_API_KEY;
+    const { data, context, mode, transcript, options, currentDate, userMessage, context: chatbotContext } = req.body;
+    
+    // Get API keys array from environment
+    const getApiKeys = () => {
+        const keysArray = process.env.VITE_GEMINI_API_KEYS_ARRAY;
+        if (keysArray) {
+            try {
+                if (typeof keysArray === 'string') {
+                    return JSON.parse(keysArray);
+                }
+                return keysArray;
+            } catch {
+                return keysArray.split(',').map(k => k.trim().replace(/["\[\]]/g, ''));
+            }
+        }
+        const singleKey = process.env.VITE_GEMINI_API_KEY;
+        return singleKey ? [singleKey] : [];
+    };
 
-    if (!apiKey) {
-        return res.status(500).json({ error: 'Server Configuration Error: Missing API Key' });
+    const API_KEYS = getApiKeys();
+    const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
+    
+    if (API_KEYS.length === 0) {
+        return res.status(500).json({ error: 'Server Configuration Error: Missing API Keys' });
     }
+
+    // Key rotation helper
+    let currentKeyIndex = 0;
+    const getNextApiKey = () => API_KEYS[currentKeyIndex % API_KEYS.length];
+    const rotateKey = () => { currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length; };
 
     try {
         let prompt = '';
@@ -16,8 +40,25 @@ export default async function handler(req, res) {
             temperature: 0.7,
             maxOutputTokens: 300,
         };
+        let contents = null;
 
-        if (mode === 'parse_voice') {
+        if (mode === 'chatbot') {
+            // Chatbot mode - use conversation history
+            const { systemPrompt, contextInfo, conversationHistory } = chatbotContext;
+            const systemMessage = `${systemPrompt}\n\n${contextInfo}`;
+            
+            contents = [
+                { role: 'user', parts: [{ text: systemMessage }] },
+                { role: 'model', parts: [{ text: 'I understand. I\'m ready to help with dashboard questions and filter adjustments.' }] },
+                ...conversationHistory,
+                { role: 'user', parts: [{ text: userMessage }] }
+            ];
+
+            generationConfig = {
+                temperature: 0.7,
+                maxOutputTokens: 1000,
+            };
+        } else if (mode === 'parse_voice') {
             prompt = `
             You are a dashboard filter assistant. Convert this voice transcript into a structured JSON filter object.
             
@@ -73,16 +114,50 @@ export default async function handler(req, res) {
             `;
         }
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig
-            })
-        });
+        // Make API call with retry logic
+        let lastError = null;
+        let result = null;
+        
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const apiKey = getNextApiKey();
+                const url = `${BASE_API_URL}?key=${apiKey}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: contents || [{ parts: [{ text: prompt }] }],
+                        generationConfig
+                    })
+                });
 
-        const result = await response.json();
+                if (response.ok) {
+                    result = await response.json();
+                    break;
+                } else if (response.status === 429 || response.status === 403) {
+                    console.warn(`API key failed with ${response.status}, rotating...`);
+                    rotateKey();
+                    lastError = new Error(`API Error: ${response.statusText}`);
+                    if (attempt < 2) {
+                        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                        continue;
+                    }
+                } else {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+            } catch (error) {
+                lastError = error;
+                if (attempt < 2) {
+                    rotateKey();
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                }
+            }
+        }
+
+        if (!result) {
+            throw lastError || new Error('Failed to call Gemini API after retries');
+        }
         
         if (result.error) {
             throw new Error(result.error.message);
@@ -91,7 +166,25 @@ export default async function handler(req, res) {
         const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!text) throw new Error('No content generated');
 
-        // Parse JSON from text
+        // Handle chatbot mode
+        if (mode === 'chatbot') {
+            // Try to parse JSON response if it contains filter updates
+            let parsedResponse = { response: text };
+            try {
+                const jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.shouldUpdateFilters || parsed.explanation) {
+                        parsedResponse = parsed;
+                    }
+                }
+            } catch {
+                // Not JSON, use as plain text response
+            }
+            return res.status(200).json(parsedResponse);
+        }
+
+        // Parse JSON from text for other modes
         let cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
         const parsedResult = JSON.parse(cleanedText);
 

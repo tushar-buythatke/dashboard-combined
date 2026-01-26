@@ -25,7 +25,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { InteractiveButton } from '@/components/ui/interactive-button';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { format } from 'date-fns';
 import { getPOSName } from '@/lib/posMapping';
 import { getEventDisplayName } from '@/hooks/useEventName';
 import { PLATFORMS, SOURCES } from '@/services/apiService';
@@ -217,6 +221,7 @@ export const AdditionalPanelItem = React.memo(({
     HourlyStatsCard,
     isHourly,
 }: AdditionalPanelItemProps) => {
+    const { t: themeClasses } = useAccentTheme();
 
     const eventColors = useMemo(() => {
         const map: Record<string, string> = {};
@@ -430,10 +435,10 @@ export const AdditionalPanelItem = React.memo(({
         >
             <div className="relative py-8">
                 <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t-4 border-dashed border-gradient-to-r from-purple-300 via-fuchsia-400 to-pink-300 dark:from-purple-600 dark:via-fuchsia-500 dark:to-pink-500" />
+                    <div className={cn("w-full border-t-4 border-dashed", themeClasses.borderAccent, themeClasses.borderAccentDark)} />
                 </div>
                 <div className="relative flex justify-center">
-                    <div className="px-6 py-2 bg-gradient-to-r from-purple-500 to-fuchsia-600 rounded-full shadow-lg">
+                    <div className={cn("px-6 py-2 bg-gradient-to-r rounded-full shadow-lg", themeClasses.buttonGradient)}>
                         <span className="text-white font-bold text-sm flex items-center gap-2">
                             <Layers className="w-5 h-5" />
                             {panelConfig?.isApiEvent && (
@@ -447,11 +452,11 @@ export const AdditionalPanelItem = React.memo(({
                 </div>
             </div>
 
-            <Card className="border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/50 to-fuchsia-50/30 dark:from-purple-900/20 dark:to-fuchsia-900/10 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300">
+            <Card className={cn("rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 border mb-6", themeClasses.featureCardBorder, themeClasses.featureCardBorderDark)}>
                 <CardHeader className="pb-4">
                     <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-600 flex items-center justify-center shadow-lg">
+                            <div className={cn("h-12 w-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg", themeClasses.buttonGradient)}>
                                 {panelGraphType === 'bar' ? (
                                     <BarChart3 className="h-6 w-6 text-white" />
                                 ) : (
@@ -463,7 +468,7 @@ export const AdditionalPanelItem = React.memo(({
                                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                                     {panelConfig?.isApiEvent && (
                                         <>
-                                            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-md">
+                                            <span className={cn("px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)}>
                                                 API
                                             </span>
                                             <span className="text-muted-foreground">•</span>
@@ -475,7 +480,7 @@ export const AdditionalPanelItem = React.memo(({
                                             panelGraphType === 'bar'
                                                 ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
                                                 : panelGraphType === 'percentage'
-                                                    ? "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300"
+                                                    ? "bg-gray-100 text-gray-800 dark:bg-gray-600/20 dark:text-gray-300"
                                                     : panelGraphType === 'funnel'
                                                         ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
                                                         : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
@@ -512,8 +517,8 @@ export const AdditionalPanelItem = React.memo(({
                     </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                    <div className="p-3 sm:p-4 bg-white/50 dark:bg-gray-900/50 rounded-xl border border-purple-100 dark:border-purple-900/30 shadow-sm">
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2 mb-4">
+                    <div className="p-4 sm:p-5 bg-white/50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700/30 shadow-sm">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 sm:gap-5 mb-4">
                             {/* Clickable Filter Toggle Bar */}
                             <button
                                 onClick={() =>
@@ -526,7 +531,7 @@ export const AdditionalPanelItem = React.memo(({
                                     "flex-1 flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-all duration-200 cursor-pointer group",
                                     panelFiltersCollapsed?.[panel.panelId] !== false
                                         ? "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
-                                        : "bg-gradient-to-r from-purple-100 to-fuchsia-100 dark:from-purple-900/30 dark:to-fuchsia-900/20 border border-purple-200 dark:border-purple-500/30"
+                                        : "bg-gradient-to-r from-gray-100 to-slate-100 dark:from-gray-800/30 dark:to-slate-800/20 border border-gray-200 dark:border-gray-500/30"
                                 )}
                             >
                                 <div className="flex items-center gap-3">
@@ -534,7 +539,7 @@ export const AdditionalPanelItem = React.memo(({
                                         "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
                                         panelFiltersCollapsed?.[panel.panelId] !== false
                                             ? "bg-slate-200 dark:bg-slate-700"
-                                            : "bg-gradient-to-br from-purple-500 to-fuchsia-600"
+                                            : "bg-gradient-to-br from-gray-500 to-slate-600"
                                     )}>
                                         <Filter className={cn(
                                             "w-4 h-4",
@@ -551,7 +556,7 @@ export const AdditionalPanelItem = React.memo(({
                                     {panelFiltersCollapsed?.[panel.panelId] !== false ? (
                                         <ChevronDown className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
                                     ) : (
-                                        <ChevronUp className="h-5 w-5 text-purple-500" />
+                                        <ChevronUp className="h-5 w-5 text-current" />
                                     )}
                                 </div>
                             </button>
@@ -560,17 +565,17 @@ export const AdditionalPanelItem = React.memo(({
                                 disabled={isPanelLoading}
                                 size="sm"
                                 className={cn(
-                                    "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] w-full sm:w-auto",
+                                    "relative transition-all duration-300 shadow-md font-semibold min-h-[44px] px-6 py-3 w-full sm:w-auto",
                                     panelFilterChanges?.[panel.panelId]
                                         ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-red-500/40 border-2 border-red-300"
-                                        : "bg-gradient-to-r from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-white"
+                                        : "bg-gradient-to-r from-gray-500 to-slate-600 hover:from-gray-600 hover:to-slate-700 text-white"
                                 )}
                                 loading={isPanelLoading}
                             >
                                 <RefreshCw className="w-4 h-4 mr-1.5" />
                                 {panelFilterChanges?.[panel.panelId] ? "⚡ APPLY" : "Refresh"}
                                 {panelFilterChanges?.[panel.panelId] && (
-                                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg">
+                                    <div className="absolute -top-1 -right-1 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border-2 border-red-300">
                                         !
                                     </div>
                                 )}
@@ -578,32 +583,94 @@ export const AdditionalPanelItem = React.memo(({
                         </div>
                         {panelFiltersCollapsed?.[panel.panelId] === false && (
                             <>
-                                <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/10 rounded-lg border border-purple-200 dark:border-purple-500/30">
+                                <div className="mb-4 p-3 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/20 dark:to-slate-800/10 rounded-lg border border-gray-200 dark:border-gray-500/30">
                                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            <CalendarIcon className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                                            <CalendarIcon className="w-4 h-4 text-current flex-shrink-0" />
                                             <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Date Range</span>
                                         </div>
                                         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-                                            <input
-                                                type="date"
-                                                value={currentPanelDateRange.from.toISOString().split('T')[0]}
-                                                onChange={(e) => {
-                                                    const newFrom = new Date(e.target.value);
-                                                    updatePanelDateRange?.(panel.panelId, newFrom, currentPanelDateRange.to);
-                                                }}
-                                                className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
-                                            />
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "flex-1 sm:flex-initial justify-start text-left font-normal min-h-[44px]",
+                                                            !currentPanelDateRange.from && "text-muted-foreground",
+                                                            themeClasses.badgeBg,
+                                                            themeClasses.badgeBgDark,
+                                                            themeClasses.borderAccent,
+                                                            themeClasses.borderAccentDark,
+                                                            "hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                        )}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {currentPanelDateRange.from ? (
+                                                            format(currentPanelDateRange.from, "dd/MM/yyyy")
+                                                        ) : (
+                                                            <span>Pick a date</span>
+                                                        )}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0 bg-white dark:bg-slate-950" align="start">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={currentPanelDateRange.from}
+                                                        onSelect={(date) => {
+                                                            if (date) {
+                                                                updatePanelDateRange?.(panel.panelId, date, currentPanelDateRange.to);
+                                                            }
+                                                        }}
+                                                        initialFocus
+                                                        classNames={{
+                                                            day_selected: cn("!bg-gradient-to-r text-white hover:!bg-gradient-to-r hover:text-white focus:!bg-gradient-to-r focus:text-white", themeClasses.buttonGradient),
+                                                            day_today: cn("bg-accent text-accent-foreground", themeClasses.badgeBg, themeClasses.badgeBgDark),
+                                                            day_range_start: cn("!bg-gradient-to-r text-white", themeClasses.buttonGradient),
+                                                            day_range_end: cn("!bg-gradient-to-r text-white", themeClasses.buttonGradient),
+                                                        }}
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
                                             <span className="text-gray-500 text-sm">to</span>
-                                            <input
-                                                type="date"
-                                                value={currentPanelDateRange.to.toISOString().split('T')[0]}
-                                                onChange={(e) => {
-                                                    const newTo = new Date(e.target.value);
-                                                    updatePanelDateRange?.(panel.panelId, currentPanelDateRange.from, newTo);
-                                                }}
-                                                className="flex-1 sm:flex-initial px-3 py-2 text-sm border rounded-md bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 min-h-[44px]"
-                                            />
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className={cn(
+                                                            "flex-1 sm:flex-initial justify-start text-left font-normal min-h-[44px]",
+                                                            !currentPanelDateRange.to && "text-muted-foreground",
+                                                            themeClasses.badgeBg,
+                                                            themeClasses.badgeBgDark,
+                                                            "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                                        )}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {currentPanelDateRange.to ? (
+                                                            format(currentPanelDateRange.to, "dd/MM/yyyy")
+                                                        ) : (
+                                                            <span>Pick a date</span>
+                                                        )}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0 bg-white dark:bg-slate-950" align="start">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={currentPanelDateRange.to}
+                                                        onSelect={(date) => {
+                                                            if (date) {
+                                                                updatePanelDateRange?.(panel.panelId, currentPanelDateRange.from, date);
+                                                            }
+                                                        }}
+                                                        initialFocus
+                                                        classNames={{
+                                                            day_selected: cn("!bg-gradient-to-r text-white hover:!bg-gradient-to-r hover:text-white focus:!bg-gradient-to-r focus:text-white", themeClasses.buttonGradient),
+                                                            day_today: cn("bg-accent text-accent-foreground", themeClasses.badgeBg, themeClasses.badgeBgDark),
+                                                            day_range_start: cn("!bg-gradient-to-r text-white", themeClasses.buttonGradient),
+                                                            day_range_end: cn("!bg-gradient-to-r text-white", themeClasses.buttonGradient),
+                                                        }}
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
                                         </div>
                                         <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
                                             <button
@@ -611,7 +678,7 @@ export const AdditionalPanelItem = React.memo(({
                                                 className={cn(
                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                     pIsHourly
-                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-300 shadow-sm"
                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                 )}
                                             >
@@ -622,7 +689,7 @@ export const AdditionalPanelItem = React.memo(({
                                                 className={cn(
                                                     "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                                                     !pIsHourly
-                                                        ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm"
+                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-300 shadow-sm"
                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                                                 )}
                                             >
@@ -665,7 +732,7 @@ export const AdditionalPanelItem = React.memo(({
                                                 return selectedEvent?.callUrl ? (
                                                     <p className="text-xs text-muted-foreground mt-1">
                                                         Call URL:{' '}
-                                                        <code className="px-1 bg-purple-100 dark:bg-purple-900/30 rounded">{selectedEvent.callUrl}</code>
+                                                        <code className="px-1 bg-gray-100 dark:bg-gray-800/30 rounded">{selectedEvent.callUrl}</code>
                                                     </p>
                                                 ) : null;
                                             })()}
@@ -692,9 +759,9 @@ export const AdditionalPanelItem = React.memo(({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Events</label>
+                                    <div className="grid gap-4 md:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mt-4 p-4 bg-gray-50/50 dark:bg-gray-800/20 rounded-lg border border-gray-100 dark:border-gray-700/30">
+                                        <div className="space-y-2">
+                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Events</label>
                                             <MultiSelectDropdown
                                                 options={events
                                                     .filter((e: any) => e.isApiEvent !== true)
@@ -715,8 +782,8 @@ export const AdditionalPanelItem = React.memo(({
                                                 placeholder="Select events"
                                             />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Platforms</label>
+                                        <div className="space-y-2">
+                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Platforms</label>
                                             <MultiSelectDropdown
                                                 options={PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }))}
                                                 selected={(currentPanelFilters.platforms || []).map((id: any) => id.toString())}
@@ -724,11 +791,11 @@ export const AdditionalPanelItem = React.memo(({
                                                     const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
                                                     updatePanelFilter?.(panel.panelId, 'platforms', numericValues);
                                                 }}
-                                                placeholder="Select platforms"
+                                                placeholder="All"
                                             />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">POS</label>
+                                        <div className="space-y-2">
+                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">POS</label>
                                             <MultiSelectDropdown
                                                 options={(siteDetails || []).map((s: any) => ({ value: s.id.toString(), label: `${s.name} (${s.id})` }))}
                                                 selected={(currentPanelFilters.pos || []).map((id: any) => id.toString())}
@@ -736,11 +803,11 @@ export const AdditionalPanelItem = React.memo(({
                                                     const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
                                                     updatePanelFilter?.(panel.panelId, 'pos', numericValues);
                                                 }}
-                                                placeholder="Select POS"
+                                                placeholder="All"
                                             />
                                         </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
+                                        <div className="space-y-2">
+                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Sources</label>
                                             <MultiSelectDropdown
                                                 options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
                                                 selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
@@ -748,7 +815,7 @@ export const AdditionalPanelItem = React.memo(({
                                                     const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
                                                     updatePanelFilter?.(panel.panelId, 'sources', numericValues);
                                                 }}
-                                                placeholder="Select sources"
+                                                placeholder="All"
                                             />
                                         </div>
                                     </div>
@@ -787,7 +854,7 @@ export const AdditionalPanelItem = React.memo(({
                                         source: <Zap className="h-4 w-4 text-white" />,
                                     };
                                     const gradientMap: any = {
-                                        platform: "from-indigo-500 to-violet-600",
+                                        platform: "from-indigo-500 to-blue-600",
                                         pos: "from-emerald-500 to-teal-600",
                                         source: "from-amber-500 to-orange-600",
                                     };
@@ -804,8 +871,8 @@ export const AdditionalPanelItem = React.memo(({
 
                                     return (
                                         <div key={pieType}>
-                                            <Card className={cn("border-2 overflow-hidden group", borderColorMap[pieType])}>
-                                                <CardHeader className="pb-2">
+                                            <Card className={cn("border-2 overflow-hidden group rounded-xl shadow-sm hover:shadow-md transition-all", borderColorMap[pieType])}>
+                                                <CardHeader className="pb-2 px-4 pt-4">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <div className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", gradientMap[pieType])}>
@@ -823,7 +890,14 @@ export const AdditionalPanelItem = React.memo(({
                                                                         variant="ghost"
                                                                         size="icon"
                                                                         className={cn("h-7 w-7", hoverBgMap[pieType])}
-                                                                        onClick={() => openExpandedPie?.(pieType, pieType.charAt(0).toUpperCase() + pieType.slice(1), pieData)}
+                                                                        onClick={() => {
+                                                                            const dists = {
+                                                                                platform: pieType === 'platform' ? pieData : [],
+                                                                                pos: pieType === 'pos' ? pieData : [],
+                                                                                source: pieType === 'source' ? pieData : []
+                                                                            };
+                                                                            openExpandedPie?.(pieType, pieType.charAt(0).toUpperCase() + pieType.slice(1), dists);
+                                                                        }}
                                                                     >
                                                                         <Maximize2 className="h-3.5 w-3.5" />
                                                                     </Button>
@@ -832,20 +906,53 @@ export const AdditionalPanelItem = React.memo(({
                                                         </div>
                                                     </div>
                                                 </CardHeader>
-                                                <CardContent>
-                                                    <div className="h-48">
+                                                <CardContent className="px-4 pb-4">
+                                                    <div className="h-44 relative">
                                                         {pieData?.length > 0 ? (
-                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                <PieChart>
-                                                                    <Pie data={pieData} cx="50%" cy="45%" innerRadius={30} outerRadius={55} paddingAngle={4} dataKey="value" strokeWidth={2} stroke="rgba(255,255,255,0.8)" isAnimationActive={false} animationDuration={0}>
-                                                                        {pieData.map((_: any, index: number) => (
-                                                                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                                                                        ))}
-                                                                    </Pie>
-                                                                    <Tooltip content={<PieTooltip totalValue={pieTotal} category={pieType} />} />
-                                                                    <Legend iconType="circle" iconSize={8} layout="horizontal" verticalAlign="bottom" wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
-                                                                </PieChart>
-                                                            </ResponsiveContainer>
+                                                            <>
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <PieChart>
+                                                                        <Pie 
+                                                                            data={pieData} 
+                                                                            cx="50%" 
+                                                                            cy="50%" 
+                                                                            innerRadius={45} 
+                                                                            outerRadius={70} 
+                                                                            paddingAngle={2} 
+                                                                            dataKey="value" 
+                                                                            isAnimationActive={false} 
+                                                                            stroke="none"
+                                                                        >
+                                                                            {pieData.map((_: any, index: number) => (
+                                                                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                                            ))}
+                                                                        </Pie>
+                                                                        <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={pieTotal} category={pieType} />} />
+                                                                    </PieChart>
+                                                                </ResponsiveContainer>
+                                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                                    <span className="text-xl font-black text-foreground tabular-nums">
+                                                                        {formatNumber(pieTotal)}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="absolute bottom-0 left-0 right-0 space-y-1 px-2 pb-2">
+                                                                    {[...pieData]
+                                                                        .sort((a: any, b: any) => b.value - a.value)
+                                                                        .slice(0, 2)
+                                                                        .map((item: any, idx: number) => {
+                                                                            const percentage = pieTotal > 0 ? (item.value / pieTotal) * 100 : 0;
+                                                                            return (
+                                                                                <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
+                                                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                        <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                    </div>
+                                                                                    <span className="text-indigo-500">{percentage.toFixed(0)}%</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                </div>
+                                                            </>
                                                         ) : (
                                                             <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                                                                 {iconMap[pieType]}

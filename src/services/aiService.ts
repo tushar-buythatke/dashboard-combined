@@ -1,8 +1,82 @@
 
 // MVP: Use env var if available, else fallback to hardcoded (safety net for dev)
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+// Get API keys array from env, fallback to single key
+const getApiKeys = (): string[] => {
+    const keysArray = import.meta.env.VITE_GEMINI_API_KEYS_ARRAY;
+    if (keysArray) {
+        try {
+            // Handle both JSON string and array format
+            if (typeof keysArray === 'string') {
+                return JSON.parse(keysArray);
+            }
+            return keysArray;
+        } catch {
+            return keysArray.split(',').map((k: string) => k.trim().replace(/["\[\]]/g, ''));
+        }
+    }
+    return GEMINI_API_KEY ? [GEMINI_API_KEY] : [];
+};
+
+const API_KEYS = getApiKeys();
+const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
 const PROXY_URL = '/api/analyze';
+
+// Key rotation with retry logic
+let currentKeyIndex = 0;
+const getNextApiKey = (): string => {
+    if (API_KEYS.length === 0) throw new Error('No Gemini API keys available');
+    return API_KEYS[currentKeyIndex % API_KEYS.length];
+};
+
+const rotateKey = () => {
+    currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+};
+
+export const callGeminiAPI = async (prompt: string, config: any = {}, maxRetries = 3): Promise<any> => {
+    let lastError: any = null;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            const apiKey = getNextApiKey();
+            const url = `${BASE_API_URL}?key=${apiKey}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: config.temperature ?? 0.7,
+                        maxOutputTokens: config.maxOutputTokens ?? 1000,
+                        response_mime_type: config.response_mime_type || undefined,
+                        ...config
+                    }
+                })
+            });
+
+            if (response.ok) {
+                return await response.json();
+            } else if (response.status === 429 || response.status === 403) {
+                // Rate limit or quota exceeded - try next key
+                console.warn(`API key ${apiKey.substring(0, 10)}... failed with ${response.status}, rotating...`);
+                rotateKey();
+                lastError = new Error(`API Error: ${response.statusText}`);
+                continue;
+            } else {
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+            }
+        } catch (error: any) {
+            lastError = error;
+            if (attempt < maxRetries - 1) {
+                rotateKey();
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Exponential backoff
+            }
+        }
+    }
+    
+    throw lastError || new Error('Failed to call Gemini API after retries');
+};
 
 export interface AiInsightContext {
     panelName: string;
@@ -107,24 +181,10 @@ export const generatePanelInsights = async (
             5. JSON Array ONLY. 
             `;
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 300,
-                    }
-                })
+            const result = await callGeminiAPI(prompt, {
+                temperature: 0.7,
+                maxOutputTokens: 300,
             });
-
-            if (!response.ok) {
-                if (response.status === 429) throw new Error('Rate limit exceeded');
-                throw new Error(`AI Service Error: ${response.statusText}`);
-            }
-
-            const result = await response.json();
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!text) return ["No insights generated."];
 
@@ -223,28 +283,11 @@ export const parseTranscriptToFilters = async (
             }
             `;
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0.1,
-                        maxOutputTokens: 800,
-                        response_mime_type: "application/json"
-                    }
-                })
+            const result = await callGeminiAPI(prompt, {
+                temperature: 0.1,
+                maxOutputTokens: 800,
+                response_mime_type: "application/json"
             });
-
-            if (!response.ok) {
-                const errorText = await response.text().catch(() => response.statusText);
-                const error: any = new Error(`AI Filter Error: ${response.statusText}`);
-                error.status = response.status;
-                error.details = errorText;
-                throw error;
-            }
-
-            const result = await response.json();
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!text) throw new Error("No response from AI");
 

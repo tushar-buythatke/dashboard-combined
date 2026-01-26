@@ -193,7 +193,7 @@ export function TutorialOverlay({
 
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 text-white text-sm font-bold ring-4 ring-indigo-100 dark:ring-indigo-900/30">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-gray-600 to-slate-600 text-white text-sm font-bold ring-4 ring-indigo-100 dark:ring-indigo-900/30">
                             {currentStep + 1}
                         </div>
                         <h3 className="font-bold text-base text-foreground">{step.title}</h3>
@@ -231,7 +231,7 @@ export function TutorialOverlay({
                         <Button
                             variant="default"
                             size="sm"
-                            className="h-9 px-4 text-sm bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-indigo-500/20"
+                            className="h-9 px-4 text-sm bg-gradient-to-r from-gray-600 to-slate-600 hover:from-gray-700 hover:to-slate-700 shadow-lg shadow-indigo-500/20"
                             onClick={onNext}
                         >
                             {currentStep === steps.length - 1 ? 'Finish Tour' : (

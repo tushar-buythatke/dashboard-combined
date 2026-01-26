@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { Sparkles, Zap } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface HeroGradientHeaderProps {
     title: string;
@@ -12,18 +12,9 @@ interface HeroGradientHeaderProps {
         value: string | number;
     }>;
     actions?: ReactNode;
-    variant?: 'indigo' | 'purple' | 'blue' | 'gradient' | 'autosnipe';
     className?: string;
     children?: ReactNode;
 }
-
-const GRADIENT_VARIANTS = {
-    indigo: 'from-[#4F46E5] via-[#6366F1] to-[#818CF8]',
-    purple: 'from-[#7C3AED] via-[#8B5CF6] to-[#A78BFA]',
-    blue: 'from-[#3B82F6] via-[#6366F1] to-[#8B5CF6]',
-    gradient: 'from-[#4F46E5] via-[#7C3AED] to-[#EC4899]',
-    autosnipe: 'from-[#0a0a0a] via-[#052e16] to-[#0a0a0a]',
-};
 
 export function HeroGradientHeader({
     title,
@@ -31,56 +22,58 @@ export function HeroGradientHeader({
     icon,
     stats,
     actions,
-    variant = 'gradient',
     className,
     children,
 }: HeroGradientHeaderProps) {
     const { isAutosnipe } = useTheme();
-    const effectiveVariant = isAutosnipe ? 'autosnipe' : variant;
+    const { t } = useAccentTheme();
     
     return (
         <div
             className={cn(
-                'relative overflow-hidden rounded-3xl p-6 md:p-8',
-                'bg-gradient-to-r',
-                GRADIENT_VARIANTS[effectiveVariant],
+                'relative overflow-hidden rounded-2xl md:rounded-3xl',
+                'bg-gradient-to-r shadow-xl',
                 isAutosnipe 
-                    ? 'shadow-[0_10px_40px_rgba(34,197,94,0.2)] border border-green-500/30' 
-                    : 'shadow-xl',
+                    ? 'from-[#0a0a0a] via-[#052e16] to-[#0a0a0a] shadow-green-500/10 border border-green-500/20' 
+                    : t.headerGradient,
                 className
             )}
         >
-            {/* Decorative elements */}
+            {/* Glassmorphic background layers */}
             <div className="absolute inset-0 overflow-hidden">
                 {isAutosnipe ? (
                     <>
-                        <div className="absolute -top-24 -right-24 w-48 h-48 bg-green-500/20 rounded-full blur-3xl" />
-                        <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-emerald-500/15 rounded-full blur-2xl" />
-                        <div className="absolute top-1/2 right-1/4 w-24 h-24 bg-green-400/10 rounded-full blur-xl" />
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-60" />
-                        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-40" />
+                        <div className="absolute -top-24 -right-24 w-64 h-64 bg-green-500/20 rounded-full blur-3xl" />
+                        <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-emerald-500/15 rounded-full blur-3xl" />
+                        <div className="absolute top-1/3 right-1/4 w-32 h-32 bg-green-400/10 rounded-full blur-2xl" />
+                        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-green-500/50 to-transparent" />
+                        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent" />
                     </>
                 ) : (
                     <>
-                        <div className="absolute -top-24 -right-24 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
-                        <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-white/10 rounded-full blur-2xl" />
-                        <div className="absolute top-1/2 right-1/4 w-24 h-24 bg-white/5 rounded-full blur-xl" />
+                        {/* Soft gradient orbs for depth */}
+                        <div className="absolute -top-32 -right-32 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
+                        <div className="absolute -bottom-20 -left-20 w-56 h-56 bg-white/10 rounded-full blur-3xl" />
+                        <div className="absolute top-1/2 right-1/3 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
+                        {/* Subtle top highlight */}
+                        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                     </>
                 )}
             </div>
 
-            {/* Content */}
-            <div className="relative z-10">
+            {/* Content container with padding */}
+            <div className="relative z-10 p-5 md:p-7">
                 {/* Header Row */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
                     <div className="flex items-center gap-4">
                         {icon && (
                             <div
                                 className={cn(
-                                    "w-14 h-14 rounded-2xl backdrop-blur-sm flex items-center justify-center shadow-lg",
+                                    "w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center",
+                                    "backdrop-blur-xl shadow-lg border",
                                     isAutosnipe 
-                                        ? "bg-green-500/30 border border-green-500/50 shadow-green-500/20" 
-                                        : "bg-white/20"
+                                        ? "bg-green-500/20 border-green-500/40 shadow-green-500/10" 
+                                        : "bg-white/15 border-white/20 shadow-white/5"
                                 )}
                             >
                                 {icon}
@@ -89,22 +82,17 @@ export function HeroGradientHeader({
                         <div>
                             <h1
                                 className={cn(
-                                    "text-2xl md:text-3xl font-bold flex items-center gap-2",
+                                    "text-xl md:text-2xl lg:text-3xl font-bold tracking-tight",
                                     isAutosnipe ? "text-green-400" : "text-white"
                                 )}
                             >
                                 {title}
-                                {isAutosnipe ? (
-                                    <Zap className="w-5 h-5 text-green-400" />
-                                ) : (
-                                    <Sparkles className="w-5 h-5 text-white/70" />
-                                )}
                             </h1>
                             {subtitle && (
                                 <p
                                     className={cn(
-                                        "text-sm md:text-base mt-1",
-                                        isAutosnipe ? "text-green-300/80" : "text-white/80"
+                                        "text-sm md:text-base mt-0.5 font-medium",
+                                        isAutosnipe ? "text-green-300/70" : "text-white/70"
                                     )}
                                 >
                                     {subtitle}
@@ -123,25 +111,26 @@ export function HeroGradientHeader({
 
                 {/* Stats Row */}
                 {stats && stats.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
                         {stats.map((stat) => (
                             <div
                                 key={stat.label}
                                 className={cn(
-                                    "backdrop-blur-sm rounded-xl p-3 md:p-4 border transition-all duration-150 hover:scale-[1.02]",
+                                    "rounded-xl p-3 md:p-4 border transition-all duration-200",
+                                    "backdrop-blur-xl",
                                     isAutosnipe
-                                        ? "bg-green-500/10 border-green-500/30 hover:border-green-400/50"
-                                        : "bg-white/15 border-white/10"
+                                        ? "bg-green-500/10 border-green-500/25 hover:border-green-400/40 hover:bg-green-500/15"
+                                        : "bg-white/10 border-white/15 hover:border-white/25 hover:bg-white/15"
                                 )}
                             >
                                 <p className={cn(
-                                    "text-xs uppercase tracking-wide font-medium",
-                                    isAutosnipe ? "text-green-300/70" : "text-white/70"
+                                    "text-[10px] md:text-xs uppercase tracking-wider font-semibold",
+                                    isAutosnipe ? "text-green-300/60" : "text-white/60"
                                 )}>
                                     {stat.label}
                                 </p>
                                 <p className={cn(
-                                    "text-xl md:text-2xl font-bold mt-1",
+                                    "text-lg md:text-xl lg:text-2xl font-bold mt-0.5",
                                     isAutosnipe ? "text-green-400" : "text-white"
                                 )}>
                                     {stat.value}
@@ -163,32 +152,35 @@ export function HeroGradientBanner({
     title,
     subtitle,
     icon,
-    variant = 'gradient',
     className,
 }: Omit<HeroGradientHeaderProps, 'stats' | 'actions' | 'children'>) {
+    const { t } = useAccentTheme();
+    
     return (
         <div
             className={cn(
-                'relative overflow-hidden rounded-2xl px-5 py-4 shadow-lg',
-                'bg-gradient-to-r',
-                GRADIENT_VARIANTS[variant],
+                'relative overflow-hidden rounded-xl px-4 py-3 md:px-5 md:py-4',
+                'bg-gradient-to-r shadow-lg',
+                t.headerGradient,
                 className
             )}
         >
+            {/* Background orb */}
             <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute -top-12 -right-12 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute -top-12 -right-12 w-28 h-28 bg-white/10 rounded-full blur-2xl" />
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
             </div>
 
             <div className="relative z-10 flex items-center gap-3">
                 {icon && (
-                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-white/15 backdrop-blur-xl border border-white/20 flex items-center justify-center">
                         {icon}
                     </div>
                 )}
                 <div>
-                    <h3 className="text-lg font-semibold text-white">{title}</h3>
+                    <h3 className="text-base md:text-lg font-semibold text-white">{title}</h3>
                     {subtitle && (
-                        <p className="text-white/70 text-sm">{subtitle}</p>
+                        <p className="text-white/65 text-sm">{subtitle}</p>
                     )}
                 </div>
             </div>

@@ -5,6 +5,7 @@ export interface DashboardViewerProps {
     onEditProfile?: (profile: DashboardProfile) => void;
     onAlertsUpdate?: (alerts: any[]) => void;
     onPanelActive?: (panelId: string) => void;
+    onEventsLoaded?: (events: any[]) => void;
 }
 
 export interface FilterState {

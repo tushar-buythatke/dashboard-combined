@@ -9,6 +9,7 @@ import { apiService, PLATFORMS, SOURCES } from '@/services/apiService';
 import { mockService } from '@/services/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import type { SiteDetail } from '@/services/apiService';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ import { UserFlowVisualization } from './charts/UserFlowVisualization';
 import { CustomEventLabelsModal } from './admin/CustomEventLabelsModal';
 import { useCustomEventLabels } from '@/contexts/CustomEventLabelsContext';
 import { useEventName } from '@/hooks/useEventName';
+import { DashboardChatbot } from './components/DashboardChatbot';
 import {
     ResponsiveContainer,
     AreaChart,
@@ -115,7 +117,7 @@ const __LeftSidebarNav = ({
                         {!collapsed && (
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md">
                                         <Target className="w-4 h-4 text-white" />
                                     </div>
                                     <div className="truncate">
@@ -124,7 +126,7 @@ const __LeftSidebarNav = ({
                                             <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate">{profileName}</h3>
                                             {/* API Event Indicator in Sidebar Profile Name */}
                                             {isMainPanelApi && (
-                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-sm flex-shrink-0">
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-sm flex-shrink-0">
                                                     API
                                                 </span>
                                             )}
@@ -168,7 +170,7 @@ const __LeftSidebarNav = ({
                                         "w-full text-left rounded-lg transition-all duration-200 group",
                                         collapsed ? "p-2" : "p-3",
                                         isActive
-                                            ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 shadow-sm"
+                                            ? "bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 shadow-sm"
                                             : "hover:bg-gray-100 dark:hover:bg-gray-800/50 border border-transparent"
                                     )}
                                 >
@@ -177,8 +179,8 @@ const __LeftSidebarNav = ({
                                             "flex items-center justify-center rounded-lg transition-colors",
                                             collapsed ? "w-10 h-10" : "w-8 h-8",
                                             isActive
-                                                ? "bg-purple-500 text-white shadow-md"
-                                                : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/30 group-hover:text-purple-600"
+                                                ? "bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-md"
+                                                : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                                         )}>
                                             <span className="text-sm font-bold">{index + 1}</span>
                                         </div>
@@ -189,13 +191,13 @@ const __LeftSidebarNav = ({
                                                     {getChartIcon(panel.chartType)}
                                                     <span className={cn(
                                                         "font-medium truncate text-sm",
-                                                        isActive ? "text-purple-700 dark:text-purple-300" : "text-gray-700 dark:text-gray-300"
+                                                        isActive ? "text-indigo-700 dark:text-indigo-300" : "text-gray-700 dark:text-gray-300"
                                                     )}>
                                                         {panel.panelName || `Panel ${index + 1}`}
                                                     </span>
                                                     {/* API Event Indicator in Sidebar */}
                                                     {panel.filterConfig?.isApiEvent === true && (
-                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white shadow-sm">
+                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-sm">
                                                             API
                                                         </span>
                                                     )}
@@ -217,7 +219,7 @@ const __LeftSidebarNav = ({
                                         )}
 
                                         {!collapsed && isActive && (
-                                            <div className="w-1.5 h-8 rounded-full bg-purple-500" />
+                                            <div className="w-1.5 h-8 rounded-full bg-gradient-to-b from-indigo-500 to-blue-600" />
                                         )}
                                     </div>
                                 </button>
@@ -289,12 +291,13 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
 
 // Pie chart modal is now in its own component file
 
-export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPanelActive }: DashboardViewerProps) {
+export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPanelActive, onEventsLoaded }: DashboardViewerProps) {
     // Theme and organization context
     const { currentTheme, isAutosnipe, themePalette } = useTheme();
     const { selectedOrganization } = useOrganization();
     const { triggerRefresh, refreshTrigger } = useCustomEventLabels();
     const { getEventDisplayName } = useEventName();
+    const { t: themeClasses } = useAccentTheme();
 
     const [profile, setProfile] = useState<DashboardProfile | null>(null);
     const [customLabelsModalOpen, setCustomLabelsModalOpen] = useState(false);
@@ -466,6 +469,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const [isParsingVoice, setIsParsingVoice] = useState(false);
     const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>('idle');
     const [manualTranscript, setManualTranscript] = useState('');
+    const [lastVoiceCommand, setLastVoiceCommand] = useState<string>(''); // Track voice commands for chatbot
 
     const lastAutoSentTranscript = useRef<string>('');
 
@@ -480,6 +484,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 lastAutoSentTranscript.current = transcript;
                 const cleanText = transcript.slice(0, -9).trim();
                 if (cleanText) {
+                    setVoiceStatus('parsing'); // Set status to parsing immediately
                     handleVoiceTranscript(cleanText);
                 }
             }
@@ -637,6 +642,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 description: result.explanation || "Filters applied successfully.",
             });
 
+            // Store the voice command for chatbot display
+            setLastVoiceCommand(text);
+
             let targetDateRange: DateRangeState | undefined = undefined;
             const aiDateRange = aiFilters.dateRange || result.dateRange;
             if (aiDateRange) {
@@ -662,7 +670,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             setVoiceStatus('done');
 
             // Reset status after a delay
-            setTimeout(() => setVoiceStatus('idle'), 3000);
+            setTimeout(() => {
+                setVoiceStatus('idle');
+                setLastVoiceCommand(''); // Clear after displaying in chat
+            }, 3000);
 
         } catch (err: any) {
             console.error("Failed to parse voice command:", err);
@@ -1473,9 +1484,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             const legendElement = document.getElementById(`legend-${eventKey}`);
             if (legendElement) {
                 legendElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                legendElement.classList.add('ring-4', 'ring-purple-400');
+                legendElement.classList.add('ring-4', 'ring-indigo-400');
                 setTimeout(() => {
-                    legendElement.classList.remove('ring-4', 'ring-purple-400');
+                    legendElement.classList.remove('ring-4', 'ring-indigo-400');
                 }, 1500);
             }
         }, 100);
@@ -1506,9 +1517,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             const legendElement = document.getElementById(`legend-${eventKey}`);
             if (legendElement) {
                 legendElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                legendElement.classList.add('ring-4', 'ring-purple-400');
+                legendElement.classList.add('ring-4', 'ring-indigo-400');
                 setTimeout(() => {
-                    legendElement.classList.remove('ring-4', 'ring-purple-400');
+                    legendElement.classList.remove('ring-4', 'ring-indigo-400');
                 }, 1500);
             }
         }, 100);
@@ -1542,18 +1553,38 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         }));
     }, []);
 
-    // Function to update panel date range
+    // Function to update panel date range - also syncs with main date range
     const updatePanelDateRange = useCallback((panelId: string, from: Date, to: Date) => {
+        // Update the panel-specific date range
         setPanelDateRanges(prev => ({
             ...prev,
             [panelId]: { from, to }
         }));
+        
+        // Sync with main date range so both stay in sync
+        setDateRange({ from, to });
+        
+        // Also sync ALL other panel date ranges with the new date range
+        if (profile?.panels) {
+            const updatedPanelRanges: Record<string, DateRangeState> = {};
+            profile.panels.forEach(panel => {
+                updatedPanelRanges[panel.panelId] = { from, to };
+            });
+            setPanelDateRanges(prev => ({
+                ...prev,
+                ...updatedPanelRanges
+            }));
+        }
+        
         // Mark that this panel's filters have changed so APPLY banner shows
         setPanelFilterChanges(prev => ({
             ...prev,
             [panelId]: true
         }));
-    }, []);
+        
+        // Trigger refresh
+        setPendingRefresh(true);
+    }, [profile?.panels]);
     // Function to open expanded pie chart and sync with URL so browser
     // back/forward buttons can close/reopen it
     const openExpandedPie = useCallback((activeType: 'platform' | 'pos' | 'source' | 'status' | 'cacheStatus', title: string, distributions: any, isApiEvent: boolean = false) => {
@@ -1624,6 +1655,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     setSiteDetails(sites);
                     console.log('Loaded events with customName:', featureEvents.map(e => ({ id: e.eventId, name: e.eventName, customName: (e as any).customName || (e as any).custom_name })));
                     setEvents(featureEvents);
+                    // Expose events to parent for search
+                    onEventsLoaded?.(featureEvents);
 
                     // Initialize panel filter states from admin configs (these reset on refresh)
                     const initialPanelFilters: Record<string, FilterState> = {};
@@ -3590,15 +3623,14 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         <>
 
             <div
-                className="space-y-6"
-                style={{ zoom: 0.8, willChange: 'transform' }}
+                className="space-y-4"
+                style={{ zoom: 0.8 }}
             >
                 {/* ========== PREMIUM HERO HEADER ========== */}
                 <HeroGradientHeader
                     title={profile.profileName}
                     subtitle={`Last updated: ${lastUpdated.toLocaleTimeString()}${dataLoading ? ' • Loading...' : ''}`}
                     icon={<LayoutDashboard className="w-7 h-7 text-white" />}
-                    variant="gradient"
                     actions={
                         <div className="flex flex-wrap items-center gap-2">
                             {onEditProfile && (
@@ -3617,7 +3649,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                         variant="secondary"
                                         size="sm"
                                         onClick={() => setCustomLabelsModalOpen(true)}
-                                        className="relative bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white border-0 shadow-lg shadow-indigo-500/30 overflow-hidden group transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/40 hover:scale-[1.02]"
+                                        className={cn(
+                                            "relative bg-gradient-to-r text-white border-0 shadow-lg overflow-hidden group transition-all duration-300 hover:shadow-xl hover:scale-[1.02]",
+                                            themeClasses.buttonGradient,
+                                            themeClasses.buttonHover
+                                        )}
                                     >
                                         <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out"></span>
                                         <Tag className="mr-2 h-4 w-4 relative z-10" />
@@ -3721,14 +3757,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         </>
                     ) : (
                         <>
-                            {/* Default purple theme background */}
-                            {/* Top-left purple orb */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl" />
-                            {/* Top-right pink orb */}
-                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl" />
-                            {/* Removed bottom gradient bar - was causing partial pink coverage */}
-                            {/* Center subtle mesh */}
-                            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-radial from-indigo-200/10 via-transparent to-transparent dark:from-indigo-500/5 rounded-full blur-3xl" />
+                            {/* Clean subtle background - neutral colors only */}
+                            <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-gray-200/15 dark:bg-gray-800/20" />
+                            <div className="absolute -top-20 right-0 w-80 h-80 rounded-full blur-3xl bg-gray-100/15 dark:bg-gray-900/15" />
                         </>
                     )}
                 </div>
@@ -3824,14 +3855,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         </>
                     ) : (
                         <>
-                            {/* Default purple theme background */}
-                            {/* Top-left purple orb */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 via-indigo-300/15 to-transparent rounded-full blur-3xl" />
-                            {/* Top-right pink orb */}
-                            <div className="absolute -top-20 right-0 w-80 h-80 bg-gradient-to-bl from-pink-400/15 via-fuchsia-300/10 to-transparent rounded-full blur-3xl" />
-                            {/* Removed bottom gradient bar - was causing partial pink coverage */}
-                            {/* Center subtle mesh */}
-                            <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-gradient-radial from-indigo-200/10 via-transparent to-transparent dark:from-indigo-500/5 rounded-full blur-3xl" />
+                            {/* Clean subtle background - neutral colors only */}
+                            <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-gray-200/15 dark:bg-gray-800/20" />
+                            <div className="absolute -top-20 right-0 w-80 h-80 rounded-full blur-3xl bg-gray-100/15 dark:bg-gray-900/15" />
                         </>
                     )}
                 </div>
@@ -4197,6 +4223,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         }
 
                         default:
+                            // Handle custom render functions from AdditionalPanelsSection
+                            if (expandedChart && typeof (expandedChart as any).render === 'function') {
+                                return (expandedChart as any).render(zoomLevel);
+                            }
                             return null;
                     }
                 }}
@@ -4220,6 +4250,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     // Just show toast, don't close modal
                 }}
             />
+
         </>
     );
 }

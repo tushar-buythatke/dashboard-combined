@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface StatWidgetCardProps {
     label: string;
@@ -16,28 +17,34 @@ interface StatWidgetCardProps {
     className?: string;
 }
 
-const ICON_GRADIENTS = {
-    default: 'from-indigo-500 to-purple-600 shadow-indigo-500/25',
-    success: 'from-emerald-500 to-teal-600 shadow-emerald-500/25',
-    warning: 'from-amber-500 to-orange-600 shadow-amber-500/25',
-    info: 'from-blue-500 to-cyan-600 shadow-blue-500/25',
-    purple: 'from-purple-500 to-pink-600 shadow-purple-500/25',
+// Fallback variants for non-default themes
+const ICON_GRADIENTS_STATIC = {
+    success: 'from-emerald-500 to-teal-600 shadow-emerald-500/20',
+    warning: 'from-amber-500 to-orange-600 shadow-amber-500/20',
+    info: 'from-blue-500 to-cyan-600 shadow-blue-500/20',
+    purple: 'from-violet-500 to-purple-600 shadow-violet-500/20',
 };
 
-const BORDER_COLORS = {
-    default: 'hover:border-indigo-200/50 dark:hover:border-indigo-500/30',
-    success: 'hover:border-emerald-200/50 dark:hover:border-emerald-500/30',
-    warning: 'hover:border-amber-200/50 dark:hover:border-amber-500/30',
-    info: 'hover:border-blue-200/50 dark:hover:border-blue-500/30',
-    purple: 'hover:border-purple-200/50 dark:hover:border-purple-500/30',
+const BORDER_HOVER_STATIC = {
+    success: 'hover:border-emerald-200 dark:hover:border-emerald-600/40',
+    warning: 'hover:border-amber-200 dark:hover:border-amber-600/40',
+    info: 'hover:border-blue-200 dark:hover:border-blue-600/40',
+    purple: 'hover:border-violet-200 dark:hover:border-violet-600/40',
 };
 
-const SPARKLINE_COLORS = {
-    default: '#6366F1',
+const SPARKLINE_COLORS_STATIC = {
     success: '#10B981',
     warning: '#F59E0B',
     info: '#3B82F6',
-    purple: '#A855F7',
+    purple: '#8B5CF6',
+};
+
+// Accent theme sparkline colors
+const ACCENT_SPARKLINE_COLORS: Record<string, string> = {
+    indigo: '#6366F1',
+    aurora: '#D946EF',
+    sunset: '#F97316',
+    forest: '#10B981',
 };
 
 // Simple inline sparkline SVG - static, no animations
@@ -96,29 +103,53 @@ export function StatWidgetCard({
     size = 'md',
     className,
 }: StatWidgetCardProps) {
+    const { t, accentTheme } = useAccentTheme();
     const isPositiveTrend = trend && trend.value > 0;
     const isNegativeTrend = trend && trend.value < 0;
 
     const sizeClasses = {
         sm: 'p-3',
-        md: 'p-4 md:p-5',
-        lg: 'p-5 md:p-6',
+        md: 'p-4',
+        lg: 'p-5',
     };
 
     const valueSizes = {
-        sm: 'text-lg md:text-xl',
+        sm: 'text-lg',
         md: 'text-xl md:text-2xl',
         lg: 'text-2xl md:text-3xl',
+    };
+
+    // Get classes based on variant - use theme for default
+    const getIconGradient = () => {
+        if (variant === 'default') {
+            return cn(t.buttonGradient);
+        }
+        return ICON_GRADIENTS_STATIC[variant];
+    };
+
+    const getBorderHover = () => {
+        if (variant === 'default') {
+            return cn(t.cardHoverBorder, t.cardHoverBorderDark);
+        }
+        return BORDER_HOVER_STATIC[variant];
+    };
+
+    const getSparklineColor = () => {
+        if (variant === 'default') {
+            return ACCENT_SPARKLINE_COLORS[accentTheme] || '#6366F1';
+        }
+        return SPARKLINE_COLORS_STATIC[variant];
     };
 
     return (
         <div
             className={cn(
-                'bg-white dark:bg-slate-900/90',
-                'border border-slate-200/80 dark:border-slate-700/50',
-                'rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.04)]',
-                'transition-all duration-150 ease-out hover:-translate-y-1 hover:shadow-lg',
-                BORDER_COLORS[variant],
+                'bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl',
+                'border border-gray-200/60 dark:border-gray-700/50',
+                'rounded-2xl',
+                'shadow-lg shadow-gray-200/50 dark:shadow-gray-900/30',
+                'transition-all duration-300 hover:shadow-xl',
+                getBorderHover(),
                 sizeClasses[size],
                 className
             )}
@@ -126,16 +157,16 @@ export function StatWidgetCard({
             {/* Header with icon */}
             <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-medium truncate">
+                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold truncate">
                         {label}
                     </p>
                 </div>
                 {icon && (
                     <div
                         className={cn(
-                            'w-10 h-10 rounded-xl flex items-center justify-center',
-                            'bg-gradient-to-br shadow-lg',
-                            ICON_GRADIENTS[variant]
+                            'w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center',
+                            'bg-gradient-to-br shadow-md',
+                            getIconGradient()
                         )}
                     >
                         {icon}
@@ -148,7 +179,7 @@ export function StatWidgetCard({
                 <div className="flex-1 min-w-0">
                     <p
                         className={cn(
-                            'font-bold text-slate-900 dark:text-white truncate',
+                            'font-bold text-gray-800 dark:text-gray-100 truncate',
                             valueSizes[size]
                         )}
                     >
@@ -158,10 +189,10 @@ export function StatWidgetCard({
                     {trend && (
                         <div
                             className={cn(
-                                'inline-flex items-center gap-1 text-xs font-semibold mt-1 px-2 py-0.5 rounded-full',
-                                isPositiveTrend && 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
-                                isNegativeTrend && 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400',
-                                !isPositiveTrend && !isNegativeTrend && 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                'inline-flex items-center gap-1 text-xs font-semibold mt-1.5 px-2 py-0.5 rounded-lg',
+                                isPositiveTrend && 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+                                isNegativeTrend && 'bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-400',
+                                !isPositiveTrend && !isNegativeTrend && 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                             )}
                         >
                             {isPositiveTrend && <TrendingUp className="w-3 h-3" />}
@@ -169,7 +200,7 @@ export function StatWidgetCard({
                             <span>
                                 {isPositiveTrend && '+'}
                                 {trend.value}%
-                                {trend.label && <span className="ml-1 opacity-80">{trend.label}</span>}
+                                {trend.label && <span className="ml-1 opacity-70">{trend.label}</span>}
                             </span>
                         </div>
                     )}
@@ -180,7 +211,7 @@ export function StatWidgetCard({
                     <div className="flex-shrink-0">
                         <MiniSparkline
                             data={sparklineData}
-                            color={SPARKLINE_COLORS[variant]}
+                            color={getSparklineColor()}
                         />
                     </div>
                 )}
@@ -206,7 +237,7 @@ export function StatWidgetGrid({
     };
 
     return (
-        <div className={cn('grid gap-4', gridCols[columns], className)}>
+        <div className={cn('grid gap-3', gridCols[columns], className)}>
             {children}
         </div>
     );

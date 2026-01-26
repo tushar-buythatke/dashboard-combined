@@ -7,6 +7,7 @@ import { Filter, TrendingDown, X, BarChart3, TrendingUp, Users, UserPlus } from 
 import { useChartZoom } from '@/hooks/useChartZoom';
 import { ChartZoomControls } from '../components/ChartZoomControls';
 import { cn } from '@/lib/utils';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface FunnelGraphProps {
     data: any[];
@@ -55,6 +56,7 @@ interface FunnelStageData {
 }
 
 export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage, isAvgDelayMode = false, isHourly = false, onToggleHourly }: FunnelGraphProps) {
+    const { t: themeClasses } = useAccentTheme();
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const [selectedStage, setSelectedStage] = useState<FunnelStageData | null>(null);
     // Stage highlighting state: null = show all, or specific stage eventId
@@ -384,7 +386,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 <CardHeader className="pb-4 px-6 bg-gradient-to-r from-blue-50/80 to-cyan-50/60 dark:from-blue-900/20 dark:to-cyan-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+                            <div className={cn("h-11 w-11 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg", themeClasses.buttonGradient)}>
                                 <Filter className="h-6 w-6 text-white" />
                             </div>
                             <div>
@@ -540,7 +542,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             <div
                                                 className={cn(
                                                     "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-hidden border-2 border-gray-300 dark:border-gray-600",
-                                                    isSelected && "ring-4 ring-purple-300/50 dark:ring-purple-400/50 scale-105"
+                                                    isSelected && "ring-4 ring-gray-300/50 dark:ring-gray-400/50 scale-105"
                                                 )}
                                                 style={{ height: `${heightPct}%` }}
                                             >
@@ -551,11 +553,11 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                     // Pastel colors in blue/purple/indigo spectrum - consistent with theme
                                                     const segmentColors = [
                                                         'from-indigo-300/80 to-indigo-400/80',
-                                                        'from-purple-300/80 to-purple-400/80',
+                                                        'from-gray-300/80 to-gray-400/80',
                                                         'from-blue-300/80 to-blue-400/80',
-                                                        'from-violet-300/80 to-violet-400/80',
+                                                        'from-gray-300/80 to-gray-400/80',
                                                         'from-cyan-300/80 to-cyan-400/80',
-                                                        'from-fuchsia-300/80 to-fuchsia-400/80',
+                                                        'from-rose-300/80 to-rose-400/80',
                                                     ];
 
                                                     return (
@@ -645,8 +647,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     )}
                                 </div>
                             </div>
-                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-500/30">
-                                <div className="text-2xl md:text-3xl font-bold text-purple-600 dark:text-purple-400">
+                            <div className="bg-gray-50 dark:bg-gray-800/30 rounded-xl p-4 border border-gray-200/50 dark:border-gray-500/30">
+                                <div className="text-2xl md:text-3xl font-bold text-gray-700 dark:text-gray-300">
                                     {Math.min(funnelData[funnelData.length - 1]?.percentage || 0, 100).toFixed(1)}%
                                 </div>
                                 <div className="text-sm text-muted-foreground mt-1 font-medium">Conversion Rate</div>
@@ -729,14 +731,14 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                         </div>
                                     </div>
 
-                                    <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-purple-200/50 dark:border-purple-500/30 p-5 shadow-lg">
+                                    <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-gray-200/50 dark:border-gray-500/30 p-5 shadow-lg">
                                         <div className="flex items-center gap-3 mb-2">
-                                            <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                                                <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                                            <div className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800/40 flex items-center justify-center">
+                                                <TrendingUp className="h-4 w-4 text-gray-700 dark:text-gray-300" />
                                             </div>
                                             <span className="text-sm font-medium text-muted-foreground">Conversion %</span>
                                         </div>
-                                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                                        <div className="text-3xl font-bold text-gray-700 dark:text-gray-300">
                                             {Math.min(selectedStage.percentage, 100).toFixed(1)}%
                                         </div>
                                     </div>

@@ -8,6 +8,7 @@ import { CursorGlow, CursorRipple } from '@/components/ui/animated-background'
 import { Toaster } from 'sonner'
 import { AnalyticsAuthProvider, useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
+import { AccentThemeProvider } from '@/contexts/AccentThemeContext'
 
 // Protected route wrapper using context
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -33,6 +34,7 @@ function App() {
     <AnalyticsAuthProvider>
       <OrganizationProvider>
         <ThemeProvider>
+          <AccentThemeProvider>
           <Router>
             {/* Global cursor effects */}
             <CursorGlow />
@@ -60,6 +62,7 @@ function App() {
             </Routes>
             <Toaster position="bottom-right" richColors />
           </Router>
+          </AccentThemeProvider>
         </ThemeProvider>
       </OrganizationProvider>
     </AnalyticsAuthProvider>

@@ -13,6 +13,7 @@ import {
     TrendingDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { EnhancedCard } from '@/components/ui/enhanced-card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ interface HourlyStatsCardProps {
 }
 
 export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = [], events = [] }: HourlyStatsCardProps) => {
+    const { t: themeClasses } = useAccentTheme();
     const [selectedHour, setSelectedHour] = useState(new Date().getHours());
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
 
@@ -157,7 +159,7 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
         <EnhancedCard
             variant="glass"
             glow={true}
-            className="border border-purple-200/60 dark:border-purple-500/30 bg-gradient-to-br from-purple-50/80 via-white to-indigo-50/60 dark:from-purple-900/20 dark:via-slate-900/80 dark:to-indigo-900/20 rounded-2xl shadow-[0_8px_30px_rgba(147,51,234,0.1)] hover:shadow-[0_20px_40px_rgba(147,51,234,0.15)] transition-all duration-300"
+            className={cn("rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border", themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.cardAccentBg, themeClasses.cardAccentBgDark)}
         >
             <CardHeader className="pb-3 px-3 md:px-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
@@ -264,15 +266,15 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
                             {isAvgEvent ? formatDelay(peakTotal) : `${Math.round(peakTotal).toLocaleString()} events`}
                         </div>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-purple-500/10 to-violet-500/5 border border-purple-200/50 dark:border-purple-500/20">
+                    <div className="p-2.5 rounded-xl bg-gradient-to-br from-gray-500/10 to-slate-500/5 border border-gray-200/50 dark:border-gray-500/20">
                         <div className="flex items-center gap-1 mb-1">
-                            <Hash className="h-3 w-3 text-purple-500" />
-                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium uppercase flex items-center gap-1">
+                            <Hash className="h-3 w-3 text-gray-500" />
+                            <span className="text-[10px] text-gray-600 dark:text-gray-400 font-medium uppercase flex items-center gap-1">
                                 {isAvgEvent ? 'Avg Delay/Hour' : 'Avg/Hour'}
                                 <InfoTooltip content={isAvgEvent ? "The historical average delay calculated across all tracked hours." : "Average number of events per hour across the selected time range."} />
                             </span>
                         </div>
-                        <div className="text-lg font-bold text-purple-600">
+                        <div className="text-lg font-bold text-gray-600">
                             {isAvgEvent ? formatDelay(avgPerHour) : Math.round(avgPerHour).toLocaleString()}
                         </div>
                         <div className="text-[10px] text-muted-foreground">
@@ -438,7 +440,7 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
                             <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Failed</div>
                         </div>
                         <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-purple-600">{selectedSuccessRate.toFixed(1)}%</div>
+                            <div className="text-xl sm:text-2xl font-bold text-gray-600">{selectedSuccessRate.toFixed(1)}%</div>
                             <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Success Rate</div>
                         </div>
                     </div>

@@ -25,29 +25,38 @@ export function DashboardHeader({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-xl md:rounded-2xl p-4 md:p-6 lg:p-8 mb-4 md:mb-6',
+        'relative overflow-hidden rounded-xl md:rounded-2xl mb-4 md:mb-6',
         gradient
-          ? 'bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white'
-          : 'bg-card border border-border/50',
+          ? 'bg-gradient-to-r from-indigo-600 via-blue-500 to-violet-500 text-white shadow-xl shadow-indigo-500/10'
+          : 'bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border border-gray-200/80 dark:border-gray-700/60 shadow-lg shadow-gray-200/50 dark:shadow-gray-900/30',
         className
       )}
     >
-      {/* Static background pattern */}
-      {gradient && (
-        <div className="absolute inset-0 bg-grid-pattern opacity-10" />
+      {/* Glassmorphic background effects */}
+      {gradient ? (
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+        </div>
+      ) : (
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-20 -right-20 w-48 h-48 bg-indigo-100/40 dark:bg-indigo-500/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-blue-100/40 dark:bg-blue-500/10 rounded-full blur-3xl" />
+        </div>
       )}
 
-      <div className="relative z-10">
+      <div className="relative z-10 p-4 md:p-6 lg:p-7">
         {/* Header Top */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4 md:mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4 md:mb-5">
           <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
             {icon && (
               <div
                 className={cn(
-                  'flex-shrink-0 h-12 w-12 md:h-14 md:w-14 lg:h-16 lg:w-16 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg',
+                  'flex-shrink-0 h-11 w-11 md:h-13 md:w-13 lg:h-14 lg:w-14 rounded-xl md:rounded-2xl flex items-center justify-center',
                   gradient
-                    ? 'bg-white/10 backdrop-blur-sm border border-white/20'
-                    : 'bg-gradient-to-br from-purple-500 to-violet-600'
+                    ? 'bg-white/15 backdrop-blur-xl border border-white/20 shadow-lg shadow-white/5'
+                    : 'bg-gradient-to-br from-indigo-500 to-blue-600 shadow-lg shadow-indigo-500/25'
                 )}
               >
                 {icon}
@@ -55,10 +64,10 @@ export function DashboardHeader({
             )}
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 md:mb-2 flex-wrap">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <h1 className={cn(
-                  'text-xl md:text-2xl lg:text-3xl font-bold truncate',
-                  gradient ? 'text-white' : 'text-foreground'
+                  'text-lg md:text-xl lg:text-2xl font-bold tracking-tight truncate',
+                  gradient ? 'text-white' : 'text-gray-800 dark:text-gray-100'
                 )}>
                   {title}
                 </h1>
@@ -67,8 +76,8 @@ export function DashboardHeader({
               {subtitle && (
                 <p
                   className={cn(
-                    'text-sm md:text-base',
-                    gradient ? 'text-white/80' : 'text-muted-foreground'
+                    'text-sm md:text-base font-medium',
+                    gradient ? 'text-white/70' : 'text-gray-500 dark:text-gray-400'
                   )}
                 >
                   {subtitle}
@@ -87,7 +96,12 @@ export function DashboardHeader({
 
         {/* Stats Row */}
         {stats && (
-          <div className="border-t border-white/10 pt-4 md:pt-6">
+          <div className={cn(
+            "pt-4 md:pt-5",
+            gradient 
+              ? "border-t border-white/15" 
+              : "border-t border-gray-200/80 dark:border-gray-700/60"
+          )}>
             {stats}
           </div>
         )}
@@ -111,17 +125,20 @@ export function CompactDashboardHeader({
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-3 p-3 md:p-4 bg-card/80 backdrop-blur-sm border-b border-border/50 sticky top-0 z-40',
+        'flex items-center justify-between gap-3 p-3 md:p-4',
+        'bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl',
+        'border-b border-gray-200/80 dark:border-gray-700/60',
+        'sticky top-0 z-40 shadow-sm',
         className
       )}
     >
       <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
         {icon && (
-          <div className="flex-shrink-0 h-8 w-8 md:h-10 md:w-10 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md">
+          <div className="flex-shrink-0 h-8 w-8 md:h-9 md:w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-md shadow-indigo-500/20">
             {icon}
           </div>
         )}
-        <h1 className="text-base md:text-lg font-semibold text-foreground truncate">
+        <h1 className="text-sm md:text-base font-semibold text-gray-800 dark:text-gray-100 truncate">
           {title}
         </h1>
       </div>

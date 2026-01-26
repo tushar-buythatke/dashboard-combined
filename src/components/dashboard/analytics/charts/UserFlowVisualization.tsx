@@ -324,11 +324,11 @@ export function UserFlowVisualization({
     }, [availableEvents]);
 
     return (
-        <Card className="border-purple-200/60 dark:border-purple-500/30 overflow-hidden relative group">
+        <Card className="border-gray-200/60 dark:border-gray-500/30 overflow-hidden relative group">
             <CardHeader className="pb-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 space-y-4">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
-                        <GitBranch className="h-4 w-4 text-purple-500" />
+                        <GitBranch className="h-4 w-4 text-gray-500" />
                         User Flow Analysis
                     </CardTitle>
                     <div className="flex items-center gap-2">
@@ -348,12 +348,12 @@ export function UserFlowVisualization({
                             <div className="flex items-start p-3 gap-3 min-w-max">
                                 {localStages.map((stage, index) => (
                                     <div key={stage.id || index} className="flex items-start">
-                                        <div className="w-[240px] flex-shrink-0 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 p-2 group/stage relative hover:border-purple-300 dark:hover:border-purple-500/50 transition-colors">
+                                        <div className="w-[240px] flex-shrink-0 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 p-2 group/stage relative hover:border-gray-300 dark:hover:border-gray-500/50 transition-colors">
 
                                             {/* Stage Header */}
                                             <div className="flex items-center justify-between mb-2">
                                                 <Input
-                                                    className="h-7 text-xs font-semibold bg-transparent border-transparent hover:border-slate-200 focus:border-purple-400 px-1 w-[140px]"
+                                                    className="h-7 text-xs font-semibold bg-transparent border-transparent hover:border-slate-200 focus:border-gray-400 px-1 w-[140px]"
                                                     value={stage.label}
                                                     onChange={(e) => {
                                                         const newStages = [...localStages];
@@ -362,7 +362,7 @@ export function UserFlowVisualization({
                                                     }}
                                                 />
                                                 <div className="flex items-center">
-                                                    <Badge variant="secondary" className="text-[10px] h-5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                                                    <Badge variant="secondary" className="text-[10px] h-5 bg-gray-100 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300">
                                                         Step {index + 1}
                                                     </Badge>
                                                     <Button
@@ -408,7 +408,7 @@ export function UserFlowVisualization({
                                 <div className="h-[100px] flex items-center ml-2">
                                     <Button
                                         variant="outline"
-                                        className="h-full border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:text-purple-600 hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/10 flex flex-col gap-2 px-4"
+                                        className="h-full border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 flex flex-col gap-2 px-4"
                                         onClick={() => {
                                             const newStage = {
                                                 id: `stage-${Date.now()}`,
@@ -441,7 +441,7 @@ export function UserFlowVisualization({
                                 {localStages.map((stage, idx) => (
                                     <div key={`header-${idx}`} className="flex flex-col items-center">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stage.label || `Stage ${idx + 1}`}</span>
-                                        <div className="h-1 w-8 bg-purple-400/30 rounded-full mt-0.5" />
+                                        <div className="h-1 w-8 bg-gray-400/30 rounded-full mt-0.5" />
                                     </div>
                                 ))}
                             </div>

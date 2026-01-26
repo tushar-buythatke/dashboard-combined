@@ -8,6 +8,7 @@ import { useChartZoom } from '@/hooks/useChartZoom';
 import { ChartZoomControls } from '../components/ChartZoomControls';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import type { EventConfig } from '@/types/analytics';
 import { PIE_COLORS } from '../dashboardViewer/constants';
 import { PieTooltip } from '../dashboardViewer/PieTooltip';
@@ -53,6 +54,7 @@ export function PercentageGraph({
     onExpand,
     eventPieCharts = {},
 }: PercentageGraphProps) {
+    const { t: themeClasses } = useAccentTheme();
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const debug = false;
     if (debug) {
@@ -818,10 +820,10 @@ export function PercentageGraph({
 
     if (!chartData || chartData.length === 0) {
         return (
-            <Card className="border border-purple-200/60 dark:border-purple-500/30 rounded-2xl">
-                <CardHeader className="bg-gradient-to-r from-purple-50/80 to-violet-50/60 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-200/40 dark:border-purple-500/20">
+            <Card className="border border-gray-200/60 dark:border-gray-500/30 rounded-2xl">
+                <CardHeader className="bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/20 dark:to-slate-800/10 border-b border-gray-200/40 dark:border-gray-500/20">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg">
+                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
                             <Percent className="h-5 w-5 text-white" />
                         </div>
                         <div>
@@ -875,11 +877,11 @@ export function PercentageGraph({
 
     return (
         <>
-            <Card className="border border-purple-200/60 dark:border-purple-500/30 overflow-hidden shadow-xl rounded-2xl">
-                <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-purple-50/80 to-violet-50/60 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-200/40 dark:border-purple-500/20">
+            <Card className="border border-gray-200/60 dark:border-gray-500/30 overflow-hidden shadow-xl rounded-2xl">
+                <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/20 dark:to-slate-800/10 border-b border-gray-200/40 dark:border-gray-500/20">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg">
+                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
                                 <Percent className="h-6 w-6 text-white" />
                             </div>
                             <div>
@@ -892,13 +894,13 @@ export function PercentageGraph({
                         <div className="flex items-center gap-3">
                             {/* Day-wise / Hourly Toggle */}
                             {onToggleHourly && (
-                                <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-purple-200 dark:border-purple-500/30 p-1 shadow-sm">
+                                <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-gray-500/30 p-1 shadow-sm">
                                     <button
                                         onClick={() => onToggleHourly(false)}
                                         className={cn(
                                             "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             !isHourly
-                                                ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm"
+                                                ? "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-sm"
                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
@@ -909,7 +911,7 @@ export function PercentageGraph({
                                         className={cn(
                                             "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             isHourly
-                                                ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-sm"
+                                                ? "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-sm"
                                                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                                         )}
                                     >
@@ -922,7 +924,7 @@ export function PercentageGraph({
                                     variant="outline"
                                     size="sm"
                                     onClick={onToggleBackToFunnel}
-                                    className="text-sm font-semibold bg-white/80 hover:bg-white border-purple-300 text-purple-700 hover:text-purple-800 h-10 px-4"
+                                    className="text-sm font-semibold bg-white/80 hover:bg-white border-gray-300 text-gray-800 hover:text-gray-800 h-10 px-4"
                                 >
                                     <BarChart3 className="h-4 w-4 mr-1.5" />
                                     Back to Funnel
@@ -932,14 +934,14 @@ export function PercentageGraph({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 text-gray-500 hover:text-purple-600"
+                                    className="h-7 w-7 text-gray-500 hover:text-gray-700"
                                     title="See full page expansion"
                                     onClick={onExpand}
                                 >
                                     <Maximize2 className="h-5 w-5" />
                                 </Button>
                             )}
-                            <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-3 py-1">
+                            <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300 px-3 py-1">
                                 <span className="text-lg font-bold">{overallStats.percentage.toFixed(2)}%</span>
                             </Badge>
                         </div>
@@ -959,8 +961,8 @@ export function PercentageGraph({
                                     {getParentEventNames()}
                                 </div>
                             </div>
-                            <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-500/30">
-                                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                            <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-500/30">
+                                <div className="text-2xl font-bold text-gray-700 dark:text-gray-400">
                                     {overallStats.percentage.toFixed(2)}%
                                 </div>
                                 <div className="text-sm text-muted-foreground mt-1 font-medium">Overall Ratio</div>
@@ -1117,7 +1119,7 @@ export function PercentageGraph({
                                                     <div className="space-y-2 text-xs">
                                                         <div className="flex items-center justify-between gap-4">
                                                             <span className="text-gray-500">Percentage:</span>
-                                                            <span className="font-bold text-purple-600 text-sm">{data.percentage.toFixed(2)}%</span>
+                                                            <span className="font-bold text-gray-700 text-sm">{data.percentage.toFixed(2)}%</span>
                                                         </div>
                                                         <div className="flex items-center justify-between gap-4">
                                                             <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Child Amount' : 'Child Delay') : isAvgDelay ? 'Child Avg' : 'Child'}:</span>
@@ -1357,7 +1359,7 @@ export function PercentageGraph({
                                 className={cn(
                                     "px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
                                     selectedLineId === null
-                                        ? "bg-gradient-to-r from-purple-500 to-violet-600 text-white shadow-md"
+                                        ? "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-md"
                                         : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:shadow-md border border-slate-200 dark:border-slate-700"
                                 )}
                             >
@@ -1461,9 +1463,9 @@ export function PercentageGraph({
                         if (eventsToAnalyze.length === 0) return null;
 
                         return (
-                            <div className="mt-8 space-y-6 pt-6 border-t border-purple-100 dark:border-purple-900/30">
-                                <div className="flex items-center gap-3 pb-2 border-b border-purple-200 dark:border-purple-800">
-                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                            <div className="mt-8 space-y-6 pt-6 border-t border-gray-100 dark:border-gray-700/40">
+                                <div className="flex items-center gap-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+                                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
                                         <PieChartIcon className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
@@ -1498,12 +1500,12 @@ export function PercentageGraph({
                                         const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
 
                                         return (
-                                            <Card key={event.eventId} className="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
-                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/10 border-b border-purple-100 dark:border-purple-800">
+                                            <Card key={event.eventId} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/20 dark:to-slate-800/10 border-b border-gray-100 dark:border-gray-700">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2.5 flex-1 min-w-0">
                                                             <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.color }} />
-                                                            <CardTitle className="text-sm font-bold text-purple-700 dark:text-purple-300 truncate">{event.eventName}</CardTitle>
+                                                            <CardTitle className="text-sm font-bold text-gray-800 dark:text-gray-300 truncate">{event.eventName}</CardTitle>
                                                         </div>
                                                     </div>
                                                 </CardHeader>
@@ -1577,7 +1579,7 @@ export function PercentageGraph({
                     {false && childEventPieData.length > 0 && (
                         <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                             <h4 className="text-sm font-semibold text-muted-foreground mb-4 flex items-center gap-2">
-                                <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                                <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center">
                                     <BarChart3 className="h-3.5 w-3.5 text-white" />
                                 </div>
                                 Child Event Distribution
@@ -1645,7 +1647,7 @@ export function PercentageGraph({
                                                                 </div>
                                                                 <div className="flex justify-between gap-4">
                                                                     <span className="text-gray-500 dark:text-gray-400">% of Parent:</span>
-                                                                    <span className="font-bold text-purple-600 dark:text-purple-400">
+                                                                    <span className="font-bold text-gray-700 dark:text-gray-400">
                                                                         {data.parentPercentage?.toFixed(1)}%
                                                                     </span>
                                                                 </div>
@@ -1684,7 +1686,7 @@ export function PercentageGraph({
                                                 {entry.name}
                                             </span>
                                             <span className="font-bold text-slate-900 dark:text-white">{entry.value.toLocaleString()}</span>
-                                            <span className="text-purple-600 dark:text-purple-400 font-semibold text-[10px] px-1.5 py-0.5 bg-purple-50 dark:bg-purple-900/30 rounded">
+                                            <span className="text-gray-700 dark:text-gray-400 font-semibold text-[10px] px-1.5 py-0.5 bg-gray-50 dark:bg-gray-800/50 rounded">
                                                 {childPercent}%
                                             </span>
                                         </div>
@@ -1707,14 +1709,14 @@ export function PercentageGraph({
                     {selectedPoint && (
                         <>
                             {/* Premium Header */}
-                            <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-purple-600 via-violet-600 to-fuchsia-600 text-white">
+                            <div className="relative px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-gray-600 via-gray-500 to-slate-600 text-white">
                                 <div className="flex items-center gap-4">
                                     <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                                         <BarChart3 className="h-6 w-6 text-white" />
                                     </div>
                                     <div className="flex-1">
                                         <h2 className="text-xl font-bold">{selectedPoint.time}</h2>
-                                        <p className="text-purple-100 text-sm">
+                                        <p className="text-gray-100 text-sm">
                                             Percentage Analysis Breakdown
                                         </p>
                                     </div>
@@ -1733,8 +1735,8 @@ export function PercentageGraph({
                             {/* Main Content */}
                             <div className="p-4 sm:p-6 md:p-8 max-h-[calc(85vh-80px)] sm:max-h-[calc(90vh-80px)] overflow-y-auto" style={{ backgroundColor: 'white' }}>
                                 {/* Key Metric - Percentage */}
-                                <div className="mb-6 p-6 bg-purple-100 rounded-2xl border-2 border-purple-300 shadow-lg text-center" style={{ backgroundColor: '#f3e8ff' }}>
-                                    <div className="text-5xl font-bold text-purple-600 mb-2">
+                                <div className="mb-6 p-6 bg-gray-100 rounded-2xl border-2 border-gray-300 shadow-lg text-center" style={{ backgroundColor: '#f3e8ff' }}>
+                                    <div className="text-5xl font-bold text-gray-700 mb-2">
                                         {selectedPoint.percentage.toFixed(2)}%
                                     </div>
                                     <div className="text-sm text-gray-600">
