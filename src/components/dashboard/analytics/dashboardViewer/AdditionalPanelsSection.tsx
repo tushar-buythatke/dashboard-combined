@@ -575,7 +575,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         </div>
 
                                         {/* Right Side Actions */}
-                                        <div className="flex items-center gap-3 justify-end">
+                                        <div className="flex items-center gap-3 justify-end flex-wrap">
                                             {/* Voice AI Button - Admin Only & Non-API Only */}
                                             {isAdmin && !panelConfig?.isApiEvent && (
                                                 <div className="flex flex-col items-center gap-0.5">
@@ -765,9 +765,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     )}
                                                 >
                                                     <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
-                                                    <span className="hidden sm:inline">AI Chat</span>
+                                                    <span>AI Chat</span>
                                                 </Button>
-                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘L</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘L</span>
                                             </div>
                                             {/* Refresh Button - Updated to match Main Panel & Purple Flash */}
                                             <div className="flex flex-col items-center gap-0.5">

@@ -474,7 +474,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 </span>
                             )}
                         </CardTitle>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
                             {/* Voice Command Button - Admin Only & Non-API Only */}
                             {isAdmin && !isMainPanelApi && (
                                 <div className="flex flex-col items-center gap-0.5">
@@ -661,9 +661,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     )}
                                 >
                                     <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
-                                    <span className="hidden sm:inline">AI Chat</span>
+                                    <span>AI Chat</span>
                                 </Button>
-                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘L</span>
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘L</span>
                             </div>
                             {/* Quick Refresh Shortcut Hint */}
                             <div className={cn("hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border shadow-sm", "bg-gradient-to-r", themeClasses.buttonGradient, "border-transparent")}>

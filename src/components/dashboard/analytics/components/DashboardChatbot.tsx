@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Send, Mic, Command, Loader2, Sparkles, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
@@ -284,9 +285,11 @@ export function DashboardChatbot({
 
     if (!isOpen) return null;
 
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
     // Minimized state - show button on right side (vertically centered like Voice AI/AI Chat)
     if (isMinimized) {
-        return (
+        const minimizedNode = (
             <div
                 ref={containerRef}
                 className="fixed pointer-events-auto !z-[999999]"
@@ -302,7 +305,6 @@ export function DashboardChatbot({
                     // Snap back to bottom right corner when expanded
                     const chatbotWidth = getChatbotWidth();
                     const chatbotHeight = CHATBOT_HEIGHT;
-                    const isMobile = window.innerWidth < 768;
                     const rightX = isMobile ? MOBILE_PADDING : window.innerWidth - chatbotWidth - RIGHT_PADDING;
                     const bottomY = window.innerHeight - chatbotHeight - 12;
                     setPosition({ x: rightX, y: bottomY });
@@ -324,33 +326,45 @@ export function DashboardChatbot({
                 </button>
             </div>
         );
+
+        if (isMobile && typeof document !== 'undefined') {
+            return createPortal(minimizedNode, document.body);
+        }
+
+        return minimizedNode;
     }
 
     const chatbotWidth = getChatbotWidth();
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const availableHeight = typeof window !== 'undefined' ? window.innerHeight - NAVBAR_HEIGHT - 24 : CHATBOT_HEIGHT;
     const chatbotHeight = Math.min(isMobile ? availableHeight : CHATBOT_HEIGHT, availableHeight);
     
-    return (
+    const chatbotNode = (
         <div
             ref={containerRef}
             className="fixed pointer-events-auto !z-[999999]"
-            style={{
-                right: isMobile ? `${MOBILE_PADDING}px` : '0px', // Use RIGHT positioning for absolute edge
+            style={isMobile ? {
+                // Mobile: fullscreen overlay
+                inset: 0,
+                width: '100vw',
+                height: '100vh',
+            } : {
+                // Desktop: positioned at bottom right
+                right: '0px',
                 top: `${position.y}px`,
-                width: isMobile ? `calc(100vw - ${MOBILE_PADDING * 2}px)` : `${chatbotWidth}px`,
-                height: isMobile ? `${chatbotHeight}px` : `${CHATBOT_HEIGHT}px`,
+                width: `${chatbotWidth}px`,
+                height: `${CHATBOT_HEIGHT}px`,
                 maxHeight: `${availableHeight}px`,
             }}
             onClick={(e) => e.stopPropagation()}
         >
             <div
                 className={cn(
-                    "relative rounded-3xl shadow-2xl overflow-hidden h-full flex flex-col",
-                    "bg-white/90 dark:bg-gray-900/90",
+                    "relative shadow-2xl overflow-hidden h-full flex flex-col",
+                    isMobile ? "bg-white dark:bg-gray-900" : "bg-white/90 dark:bg-gray-900/90", // Solid background on mobile
                     "backdrop-blur-2xl",
                     "border border-white/20 dark:border-gray-700/30",
-                    "shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
+                    "shadow-[0_20px_60px_rgba(0,0,0,0.3)]",
+                    isMobile ? "rounded-none" : "rounded-3xl" // No border radius on mobile fullscreen
                 )}
             >
                 {/* Glassmorphic gradient overlay */}
@@ -370,8 +384,10 @@ export function DashboardChatbot({
                 {/* Header - Sticky */}
                 <div
                     className={cn(
-                        "sticky top-0 z-20 p-3 border-b border-gray-200/50 dark:border-gray-700/50",
-                        "bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl"
+                        "sticky top-0 z-20 border-b border-gray-200/50 dark:border-gray-700/50",
+                        isMobile ? "bg-white dark:bg-gray-800" : "bg-white/80 dark:bg-gray-800/80", // Solid header on mobile
+                        "backdrop-blur-xl",
+                        isMobile ? "p-4 pt-6" : "p-3" // Extra top padding on mobile for notch/status bar
                     )}
                 >
                     <div className="flex items-center justify-between">
@@ -394,21 +410,23 @@ export function DashboardChatbot({
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    const rightX = window.innerWidth - MINIMIZED_SIZE - 12;
-                                    const bottomY = window.innerHeight - MINIMIZED_SIZE - 12;
-                                    setPosition({ x: rightX, y: bottomY });
-                                    setIsMinimized(true);
-                                }}
-                                className="h-8 w-8 rounded-lg hover:bg-gray-200/50 dark:hover:bg-gray-700/50 flex items-center justify-center transition-colors cursor-pointer z-50 relative"
-                                title="Minimize"
-                            >
-                                <Minimize2 className="h-4 w-4 pointer-events-none" />
-                            </button>
+                            {!isMobile && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        const rightX = window.innerWidth - MINIMIZED_SIZE - 12;
+                                        const bottomY = window.innerHeight - MINIMIZED_SIZE - 12;
+                                        setPosition({ x: rightX, y: bottomY });
+                                        setIsMinimized(true);
+                                    }}
+                                    className="h-8 w-8 rounded-lg hover:bg-gray-200/50 dark:hover:bg-gray-700/50 flex items-center justify-center transition-colors cursor-pointer z-50 relative"
+                                    title="Minimize"
+                                >
+                                    <Minimize2 className="h-4 w-4 pointer-events-none" />
+                                </button>
+                            )}
                             <button
                                 type="button"
                                 onClick={(e) => {
@@ -543,8 +561,10 @@ export function DashboardChatbot({
 
                 {/* Input Area */}
                 <div className={cn(
-                    "relative z-10 p-4 border-t border-gray-200/50 dark:border-gray-700/50",
-                    "bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl"
+                    "relative z-10 border-t border-gray-200/50 dark:border-gray-700/50",
+                    isMobile ? "bg-white dark:bg-gray-800" : "bg-white/60 dark:bg-gray-800/60", // Solid input area on mobile
+                    "backdrop-blur-xl",
+                    isMobile ? "p-4 pb-8" : "p-4" // Extra bottom padding on mobile for home indicator
                 )}>
                     <div className="flex items-end gap-2">
                         <div className="flex-1 relative">
@@ -641,4 +661,10 @@ export function DashboardChatbot({
             </div>
         </div>
     );
+
+    if (isMobile && typeof document !== 'undefined') {
+        return createPortal(chatbotNode, document.body);
+    }
+
+    return chatbotNode;
 }
