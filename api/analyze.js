@@ -44,19 +44,22 @@ export default async function handler(req, res) {
 
         if (mode === 'chatbot') {
             // Chatbot mode - use conversation history
-            const { systemPrompt, contextInfo, conversationHistory } = chatbotContext;
+            const { systemPrompt, contextInfo, conversationHistory, currentFilters, currentDateRange } = chatbotContext;
             const systemMessage = `${systemPrompt}\n\n${contextInfo}`;
+
+            const strictJsonInstruction = `\n\nCRITICAL OUTPUT REQUIREMENT:\nReturn ONLY a valid JSON object. Do not include any other text.\n\nJSON SCHEMA (MANDATORY):\n{\n  \"response\": string,\n  \"shouldUpdateFilters\": {\n    \"platforms\": number[],\n    \"pos\": number[],\n    \"sources\": number[],\n    \"events\": number[],\n    \"dateRange\": { \"from\": string, \"to\": string }\n  },\n  \"explanation\": string\n}\n\nIMPORTANT:\n- You MUST ALWAYS include shouldUpdateFilters (full object), even if no changes are needed.\n- If no changes needed, return shouldUpdateFilters as the current filters unchanged.\n\nCURRENT FILTERS (IDs):\n${JSON.stringify(currentFilters || {}, null, 2)}\n\nCURRENT DATE RANGE:\n${JSON.stringify(currentDateRange || {}, null, 2)}\n`;
             
             contents = [
                 { role: 'user', parts: [{ text: systemMessage }] },
                 { role: 'model', parts: [{ text: 'I understand. I\'m ready to help with dashboard questions and filter adjustments.' }] },
                 ...conversationHistory,
-                { role: 'user', parts: [{ text: userMessage }] }
+                { role: 'user', parts: [{ text: `${userMessage}${strictJsonInstruction}` }] }
             ];
 
             generationConfig = {
-                temperature: 0.7,
+                temperature: 0.2,
                 maxOutputTokens: 1000,
+                response_mime_type: "application/json"
             };
         } else if (mode === 'parse_voice') {
             prompt = `
@@ -190,20 +193,90 @@ export default async function handler(req, res) {
 
         // Handle chatbot mode
         if (mode === 'chatbot') {
-            // Try to parse JSON response if it contains filter updates
-            let parsedResponse = { response: text };
-            try {
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    const parsed = JSON.parse(jsonMatch[0]);
-                    if (parsed.shouldUpdateFilters || parsed.explanation) {
-                        parsedResponse = parsed;
-                    }
+            const extractJsonObject = (rawText) => {
+                try {
+                    const direct = JSON.parse(rawText);
+                    if (direct && typeof direct === 'object') return direct;
+                } catch {
+                    // ignore
                 }
-            } catch (parseError) {
-                // Not JSON, use as plain text response
-                console.warn('Chatbot response parsing failed:', parseError.message);
-                console.warn('Raw AI response:', text);
+
+                try {
+                    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        const parsed = JSON.parse(jsonMatch[0]);
+                        if (parsed && typeof parsed === 'object') return parsed;
+                    }
+                } catch {
+                    // ignore
+                }
+
+                return null;
+            };
+
+            // Try to parse JSON response (preferred)
+            let parsedResponse = extractJsonObject(text);
+
+            // If not JSON, do ONE repair pass to convert it into valid JSON
+            if (!parsedResponse) {
+                try {
+                    const { systemPrompt, contextInfo, conversationHistory, currentFilters, currentDateRange } = chatbotContext;
+                    const repairMessage = `You MUST output ONLY valid JSON matching this schema:\n{\n  \"response\": string,\n  \"shouldUpdateFilters\": {\n    \"platforms\": number[],\n    \"pos\": number[],\n    \"sources\": number[],\n    \"events\": number[],\n    \"dateRange\": { \"from\": string, \"to\": string }\n  },\n  \"explanation\": string\n}\n\nCURRENT FILTERS (IDs):\n${JSON.stringify(currentFilters || {}, null, 2)}\n\nCURRENT DATE RANGE:\n${JSON.stringify(currentDateRange || {}, null, 2)}\n\nUSER MESSAGE:\n${userMessage}\n\nPREVIOUS (INVALID) MODEL OUTPUT:\n${text}`;
+
+                    const repairContents = [
+                        { role: 'user', parts: [{ text: `${systemPrompt}\n\n${contextInfo}` }] },
+                        { role: 'model', parts: [{ text: 'I understand.' }] },
+                        ...conversationHistory,
+                        { role: 'user', parts: [{ text: repairMessage }] }
+                    ];
+
+                    let repairResult = null;
+                    for (let attempt = 0; attempt < 2; attempt++) {
+                        const apiKey = getNextApiKey();
+                        const url = `${BASE_API_URL}?key=${apiKey}`;
+
+                        const repairResp = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: repairContents,
+                                generationConfig: {
+                                    temperature: 0.1,
+                                    maxOutputTokens: 900,
+                                    response_mime_type: "application/json"
+                                }
+                            })
+                        });
+
+                        if (repairResp.ok) {
+                            repairResult = await repairResp.json();
+                            break;
+                        }
+
+                        if (repairResp.status === 429 || repairResp.status === 403) {
+                            rotateKey();
+                            await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
+                            continue;
+                        }
+
+                        break;
+                    }
+
+                    const repairText = repairResult?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (repairText) {
+                        parsedResponse = extractJsonObject(repairText);
+                    }
+                } catch (repairErr) {
+                    console.warn('Chatbot JSON repair failed:', repairErr?.message || repairErr);
+                }
+            }
+
+            if (!parsedResponse || typeof parsedResponse !== 'object') {
+                throw new Error('Chatbot response was not valid JSON');
+            }
+
+            if (!parsedResponse.shouldUpdateFilters) {
+                throw new Error('Chatbot response missing shouldUpdateFilters');
             }
             
             // Debug log to see what we're returning

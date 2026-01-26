@@ -358,7 +358,14 @@ Otherwise, just respond naturally with helpful information.`;
                         context: {
                             systemPrompt,
                             contextInfo,
-                            conversationHistory
+                            conversationHistory,
+                            currentFilters: context.currentFilters || {},
+                            currentDateRange: context.currentDateRange
+                                ? {
+                                    from: context.currentDateRange.from?.toISOString?.() || context.currentDateRange.from,
+                                    to: context.currentDateRange.to?.toISOString?.() || context.currentDateRange.to,
+                                }
+                                : undefined
                         }
                     })
                 });
