@@ -116,6 +116,8 @@ export default async function handler(req, res) {
 
         // Make API call with retry logic
         let lastError = null;
+        let lastStatus = null;
+        let lastDetails = '';
         let result = null;
         
         for (let attempt = 0; attempt < 3; attempt++) {
@@ -135,28 +137,48 @@ export default async function handler(req, res) {
                 if (response.ok) {
                     result = await response.json();
                     break;
-                } else if (response.status === 429 || response.status === 403) {
+                }
+
+                lastStatus = response.status;
+                lastDetails = '';
+                try {
+                    lastDetails = await response.text();
+                } catch {
+                    lastDetails = '';
+                }
+
+                if (response.status === 429 || response.status === 403) {
                     console.warn(`API key failed with ${response.status}, rotating...`);
                     rotateKey();
-                    lastError = new Error(`API Error: ${response.statusText}`);
+                    lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
                     if (attempt < 2) {
                         await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
                         continue;
                     }
-                } else {
-                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
                 }
+
+                if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
+                    lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
+                    if (attempt < 2) {
+                        await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
+                        continue;
+                    }
+                }
+
+                throw new Error(`API Error: ${response.status} ${response.statusText}`);
             } catch (error) {
                 lastError = error;
                 if (attempt < 2) {
-                    rotateKey();
-                    await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                    await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
                 }
             }
         }
 
         if (!result) {
-            throw lastError || new Error('Failed to call Gemini API after retries');
+            const finalError = lastError || new Error('Failed to call Gemini API after retries');
+            finalError.status = lastStatus || 500;
+            finalError.details = lastDetails || '';
+            throw finalError;
         }
         
         if (result.error) {
@@ -206,6 +228,11 @@ export default async function handler(req, res) {
 
     } catch (error) {
         console.error('AI Service Error:', error);
-        return res.status(500).json({ error: 'AI processing failed', details: error.message });
+        const status = error?.status || 500;
+        return res.status(status).json({
+            error: 'AI processing failed',
+            details: error?.details || error.message,
+            status
+        });
     }
 }

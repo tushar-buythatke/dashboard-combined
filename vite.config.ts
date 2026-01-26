@@ -12,6 +12,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/api': {
+        target: 'https://dashboard-combined.vercel.app',
+        changeOrigin: true,
+        secure: true,
+      },
       // Proxy for coupon config API (CORS bypass)
       '/coupon-config': {
         target: 'https://search-new.bitbns.com',

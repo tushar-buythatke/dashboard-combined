@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Mic, Command, Loader2, Sparkles, Minimize2 } from 'lucide-react';
+import { X, Send, Mic, Command, Loader2, Sparkles, Minimize2, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { generateChatbotResponse, loadChatHistory, saveChatHistory, type ChatMessage, type ChatbotContext } from '@/services/chatbotService';
@@ -49,6 +49,8 @@ export function DashboardChatbot({
     const [isMinimized, setIsMinimized] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [mobileViewport, setMobileViewport] = useState<{ height: number; offsetTop: number } | null>(null);
+    const [copiedMessageIndex, setCopiedMessageIndex] = useState<number | null>(null);
+    const [activeUserMessageIndex, setActiveUserMessageIndex] = useState<number | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -273,6 +275,29 @@ export function DashboardChatbot({
             setInputValue(''); // Clear input when starting new recording
             startRecording();
             setIsRecording(true);
+        }
+    };
+
+    const handleCopyMessage = async (content: string, idx: number) => {
+        try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(content);
+            } else if (typeof document !== 'undefined') {
+                const textarea = document.createElement('textarea');
+                textarea.value = content;
+                textarea.style.position = 'fixed';
+                textarea.style.left = '-9999px';
+                textarea.style.top = '-9999px';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+            setCopiedMessageIndex(idx);
+            window.setTimeout(() => setCopiedMessageIndex(null), 1200);
+        } catch {
+            // ignore
         }
     };
 
@@ -520,10 +545,11 @@ export function DashboardChatbot({
                                     message.role === 'user' ? 'justify-end' : 'justify-start'
                                 )}
                             >
-                                    <div
+                                <div
                                     className={cn(
                                         "max-w-[85%] rounded-2xl px-3.5 py-2",
-                                        "break-words whitespace-pre-wrap", // FIX: Proper text wrapping
+                                        "break-words whitespace-pre-wrap",
+                                        "relative group",
                                         message.role === 'user'
                                             ? cn(
                                                 "bg-gradient-to-r text-white",
@@ -533,10 +559,41 @@ export function DashboardChatbot({
                                             : "bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200/30 dark:border-gray-700/30"
                                     )}
                                     style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                                    onClick={() => {
+                                        if (message.role !== 'user') return;
+                                        if (!isMobile) return;
+                                        setActiveUserMessageIndex(prev => (prev === idx ? null : idx));
+                                    }}
                                 >
+                                    {message.role === 'user' && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleCopyMessage(message.content, idx);
+                                            }}
+                                            className={cn(
+                                                "absolute right-2 top-2 h-7 w-7 rounded-md",
+                                                "bg-black/10 hover:bg-black/20",
+                                                "flex items-center justify-center",
+                                                isMobile
+                                                    ? (activeUserMessageIndex === idx ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")
+                                                    : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto",
+                                                "transition-opacity"
+                                            )}
+                                            title="Copy"
+                                        >
+                                            {copiedMessageIndex === idx ? (
+                                                <Check className="h-3.5 w-3.5 text-white" />
+                                            ) : (
+                                                <Copy className="h-3.5 w-3.5 text-white" />
+                                            )}
+                                        </button>
+                                    )}
                                     <p className={cn(
                                         "text-sm leading-relaxed",
-                                        "whitespace-pre-wrap", // FIX: Allow wrapping and line breaks
+                                        "whitespace-pre-wrap",
                                         message.role === 'user' ? 'text-white' : 'text-gray-900 dark:text-gray-100'
                                     )}>
                                         {message.content}

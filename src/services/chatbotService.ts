@@ -329,101 +329,128 @@ Otherwise, just respond naturally with helpful information.`;
             { role: 'user', parts: [{ text: userMessage }] }
         ];
 
-        // Use proxy in production, direct API in development
-        const PROXY_URL = '/api/analyze';
-        let result: any;
+        // IMPORTANT:
+        // Always use server-side proxy for chatbot (both dev + prod) to avoid leaking API keys
+        // and to reduce failures from quota/CORS in local dev.
+        const envProxyUrl = (import.meta as any)?.env?.VITE_CHATBOT_PROXY_URL as string | undefined;
+        const isLocalhost =
+            typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-        if (import.meta.env.PROD) {
-            // Use proxy to hide API keys
-            const response = await fetch(PROXY_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mode: 'chatbot',
-                    userMessage,
-                    context: {
-                        systemPrompt,
-                        contextInfo,
-                        conversationHistory
+        const proxyCandidates = [
+            envProxyUrl,
+            '/api/analyze',
+            // Only try cross-origin fallback when not on localhost to avoid CORS failures in dev
+            ...(isLocalhost ? [] : ['https://dashboard-combined.vercel.app/api/analyze']),
+        ].filter(Boolean);
+
+        let result: any = null;
+        let lastError: any = null;
+
+        for (const proxyUrl of proxyCandidates) {
+            try {
+                const response = await fetch(proxyUrl!, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: 'chatbot',
+                        userMessage,
+                        context: {
+                            systemPrompt,
+                            contextInfo,
+                            conversationHistory
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    let details = '';
+                    try {
+                        const errJson = await response.json();
+                        details = errJson?.details || errJson?.error || JSON.stringify(errJson);
+                    } catch {
+                        try {
+                            details = await response.text();
+                        } catch {
+                            details = '';
+                        }
                     }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error(`Proxy Error: ${response.statusText}`);
-            }
-
-            result = await response.json();
-        } else {
-            // Development: Direct API call with key rotation
-            const apiKey = getNextApiKey();
-            const url = `${BASE_API_URL}?key=${apiKey}`;
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: contents,
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 1000,
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                if (response.status === 429 || response.status === 403) {
-                    rotateKey();
-                    // Retry with next key
-                    const retryKey = getNextApiKey();
-                    const retryUrl = `${BASE_API_URL}?key=${retryKey}`;
-                    const retryResponse = await fetch(retryUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: contents,
-                            generationConfig: {
-                                temperature: 0.7,
-                                maxOutputTokens: 1000,
-                            }
-                        })
-                    });
-                    if (!retryResponse.ok) {
-                        throw new Error(`API Error: ${retryResponse.statusText}`);
-                    }
-                    result = await retryResponse.json();
-                } else {
-                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Proxy Error (${proxyUrl}) ${response.status}: ${details || response.statusText}`);
                 }
-            } else {
+
                 result = await response.json();
+                break;
+            } catch (e) {
+                lastError = e;
             }
         }
 
-        // Handle response (from proxy or direct)
-        let parsedResponse: any;
-        if (import.meta.env.PROD) {
-            // Proxy already returns parsed response
-            parsedResponse = result;
-        } else {
-            // Direct API returns raw text
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) throw new Error('No response from AI');
+        if (!result) {
+            throw lastError || new Error('Proxy Error: Failed to call chatbot proxy');
+        }
 
-            // Try to parse JSON response if it contains filter updates
-            parsedResponse = { response: text };
-            try {
-                // Check if response contains JSON
-                const jsonMatch = text.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    const parsed = JSON.parse(jsonMatch[0]);
-                    if (parsed.shouldUpdateFilters || parsed.explanation) {
-                        parsedResponse = parsed;
-                    }
-                }
-            } catch {
-                // Not JSON, use as plain text response
+        const normalizeForMatch = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        const inferPosFromMessage = (): { pos: number[]; shouldForceReset: boolean } | null => {
+            const posOptions = context.availableOptions?.pos;
+            if (!posOptions || posOptions.length === 0) return null;
+
+            const msg = normalizeForMatch(userMessage);
+
+            const isContinuation =
+                msg.includes('same') ||
+                msg.includes('previous') ||
+                msg.includes('again') ||
+                msg.includes('continue') ||
+                msg.includes('asbefore') ||
+                msg.includes('previously');
+
+            if (
+                msg.includes('allsites') ||
+                msg.includes('allsite') ||
+                msg.includes('overall') ||
+                msg.includes('allpos')
+            ) {
+                return { pos: [], shouldForceReset: true };
             }
+
+            const matches: Array<{ id: number; len: number }> = [];
+            for (const pos of posOptions) {
+                const nameNorm = normalizeForMatch(pos.name);
+                if (nameNorm.length < 5) continue;
+                if (msg.includes(nameNorm)) {
+                    matches.push({ id: pos.id, len: nameNorm.length });
+                }
+            }
+
+            if (matches.length === 0) {
+                // No site mentioned: default to ALL sites (reset POS) unless user clearly continues previous context
+                if (isContinuation) return null;
+                return { pos: [], shouldForceReset: true };
+            }
+
+            matches.sort((a, b) => b.len - a.len);
+            return { pos: Array.from(new Set(matches.map(m => m.id))), shouldForceReset: false };
+        };
+
+        // Proxy already returns parsed response
+        let parsedResponse: any = result;
+        if (typeof parsedResponse === 'string') {
+            parsedResponse = { response: parsedResponse };
+        }
+        if (!parsedResponse?.response && typeof parsedResponse?.text === 'string') {
+            parsedResponse = { response: parsedResponse.text };
+        }
+
+        const inferredPos = inferPosFromMessage();
+        if (inferredPos !== null) {
+            parsedResponse = {
+                ...parsedResponse,
+                shouldUpdateFilters: {
+                    ...(parsedResponse?.shouldUpdateFilters || {}),
+                    pos: parsedResponse?.shouldUpdateFilters?.pos ?? inferredPos.pos,
+                }
+            };
         }
 
         // Save to chat history
