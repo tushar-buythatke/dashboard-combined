@@ -4,8 +4,6 @@ export default async function handler(req, res) {
     }
 
     const { data, context, mode, transcript, options, currentDate, userMessage, context: chatbotContext } = req.body;
-    
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     const parseKeys = (raw) => {
         if (!raw) return [];
@@ -33,51 +31,6 @@ export default async function handler(req, res) {
         return singleKey ? [singleKey] : [];
     })();
 
-    const getRetryDelayMs = (response, bodyText) => {
-        const retryAfter = response?.headers?.get?.('retry-after');
-        if (retryAfter) {
-            const seconds = Number(retryAfter);
-            if (!Number.isNaN(seconds) && seconds > 0) return seconds * 1000;
-        }
-
-        if (typeof bodyText === 'string' && bodyText) {
-            try {
-                // Try to parse as JSON first
-                const parsed = JSON.parse(bodyText);
-                if (parsed?.error?.details) {
-                    for (const detail of parsed.error.details) {
-                        // Check for RetryInfo type with retryDelay field
-                        if (detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo' && detail.retryDelay) {
-                            const delayStr = String(detail.retryDelay);
-                            // Handle formats like "58s", "58.046904289s", or just "58"
-                            const match = delayStr.match(/(\d+(?:\.\d+)?)s?/);
-                            if (match) {
-                                const seconds = Number(match[1]);
-                                if (!Number.isNaN(seconds) && seconds > 0) {
-                                    const delayMs = Math.ceil(seconds * 1000);
-                                    console.log(`[API] Extracted retry delay: ${seconds}s (${delayMs}ms)`);
-                                    return delayMs;
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e) {
-                // If JSON parse fails, try regex match
-            }
-            
-            // Fallback: regex match for retryDelay in string format
-            const match = bodyText.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s?"/);
-            if (match) {
-                const seconds = Number(match[1]);
-                if (!Number.isNaN(seconds) && seconds > 0) {
-                    return Math.ceil(seconds * 1000);
-                }
-            }
-        }
-
-        return null;
-    };
     const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
     
     if (API_KEYS.length === 0) {
@@ -248,57 +201,35 @@ export default async function handler(req, res) {
                 }
 
                 if (response.status === 429) {
-                    console.warn(`[API] ⚠️ Key ${keyPrefix}... rate limited (429). Rotating...`);
+                    console.warn(`[API] ⚠️ Key ${keyPrefix}... rate limited (429). Rotating immediately...`);
                     markKeyFailed(apiKey);
                     rotateKey();
                     lastError = new Error(`Rate limit exceeded: ${errorInfo || response.statusText}`);
-                    
-                    // Only wait if we have more keys to try
-                    if (attempt < maxAttempts - 1) {
-                        const retryDelayMs = getRetryDelayMs(response, lastDetails);
-                        if (retryDelayMs) {
-                            console.log(`[API] Waiting ${Math.ceil(retryDelayMs / 1000)}s before next key...`);
-                            await sleep(retryDelayMs);
-                        } else {
-                            // Small delay before trying next key
-                            await sleep(500);
-                        }
-                    }
                     continue;
                 }
 
                 if (response.status === 403) {
-                    console.warn(`[API] ⚠️ Key ${keyPrefix}... forbidden/quota exceeded (403). Rotating...`);
+                    console.warn(`[API] ⚠️ Key ${keyPrefix}... forbidden/quota exceeded (403). Rotating immediately...`);
                     markKeyFailed(apiKey);
                     rotateKey();
                     lastError = new Error(`Quota exceeded: ${errorInfo || response.statusText}`);
-                    
-                    if (attempt < maxAttempts - 1) {
-                        // Small delay before trying next key
-                        await sleep(500);
-                    }
                     continue;
                 }
 
                 if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
-                    console.warn(`[API] ⚠️ Server error ${response.status} with key ${keyPrefix}... Retrying...`);
+                    console.warn(`[API] ⚠️ Server error ${response.status} with key ${keyPrefix}... Rotating immediately...`);
+                    markKeyFailed(apiKey);
+                    rotateKey();
                     lastError = new Error(`Server error: ${response.status} ${response.statusText}`);
-                    if (attempt < maxAttempts - 1) {
-                        await sleep(800 * (attempt + 1));
-                        continue;
-                    }
+                    continue;
                 }
 
                 // For other errors, still rotate and try next key
-                console.warn(`[API] ⚠️ Key ${keyPrefix}... failed with ${response.status}. Rotating...`);
+                console.warn(`[API] ⚠️ Key ${keyPrefix}... failed with ${response.status}. Rotating immediately...`);
                 markKeyFailed(apiKey);
                 rotateKey();
                 lastError = new Error(`API Error: ${response.status} ${errorInfo || response.statusText}`);
-                
-                if (attempt < maxAttempts - 1) {
-                    await sleep(500);
-                    continue;
-                }
+                continue;
             } catch (error) {
                 const apiKey = getNextApiKey();
                 const keyPrefix = apiKey.substring(0, 10);
@@ -306,9 +237,7 @@ export default async function handler(req, res) {
                 markKeyFailed(apiKey);
                 rotateKey();
                 lastError = error;
-                if (attempt < maxAttempts - 1) {
-                    await sleep(500);
-                }
+                continue;
             }
         }
 
@@ -407,35 +336,24 @@ export default async function handler(req, res) {
                         }
 
                         if (repairResp.status === 429) {
-                            console.warn(`[API] ⚠️ Repair: Key ${keyPrefix}... rate limited. Rotating...`);
+                            console.warn(`[API] ⚠️ Repair: Key ${keyPrefix}... rate limited. Rotating immediately...`);
                             markKeyFailed(apiKey);
                             rotateKey();
-                            if (attempt < repairMaxAttempts - 1) {
-                                const retryDelayMs = getRetryDelayMs(repairResp, repairTextDetails);
-                                await sleep(retryDelayMs ?? 500);
-                                continue;
-                            }
+                            continue;
                         }
 
                         if (repairResp.status === 403) {
-                            console.warn(`[API] ⚠️ Repair: Key ${keyPrefix}... quota exceeded. Rotating...`);
+                            console.warn(`[API] ⚠️ Repair: Key ${keyPrefix}... quota exceeded. Rotating immediately...`);
                             markKeyFailed(apiKey);
                             rotateKey();
-                            if (attempt < repairMaxAttempts - 1) {
-                                await sleep(500);
-                                continue;
-                            }
+                            continue;
                         }
 
                         // For other errors, rotate and continue
+                        console.warn(`[API] ⚠️ Repair: Key ${keyPrefix}... failed with ${repairResp.status}. Rotating immediately...`);
                         markKeyFailed(apiKey);
                         rotateKey();
-                        if (attempt < repairMaxAttempts - 1) {
-                            await sleep(500);
-                            continue;
-                        }
-                        
-                        break;
+                        continue;
                     }
 
                     const repairText = repairResult?.candidates?.[0]?.content?.parts?.[0]?.text;
