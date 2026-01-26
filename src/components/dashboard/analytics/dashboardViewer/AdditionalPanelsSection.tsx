@@ -4545,27 +4545,49 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                         featureId={profile?.featureId}
                         onUpdateFilters={(filters) => {
                             // Apply filter updates from chatbot
-                            if (filters.platforms) {
-                                updatePanelFilter?.(panel.panelId, 'platforms', filters.platforms);
+                            const currentFilters = currentPanelFilters || {
+                                platforms: [],
+                                pos: [],
+                                sources: [],
+                                events: []
+                            };
+
+                            const toNumberArray = (value: any): number[] => {
+                                if (!Array.isArray(value)) return [];
+                                return value.map((v: any) => Number(v)).filter((n: number) => !isNaN(n));
+                            };
+
+                            const mergedFilters: FilterState = {
+                                platforms: filters.platforms !== undefined ? toNumberArray(filters.platforms) : toNumberArray(currentFilters.platforms),
+                                pos: filters.pos !== undefined ? toNumberArray(filters.pos) : toNumberArray(currentFilters.pos),
+                                sources: filters.sources !== undefined ? toNumberArray(filters.sources) : toNumberArray(currentFilters.sources),
+                                events: filters.events !== undefined ? toNumberArray(filters.events) : toNumberArray(currentFilters.events),
+                            };
+
+                            if (filters.platforms !== undefined) {
+                                updatePanelFilter?.(panel.panelId, 'platforms', mergedFilters.platforms);
                             }
-                            if (filters.pos) {
-                                updatePanelFilter?.(panel.panelId, 'pos', filters.pos);
+                            if (filters.pos !== undefined) {
+                                updatePanelFilter?.(panel.panelId, 'pos', mergedFilters.pos);
                             }
-                            if (filters.sources) {
-                                updatePanelFilter?.(panel.panelId, 'sources', filters.sources);
+                            if (filters.sources !== undefined) {
+                                updatePanelFilter?.(panel.panelId, 'sources', mergedFilters.sources);
                             }
-                            if (filters.events) {
-                                updatePanelFilter?.(panel.panelId, 'events', filters.events);
+                            if (filters.events !== undefined) {
+                                updatePanelFilter?.(panel.panelId, 'events', mergedFilters.events);
                             }
-                            if (filters.dateRange) {
-                                updatePanelDateRange?.(panel.panelId, new Date(filters.dateRange.from), new Date(filters.dateRange.to));
+
+                            const overrideDateRange = filters?.dateRange?.from && filters?.dateRange?.to
+                                ? { from: new Date(filters.dateRange.from), to: new Date(filters.dateRange.to) }
+                                : undefined;
+
+                            if (overrideDateRange) {
+                                updatePanelDateRange?.(panel.panelId, overrideDateRange.from, overrideDateRange.to);
                             }
-                            // Trigger refresh
+
                             setTimeout(() => {
-                                if (handlePanelRefresh) {
-                                    handlePanelRefresh(panel.panelId);
-                                }
-                            }, 300);
+                                handlePanelRefresh?.(panel.panelId, { filters: mergedFilters, dateRange: overrideDateRange });
+                            }, 0);
                         }}
                     />
                 );

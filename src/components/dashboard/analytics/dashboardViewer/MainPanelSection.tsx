@@ -117,7 +117,7 @@ type MainPanelSectionProps = {
     pendingRefresh: boolean;
     panelFiltersState: Record<string, Partial<FilterState>>;
     handleFilterChange: (type: keyof FilterState, values: any) => void;
-    handleApplyFilters: () => void;
+    handleApplyFilters: (override?: { filters?: FilterState; dateRange?: DateRangeState }) => void;
     dataLoading: boolean;
     autoRefreshMinutes: number;
     setAutoRefreshMinutes: (next: number) => void;
@@ -1363,7 +1363,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <div className="flex items-center gap-4 flex-wrap">
                                 {/* Prominent Apply Filters button with clear visual cue */}
                                 <Button
-                                    onClick={handleApplyFilters}
+                                    onClick={() => handleApplyFilters()}
                                     disabled={dataLoading}
                                     size="lg"
                                     className={cn(
@@ -4933,22 +4933,45 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     const mainPanelId = profile?.panels?.[0]?.panelId;
                     if (!mainPanelId) return;
 
+                    const currentFilters = panelFiltersState[mainPanelId] || {
+                        platforms: [],
+                        pos: [],
+                        sources: [],
+                        events: []
+                    };
+
+                    const toNumberArray = (value: any): number[] => {
+                        if (!Array.isArray(value)) return [];
+                        return value.map((v: any) => Number(v)).filter((n: number) => !isNaN(n));
+                    };
+
+                    const mergedFilters: FilterState = {
+                        platforms: filters.platforms !== undefined ? toNumberArray(filters.platforms) : (currentFilters.platforms || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
+                        pos: filters.pos !== undefined ? toNumberArray(filters.pos) : (currentFilters.pos || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
+                        sources: filters.sources !== undefined ? toNumberArray(filters.sources) : (currentFilters.sources || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
+                        events: filters.events !== undefined ? toNumberArray(filters.events) : (currentFilters.events || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
+                    };
+
                     if (filters.platforms !== undefined) {
-                        handleFilterChange('platforms', filters.platforms);
+                        handleFilterChange('platforms', mergedFilters.platforms);
                     }
                     if (filters.pos !== undefined) {
-                        handleFilterChange('pos', filters.pos);
+                        handleFilterChange('pos', mergedFilters.pos);
                     }
                     if (filters.sources !== undefined) {
-                        handleFilterChange('sources', filters.sources);
+                        handleFilterChange('sources', mergedFilters.sources);
                     }
                     if (filters.events !== undefined) {
-                        handleFilterChange('events', filters.events);
+                        handleFilterChange('events', mergedFilters.events);
                     }
-                    
+
+                    const overrideDateRange = filters?.dateRange?.from && filters?.dateRange?.to
+                        ? { from: new Date(filters.dateRange.from), to: new Date(filters.dateRange.to) }
+                        : undefined;
+
                     setTimeout(() => {
-                        handleApplyFilters();
-                    }, 300);
+                        handleApplyFilters({ filters: mergedFilters, dateRange: overrideDateRange });
+                    }, 0);
                 }}
             />
 

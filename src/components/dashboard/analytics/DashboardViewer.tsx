@@ -3212,11 +3212,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     }, [autoRefreshMinutes, profile, refreshPanelData]);
 
     // Manual refresh trigger for main panel only (first panel)
-    const handleApplyFilters = useCallback(() => {
+    const handleApplyFilters = useCallback((override?: { filters?: FilterState; dateRange?: DateRangeState }) => {
         setPendingRefresh(false);
         if (profile && profile.panels.length > 0) {
             // Only refresh the first/main panel
-            refreshPanelData(profile.panels[0].panelId);
+            refreshPanelData(profile.panels[0].panelId, override?.filters, override?.dateRange);
             // Clear the filter change state for the main panel
             setPanelFilterChanges(prev => ({
                 ...prev,
@@ -3226,8 +3226,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     }, [profile, refreshPanelData]);
 
     // Individual panel refresh function
-    const handlePanelRefresh = useCallback((panelId: string) => {
-        refreshPanelData(panelId);
+    const handlePanelRefresh = useCallback((panelId: string, override?: { filters?: FilterState; dateRange?: DateRangeState }) => {
+        refreshPanelData(panelId, override?.filters, override?.dateRange);
         // Clear the filter change state for this specific panel
         setPanelFilterChanges(prev => ({
             ...prev,
@@ -3719,7 +3719,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             <Button
                                 variant={pendingRefresh ? "default" : "secondary"}
                                 size="sm"
-                                onClick={handleApplyFilters}
+                                onClick={() => handleApplyFilters()}
                                 disabled={dataLoading}
                                 className={cn(
                                     pendingRefresh

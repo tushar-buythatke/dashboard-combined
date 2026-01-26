@@ -26,10 +26,16 @@ const getChatbotWidth = () => {
     return window.innerWidth < 768 ? window.innerWidth - 24 : 420; // Mobile: full width minus minimal padding
 };
 
+const getChatbotHeight = () => {
+    if (typeof window === 'undefined') return CHATBOT_HEIGHT;
+    const availableHeight = window.innerHeight - NAVBAR_HEIGHT - 24;
+    return Math.min(CHATBOT_HEIGHT, availableHeight);
+};
+
 const CHATBOT_HEIGHT = 550; // Optimized height for better screen space
 const MINIMIZED_SIZE = 56;
 const NAVBAR_HEIGHT = 64;
-const RIGHT_PADDING = 0; // NO padding - absolute right edge
+const RIGHT_PADDING = 16;
 const MOBILE_PADDING = 12; // Mobile needs some padding
 
 export function DashboardChatbot({
@@ -71,7 +77,7 @@ export function DashboardChatbot({
         // Only set initial position when first opened, don't reset when minimizing
         const chatbotWidth = getChatbotWidth();
         const isMobile = window.innerWidth < 768;
-        const chatbotHeight = CHATBOT_HEIGHT;
+        const chatbotHeight = getChatbotHeight();
         
         // Position at BOTTOM RIGHT corner
         const rightX = isMobile ? MOBILE_PADDING : window.innerWidth - chatbotWidth - RIGHT_PADDING;
@@ -200,7 +206,7 @@ export function DashboardChatbot({
                 }));
             } else {
                 const chatbotWidth = getChatbotWidth();
-                const chatbotHeight = CHATBOT_HEIGHT;
+                const chatbotHeight = getChatbotHeight();
                 const isMobile = window.innerWidth < 768;
                 // Keep at bottom right corner on resize
                 const rightX = isMobile ? MOBILE_PADDING : window.innerWidth - chatbotWidth - RIGHT_PADDING;
@@ -359,7 +365,7 @@ export function DashboardChatbot({
                     setIsMinimized(false);
                     // Snap back to bottom right corner when expanded
                     const chatbotWidth = getChatbotWidth();
-                    const chatbotHeight = CHATBOT_HEIGHT;
+                    const chatbotHeight = getChatbotHeight();
                     const rightX = isMobile ? MOBILE_PADDING : window.innerWidth - chatbotWidth - RIGHT_PADDING;
                     const bottomY = window.innerHeight - chatbotHeight - 12;
                     setPosition({ x: rightX, y: bottomY });
@@ -408,10 +414,10 @@ export function DashboardChatbot({
                 height: `${mobileHeight}px`,
             } : {
                 // Desktop: positioned at bottom right
-                right: '0px',
+                right: `${RIGHT_PADDING}px`,
                 top: `${position.y}px`,
                 width: `${chatbotWidth}px`,
-                height: `${CHATBOT_HEIGHT}px`,
+                height: `${chatbotHeight}px`,
                 maxHeight: `${availableHeight}px`,
             }}
             onClick={(e) => e.stopPropagation()}

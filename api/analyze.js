@@ -5,24 +5,52 @@ export default async function handler(req, res) {
 
     const { data, context, mode, transcript, options, currentDate, userMessage, context: chatbotContext } = req.body;
     
-    // Get API keys array from environment
-    const getApiKeys = () => {
-        const keysArray = process.env.VITE_GEMINI_API_KEYS_ARRAY;
-        if (keysArray) {
-            try {
-                if (typeof keysArray === 'string') {
-                    return JSON.parse(keysArray);
-                }
-                return keysArray;
-            } catch {
-                return keysArray.split(',').map(k => k.trim().replace(/["\[\]]/g, ''));
-            }
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const parseKeys = (raw) => {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw.map(k => String(k).trim()).filter(Boolean);
+        if (typeof raw !== 'string') return [];
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.map(k => String(k).trim()).filter(Boolean);
+        } catch {
+            // ignore
         }
-        const singleKey = process.env.VITE_GEMINI_API_KEY;
-        return singleKey ? [singleKey] : [];
+        return raw
+            .split(',')
+            .map(k => k.trim().replace(/["\[\]]/g, ''))
+            .filter(Boolean);
     };
 
-    const API_KEYS = getApiKeys();
+    // Prefer server-side env vars (GEMINI_*) but also support VITE_* for existing deployments.
+    const API_KEYS = (() => {
+        const keysArrayRaw = process.env.GEMINI_API_KEYS_ARRAY ?? process.env.VITE_GEMINI_API_KEYS_ARRAY;
+        const parsedArray = parseKeys(keysArrayRaw);
+        if (parsedArray.length > 0) return parsedArray;
+
+        const singleKey = process.env.GEMINI_API_KEY ?? process.env.VITE_GEMINI_API_KEY;
+        return singleKey ? [singleKey] : [];
+    })();
+
+    const getRetryDelayMs = (response, bodyText) => {
+        const retryAfter = response?.headers?.get?.('retry-after');
+        if (retryAfter) {
+            const seconds = Number(retryAfter);
+            if (!Number.isNaN(seconds) && seconds > 0) return seconds * 1000;
+        }
+
+        if (typeof bodyText === 'string' && bodyText) {
+            // Gemini often returns { error: { details: [{ retryDelay: "26s" }] } }
+            const match = bodyText.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+            if (match) {
+                const seconds = Number(match[1]);
+                if (!Number.isNaN(seconds) && seconds > 0) return Math.ceil(seconds * 1000);
+            }
+        }
+
+        return null;
+    };
     const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
     
     if (API_KEYS.length === 0) {
@@ -150,12 +178,21 @@ export default async function handler(req, res) {
                     lastDetails = '';
                 }
 
-                if (response.status === 429 || response.status === 403) {
-                    console.warn(`API key failed with ${response.status}, rotating...`);
+                if (response.status === 429) {
                     rotateKey();
                     lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
                     if (attempt < 2) {
-                        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                        const retryDelayMs = getRetryDelayMs(response, lastDetails);
+                        await sleep(retryDelayMs ?? (1000 * (attempt + 1)));
+                        continue;
+                    }
+                }
+
+                if (response.status === 403) {
+                    rotateKey();
+                    lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
+                    if (attempt < 2) {
+                        await sleep(1000 * (attempt + 1));
                         continue;
                     }
                 }
@@ -163,7 +200,7 @@ export default async function handler(req, res) {
                 if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
                     lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
                     if (attempt < 2) {
-                        await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
+                        await sleep(800 * (attempt + 1));
                         continue;
                     }
                 }
@@ -172,7 +209,7 @@ export default async function handler(req, res) {
             } catch (error) {
                 lastError = error;
                 if (attempt < 2) {
-                    await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
+                    await sleep(800 * (attempt + 1));
                 }
             }
         }
@@ -253,10 +290,27 @@ export default async function handler(req, res) {
                             break;
                         }
 
-                        if (repairResp.status === 429 || repairResp.status === 403) {
+                        if (repairResp.status === 429) {
                             rotateKey();
-                            await new Promise(resolve => setTimeout(resolve, 800 * (attempt + 1)));
-                            continue;
+                            if (attempt < 1) {
+                                let repairTextDetails = '';
+                                try {
+                                    repairTextDetails = await repairResp.text();
+                                } catch {
+                                    repairTextDetails = '';
+                                }
+                                const retryDelayMs = getRetryDelayMs(repairResp, repairTextDetails);
+                                await sleep(retryDelayMs ?? (800 * (attempt + 1)));
+                                continue;
+                            }
+                        }
+
+                        if (repairResp.status === 403) {
+                            rotateKey();
+                            if (attempt < 1) {
+                                await sleep(800 * (attempt + 1));
+                                continue;
+                            }
                         }
 
                         break;
