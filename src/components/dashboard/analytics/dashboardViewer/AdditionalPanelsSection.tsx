@@ -3026,7 +3026,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelAvgSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelAvgEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden">
+                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
                                                     {/* Zoom Controls for Time Delay Trends */}
                                                     <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <ChartZoomControls
@@ -3257,7 +3257,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden">
+                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
                                                     {/* Zoom Controls for Error Event Trends */}
                                                     <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <ChartZoomControls
@@ -3277,6 +3277,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     data={filteredGraphData}
                                                                     margin={{ top: 20, right: 30, left: 10, bottom: 60 }}
                                                                     onClick={(chartState: any) => {
+                                                                        if (isMobile) return;
                                                                         if (chartState && chartState.activeIndex !== undefined) {
                                                                             const index = parseInt(chartState.activeIndex);
                                                                             const dataPoint = filteredGraphData[index];

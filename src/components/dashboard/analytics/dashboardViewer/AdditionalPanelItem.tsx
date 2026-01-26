@@ -1017,7 +1017,7 @@ export const AdditionalPanelItem = React.memo(({
                                                 width={65}
                                                 dx={-5}
                                             />
-                                            <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} />
+                                            <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
                                             {apiEventKeyInfos.map((ek: any, idx: number) => {
                                                 const color = EVENT_COLORS[idx % EVENT_COLORS.length];
                                                 let dataKey = `${ek.eventKey}_count`;

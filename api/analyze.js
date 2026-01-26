@@ -178,9 +178,19 @@ export default async function handler(req, res) {
                         parsedResponse = parsed;
                     }
                 }
-            } catch {
+            } catch (parseError) {
                 // Not JSON, use as plain text response
+                console.warn('Chatbot response parsing failed:', parseError.message);
+                console.warn('Raw AI response:', text);
             }
+            
+            // Debug log to see what we're returning
+            if (parsedResponse.shouldUpdateFilters) {
+                console.log('✅ Returning filter updates:', JSON.stringify(parsedResponse.shouldUpdateFilters));
+            } else {
+                console.log('⚠️ No filter updates found in response. Parsed:', parsedResponse);
+            }
+            
             return res.status(200).json(parsedResponse);
         }
 

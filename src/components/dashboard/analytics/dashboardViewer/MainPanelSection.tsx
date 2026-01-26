@@ -2516,7 +2516,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         );
                                     })()}
 
-                                    <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer relative group overflow-x-auto overflow-y-hidden">
+                                    <div className="h-[300px] sm:h-[400px] md:h-[520px] w-full cursor-pointer relative group overflow-x-auto overflow-y-hidden touch-pan-y">
                                         {/* Hide parent zoom controls when deviation chart is shown (it has its own) */}
                                         {(() => {
                                             const mainPanelId = profile?.panels?.[0]?.panelId;
