@@ -391,6 +391,22 @@ Otherwise, just respond naturally with helpful information.`;
 
         const normalizeForMatch = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+        const getPosNameVariants = (name: string): string[] => {
+            const variants = new Set<string>();
+            const raw = (name || '').trim();
+            if (!raw) return [];
+
+            variants.add(normalizeForMatch(raw));
+
+            const withoutNumericParens = raw.replace(/\(\s*\d+\s*\)/g, '').trim();
+            if (withoutNumericParens) variants.add(normalizeForMatch(withoutNumericParens));
+
+            const withoutTrailingNumericParens = raw.replace(/\s*\(\s*\d+\s*\)\s*$/g, '').trim();
+            if (withoutTrailingNumericParens) variants.add(normalizeForMatch(withoutTrailingNumericParens));
+
+            return Array.from(variants).filter(v => v.length >= 3);
+        };
+
         const inferPosFromMessage = (): { pos: number[]; shouldForceReset: boolean } | null => {
             const posOptions = context.availableOptions?.pos;
             if (!posOptions || posOptions.length === 0) return null;
@@ -416,10 +432,12 @@ Otherwise, just respond naturally with helpful information.`;
 
             const matches: Array<{ id: number; len: number }> = [];
             for (const pos of posOptions) {
-                const nameNorm = normalizeForMatch(pos.name);
-                if (nameNorm.length < 5) continue;
-                if (msg.includes(nameNorm)) {
-                    matches.push({ id: pos.id, len: nameNorm.length });
+                const variants = getPosNameVariants(pos.name);
+                for (const v of variants) {
+                    if (v.length < 5) continue;
+                    if (msg.includes(v)) {
+                        matches.push({ id: pos.id, len: v.length });
+                    }
                 }
             }
 
@@ -444,11 +462,20 @@ Otherwise, just respond naturally with helpful information.`;
 
         const inferredPos = inferPosFromMessage();
         if (inferredPos !== null) {
+            const existingPos = parsedResponse?.shouldUpdateFilters?.pos;
+
+            let nextPos = existingPos;
+            if (inferredPos.shouldForceReset) {
+                nextPos = inferredPos.pos;
+            } else if (!Array.isArray(existingPos) || existingPos.length === 0) {
+                nextPos = inferredPos.pos;
+            }
+
             parsedResponse = {
                 ...parsedResponse,
                 shouldUpdateFilters: {
                     ...(parsedResponse?.shouldUpdateFilters || {}),
-                    pos: parsedResponse?.shouldUpdateFilters?.pos ?? inferredPos.pos,
+                    pos: nextPos,
                 }
             };
         }
