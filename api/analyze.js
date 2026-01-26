@@ -41,11 +41,38 @@ export default async function handler(req, res) {
         }
 
         if (typeof bodyText === 'string' && bodyText) {
-            // Gemini often returns { error: { details: [{ retryDelay: "26s" }] } }
-            const match = bodyText.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+            try {
+                // Try to parse as JSON first
+                const parsed = JSON.parse(bodyText);
+                if (parsed?.error?.details) {
+                    for (const detail of parsed.error.details) {
+                        // Check for RetryInfo type with retryDelay field
+                        if (detail['@type'] === 'type.googleapis.com/google.rpc.RetryInfo' && detail.retryDelay) {
+                            const delayStr = String(detail.retryDelay);
+                            // Handle formats like "58s", "58.046904289s", or just "58"
+                            const match = delayStr.match(/(\d+(?:\.\d+)?)s?/);
+                            if (match) {
+                                const seconds = Number(match[1]);
+                                if (!Number.isNaN(seconds) && seconds > 0) {
+                                    const delayMs = Math.ceil(seconds * 1000);
+                                    console.log(`[API] Extracted retry delay: ${seconds}s (${delayMs}ms)`);
+                                    return delayMs;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // If JSON parse fails, try regex match
+            }
+            
+            // Fallback: regex match for retryDelay in string format
+            const match = bodyText.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s?"/);
             if (match) {
                 const seconds = Number(match[1]);
-                if (!Number.isNaN(seconds) && seconds > 0) return Math.ceil(seconds * 1000);
+                if (!Number.isNaN(seconds) && seconds > 0) {
+                    return Math.ceil(seconds * 1000);
+                }
             }
         }
 
@@ -57,10 +84,33 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Server Configuration Error: Missing API Keys' });
     }
 
-    // Key rotation helper
+    console.log(`[API] Loaded ${API_KEYS.length} API keys for rotation`);
+
+    // Key rotation helper with tracking
     let currentKeyIndex = 0;
-    const getNextApiKey = () => API_KEYS[currentKeyIndex % API_KEYS.length];
-    const rotateKey = () => { currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length; };
+    const failedKeys = new Set(); // Track keys that failed recently
+    const getNextApiKey = () => {
+        let attempts = 0;
+        while (attempts < API_KEYS.length) {
+            const key = API_KEYS[currentKeyIndex % API_KEYS.length];
+            if (!failedKeys.has(key)) {
+                return key;
+            }
+            currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+            attempts++;
+        }
+        // If all keys failed, reset and try again
+        failedKeys.clear();
+        return API_KEYS[currentKeyIndex % API_KEYS.length];
+    };
+    const rotateKey = () => { 
+        currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length; 
+    };
+    const markKeyFailed = (key) => {
+        failedKeys.add(key);
+        // Remove from failed set after 5 minutes
+        setTimeout(() => failedKeys.delete(key), 5 * 60 * 1000);
+    };
 
     try {
         let prompt = '';
@@ -145,15 +195,22 @@ export default async function handler(req, res) {
             `;
         }
 
-        // Make API call with retry logic
+        // Make API call with retry logic - try ALL available keys
         let lastError = null;
         let lastStatus = null;
         let lastDetails = '';
         let result = null;
         
-        for (let attempt = 0; attempt < 3; attempt++) {
+        // Try up to all available keys (or max 100 attempts to prevent infinite loops)
+        const maxAttempts = Math.min(API_KEYS.length, 100);
+        const startKeyIndex = currentKeyIndex;
+        
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
             try {
                 const apiKey = getNextApiKey();
+                const keyPrefix = apiKey.substring(0, 10);
+                console.log(`[API] Attempt ${attempt + 1}/${maxAttempts} using key ${keyPrefix}...`);
+                
                 const url = `${BASE_API_URL}?key=${apiKey}`;
                 
                 const response = await fetch(url, {
@@ -167,6 +224,7 @@ export default async function handler(req, res) {
 
                 if (response.ok) {
                     result = await response.json();
+                    console.log(`[API] ✅ Success with key ${keyPrefix}...`);
                     break;
                 }
 
@@ -178,46 +236,94 @@ export default async function handler(req, res) {
                     lastDetails = '';
                 }
 
-                if (response.status === 429) {
-                    rotateKey();
-                    lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
-                    if (attempt < 2) {
-                        const retryDelayMs = getRetryDelayMs(response, lastDetails);
-                        await sleep(retryDelayMs ?? (1000 * (attempt + 1)));
-                        continue;
+                // Parse error details for better logging
+                let errorInfo = '';
+                try {
+                    const errorJson = JSON.parse(lastDetails);
+                    if (errorJson?.error?.message) {
+                        errorInfo = errorJson.error.message.substring(0, 100);
                     }
+                } catch {
+                    errorInfo = lastDetails.substring(0, 100);
+                }
+
+                if (response.status === 429) {
+                    console.warn(`[API] ⚠️ Key ${keyPrefix}... rate limited (429). Rotating...`);
+                    markKeyFailed(apiKey);
+                    rotateKey();
+                    lastError = new Error(`Rate limit exceeded: ${errorInfo || response.statusText}`);
+                    
+                    // Only wait if we have more keys to try
+                    if (attempt < maxAttempts - 1) {
+                        const retryDelayMs = getRetryDelayMs(response, lastDetails);
+                        if (retryDelayMs) {
+                            console.log(`[API] Waiting ${Math.ceil(retryDelayMs / 1000)}s before next key...`);
+                            await sleep(retryDelayMs);
+                        } else {
+                            // Small delay before trying next key
+                            await sleep(500);
+                        }
+                    }
+                    continue;
                 }
 
                 if (response.status === 403) {
+                    console.warn(`[API] ⚠️ Key ${keyPrefix}... forbidden/quota exceeded (403). Rotating...`);
+                    markKeyFailed(apiKey);
                     rotateKey();
-                    lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
-                    if (attempt < 2) {
-                        await sleep(1000 * (attempt + 1));
-                        continue;
+                    lastError = new Error(`Quota exceeded: ${errorInfo || response.statusText}`);
+                    
+                    if (attempt < maxAttempts - 1) {
+                        // Small delay before trying next key
+                        await sleep(500);
                     }
+                    continue;
                 }
 
                 if (response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504) {
-                    lastError = new Error(`API Error: ${response.status} ${response.statusText}`);
-                    if (attempt < 2) {
+                    console.warn(`[API] ⚠️ Server error ${response.status} with key ${keyPrefix}... Retrying...`);
+                    lastError = new Error(`Server error: ${response.status} ${response.statusText}`);
+                    if (attempt < maxAttempts - 1) {
                         await sleep(800 * (attempt + 1));
                         continue;
                     }
                 }
 
-                throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                // For other errors, still rotate and try next key
+                console.warn(`[API] ⚠️ Key ${keyPrefix}... failed with ${response.status}. Rotating...`);
+                markKeyFailed(apiKey);
+                rotateKey();
+                lastError = new Error(`API Error: ${response.status} ${errorInfo || response.statusText}`);
+                
+                if (attempt < maxAttempts - 1) {
+                    await sleep(500);
+                    continue;
+                }
             } catch (error) {
+                const apiKey = getNextApiKey();
+                const keyPrefix = apiKey.substring(0, 10);
+                console.error(`[API] ❌ Exception with key ${keyPrefix}...:`, error.message);
+                markKeyFailed(apiKey);
+                rotateKey();
                 lastError = error;
-                if (attempt < 2) {
-                    await sleep(800 * (attempt + 1));
+                if (attempt < maxAttempts - 1) {
+                    await sleep(500);
                 }
             }
         }
 
         if (!result) {
-            const finalError = lastError || new Error('Failed to call Gemini API after retries');
+            const errorMessage = lastError?.message || 'Failed to call Gemini API after retries';
+            const finalError = new Error(
+                lastStatus === 429 
+                    ? `All API keys rate limited. Tried ${maxAttempts} keys. Please try again in a few minutes.`
+                    : lastStatus === 403
+                    ? `All API keys quota exceeded. Tried ${maxAttempts} keys. Please check your API key quotas.`
+                    : `Failed after trying ${maxAttempts} API keys: ${errorMessage}`
+            );
             finalError.status = lastStatus || 500;
             finalError.details = lastDetails || '';
+            console.error(`[API] ❌ All ${maxAttempts} attempts failed. Last error:`, errorMessage);
             throw finalError;
         }
         
@@ -268,8 +374,10 @@ export default async function handler(req, res) {
                     ];
 
                     let repairResult = null;
-                    for (let attempt = 0; attempt < 2; attempt++) {
+                    const repairMaxAttempts = Math.min(API_KEYS.length, 50);
+                    for (let attempt = 0; attempt < repairMaxAttempts; attempt++) {
                         const apiKey = getNextApiKey();
+                        const keyPrefix = apiKey.substring(0, 10);
                         const url = `${BASE_API_URL}?key=${apiKey}`;
 
                         const repairResp = await fetch(url, {
@@ -287,32 +395,46 @@ export default async function handler(req, res) {
 
                         if (repairResp.ok) {
                             repairResult = await repairResp.json();
+                            console.log(`[API] ✅ Repair successful with key ${keyPrefix}...`);
                             break;
                         }
 
+                        let repairTextDetails = '';
+                        try {
+                            repairTextDetails = await repairResp.text();
+                        } catch {
+                            repairTextDetails = '';
+                        }
+
                         if (repairResp.status === 429) {
+                            console.warn(`[API] ⚠️ Repair: Key ${keyPrefix}... rate limited. Rotating...`);
+                            markKeyFailed(apiKey);
                             rotateKey();
-                            if (attempt < 1) {
-                                let repairTextDetails = '';
-                                try {
-                                    repairTextDetails = await repairResp.text();
-                                } catch {
-                                    repairTextDetails = '';
-                                }
+                            if (attempt < repairMaxAttempts - 1) {
                                 const retryDelayMs = getRetryDelayMs(repairResp, repairTextDetails);
-                                await sleep(retryDelayMs ?? (800 * (attempt + 1)));
+                                await sleep(retryDelayMs ?? 500);
                                 continue;
                             }
                         }
 
                         if (repairResp.status === 403) {
+                            console.warn(`[API] ⚠️ Repair: Key ${keyPrefix}... quota exceeded. Rotating...`);
+                            markKeyFailed(apiKey);
                             rotateKey();
-                            if (attempt < 1) {
-                                await sleep(800 * (attempt + 1));
+                            if (attempt < repairMaxAttempts - 1) {
+                                await sleep(500);
                                 continue;
                             }
                         }
 
+                        // For other errors, rotate and continue
+                        markKeyFailed(apiKey);
+                        rotateKey();
+                        if (attempt < repairMaxAttempts - 1) {
+                            await sleep(500);
+                            continue;
+                        }
+                        
                         break;
                     }
 
