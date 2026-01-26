@@ -48,6 +48,7 @@ export function DashboardChatbot({
     const [isRecording, setIsRecording] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [mobileViewport, setMobileViewport] = useState<{ height: number; offsetTop: number } | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -100,6 +101,35 @@ export function DashboardChatbot({
             }, 100);
         }
     }, [messages, isMinimized, isOpen]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (typeof window === 'undefined') return;
+        if (window.innerWidth >= 768) return;
+
+        const visualViewport = window.visualViewport;
+
+        const updateViewport = () => {
+            setMobileViewport({
+                height: visualViewport?.height ?? window.innerHeight,
+                offsetTop: visualViewport?.offsetTop ?? 0,
+            });
+        };
+
+        updateViewport();
+
+        visualViewport?.addEventListener('resize', updateViewport);
+        visualViewport?.addEventListener('scroll', updateViewport);
+        window.addEventListener('resize', updateViewport);
+        window.addEventListener('orientationchange', updateViewport);
+
+        return () => {
+            visualViewport?.removeEventListener('resize', updateViewport);
+            visualViewport?.removeEventListener('scroll', updateViewport);
+            window.removeEventListener('resize', updateViewport);
+            window.removeEventListener('orientationchange', updateViewport);
+        };
+    }, [isOpen]);
 
     // Handle voice transcript - show in chat input
     useEffect(() => {
@@ -337,16 +367,20 @@ export function DashboardChatbot({
     const chatbotWidth = getChatbotWidth();
     const availableHeight = typeof window !== 'undefined' ? window.innerHeight - NAVBAR_HEIGHT - 24 : CHATBOT_HEIGHT;
     const chatbotHeight = Math.min(isMobile ? availableHeight : CHATBOT_HEIGHT, availableHeight);
+    const mobileHeight = mobileViewport?.height ?? (typeof window !== 'undefined' ? window.innerHeight : chatbotHeight);
+    const mobileTop = mobileViewport?.offsetTop ?? 0;
     
     const chatbotNode = (
         <div
             ref={containerRef}
             className="fixed pointer-events-auto !z-[999999]"
             style={isMobile ? {
-                // Mobile: fullscreen overlay
-                inset: 0,
+                // Mobile: fullscreen overlay sized to visual viewport (handles on-screen keyboard)
+                left: 0,
+                right: 0,
+                top: `${mobileTop}px`,
                 width: '100vw',
-                height: '100vh',
+                height: `${mobileHeight}px`,
             } : {
                 // Desktop: positioned at bottom right
                 right: '0px',
@@ -605,13 +639,13 @@ export function DashboardChatbot({
                                     "min-h-[44px] max-h-[120px]"
                                 )}
                             />
-                            <div className="absolute right-2 bottom-3 flex items-center gap-1">
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                 {/* Clear button */}
                                 {inputValue && (
                                     <button
                                         onClick={handleClearInput}
                                         onMouseDown={(e) => e.stopPropagation()}
-                                        className="h-8 w-8 rounded-lg flex items-center justify-center bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/80 transition-all"
+                                        className="h-9 w-9 rounded-lg flex items-center justify-center bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/80 transition-all"
                                         title="Clear input"
                                     >
                                         <X className="h-3.5 w-3.5" />
@@ -623,7 +657,7 @@ export function DashboardChatbot({
                                     onMouseDown={(e) => e.stopPropagation()}
                                     disabled={isLoading}
                                     className={cn(
-                                        "h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200",
+                                        "h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-200",
                                         voiceIsRecording || isRecording
                                             ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/50"
                                             : "bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/80"
