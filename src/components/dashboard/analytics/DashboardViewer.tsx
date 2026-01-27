@@ -3580,11 +3580,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         () =>
             siteDetails.map((s) => {
                 const name = (s?.name || '').toLowerCase();
-                const brand = name.includes('milky') && name.includes('mist')
-                    ? 'Milky Mist'
-                    : name.includes('flipkart')
-                        ? 'flipkart'
-                        : undefined;
+                const brand = s.id === 0 || s.id === -1
+                    ? undefined
+                    : name.includes('milky') && name.includes('mist')
+                        ? 'Milky Mist'
+                        : (s?.name || '').trim();
 
                 return {
                     value: s.id.toString(),

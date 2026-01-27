@@ -674,7 +674,8 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
 
     const posOptions = siteDetails.map(s => ({
         value: s.id.toString(),
-        label: `${s.name} (${s.id})`
+        label: `${s.name} (${s.id})`,
+        brand: (s.id === 0 || s.id === -1) ? undefined : (s?.name || '').trim()
     }));
 
     const sourceOptions = SOURCES.map(s => ({

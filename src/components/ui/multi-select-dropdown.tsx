@@ -10,90 +10,17 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
-const brandLogoMemoryCache = new Map<string, string>();
-
 const getBrandLogoEndpoint = (brand: string) => {
     const base = import.meta.env.DEV ? '/brand-logo' : '/api/brand-logo';
     const url = new URL(base, window.location.origin);
     url.searchParams.set('brand', brand);
     return url.toString();
 };
-
-const BRAND_LOGO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-const readCachedBrandLogo = (brand: string): string | null => {
-    const mem = brandLogoMemoryCache.get(brand);
-    if (mem) return mem;
-
-    try {
-        const raw = localStorage.getItem(`brandLogoCache:v1:${brand}`);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw) as { dataUrl?: string; ts?: number };
-        if (!parsed?.dataUrl || !parsed?.ts) return null;
-        if (Date.now() - parsed.ts > BRAND_LOGO_TTL_MS) return null;
-        brandLogoMemoryCache.set(brand, parsed.dataUrl);
-        return parsed.dataUrl;
-    } catch {
-        return null;
-    }
-};
-
-const writeCachedBrandLogo = (brand: string, dataUrl: string) => {
-    brandLogoMemoryCache.set(brand, dataUrl);
-    try {
-        localStorage.setItem(
-            `brandLogoCache:v1:${brand}`,
-            JSON.stringify({ dataUrl, ts: Date.now() })
-        );
-    } catch {
-        // ignore
-    }
-};
-
-async function fetchBrandLogoAsDataUrl(brand: string): Promise<string> {
-    const response = await fetch(getBrandLogoEndpoint(brand));
-    if (!response.ok) {
-        throw new Error(`Failed to fetch brand logo: ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    return await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('Failed to read logo'));
-        reader.readAsDataURL(blob);
-    });
-}
-
 function BrandLogo({ brand }: { brand: string }) {
-    const [src, setSrc] = React.useState<string | null>(null);
+    const [errored, setErrored] = React.useState(false);
+    const src = getBrandLogoEndpoint(brand);
 
-    React.useEffect(() => {
-        let cancelled = false;
-
-        const cached = readCachedBrandLogo(brand);
-        if (cached) {
-            setSrc(cached);
-            return;
-        }
-
-        fetchBrandLogoAsDataUrl(brand)
-            .then((dataUrl) => {
-                if (cancelled) return;
-                writeCachedBrandLogo(brand, dataUrl);
-                setSrc(dataUrl);
-            })
-            .catch(() => {
-                if (cancelled) return;
-                setSrc(null);
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [brand]);
-
-    if (!src) {
+    if (errored) {
         return (
             <div className="w-5 h-5 rounded bg-muted flex items-center justify-center text-[9px] font-semibold text-muted-foreground">
                 {brand.slice(0, 2).toUpperCase()}
@@ -107,6 +34,7 @@ function BrandLogo({ brand }: { brand: string }) {
             alt={brand}
             className="w-5 h-5 rounded object-contain bg-white"
             loading="lazy"
+            onError={() => setErrored(true)}
         />
     );
 }
