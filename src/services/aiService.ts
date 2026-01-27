@@ -97,7 +97,7 @@ export interface VoiceFilterResult {
     isHourly?: boolean;
     explanation?: string;
     // New fields for complex graph configurations
-    graphType?: 'regular' | 'percentage' | 'funnel' | 'user_flow';
+    graphType?: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow';
     percentageConfig?: {
         parentEvents: number[]; // Denominator events
         childEvents: number[];  // Numerator events
@@ -213,7 +213,22 @@ export const parseTranscriptToFilters = async (
         sources: { id: number, name: string }[];
         events: { id: number, name: string }[];
     },
-    currentDate?: string // ISO string for today's context
+    currentDate?: string, // ISO string for today's context
+    voiceContext?: {
+        currentFilters?: {
+            platforms?: number[];
+            pos?: number[];
+            sources?: number[];
+            events?: number[];
+        };
+        currentDateRange?: { from?: string; to?: string };
+        panelGraphType?: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow';
+        panelGraphConfig?: {
+            percentageConfig?: any;
+            funnelConfig?: any;
+            userFlowConfig?: any;
+        };
+    }
 ): Promise<VoiceFilterResult> => {
     try {
         if (import.meta.env.PROD) {
@@ -225,6 +240,7 @@ export const parseTranscriptToFilters = async (
                     transcript,
                     options,
                     currentDate: currentDate || new Date().toISOString(),
+                    voiceContext: voiceContext || undefined,
                     mode: 'parse_voice'
                 })
             });
@@ -237,11 +253,21 @@ export const parseTranscriptToFilters = async (
             return await response.json();
         } else {
             console.log("Using Direct API Call for AI Voice Filter Parsing (Dev Mode)");
+            const currentGraphType = voiceContext?.panelGraphType || 'line';
             const prompt = `
-            You are a dashboard filter assistant. Convert this voice transcript into a structured JSON filter object or graph configuration.
+            You are a dashboard filter assistant for Buyhatke Analytics. Convert this voice transcript into a structured JSON filter object and (if applicable) a special graph configuration update.
             
             Today's Date Context: ${currentDate || new Date().toISOString()}
             Transcript: "${transcript}"
+
+            Current Dashboard Context:
+            - Current Graph Type: ${currentGraphType}
+            - Current Filters (IDs): ${JSON.stringify(voiceContext?.currentFilters || {}, null, 2)}
+            - Current Date Range: ${JSON.stringify(voiceContext?.currentDateRange || {}, null, 2)}
+            - Current Graph Config (only relevant if graph type is percentage/funnel/user_flow):
+              * percentageConfig: ${JSON.stringify(voiceContext?.panelGraphConfig?.percentageConfig || null)}
+              * funnelConfig: ${JSON.stringify(voiceContext?.panelGraphConfig?.funnelConfig || null)}
+              * userFlowConfig: ${JSON.stringify(voiceContext?.panelGraphConfig?.userFlowConfig || null)}
             
             Available Options (only use IDs from these sets):
             - Platforms: ${JSON.stringify(options.platforms)}
@@ -251,12 +277,24 @@ export const parseTranscriptToFilters = async (
             
             Task Breakdown:
             1. Recognize Filters: Dates, Platforms, POS, Sources.
-            2. Recognize Graph Type: If the user asks for a "funnel", "user flow", or "percentage/ratio" graph, set the "graphType" and provide the appropriate config.
+            2. Graph Type Handling:
+               - Prefer using the CURRENT Graph Type from context unless the user explicitly asks to switch.
+               - If user says "funnel"/"conversion" => set graphType: "funnel" and return funnelConfig.
+               - If user says "percentage"/"ratio" => set graphType: "percentage" and return percentageConfig.
+               - If user says "user flow" => set graphType: "user_flow" and return userFlowConfig.
             3. Semantic Event Mapping: map vague terms (e.g., "spend lens", "checkout flow", "auth") to specific event sequences or sets. 
                Example: "spend lens" -> events like SPEND_shown, SPEND_clicked, SPEND_success.
+
+            PLATFORM-AWARE EVENT RESOLUTION (VERY IMPORTANT):
+            - Event names can represent the SAME concept across platforms but use different naming styles, e.g. "checkoutSuccess" vs "CHECKOUT_SUCCESS".
+            - If the transcript mentions platform scope (e.g. "chrome extension", "android", "ios", "mobile", "web") OR you set platforms:
+              * choose event IDs matching the intent AND include ALL strong naming variants for that scope.
+              * avoid picking variants that clearly belong to other platforms.
+            - If no platform scope is specified (platforms: [] => ALL), include ALL strong variants.
+            - Return ONLY event IDs that exist in the provided Events list.
             
             Output Schema Details:
-            - graphType: 'regular' | 'percentage' | 'funnel' | 'user_flow'
+            - graphType: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow'
             - percentageConfig: { "parentEvents": [ids], "childEvents": [ids] } -- Used for ratio analysis (Numerator/Denominator).
             - funnelConfig: { "stages": [{ "eventId": id }], "multipleChildEvents": [ids] } -- Sequential conversion.
             - userFlowConfig: { "stages": [{ "label": "Step Name", "eventIds": [ids] }] } -- Complex branching flows.
@@ -275,6 +313,10 @@ export const parseTranscriptToFilters = async (
             JSON Return Example for complex request:
             {
               "graphType": "funnel",
+              "platforms": [],
+              "pos": [],
+              "sources": [],
+              "events": [],
               "funnelConfig": {
                 "stages": [{ "eventId": 101 }, { "eventId": 102 }],
                 "multipleChildEvents": [103, 104]

@@ -117,7 +117,7 @@ type MainPanelSectionProps = {
     pendingRefresh: boolean;
     panelFiltersState: Record<string, Partial<FilterState>>;
     handleFilterChange: (type: keyof FilterState, values: any) => void;
-    handleApplyFilters: (override?: { filters?: FilterState; dateRange?: DateRangeState }) => void;
+    handleApplyFilters: (override?: { filters?: FilterState; dateRange?: DateRangeState; panel?: any }) => void;
     dataLoading: boolean;
     autoRefreshMinutes: number;
     setAutoRefreshMinutes: (next: number) => void;
@@ -4920,11 +4920,25 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         platforms: platformOptions.map(opt => ({ id: parseInt(opt.value), name: opt.label })),
                         pos: posOptions.map(opt => ({ id: parseInt(opt.value), name: opt.label })),
                         sources: sourceOptions.map(opt => ({ id: opt.value, name: opt.label })),
-                        events: eventOptions.map(opt => ({ id: parseInt(opt.value), name: opt.label }))
+                        events: eventOptions.map(opt => {
+                            const id = parseInt(opt.value);
+                            const ev = (events || []).find((e: any) => Number(e.eventId) === id);
+                            return { id, name: ev?.eventName || opt.label };
+                        })
                     },
                     panelName: profile?.panels?.[0]?.panelName || 'Main Panel',
                     graphData: graphData,
-                    metricType: isFirstPanelSpecialGraph ? 'other' : 'count'
+                    metricType: ((profile?.panels?.[0] as any)?.filterConfig?.graphType === 'percentage')
+                        ? 'percentage'
+                        : ((profile?.panels?.[0] as any)?.filterConfig?.graphType === 'funnel')
+                            ? 'funnel'
+                            : 'count',
+                    panelGraphType: (profile?.panels?.[0] as any)?.filterConfig?.graphType,
+                    panelGraphConfig: {
+                        percentageConfig: (profile?.panels?.[0] as any)?.filterConfig?.percentageConfig,
+                        funnelConfig: (profile?.panels?.[0] as any)?.filterConfig?.funnelConfig,
+                        userFlowConfig: (profile?.panels?.[0] as any)?.filterConfig?.userFlowConfig,
+                    }
                 }}
                 featureId={profile?.featureId}
                 externalMessage={manualTranscript}
@@ -4932,6 +4946,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 onUpdateFilters={(filters) => {
                     const mainPanelId = profile?.panels?.[0]?.panelId;
                     if (!mainPanelId) return;
+
+                    const allowedEventIds = new Set(
+                        (eventOptions || [])
+                            .map((opt: any) => Number(parseInt(opt.value)))
+                            .filter((n: number) => !isNaN(n))
+                    );
 
                     const currentFilters = panelFiltersState[mainPanelId] || {
                         platforms: [],
@@ -4945,12 +4965,69 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         return value.map((v: any) => Number(v)).filter((n: number) => !isNaN(n));
                     };
 
+                    const clampEvents = (value: any): number[] => {
+                        return toNumberArray(value).filter((id) => allowedEventIds.has(id));
+                    };
+
                     const mergedFilters: FilterState = {
                         platforms: filters.platforms !== undefined ? toNumberArray(filters.platforms) : (currentFilters.platforms || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
                         pos: filters.pos !== undefined ? toNumberArray(filters.pos) : (currentFilters.pos || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
                         sources: filters.sources !== undefined ? toNumberArray(filters.sources) : (currentFilters.sources || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
-                        events: filters.events !== undefined ? toNumberArray(filters.events) : (currentFilters.events || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
+                        events: filters.events !== undefined ? clampEvents(filters.events) : (currentFilters.events || []).map((v: any) => Number(v)).filter((n: number) => !isNaN(n)),
                     };
+
+                    let overridePanel: any | undefined = undefined;
+
+                    if (filters.graphType || filters.percentageConfig || filters.funnelConfig || filters.userFlowConfig) {
+                        const panelToUpdate = profile?.panels?.[0];
+                        if (panelToUpdate) {
+                            overridePanel = JSON.parse(JSON.stringify(panelToUpdate));
+                            if (!overridePanel.filterConfig) overridePanel.filterConfig = {};
+
+                            if (filters.graphType) {
+                                overridePanel.filterConfig.graphType = filters.graphType;
+                            }
+
+                            if (filters.percentageConfig) {
+                                overridePanel.filterConfig.percentageConfig = {
+                                    ...overridePanel.filterConfig.percentageConfig,
+                                    parentEvents: clampEvents(filters.percentageConfig.parentEvents).map(String),
+                                    childEvents: clampEvents(filters.percentageConfig.childEvents).map(String)
+                                };
+                            }
+
+                            if (filters.funnelConfig) {
+                                overridePanel.filterConfig.funnelConfig = {
+                                    ...overridePanel.filterConfig.funnelConfig,
+                                    stages: (Array.isArray(filters.funnelConfig.stages) ? filters.funnelConfig.stages : [])
+                                        .map((s: any) => Number(s?.eventId))
+                                        .filter((id: number) => !isNaN(id) && allowedEventIds.has(id))
+                                        .map((id: number) => ({ eventId: String(id) })),
+                                    multipleChildEvents: clampEvents(filters.funnelConfig.multipleChildEvents).map(String)
+                                };
+                            }
+
+                            if (filters.userFlowConfig) {
+                                overridePanel.filterConfig.userFlowConfig = {
+                                    ...overridePanel.filterConfig.userFlowConfig,
+                                    stages: (Array.isArray(filters.userFlowConfig.stages) ? filters.userFlowConfig.stages : [])
+                                        .map((s: any, idx: number) => ({
+                                            id: `stage-${Date.now()}-${idx}`,
+                                            label: String(s?.label || `Step ${idx + 1}`),
+                                            eventIds: clampEvents(s?.eventIds).map(String)
+                                        }))
+                                };
+                            }
+
+                            setProfile((prev: any) => {
+                                if (!prev) return prev;
+                                return {
+                                    ...prev,
+                                    panels: prev.panels.map((p: any, idx: number) => idx === 0 ? overridePanel : p)
+                                };
+                            });
+                        }
+                    }
 
                     if (filters.platforms !== undefined) {
                         handleFilterChange('platforms', mergedFilters.platforms);
@@ -4970,7 +5047,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         : undefined;
 
                     setTimeout(() => {
-                        handleApplyFilters({ filters: mergedFilters, dateRange: overrideDateRange });
+                        handleApplyFilters({ filters: mergedFilters, dateRange: overrideDateRange, panel: overridePanel });
                     }, 0);
                 }}
             />

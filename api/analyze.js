@@ -3,7 +3,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const { data, context, mode, transcript, options, currentDate, userMessage, context: chatbotContext } = req.body;
+    const { data, context, mode, transcript, options, currentDate, userMessage, context: chatbotContext, voiceContext } = req.body;
 
     const parseKeys = (raw) => {
         if (!raw) return [];
@@ -93,32 +93,70 @@ export default async function handler(req, res) {
                 response_mime_type: "application/json"
             };
         } else if (mode === 'parse_voice') {
+            const currentGraphType = voiceContext?.panelGraphType || 'line';
             prompt = `
-            You are a dashboard filter assistant. Convert this voice transcript into a structured JSON filter object.
-            
+            You are a dashboard filter assistant for Buyhatke Analytics. Convert this voice transcript into a structured JSON filter object and (if applicable) a special graph configuration update.
+
             Today's Date Context: ${currentDate || new Date().toISOString()}
             Transcript: "${transcript}"
-            
+
+            Current Dashboard Context:
+            - Current Graph Type: ${currentGraphType}
+            - Current Filters (IDs): ${JSON.stringify(voiceContext?.currentFilters || {}, null, 2)}
+            - Current Date Range: ${JSON.stringify(voiceContext?.currentDateRange || {}, null, 2)}
+            - Current Graph Config (only relevant if graph type is percentage/funnel/user_flow):
+              * percentageConfig: ${JSON.stringify(voiceContext?.panelGraphConfig?.percentageConfig || null)}
+              * funnelConfig: ${JSON.stringify(voiceContext?.panelGraphConfig?.funnelConfig || null)}
+              * userFlowConfig: ${JSON.stringify(voiceContext?.panelGraphConfig?.userFlowConfig || null)}
+
             Available Options (only use IDs from these sets):
-            - Platforms: ${JSON.stringify(options.platforms)} (e.g., Android, iOS, Desktop)
-            - POS/Websites: ${JSON.stringify(options.pos)} (e.g., Flipkart, Amazon)
-            - Sources: ${JSON.stringify(options.sources)} (e.g., Checkout, Search)
-            - Events: ${JSON.stringify(options.events)} (e.g., Order Success, Cart Add)
-            
+            - Platforms: ${JSON.stringify(options.platforms)}
+            - POS/Websites: ${JSON.stringify(options.pos)}
+            - Sources: ${JSON.stringify(options.sources)}
+            - Events: ${JSON.stringify(options.events)}
+
+            Task Breakdown:
+            1. Recognize Filters: Dates, Platforms, POS, Sources.
+            2. Graph Type Handling:
+               - Prefer using the CURRENT Graph Type from context unless the user explicitly asks to switch.
+               - If user says "funnel"/"conversion" => set graphType: "funnel" and return funnelConfig.
+               - If user says "percentage"/"ratio" => set graphType: "percentage" and return percentageConfig.
+               - If user says "user flow" => set graphType: "user_flow" and return userFlowConfig.
+            3. Semantic Event Mapping: map vague terms (e.g., "spend lens", "checkout flow", "auth") to specific event sequences or sets.
+
+            PLATFORM-AWARE EVENT RESOLUTION (VERY IMPORTANT):
+            - Event names can represent the SAME concept across platforms but use different naming styles, e.g. "checkoutSuccess" vs "CHECKOUT_SUCCESS".
+            - If the transcript mentions platform scope (e.g. "chrome extension", "android", "ios", "mobile", "web") OR you set platforms:
+              * choose event IDs matching the intent AND include ALL strong naming variants for that scope.
+              * avoid picking variants that clearly belong to other platforms.
+            - If no platform scope is specified (platforms: [] => ALL), include ALL strong variants.
+            - Return ONLY event IDs that exist in the provided Events list.
+
+            Output Schema Details:
+            - graphType: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow'
+            - percentageConfig: { "parentEvents": [ids], "childEvents": [ids] }
+            - funnelConfig: { "stages": [{ "eventId": id }], "multipleChildEvents": [ids] }
+            - userFlowConfig: { "stages": [{ "label": "Step Name", "eventIds": [ids] }] }
+
             Output rules:
             1. Return ONLY a JSON object.
-            2. Recognize relative dates using Today's Date Context. If someone says "last 4 days", calculate the 'from' date based on ${currentDate}.
-            3. Match names to the provided lists (fuzzy match).
-            4. Use ISO strings for dateRange: { from: string, to: string }.
-            5. If a filter is not mentioned, assume "All" and OMIT it from the JSON.
-            6. Include a brief "explanation" of what filters you applied.
-            
-            Example Output:
+            2. Match names to provided lists (fuzzy match).
+            3. Use ISO strings for dateRange: { from: string, to: string }.
+            4. **Filter Reset Logic**: If a category (Platforms, POS, Sources) is not mentioned or implied as 'all', return an empty array '[]' for that field. Do NOT omit it if you want it cleared.
+            5. Include a brief "explanation" of what you did.
+
+            JSON Return Example:
             {
-              "events": [12, 15],
-              "pos": [2],
-              "dateRange": { "from": "2024-03-01T00:00:00Z", "to": "2024-03-04T00:00:00Z" },
-              "explanation": "Showing CHECKOUT_SUCCESS for Flipkart from the last 4 days."
+              "graphType": "funnel",
+              "platforms": [],
+              "pos": [],
+              "sources": [],
+              "events": [],
+              "funnelConfig": {
+                "stages": [{ "eventId": 101 }, { "eventId": 102 }],
+                "multipleChildEvents": [103, 104]
+              },
+              "explanation": "Setting up a conversion funnel."
             }
             `;
             generationConfig = {

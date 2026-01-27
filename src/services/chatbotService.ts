@@ -94,6 +94,12 @@ export interface ChatbotContext {
     panelName?: string;
     graphData?: any[];
     metricType?: 'count' | 'timing' | 'percentage' | 'funnel' | 'other';
+    panelGraphType?: 'line' | 'bar' | 'percentage' | 'funnel' | 'user_flow';
+    panelGraphConfig?: {
+        percentageConfig?: any;
+        funnelConfig?: any;
+        userFlowConfig?: any;
+    };
 }
 
 // Load knowledge base from localStorage
@@ -195,12 +201,18 @@ export const generateChatbotResponse = async (
 Current Dashboard Context:
 - Panel: ${context.panelName || 'Main Panel'}
 - Metric Type: ${context.metricType || 'count'}
+- Graph Type: ${context.panelGraphType || 'line'}
 - Date Range: ${context.currentDateRange?.from.toLocaleDateString()} to ${context.currentDateRange?.to.toLocaleDateString()}
 - Current Filters:
   * Platforms: ${context.currentFilters?.platforms?.length || 0} selected
   * POS: ${context.currentFilters?.pos?.length || 0} selected
   * Sources: ${context.currentFilters?.sources?.length || 0} selected
   * Events: ${selectedEventIds.length || 0} selected ${selectedEventIds.length > 0 ? `(${selectedEventNames})` : ''}
+
+Current Graph Config (only relevant if graph type is percentage/funnel/user_flow):
+- percentageConfig: ${JSON.stringify(context.panelGraphConfig?.percentageConfig || null)}
+- funnelConfig: ${JSON.stringify(context.panelGraphConfig?.funnelConfig || null)}
+- userFlowConfig: ${JSON.stringify(context.panelGraphConfig?.userFlowConfig || null)}
 
 Currently Selected Events (use these if user's query is vague):
 ${selectedEventIds.length > 0 ? selectedEvents.map((e: any) => `- ${e.name} (ID: ${e.id})`).join('\n') : '- None selected - select all available events'}
@@ -244,6 +256,23 @@ EVENT SELECTION INTELLIGENCE:
 - **"ALL" KEYWORD**: Only select ALL available events if user explicitly says "all events" or "everything"
 - Use intelligent semantic matching: "kitne updates hue" = select update events only
 
+PLATFORM-AWARE EVENT RESOLUTION (VERY IMPORTANT):
+- Event names can represent the SAME concept across platforms but use different naming styles, e.g. "checkoutSuccess" (extension/web) vs "CHECKOUT_SUCCESS" (mobile/app).
+- If the user mentions platform scope (e.g. "chrome extension", "android", "ios", "mobile", "web") OR you set platforms in shouldUpdateFilters:
+  1) Choose event IDs that match the user's intent AND exist for those platforms.
+  2) If multiple variants of the same concept exist across the chosen platforms, include ALL relevant variants.
+  3) Avoid selecting variants that clearly belong to other platforms when the user asked for a specific platform.
+- If platforms are not specified (platforms: [] means ALL), include ALL strong variants of the same concept (camelCase + SNAKE_CASE etc.) so data isn't missed.
+- Use the provided Platforms list (IDs + names) and Events list (IDs + names). You must return ONLY event IDs from the available list.
+
+SPECIAL GRAPH CONFIG UPDATES:
+- Prefer using the CURRENT Graph Type from context unless the user explicitly asks to switch graph type.
+- If the current graph type is:
+  * percentage: update percentageConfig.parentEvents and percentageConfig.childEvents when the user asks to change numerator/denominator.
+  * funnel: update funnelConfig.stages and funnelConfig.multipleChildEvents.
+  * user_flow: update userFlowConfig.stages (label + eventIds).
+- You may also set shouldUpdateFilters.graphType to switch graph type if explicitly requested.
+
 - Be concise, helpful, and professional
 - Use the context provided to give accurate answers
 - If you don't know something, say so honestly
@@ -258,6 +287,10 @@ When user asks to change filters or see specific data, you MUST respond with VAL
     "pos": [],
     "sources": [],
     "events": [101],
+    "graphType": "line",
+    "percentageConfig": { "parentEvents": [201], "childEvents": [202] },
+    "funnelConfig": { "stages": [{ "eventId": 301 }], "multipleChildEvents": [302, 303] },
+    "userFlowConfig": { "stages": [{ "label": "Step 1", "eventIds": [401, 402] }] },
     "dateRange": {
       "from": "2026-01-20T00:00:00.000Z",
       "to": "2026-01-26T00:00:00.000Z"
@@ -308,6 +341,7 @@ Response:
 - ALWAYS include "shouldUpdateFilters" when changing filters
 - NEVER say "Please confirm" or ask permission
 - Match site names to exact POS IDs from available options
+- For special graphs, return percentageConfig/funnelConfig/userFlowConfig only when you are changing them.
 - Return ONLY the JSON object, nothing before or after
 
 Otherwise, just respond naturally with helpful information.`;

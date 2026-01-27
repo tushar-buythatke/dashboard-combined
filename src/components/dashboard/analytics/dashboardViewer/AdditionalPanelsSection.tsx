@@ -4536,11 +4536,21 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 sources: (SOURCES as Array<{ id: number; name: string }>).map((s) => s.name),
                                 events: events
                                     .filter((e: any) => !e.isApiEvent)
-                                    .map((e: any) => ({ id: parseInt(e.eventId), name: getEventDisplayName(e) }))
+                                    .map((e: any) => ({ id: parseInt(e.eventId), name: e.eventName || getEventDisplayName(e) }))
                             },
                             panelName: panel.panelName || panel.panelId,
                             graphData: filteredGraphData,
-                            metricType: (panel as any)?.filterConfig?.graphType === 'percentage' ? 'percentage' : 'count'
+                            metricType: (panel as any)?.filterConfig?.graphType === 'percentage'
+                                ? 'percentage'
+                                : (panel as any)?.filterConfig?.graphType === 'funnel'
+                                    ? 'funnel'
+                                    : 'count',
+                            panelGraphType: (panel as any)?.filterConfig?.graphType,
+                            panelGraphConfig: {
+                                percentageConfig: (panel as any)?.filterConfig?.percentageConfig,
+                                funnelConfig: (panel as any)?.filterConfig?.funnelConfig,
+                                userFlowConfig: (panel as any)?.filterConfig?.userFlowConfig,
+                            }
                         }}
                         featureId={profile?.featureId}
                         onUpdateFilters={(filters) => {
@@ -4552,17 +4562,81 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 events: []
                             };
 
+                            const allowedEventIds = new Set(
+                                (events || [])
+                                    .filter((e: any) => !e.isApiEvent)
+                                    .map((e: any) => Number(parseInt(e.eventId)))
+                                    .filter((n: number) => !isNaN(n))
+                            );
+
                             const toNumberArray = (value: any): number[] => {
                                 if (!Array.isArray(value)) return [];
                                 return value.map((v: any) => Number(v)).filter((n: number) => !isNaN(n));
+                            };
+
+                            const clampEvents = (value: any): number[] => {
+                                return toNumberArray(value).filter((id) => allowedEventIds.has(id));
                             };
 
                             const mergedFilters: FilterState = {
                                 platforms: filters.platforms !== undefined ? toNumberArray(filters.platforms) : toNumberArray(currentFilters.platforms),
                                 pos: filters.pos !== undefined ? toNumberArray(filters.pos) : toNumberArray(currentFilters.pos),
                                 sources: filters.sources !== undefined ? toNumberArray(filters.sources) : toNumberArray(currentFilters.sources),
-                                events: filters.events !== undefined ? toNumberArray(filters.events) : toNumberArray(currentFilters.events),
+                                events: filters.events !== undefined ? clampEvents(filters.events) : toNumberArray(currentFilters.events),
                             };
+
+                            let overridePanel: any | undefined = undefined;
+
+                            if (filters.graphType || filters.percentageConfig || filters.funnelConfig || filters.userFlowConfig) {
+                                const panelToUpdate = panel;
+                                if (panelToUpdate) {
+                                    overridePanel = JSON.parse(JSON.stringify(panelToUpdate));
+                                    if (!overridePanel.filterConfig) overridePanel.filterConfig = {};
+
+                                    if (filters.graphType) {
+                                        overridePanel.filterConfig.graphType = filters.graphType;
+                                    }
+
+                                    if (filters.percentageConfig) {
+                                        overridePanel.filterConfig.percentageConfig = {
+                                            ...overridePanel.filterConfig.percentageConfig,
+                                            parentEvents: clampEvents(filters.percentageConfig.parentEvents).map(String),
+                                            childEvents: clampEvents(filters.percentageConfig.childEvents).map(String)
+                                        };
+                                    }
+
+                                    if (filters.funnelConfig) {
+                                        overridePanel.filterConfig.funnelConfig = {
+                                            ...overridePanel.filterConfig.funnelConfig,
+                                            stages: (Array.isArray(filters.funnelConfig.stages) ? filters.funnelConfig.stages : [])
+                                                .map((s: any) => Number(s?.eventId))
+                                                .filter((id: number) => !isNaN(id) && allowedEventIds.has(id))
+                                                .map((id: number) => ({ eventId: String(id) })),
+                                            multipleChildEvents: clampEvents(filters.funnelConfig.multipleChildEvents).map(String)
+                                        };
+                                    }
+
+                                    if (filters.userFlowConfig) {
+                                        overridePanel.filterConfig.userFlowConfig = {
+                                            ...overridePanel.filterConfig.userFlowConfig,
+                                            stages: (Array.isArray(filters.userFlowConfig.stages) ? filters.userFlowConfig.stages : [])
+                                                .map((s: any, idx: number) => ({
+                                                    id: `stage-${Date.now()}-${idx}`,
+                                                    label: String(s?.label || `Step ${idx + 1}`),
+                                                    eventIds: clampEvents(s?.eventIds).map(String)
+                                                }))
+                                        };
+                                    }
+
+                                    setProfile((prev: any) => {
+                                        if (!prev) return prev;
+                                        return {
+                                            ...prev,
+                                            panels: prev.panels.map((p: any) => p.panelId === panel.panelId ? overridePanel : p)
+                                        };
+                                    });
+                                }
+                            }
 
                             if (filters.platforms !== undefined) {
                                 updatePanelFilter?.(panel.panelId, 'platforms', mergedFilters.platforms);
@@ -4586,7 +4660,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             }
 
                             setTimeout(() => {
-                                handlePanelRefresh?.(panel.panelId, { filters: mergedFilters, dateRange: overrideDateRange });
+                                handlePanelRefresh?.(panel.panelId, { filters: mergedFilters, dateRange: overrideDateRange, panel: overridePanel });
                             }, 0);
                         }}
                     />

@@ -522,7 +522,58 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 events: events.map(e => ({ id: Number(e.eventId), name: e.eventName }))
             };
 
-            const result = await parseTranscriptToFilters(text, options, new Date().toISOString());
+            // Apply filters if present
+            const panelToUpdate = profile?.panels?.[activePanelIndex];
+            if (!panelToUpdate) return;
+            const targetPanelId = panelToUpdate.panelId;
+
+            const currentPanelFilters = panelFiltersState[targetPanelId] || {
+                platforms: [],
+                pos: [],
+                sources: [],
+                events: []
+            };
+
+            const currentPanelDateRange = panelDateRanges?.[targetPanelId]
+                ? {
+                    from: panelDateRanges[targetPanelId].from.toISOString(),
+                    to: panelDateRanges[targetPanelId].to.toISOString()
+                }
+                : {
+                    from: dateRange.from.toISOString(),
+                    to: dateRange.to.toISOString()
+                };
+
+            const voiceContext = {
+                currentFilters: {
+                    platforms: (currentPanelFilters.platforms || []).map((n: any) => Number(n)).filter((n: number) => !isNaN(n)),
+                    pos: (currentPanelFilters.pos || []).map((n: any) => Number(n)).filter((n: number) => !isNaN(n)),
+                    sources: (currentPanelFilters.sources || []).map((n: any) => Number(n)).filter((n: number) => !isNaN(n)),
+                    events: (currentPanelFilters.events || []).map((n: any) => Number(n)).filter((n: number) => !isNaN(n)),
+                },
+                currentDateRange: currentPanelDateRange,
+                panelGraphType: (panelToUpdate as any)?.filterConfig?.graphType,
+                panelGraphConfig: {
+                    percentageConfig: (panelToUpdate as any)?.filterConfig?.percentageConfig,
+                    funnelConfig: (panelToUpdate as any)?.filterConfig?.funnelConfig,
+                    userFlowConfig: (panelToUpdate as any)?.filterConfig?.userFlowConfig,
+                }
+            };
+
+            const allowedEventIds = new Set(
+                (events || [])
+                    .map((e: any) => Number(e.eventId))
+                    .filter((n: number) => !isNaN(n))
+            );
+
+            const clampEventIds = (arr: any): number[] => {
+                if (!Array.isArray(arr)) return [];
+                return arr
+                    .map((v: any) => Number(v))
+                    .filter((n: number) => !isNaN(n) && allowedEventIds.has(n));
+            };
+
+            const result = await parseTranscriptToFilters(text, options, new Date().toISOString(), voiceContext);
 
             if (result.explanation) {
                 setVoiceStatus('applying');
@@ -531,11 +582,6 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     description: result.explanation,
                 });
             }
-
-            // Apply filters if present
-            const panelToUpdate = profile?.panels?.[activePanelIndex];
-            if (!panelToUpdate) return;
-            const targetPanelId = panelToUpdate.panelId;
 
             let updatedPanel = JSON.parse(JSON.stringify(panelToUpdate)); // Deep clone for modifications
             let hasPanelConfigChange = false;
@@ -549,8 +595,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             if (result.percentageConfig) {
                 updatedPanel.filterConfig.percentageConfig = {
                     ...updatedPanel.filterConfig.percentageConfig,
-                    parentEvents: result.percentageConfig.parentEvents.map(String),
-                    childEvents: result.percentageConfig.childEvents.map(String)
+                    parentEvents: clampEventIds(result.percentageConfig.parentEvents).map(String),
+                    childEvents: clampEventIds(result.percentageConfig.childEvents).map(String)
                 };
                 hasPanelConfigChange = true;
             }
@@ -558,8 +604,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             if (result.funnelConfig) {
                 updatedPanel.filterConfig.funnelConfig = {
                     ...updatedPanel.filterConfig.funnelConfig,
-                    stages: result.funnelConfig.stages.map(s => ({ eventId: String(s.eventId) })),
-                    multipleChildEvents: result.funnelConfig.multipleChildEvents.map(String)
+                    stages: (Array.isArray(result.funnelConfig.stages) ? result.funnelConfig.stages : [])
+                        .map((s: any) => Number(s?.eventId))
+                        .filter((id: number) => !isNaN(id) && allowedEventIds.has(id))
+                        .map((id: number) => ({ eventId: String(id) })),
+                    multipleChildEvents: clampEventIds(result.funnelConfig.multipleChildEvents).map(String)
                 };
                 hasPanelConfigChange = true;
             }
@@ -570,7 +619,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     stages: result.userFlowConfig.stages.map((s, idx) => ({
                         id: `stage-${Date.now()}-${idx}`,
                         label: s.label,
-                        eventIds: s.eventIds.map(String)
+                        eventIds: clampEventIds(s.eventIds).map(String)
                     }))
                 };
                 hasPanelConfigChange = true;
@@ -586,12 +635,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 });
             }
 
-            const currentFilters = panelFiltersState[targetPanelId] || {
-                platforms: [],
-                pos: [],
-                sources: [],
-                events: []
-            };
+            const currentFilters = currentPanelFilters;
 
             // Extract filters - AI may return them nested in a 'filters' object or at root level
             const aiFilters = result.filters || result;
@@ -616,7 +660,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 platforms: extractIds(aiFilters.platforms),
                 pos: extractIds(aiFilters.pos),
                 sources: extractIds(aiFilters.sources),
-                events: extractIds(aiFilters.events).length > 0 ? extractIds(aiFilters.events) : currentFilters.events,
+                events: extractIds(aiFilters.events).length > 0 ? clampEventIds(extractIds(aiFilters.events)) : currentFilters.events,
                 // Setting to currentFilters.events if not mentioned, 
                 // but if AI asks for a specific graph, it will override this anyway.
 
@@ -3212,11 +3256,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     }, [autoRefreshMinutes, profile, refreshPanelData]);
 
     // Manual refresh trigger for main panel only (first panel)
-    const handleApplyFilters = useCallback((override?: { filters?: FilterState; dateRange?: DateRangeState }) => {
+    const handleApplyFilters = useCallback((override?: { filters?: FilterState; dateRange?: DateRangeState; panel?: any }) => {
         setPendingRefresh(false);
         if (profile && profile.panels.length > 0) {
             // Only refresh the first/main panel
-            refreshPanelData(profile.panels[0].panelId, override?.filters, override?.dateRange);
+            refreshPanelData(profile.panels[0].panelId, override?.filters, override?.dateRange, override?.panel);
             // Clear the filter change state for the main panel
             setPanelFilterChanges(prev => ({
                 ...prev,
@@ -3226,8 +3270,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     }, [profile, refreshPanelData]);
 
     // Individual panel refresh function
-    const handlePanelRefresh = useCallback((panelId: string, override?: { filters?: FilterState; dateRange?: DateRangeState }) => {
-        refreshPanelData(panelId, override?.filters, override?.dateRange);
+    const handlePanelRefresh = useCallback((panelId: string, override?: { filters?: FilterState; dateRange?: DateRangeState; panel?: any }) => {
+        refreshPanelData(panelId, override?.filters, override?.dateRange, override?.panel);
         // Clear the filter change state for this specific panel
         setPanelFilterChanges(prev => ({
             ...prev,
@@ -3532,7 +3576,24 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     }, [eventOptions]);
 
     const platformOptions = useMemo(() => PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name })), []);
-    const posOptions = useMemo(() => siteDetails.map(s => ({ value: s.id.toString(), label: `${s.name} (${s.id})` })), [siteDetails]);
+    const posOptions = useMemo(
+        () =>
+            siteDetails.map((s) => {
+                const name = (s?.name || '').toLowerCase();
+                const brand = name.includes('milky') && name.includes('mist')
+                    ? 'Milky Mist'
+                    : name.includes('flipkart')
+                        ? 'flipkart'
+                        : undefined;
+
+                return {
+                    value: s.id.toString(),
+                    label: `${s.name} (${s.id})`,
+                    brand
+                };
+            }),
+        [siteDetails]
+    );
     const sourceOptions = useMemo(() => SOURCES.map(s => ({ value: s.id.toString(), label: s.name })), []);
 
     const selectedEventsList = useMemo(() => {

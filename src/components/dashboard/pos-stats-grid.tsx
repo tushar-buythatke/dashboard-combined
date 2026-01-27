@@ -1,12 +1,121 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Activity, AlertTriangle, CheckCircle, Clock, TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { fetcher } from "@/lib/api";
+
+const brandLogoMemoryCache = new Map<string, string>();
+
+const getBrandLogoEndpoint = (brand: string) => {
+  const url = new URL("https://search-new.bitbns.com/buyhatke/wrapper/brandLogo");
+  url.searchParams.set("brand", brand);
+  return url.toString();
+};
+
+const getBrandForPOS = (posName: string) => {
+  const name = (posName || "").toLowerCase();
+
+  if (name.includes("milky") && name.includes("mist")) return "Milky Mist";
+  if (name.includes("flipkart")) return "flipkart";
+
+  return null;
+};
+
+const BRAND_LOGO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+const readCachedBrandLogo = (brand: string): string | null => {
+  const mem = brandLogoMemoryCache.get(brand);
+  if (mem) return mem;
+
+  try {
+    const raw = localStorage.getItem(`brandLogoCache:v1:${brand}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { dataUrl?: string; ts?: number };
+    if (!parsed?.dataUrl || !parsed?.ts) return null;
+    if (Date.now() - parsed.ts > BRAND_LOGO_TTL_MS) return null;
+    brandLogoMemoryCache.set(brand, parsed.dataUrl);
+    return parsed.dataUrl;
+  } catch {
+    return null;
+  }
+};
+
+const writeCachedBrandLogo = (brand: string, dataUrl: string) => {
+  brandLogoMemoryCache.set(brand, dataUrl);
+  try {
+    localStorage.setItem(
+      `brandLogoCache:v1:${brand}`,
+      JSON.stringify({ dataUrl, ts: Date.now() })
+    );
+  } catch {
+    // ignore
+  }
+};
+
+async function fetchBrandLogoAsDataUrl(brand: string): Promise<string> {
+  const response = await fetch(getBrandLogoEndpoint(brand));
+  if (!response.ok) {
+    throw new Error(`Failed to fetch brand logo: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Failed to read logo"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function BrandLogo({ brand }: { brand: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const cached = readCachedBrandLogo(brand);
+    if (cached) {
+      setSrc(cached);
+      return;
+    }
+
+    fetchBrandLogoAsDataUrl(brand)
+      .then((dataUrl) => {
+        if (cancelled) return;
+        writeCachedBrandLogo(brand, dataUrl);
+        setSrc(dataUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSrc(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [brand]);
+
+  if (!src) {
+    return (
+      <div className="w-6 h-6 rounded bg-muted flex items-center justify-center text-[10px] font-semibold text-muted-foreground">
+        {brand.slice(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={brand}
+      className="w-6 h-6 rounded object-contain bg-white"
+      loading="lazy"
+    />
+  );
+}
 
 type POSSummary = {
   pos: number;
@@ -165,12 +274,16 @@ function POSCard({ pos }: { pos: POSSummary }) {
       : CheckCircle;
 
   const successRate = parseFloat(String(pos.success_rate || 0));
+  const brand = getBrandForPOS(pos.pos_name);
 
   return (
     <Card className={`hover:-translate-y-1 hover:shadow-xl transition-all duration-200 ${statusConfig.border}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-mono">POS {pos.pos}</CardTitle>
+          <div className="flex items-center gap-2 min-w-0">
+            {brand ? <BrandLogo brand={brand} /> : null}
+            <CardTitle className="text-lg font-mono truncate">POS {pos.pos}</CardTitle>
+          </div>
           <StatusIcon className={`w-5 h-5 ${statusConfig.color}`} />
         </div>
         <Badge variant={statusConfig.variant} className="w-fit text-xs">
