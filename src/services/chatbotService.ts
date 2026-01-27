@@ -273,6 +273,12 @@ SPECIAL GRAPH CONFIG UPDATES:
   * user_flow: update userFlowConfig.stages (label + eventIds).
 - You may also set shouldUpdateFilters.graphType to switch graph type if explicitly requested.
 
+FUNNEL RULES (VERY IMPORTANT):
+- Prefer funnelConfig over dumping lots of events.
+- funnelConfig.stages MUST be an ORDERED list of the main steps (these map to e1, e2, e3... in the UI).
+- funnelConfig.multipleChildEvents should ONLY be used for the final grouped stage (if needed), not every event in the flow.
+- Keep shouldUpdateFilters.events empty or small (<= 10). Do NOT return dozens of events.
+
 - Be concise, helpful, and professional
 - Use the context provided to give accurate answers
 - If you don't know something, say so honestly
@@ -289,7 +295,7 @@ When user asks to change filters or see specific data, you MUST respond with VAL
     "events": [101],
     "graphType": "line",
     "percentageConfig": { "parentEvents": [201], "childEvents": [202] },
-    "funnelConfig": { "stages": [{ "eventId": 301 }], "multipleChildEvents": [302, 303] },
+    "funnelConfig": { "stages": [{ "eventId": 301 }, { "eventId": 302 }], "multipleChildEvents": [303] },
     "userFlowConfig": { "stages": [{ "label": "Step 1", "eventIds": [401, 402] }] },
     "dateRange": {
       "from": "2026-01-20T00:00:00.000Z",
@@ -429,8 +435,42 @@ Otherwise, just respond naturally with helpful information.`;
             }
         }
 
+        // DEV-only fallback:
+        // If /api/analyze isn't available locally (or missing server GEMINI env vars), fall back to
+        // calling Gemini directly using VITE_GEMINI_API_KEY(S) from the developer's machine.
+        // This avoids breaking local dev flows while still keeping prod server-side.
         if (!result) {
-            throw lastError || new Error('Proxy Error: Failed to call chatbot proxy');
+            const isDev = (import.meta as any)?.env?.DEV === true;
+            if (isDev && API_KEYS.length > 0) {
+                const historyText = chatHistory.slice(-10)
+                    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+                    .join('\n');
+
+                const directPrompt = `${systemMessage}\n\nConversation History:\n${historyText || '(none)'}\n\nUser: ${userMessage}\n\nCRITICAL: Return ONLY a valid JSON object matching the schema described above. Do not include any extra text.`;
+
+                const direct = await callGeminiAPI(directPrompt, {
+                    temperature: 0.2,
+                    maxOutputTokens: 1000,
+                    response_mime_type: 'application/json'
+                });
+
+                const directText = direct?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!directText) throw lastError || new Error('DEV Gemini fallback returned no content');
+
+                try {
+                    result = JSON.parse(String(directText));
+                } catch {
+                    // Try to extract first JSON object in case of stray text
+                    const m = String(directText).match(/\{[\s\S]*\}/);
+                    if (m) {
+                        result = JSON.parse(m[0]);
+                    } else {
+                        throw lastError || new Error('DEV Gemini fallback returned invalid JSON');
+                    }
+                }
+            } else {
+                throw lastError || new Error('Proxy Error: Failed to call chatbot proxy');
+            }
         }
 
         const normalizeForMatch = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -466,6 +506,23 @@ Otherwise, just respond naturally with helpful information.`;
         const applySpendFlowDefaults = (shouldUpdateFilters: any) => {
             const msgNorm = normalizeForMatch(userMessage);
             if (!msgNorm.includes('flow')) return;
+
+            const requestedGraphType = ((): 'funnel' | 'user_flow' | 'percentage' | null => {
+                if (msgNorm.includes('userflow') || (msgNorm.includes('user') && msgNorm.includes('flow'))) return 'user_flow';
+                if (msgNorm.includes('funnel') || msgNorm.includes('conversion')) return 'funnel';
+                if (msgNorm.includes('percentage') || msgNorm.includes('ratio')) return 'percentage';
+                return null;
+            })();
+
+            const effectiveGraphType: any =
+                shouldUpdateFilters?.graphType ||
+                requestedGraphType ||
+                context?.panelGraphType ||
+                null;
+
+            if (requestedGraphType && !shouldUpdateFilters?.graphType) {
+                shouldUpdateFilters.graphType = requestedGraphType;
+            }
 
             // Infer a primary flow keyword from the message: "<keyword> flow" / "flow for <keyword>"
             // This is a *fallback* repair step only; the model is still the primary source of intent.
@@ -536,7 +593,7 @@ Otherwise, just respond naturally with helpful information.`;
             const coreEvents = [shownId, clickedId, successId, failedId, zeroId]
                 .filter((v): v is number => typeof v === 'number' && !isNaN(v));
 
-            const graphType = shouldUpdateFilters?.graphType;
+            const graphType = effectiveGraphType;
 
             if (graphType === 'funnel') {
                 const stages = Array.isArray(shouldUpdateFilters?.funnelConfig?.stages)

@@ -78,7 +78,25 @@ export default async function handler(req, res) {
             const { systemPrompt, contextInfo, conversationHistory, currentFilters, currentDateRange } = chatbotContext;
             const systemMessage = `${systemPrompt}\n\n${contextInfo}`;
 
-            const strictJsonInstruction = `\n\nCRITICAL OUTPUT REQUIREMENT:\nReturn ONLY a valid JSON object. Do not include any other text.\n\nJSON SCHEMA (MANDATORY):\n{\n  \"response\": string,\n  \"shouldUpdateFilters\": {\n    \"platforms\": number[],\n    \"pos\": number[],\n    \"sources\": number[],\n    \"events\": number[],\n    \"dateRange\": { \"from\": string, \"to\": string }\n  },\n  \"explanation\": string\n}\n\nIMPORTANT:\n- You MUST ALWAYS include shouldUpdateFilters (full object), even if no changes are needed.\n- If no changes needed, return shouldUpdateFilters as the current filters unchanged.\n\nCURRENT FILTERS (IDs):\n${JSON.stringify(currentFilters || {}, null, 2)}\n\nCURRENT DATE RANGE:\n${JSON.stringify(currentDateRange || {}, null, 2)}\n`;
+            const strictJsonInstruction = `
+CRITICAL OUTPUT REQUIREMENT:
+Return ONLY a valid JSON object. Do not include any other text.
+\n\nJSON SCHEMA (MANDATORY):\n{\n  \"response\": string,\n  \"shouldUpdateFilters\": {\n    \"platforms\": number[],\n    \"pos\": number[],\n    \"sources\": number[],\n    \"events\": number[],\n    \"graphType\": \"line\" | \"bar\" | \"percentage\" | \"funnel\" | \"user_flow\",\n    \"percentageConfig\"?: { \"parentEvents\": number[], \"childEvents\": number[] },\n    \"funnelConfig\"?: { \"stages\": Array<{ \"eventId\": number }>, \"multipleChildEvents\": number[] },\n    \"userFlowConfig\"?: { \"stages\": Array<{ \"label\": string, \"eventIds\": number[] }> },\n    \"dateRange\": { \"from\": string, \"to\": string }\n  },\n  \"explanation\": string\n}\n\nIMPORTANT:
+- You MUST ALWAYS include shouldUpdateFilters (full object), even if no changes are needed.
+- If no changes needed, return shouldUpdateFilters as the current filters unchanged.
+- If the user asks for a funnel graph OR the current graph type is funnel, you MUST include funnelConfig.stages with at least 2 events.
+- If the user asks for a user flow graph OR the current graph type is user_flow, you MUST include userFlowConfig.stages with at least 2 stages.
+
+FUNNEL RULES (VERY IMPORTANT):
+- Prefer funnelConfig over events[].
+- funnelConfig.stages must be an ORDERED list of the main steps (these map to e1, e2, e3... in the UI).
+- funnelConfig.multipleChildEvents should ONLY represent the final-stage grouped events (if needed), not every event in the flow.
+- Do NOT dump dozens of related event IDs in shouldUpdateFilters.events.
+  Keep events[] empty or limited to stage + final stage event IDs (<= 10).
+
+CURRENT FILTERS (IDs):
+${JSON.stringify(currentFilters || {}, null, 2)}
+\n\nCURRENT DATE RANGE:\n${JSON.stringify(currentDateRange || {}, null, 2)}\n`;
             
             contents = [
                 { role: 'user', parts: [{ text: systemMessage }] },
@@ -331,7 +349,7 @@ export default async function handler(req, res) {
             if (!parsedResponse) {
                 try {
                     const { systemPrompt, contextInfo, conversationHistory, currentFilters, currentDateRange } = chatbotContext;
-                    const repairMessage = `You MUST output ONLY valid JSON matching this schema:\n{\n  \"response\": string,\n  \"shouldUpdateFilters\": {\n    \"platforms\": number[],\n    \"pos\": number[],\n    \"sources\": number[],\n    \"events\": number[],\n    \"dateRange\": { \"from\": string, \"to\": string }\n  },\n  \"explanation\": string\n}\n\nCURRENT FILTERS (IDs):\n${JSON.stringify(currentFilters || {}, null, 2)}\n\nCURRENT DATE RANGE:\n${JSON.stringify(currentDateRange || {}, null, 2)}\n\nUSER MESSAGE:\n${userMessage}\n\nPREVIOUS (INVALID) MODEL OUTPUT:\n${text}`;
+                    const repairMessage = `You MUST output ONLY valid JSON matching this schema:\n{\n  \"response\": string,\n  \"shouldUpdateFilters\": {\n    \"platforms\": number[],\n    \"pos\": number[],\n    \"sources\": number[],\n    \"events\": number[],\n    \"graphType\": \"line\" | \"bar\" | \"percentage\" | \"funnel\" | \"user_flow\",\n    \"percentageConfig\"?: { \"parentEvents\": number[], \"childEvents\": number[] },\n    \"funnelConfig\"?: { \"stages\": Array<{ \"eventId\": number }>, \"multipleChildEvents\": number[] },\n    \"userFlowConfig\"?: { \"stages\": Array<{ \"label\": string, \"eventIds\": number[] }> },\n    \"dateRange\": { \"from\": string, \"to\": string }\n  },\n  \"explanation\": string\n}\n\nIMPORTANT:\n- If the user asks for a funnel graph OR the current graph type is funnel, include funnelConfig.stages with at least 2 events.\n- If the user asks for a user flow graph OR the current graph type is user_flow, include userFlowConfig.stages with at least 2 stages.\n\nCURRENT FILTERS (IDs):\n${JSON.stringify(currentFilters || {}, null, 2)}\n\nCURRENT DATE RANGE:\n${JSON.stringify(currentDateRange || {}, null, 2)}\n\nUSER MESSAGE:\n${userMessage}\n\nPREVIOUS (INVALID) MODEL OUTPUT:\n${text}`;
 
                     const repairContents = [
                         { role: 'user', parts: [{ text: `${systemPrompt}\n\n${contextInfo}` }] },
