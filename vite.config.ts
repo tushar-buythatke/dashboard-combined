@@ -17,6 +17,18 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
       },
+      // Proxy for brand logos (CORS bypass in dev)
+      '/brand-logo': {
+        target: 'https://search-new.bitbns.com',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          referer: 'https://search-new.bitbns.com/',
+          origin: 'https://search-new.bitbns.com',
+          'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+        },
+        rewrite: (p) => p.replace(/^\/brand-logo/, '/buyhatke/wrapper/brandLogo'),
+      },
       // Proxy for coupon config API (CORS bypass)
       '/coupon-config': {
         target: 'https://search-new.bitbns.com',

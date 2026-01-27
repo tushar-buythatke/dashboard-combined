@@ -11,7 +11,8 @@ import { fetcher } from "@/lib/api";
 const brandLogoMemoryCache = new Map<string, string>();
 
 const getBrandLogoEndpoint = (brand: string) => {
-  const url = new URL("https://search-new.bitbns.com/buyhatke/wrapper/brandLogo");
+  const base = import.meta.env.DEV ? "/brand-logo" : "/api/brand-logo";
+  const url = new URL(base, window.location.origin);
   url.searchParams.set("brand", brand);
   return url.toString();
 };

@@ -432,6 +432,165 @@ Otherwise, just respond naturally with helpful information.`;
 
         const normalizeForMatch = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+        const inferLastNDaysRange = (): { from: string; to: string } | null => {
+            const msg = (userMessage || '').toLowerCase();
+            const m = msg.match(/\b(last|past)\s+(\d+)\s+days?\b/);
+            if (!m) return null;
+            const n = Number(m[2]);
+            if (!Number.isFinite(n) || n <= 0) return null;
+
+            const contextTo = context.currentDateRange?.to
+                ? new Date(context.currentDateRange.to)
+                : new Date();
+            const to = new Date(contextTo.getTime());
+            const from = new Date(contextTo.getTime() - n * 24 * 60 * 60 * 1000);
+
+            return { from: from.toISOString(), to: to.toISOString() };
+        };
+
+        const findEventIdByName = (needle: string): number | null => {
+            const events = context.availableOptions?.events || [];
+            const target = needle.trim().toLowerCase();
+            const exact = events.find(e => String(e.name || '').trim().toLowerCase() === target);
+            if (exact) return Number(exact.id);
+
+            const partial = events.find(e => String(e.name || '').trim().toLowerCase().includes(target));
+            if (partial) return Number(partial.id);
+
+            return null;
+        };
+
+        const applySpendFlowDefaults = (shouldUpdateFilters: any) => {
+            const msgNorm = normalizeForMatch(userMessage);
+            if (!msgNorm.includes('flow')) return;
+
+            // Infer a primary flow keyword from the message: "<keyword> flow" / "flow for <keyword>"
+            // This is a *fallback* repair step only; the model is still the primary source of intent.
+            const rawMsg = (userMessage || '').toLowerCase();
+            const kwFromA = rawMsg.match(/\b([a-z0-9_\-]{3,})\s+flow\b/);
+            const kwFromB = rawMsg.match(/\bflow\s+for\s+([a-z0-9_\-]{3,})\b/);
+            const flowKeywordRaw = (kwFromA?.[1] || kwFromB?.[1] || '').trim();
+            const flowKeyword = normalizeForMatch(flowKeywordRaw);
+            const flowToken = flowKeyword || (msgNorm.includes('spend') ? 'spend' : '');
+            if (!flowToken) return;
+
+            const findEventIdByKeywords = (keywords: string[]): number | null => {
+                const events = context.availableOptions?.events || [];
+                let best: { id: number; score: number } | null = null;
+
+                for (const e of events) {
+                    const name = String(e.name || '').toLowerCase();
+                    const n = normalizeForMatch(name);
+                    if (!n) continue;
+
+                    // Require flow token to reduce accidental matches
+                    if (!n.includes(flowToken)) continue;
+
+                    let score = 0;
+                    for (const k of keywords) {
+                        const kn = normalizeForMatch(k);
+                        if (!kn) continue;
+                        if (n.includes(kn)) score += 10;
+                    }
+                    if (score <= 0) continue;
+
+                    // Prefer shorter names (more specific) when scores tie
+                    score += Math.max(0, 20 - Math.min(20, n.length / 3));
+
+                    const id = Number((e as any).id);
+                    if (!Number.isFinite(id)) continue;
+                    if (!best || score > best.score) {
+                        best = { id, score };
+                    }
+                }
+
+                return best?.id ?? null;
+            };
+
+            const shownId = findEventIdByKeywords(['shown', 'view', 'start', 'open']);
+            const clickedId = findEventIdByKeywords(['clicked', 'click', 'tap']);
+            const successId = findEventIdByKeywords(['success', 'successful']);
+            const failedId = findEventIdByKeywords(['failed', 'fail', 'error']);
+            const zeroId = findEventIdByKeywords(['zero']);
+
+            const coreEvents = [shownId, clickedId, successId, failedId, zeroId]
+                .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+
+            const graphType = shouldUpdateFilters?.graphType;
+
+            if (graphType === 'funnel') {
+                const stages = Array.isArray(shouldUpdateFilters?.funnelConfig?.stages)
+                    ? shouldUpdateFilters.funnelConfig.stages
+                    : [];
+
+                if (stages.length < 2) {
+                    const stageEventIds = [shownId, clickedId]
+                        .filter((v): v is number => typeof v === 'number' && !isNaN(v));
+
+                    if (stageEventIds.length >= 2) {
+                        shouldUpdateFilters.funnelConfig = {
+                            ...(shouldUpdateFilters.funnelConfig || {}),
+                            stages: stageEventIds.map((id) => ({ eventId: id })),
+                            multipleChildEvents: [successId, zeroId]
+                                .filter((v): v is number => typeof v === 'number' && !isNaN(v)),
+                        };
+                    }
+                }
+
+                if (Array.isArray(shouldUpdateFilters?.events) && shouldUpdateFilters.events.length > 10 && coreEvents.length > 0) {
+                    shouldUpdateFilters.events = coreEvents;
+                }
+            }
+
+            if (graphType === 'user_flow') {
+                const stages = Array.isArray(shouldUpdateFilters?.userFlowConfig?.stages)
+                    ? shouldUpdateFilters.userFlowConfig.stages
+                    : [];
+
+                if (stages.length < 2) {
+                    const builtStages = [
+                        { label: 'Shown', eventIds: shownId ? [shownId] : [] },
+                        { label: 'Clicked', eventIds: clickedId ? [clickedId] : [] },
+                        {
+                            label: 'Outcome',
+                            eventIds: [successId, zeroId, failedId]
+                                .filter((v): v is number => typeof v === 'number' && !isNaN(v)),
+                        },
+                    ].filter(s => (s.eventIds || []).length > 0);
+
+                    if (builtStages.length >= 2) {
+                        shouldUpdateFilters.userFlowConfig = {
+                            ...(shouldUpdateFilters.userFlowConfig || {}),
+                            stages: builtStages,
+                        };
+                    }
+                }
+
+                if (Array.isArray(shouldUpdateFilters?.events) && shouldUpdateFilters.events.length > 10 && coreEvents.length > 0) {
+                    shouldUpdateFilters.events = coreEvents;
+                }
+            }
+
+            if (graphType === 'percentage') {
+                const wantsSuccessOutOfRegistered =
+                    msgNorm.includes('percentage') &&
+                    msgNorm.includes('success') &&
+                    (msgNorm.includes('outof') || msgNorm.includes('ratio')) &&
+                    (msgNorm.includes('registered') || msgNorm.includes('clicked'));
+
+                if (wantsSuccessOutOfRegistered && clickedId && successId) {
+                    shouldUpdateFilters.percentageConfig = {
+                        parentEvents: [clickedId],
+                        childEvents: [successId],
+                    };
+
+                    if (Array.isArray(shouldUpdateFilters?.events)) {
+                        shouldUpdateFilters.events = [clickedId, successId];
+                    }
+                }
+            }
+        };
+
         const getPosNameVariants = (name: string): string[] => {
             const variants = new Set<string>();
             const raw = (name || '').trim();
@@ -516,6 +675,64 @@ Otherwise, just respond naturally with helpful information.`;
                     pos: inferredPos.pos,
                 }
             };
+        }
+
+        // If the model provided POS but it clearly disagrees with a high-confidence local match, correct it.
+        // Example: message contains "myntra" but model selects Nykaa.
+        if (
+            inferredPos !== null &&
+            hasExplicitPos &&
+            inferredPos.pos.length > 0 &&
+            Array.isArray(parsedResponse?.shouldUpdateFilters?.pos) &&
+            parsedResponse.shouldUpdateFilters.pos.length > 0
+        ) {
+            const modelPos = parsedResponse.shouldUpdateFilters.pos
+                .map((v: any) => Number(v))
+                .filter((n: number) => !isNaN(n));
+            const inferredSet = new Set(inferredPos.pos);
+            const modelSet = new Set(modelPos);
+
+            const inferredMissingInModel = inferredPos.pos.some((id: number) => !modelSet.has(id));
+            const modelHasExtra = modelPos.some((id: number) => !inferredSet.has(id));
+
+            if (inferredMissingInModel && modelHasExtra) {
+                parsedResponse = {
+                    ...parsedResponse,
+                    shouldUpdateFilters: {
+                        ...(parsedResponse?.shouldUpdateFilters || {}),
+                        pos: inferredPos.pos,
+                    },
+                };
+            }
+        }
+
+        // Date range repair for "last N days".
+        const inferredRange = inferLastNDaysRange();
+        if (inferredRange && parsedResponse?.shouldUpdateFilters) {
+            const modelRange = parsedResponse.shouldUpdateFilters.dateRange;
+            const modelTo = modelRange?.to ? new Date(modelRange.to) : null;
+            const ctxTo = context.currentDateRange?.to ? new Date(context.currentDateRange.to) : null;
+
+            const shouldOverride =
+                !modelRange ||
+                !modelTo ||
+                isNaN(modelTo.getTime()) ||
+                (ctxTo && Math.abs(modelTo.getTime() - ctxTo.getTime()) > 36 * 60 * 60 * 1000);
+
+            if (shouldOverride) {
+                parsedResponse = {
+                    ...parsedResponse,
+                    shouldUpdateFilters: {
+                        ...(parsedResponse.shouldUpdateFilters || {}),
+                        dateRange: inferredRange,
+                    },
+                };
+            }
+        }
+
+        // Spend flow defaults: prevent empty funnel/user flow when switching graph type via chat.
+        if (parsedResponse?.shouldUpdateFilters) {
+            applySpendFlowDefaults(parsedResponse.shouldUpdateFilters);
         }
 
         // Save to chat history
