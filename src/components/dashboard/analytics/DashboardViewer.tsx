@@ -3260,7 +3260,25 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         setPendingRefresh(false);
         if (profile && profile.panels.length > 0) {
             // Only refresh the first/main panel
-            refreshPanelData(profile.panels[0].panelId, override?.filters, override?.dateRange, override?.panel);
+            const mainPanelId = profile.panels[0].panelId;
+            const nextRange = override?.dateRange;
+
+            // If a caller (chatbot/voice) supplies a dateRange, reflect it in the UI (top banner)
+            // and keep panel-specific ranges in sync.
+            if (nextRange?.from && nextRange?.to) {
+                setDateRange({ from: nextRange.from, to: nextRange.to });
+
+                const updatedPanelRanges: Record<string, DateRangeState> = {};
+                profile.panels.forEach(panel => {
+                    updatedPanelRanges[panel.panelId] = { from: nextRange.from, to: nextRange.to };
+                });
+                setPanelDateRanges(prev => ({
+                    ...prev,
+                    ...updatedPanelRanges
+                }));
+            }
+
+            refreshPanelData(mainPanelId, override?.filters, nextRange, override?.panel);
             // Clear the filter change state for the main panel
             setPanelFilterChanges(prev => ({
                 ...prev,

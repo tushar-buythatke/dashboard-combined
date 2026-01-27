@@ -471,7 +471,24 @@ Otherwise, just respond naturally with helpful information.`;
             const kwFromB = rawMsg.match(/\bflow\s+for\s+([a-z0-9_\-]{3,})\b/);
             const flowKeywordRaw = (kwFromA?.[1] || kwFromB?.[1] || '').trim();
             const flowKeyword = normalizeForMatch(flowKeywordRaw);
-            const flowToken = flowKeyword || (msgNorm.includes('spend') ? 'spend' : '');
+            const stopTokens = new Set(['user', 'users', 'funnel', 'conversion', 'graph', 'flow']);
+
+            const preferredTokens = [
+                'spend',
+                'checkout',
+                'pricealert',
+                'price',
+                'coupon',
+                'cart',
+                'payment',
+                'login',
+                'signup',
+            ];
+
+            const preferredFromMessage = preferredTokens.find((t) => msgNorm.includes(t)) || '';
+            const flowToken =
+                preferredFromMessage ||
+                (!stopTokens.has(flowKeyword) ? flowKeyword : '');
             if (!flowToken) return;
 
             const findEventIdByKeywords = (keywords: string[]): number | null => {
