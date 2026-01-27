@@ -367,16 +367,14 @@ Otherwise, just respond naturally with helpful information.`;
         // Always use server-side proxy for chatbot (both dev + prod) to avoid leaking API keys
         // and to reduce failures from quota/CORS in local dev.
         const envProxyUrl = (import.meta as any)?.env?.VITE_CHATBOT_PROXY_URL as string | undefined;
-        const isLocalhost =
-            typeof window !== 'undefined' &&
-            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-        const proxyCandidates = [
-            envProxyUrl,
-            '/api/analyze',
-            // Only try cross-origin fallback when not on localhost to avoid CORS failures in dev
-            ...(isLocalhost ? [] : ['https://dashboard-combined.vercel.app/api/analyze']),
-        ].filter(Boolean);
+        // IMPORTANT:
+        // Do NOT attempt cross-origin fallbacks here. If a user is on a different deployment/domain,
+        // cross-origin POST will fail due to CORS and AI chat will "work for some users" and not others.
+        // Instead:
+        // - default to same-origin /api/analyze
+        // - allow an explicit proxy override via VITE_CHATBOT_PROXY_URL
+        const proxyCandidates = [envProxyUrl, '/api/analyze'].filter(Boolean);
 
         let result: any = null;
         let lastError: any = null;
@@ -416,7 +414,12 @@ Otherwise, just respond naturally with helpful information.`;
                             details = '';
                         }
                     }
-                    throw new Error(`Proxy Error (${proxyUrl}) ${response.status}: ${details || response.statusText}`);
+                    const hint = response.status === 404
+                        ? ' (Hint: /api/analyze route not deployed on this domain)'
+                        : response.status === 500
+                            ? ' (Hint: server missing GEMINI_API_KEY(S) env vars)'
+                            : '';
+                    throw new Error(`Proxy Error (${proxyUrl}) ${response.status}: ${details || response.statusText}${hint}`);
                 }
 
                 result = await response.json();
