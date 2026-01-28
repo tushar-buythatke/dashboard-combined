@@ -146,6 +146,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     const { t: themeClasses } = useAccentTheme();
     const isMobile = useIsMobile();
     const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
+    const [jobIdDistModes, setJobIdDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
     const [chatbotOpen, setChatbotOpen] = useState<Record<string, boolean>>({});
 
     // Helper to render external labels for slices > 5%
@@ -1141,7 +1142,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         </div>
                                                     ) : (
                                                         <>
-                                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 p-3 bg-gray-50/50 dark:bg-gray-800/20 rounded-lg border border-gray-100 dark:border-gray-700/30">
+                                                            <div className={`grid gap-4 mt-4 p-3 bg-gray-50/50 dark:bg-gray-800/20 rounded-lg border border-gray-100 dark:border-gray-700/30 ${!panelConfig?.isApiEvent ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
                                                                 <div className="space-y-2">
                                                                     <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Platforms</label>
                                                                     <MultiSelectDropdown
@@ -1178,45 +1179,43 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         placeholder="All"
                                                                     />
                                                                 </div>
+                                                                {/* SourceStr (Job ID) Filter - Always visible for NON-API events */}
+                                                                {(() => {
+                                                                    console.log(`🔍 Panel ${panel.panelId} - isApiEvent:`, panelConfig?.isApiEvent, 'panelConfig:', panelConfig);
+                                                                    const shouldShow = !panelConfig?.isApiEvent;
+                                                                    console.log(`🔍 Should show Job IDs filter:`, shouldShow);
+                                                                    
+                                                                    if (!shouldShow) return null;
+                                                                    
+                                                                    return (
+                                                                        <div className="space-y-2">
+                                                                            <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Job IDs</label>
+                                                                            <MultiSelectDropdown
+                                                                                options={(() => {
+                                                                                    const rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
+                                                                                    const savedJobIds = panelConfig?.sourceStr || [];
+                                                                                    const fromData = rawData.length > 0 && rawData.some((d: any) => d.sourceStr)
+                                                                                        ? Array.from(new Set(rawData.map((d: any) => d.sourceStr).filter(Boolean))).sort()
+                                                                                        : [];
+                                                                                    const fromConfig = savedJobIds || [];
+                                                                                    const availableJobIds = Array.from(new Set([...fromData, ...fromConfig])).sort();
+                                                                                    console.log(`🔍 Panel ${panel.panelId} - Available Job IDs:`, availableJobIds);
+                                                                                    return availableJobIds.map((s: any) => ({ value: s.toString(), label: s.toString() }));
+                                                                                })()}
+                                                                                selected={(currentPanelFilters.sourceStrs || []).map((s: any) => s.toString())}
+                                                                                onChange={(values) => {
+                                                                                    setPanelFiltersState?.((prev: any) => ({
+                                                                                        ...prev,
+                                                                                        [panel.panelId]: { ...prev?.[panel.panelId], sourceStrs: values }
+                                                                                    }));
+                                                                                    setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
+                                                                                }}
+                                                                                placeholder="All Job IDs"
+                                                                            />
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </div>
-
-                                                            {/* SourceStr (Job ID) Filter - Only for NON-API events */}
-                                                            {!panelConfig?.isApiEvent && (() => {
-                                                                const rawData = panelsDataMap.get(panel.panelId)?.rawGraphResponse?.data || [];
-                                                                const selectedJobIds = (currentPanelFilters.sourceStrs || []).map((s: any) => s.toString());
-                                                                return rawData.length > 0 && rawData.some((d: any) => d.sourceStr) && (
-                                                                    <div className="mt-3 space-y-1.5">
-                                                                        <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Job IDs (sourceStr)</label>
-                                                                        <MultiSelectDropdown
-                                                                            options={(() => {
-                                                                                const unique = Array.from(new Set(rawData.map((d: any) => d.sourceStr).filter(Boolean))).sort();
-                                                                                return unique.map((s: any) => ({ value: s.toString(), label: `Job ${s}` }));
-                                                                            })()}
-                                                                            selected={selectedJobIds}
-                                                                            onChange={(values) => {
-                                                                                setPanelFiltersState?.((prev: any) => ({
-                                                                                    ...prev,
-                                                                                    [panel.panelId]: { ...prev?.[panel.panelId], sourceStrs: values }
-                                                                                }));
-                                                                                setPanelFilterChanges?.((prev: any) => ({ ...prev, [panel.panelId]: true }));
-                                                                            }}
-                                                                            placeholder="Select Job IDs"
-                                                                        />
-                                                                        {/* Show selected Job IDs immediately */}
-                                                                        {selectedJobIds.length > 0 && (
-                                                                            <div className="flex items-center gap-2 mt-2 p-2 bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 rounded-md">
-                                                                                <Hash className="h-3 w-3 text-cyan-600 dark:text-cyan-400" />
-                                                                                <span className="text-xs font-medium text-cyan-700 dark:text-cyan-300">
-                                                                                    Filtering: {selectedJobIds.map((id: string) => `Job ${id}`).join(', ')}
-                                                                                </span>
-                                                                                <span className="ml-auto text-xs text-cyan-600 dark:text-cyan-400">
-                                                                                    ({selectedJobIds.length} selected)
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })()}
                                                         </>
                                                     )}
                                                 </div>
@@ -4497,6 +4496,188 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             })}
                                         </div>
                                     )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Job ID Pie Charts */}
+                        {(() => {
+                            const panelData = panelsDataMap.get(panel.panelId);
+                            const jobIdPieCharts = panelData?.jobIdPieCharts;
+                            const panelConfig = (panel as any)?.filterConfig;
+
+                            const showJobIdPieCharts = (currentPanelFilters.showJobIdPieCharts ?? panelConfig?.showJobIdPieCharts);
+                            if (!showJobIdPieCharts || !jobIdPieCharts || Object.keys(jobIdPieCharts).length === 0) return null;
+
+                            const selectedJobIds = currentPanelFilters.sourceStrs || panelConfig?.sourceStr || [];
+
+                            return (
+                                <div className="mt-8 space-y-6 px-4">
+                                    <div className="flex items-center gap-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
+                                            <PieChartIcon className="h-6 w-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-xl font-bold text-foreground">Job ID Distribution Analysis</h3>
+                                            <p className="text-sm text-muted-foreground font-medium">
+                                                Detailed POS, Platform, and Source breakdown for each selected job ID
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {selectedJobIds.map((jobId: string) => {
+                                            const pieData = jobIdPieCharts[jobId];
+                                            if (!pieData) return null;
+
+                                            const apiData = pieData?.data || pieData;
+                                            const platformData = apiData?.platform ? combinePieChartDuplicates(apiData.platform) : [];
+                                            const rawPosData = apiData?.pos ? combinePieChartDuplicates(apiData.pos) : [];
+                                            const posData = rawPosData.map((item: any) => ({
+                                                ...item,
+                                                name: getPOSName(item.name)
+                                            }));
+                                            const sourceData = apiData?.source ? combinePieChartDuplicates(apiData.source) : [];
+
+                                            const showPlatform = shouldShowPieChart(platformData) && platformData.length > 1;
+                                            const showPos = shouldShowPieChart(posData) && posData.length > 1;
+                                            const showSource = shouldShowPieChart(sourceData) && sourceData.length > 1;
+
+                                            if (!showPlatform && !showPos && !showSource) return null;
+
+                                            return (
+                                                <Card key={jobId} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                                    <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/40 dark:to-slate-800/30 border-b border-gray-100 dark:border-gray-700">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                                                <div className="w-3 h-3 rounded-full flex-shrink-0 animate-pulse bg-gray-500" />
+                                                                <CardTitle className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{jobId}</CardTitle>
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700/40 rounded-full"
+                                                                onClick={() => {
+                                                                    const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                    const mode = jobIdDistModes[jobId] || (showPlatform ? 'platform' : showPos ? 'pos' : 'source');
+                                                                    openExpandedPie(mode, `${jobId} - ${mode.toUpperCase()}`, dists, false);
+                                                                }}
+                                                            >
+                                                                <Maximize2 className="h-4 w-4 text-gray-700 dark:text-gray-400" />
+                                                            </Button>
+                                                        </div>
+                                                    </CardHeader>
+                                                    <CardContent className="p-4">
+                                                        {/* Distribution Mode Toggle */}
+                                                        <div className="flex items-center justify-center p-1 mb-4 bg-muted/60 dark:bg-slate-800/60 rounded-xl border border-border/50 shadow-sm">
+                                                            {[
+                                                                { id: 'platform', label: 'Platform', show: shouldShowPieChart(platformData), color: 'indigo' },
+                                                                { id: 'pos', label: 'POS', show: shouldShowPieChart(posData), color: 'emerald' },
+                                                                { id: 'source', label: 'Source', show: shouldShowPieChart(sourceData), color: 'amber' }
+                                                            ].filter(t => t.show).map((tab) => {
+                                                                const activeMode = jobIdDistModes[jobId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                const isActive = activeMode === tab.id;
+                                                                const dataLength = (tab.id === 'platform' ? platformData : tab.id === 'pos' ? posData : sourceData).length;
+
+                                                                return (
+                                                                    <button
+                                                                        key={tab.id}
+                                                                        onClick={() => setJobIdDistModes(prev => ({ ...prev, [jobId]: tab.id as any }))}
+                                                                        className={cn(
+                                                                            "flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all duration-300",
+                                                                            isActive
+                                                                                ? `bg-white dark:bg-slate-900 text-${tab.color}-600 dark:text-${tab.color}-400 shadow-md border border-${tab.color}-100 dark:border-${tab.color}-900/50`
+                                                                                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                                                        )}
+                                                                    >
+                                                                        {tab.label}
+                                                                        {dataLength > 1 && (
+                                                                            <span className={cn(
+                                                                                "w-1.5 h-1.5 rounded-full animate-pulse",
+                                                                                isActive ? `bg-${tab.color}-500` : "bg-slate-300 dark:bg-slate-600"
+                                                                            )} />
+                                                                        )}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        {/* Large Pie Chart View */}
+                                                        <div className="relative group">
+                                                            {(() => {
+                                                                const activeMode = jobIdDistModes[jobId] || ((posData && posData.length > 0) ? 'pos' : (platformData && platformData.length > 0) ? 'platform' : 'source');
+                                                                const activeData = activeMode === 'platform' ? platformData : activeMode === 'pos' ? posData : sourceData;
+                                                                const totalVal = activeData.reduce((acc: number, item: any) => acc + item.value, 0);
+                                                                const categoryLabel = activeMode === 'platform' ? 'Platform' : activeMode === 'pos' ? 'POS Site' : 'Source';
+
+                                                                return (
+                                                                    <div className="space-y-4">
+                                                                        <div
+                                                                            className="h-44 w-full cursor-pointer transition-transform duration-300 group-hover:scale-105 relative"
+                                                                            onClick={() => {
+                                                                                const dists = { platform: platformData, pos: posData, source: sourceData };
+                                                                                openExpandedPie(activeMode, `${jobId} - ${activeMode.toUpperCase()}`, dists, false);
+                                                                            }}
+                                                                        >
+                                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                                <PieChart>
+                                                                                    <Pie
+                                                                                        data={activeData}
+                                                                                        cx="50%"
+                                                                                        cy="50%"
+                                                                                        innerRadius={55}
+                                                                                        outerRadius={85}
+                                                                                        paddingAngle={2}
+                                                                                        dataKey="value"
+                                                                                        isAnimationActive={false}
+                                                                                        stroke="none"
+                                                                                    >
+                                                                                        {activeData.map((_: any, idx: number) => (
+                                                                                            <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                                                                                        ))}
+                                                                                    </Pie>
+                                                                                    <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={totalVal} category={categoryLabel} />} />
+                                                                                </PieChart>
+                                                                            </ResponsiveContainer>
+
+                                                                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                                                                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{activeMode}</span>
+                                                                                <span className="text-2xl font-black text-foreground tabular-nums">
+                                                                                    {formatNumber(totalVal)}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Persistent Legend - Top 3 by Percentage Share */}
+                                                                        <div className="space-y-1.5 px-2">
+                                                                            {[...activeData]
+                                                                                .sort((a: any, b: any) => b.value - a.value)
+                                                                                .slice(0, 3)
+                                                                                .map((item: any, idx: number) => {
+                                                                                    const percentage = totalVal > 0 ? (item.value / totalVal) * 100 : 0;
+                                                                                    return (
+                                                                                        <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                                                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                                                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                                <span className="truncate text-muted-foreground">{item.name}</span>
+                                                                                            </div>
+                                                                                            <div className="flex items-center gap-2 tabular-nums">
+                                                                                                <span className="text-foreground">{formatNumber(item.value)}</span>
+                                                                                                <span className="text-indigo-500 w-10 text-right">{percentage.toFixed(1)}%</span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             );
                         })()}

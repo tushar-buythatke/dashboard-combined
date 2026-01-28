@@ -2379,9 +2379,11 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             const panelDateRange = overrideDateRange || panelDateRanges[panelId] || dateRange;
 
             // Get current sourceStr filter for this panel (client-side filter)
+            // Use saved config if no user filter is set
+            const savedSourceStr = panelConfig?.sourceStr || [];
             const currentSourceStrFilter = profile.panels[0]?.panelId === panelId
-                ? selectedSourceStrs
-                : (panelSelectedSourceStrs[panelId] || []);
+                ? (selectedSourceStrs.length > 0 ? selectedSourceStrs : savedSourceStr)
+                : (panelSelectedSourceStrs[panelId]?.length > 0 ? panelSelectedSourceStrs[panelId] : savedSourceStr);
 
             // console.log(`🔄 PANEL REFRESH - Panel ID: ${panelId}`);
             // console.log(`📊 Panel filters being applied:`, panelFilters);
@@ -2398,6 +2400,12 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
             // New: Check if separate pie charts for each event are requested
             const showEventPieCharts = panelConfig?.showEventPieCharts === true;
+            // New: Check if pie charts for each job ID are requested
+            const showJobIdPieCharts = panelConfig?.showJobIdPieCharts === true;
+            // Use panelFilters.sourceStr which includes saved config, or currentSourceStrFilter as fallback
+            const selectedJobIds = panelFilters.sourceStr && panelFilters.sourceStr.length > 0 
+                ? panelFilters.sourceStr 
+                : (currentSourceStrFilter.length > 0 ? currentSourceStrFilter : []);
 
             // Determine effective hourly override: use per-panel override if available, otherwise global defaults
             // Previously forced 'deviation' charts to hourly, but this prevented 'Daily' view from working
@@ -2414,7 +2422,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // OPTIMIZED: Make all 3 API calls IN PARALLEL for up to 3x speedup
             const eventIdsForSourceStr = eventIdsToFetch.map(id => typeof id === 'number' ? id : parseInt(id)).filter(id => !isNaN(id));
 
-            const [graphResponse, pieResponse, sourceStrsFromApi, eventPieChartsResult] = await Promise.all([
+            const [graphResponse, pieResponse, sourceStrsFromApi, eventPieChartsResult, jobIdPieChartsResult] = await Promise.all([
                 // Graph data call
                 apiService.getGraphData(
                     panelFilters.events,
@@ -2491,6 +2499,29 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             return map;
                         });
                     })()
+                    : Promise.resolve(null),
+                // NEW: Separate Pie Charts for each job ID
+                showJobIdPieCharts && selectedJobIds.length > 0
+                    ? Promise.all(
+                        selectedJobIds.map(jobId =>
+                            apiService.getPieChartData(
+                                panelFilters.events,
+                                hasApiEvents ? [] : panelFilters.platforms,
+                                hasApiEvents ? [] : panelFilters.pos,
+                                hasApiEvents ? [] : panelFilters.sources,
+                                [jobId], // Filter by single job ID
+                                panelDateRange.from,
+                                panelDateRange.to,
+                                hasApiEvents
+                            ).catch(() => null)
+                        )
+                    ).then(results => {
+                        const map: Record<string, any> = {};
+                        selectedJobIds.forEach((jobId, idx) => {
+                            if (results[idx]) map[jobId] = results[idx];
+                        });
+                        return map;
+                    })
                     : Promise.resolve(null)
             ]);
 
@@ -2516,6 +2547,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     eventKeys: processedResult.eventKeys,
                     pieChartData: finalPieData,
                     eventPieCharts: eventPieChartsResult || undefined,
+                    jobIdPieCharts: jobIdPieChartsResult || undefined,
                     loading: false,
                     error: null,
                     filters: panelFilters,
@@ -2896,7 +2928,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     sources: userPanelFilters?.sources?.length > 0
                         ? userPanelFilters.sources
                         : (panelConfig?.sources || []),
-                    sourceStr: userPanelFilters?.sourceStr && userPanelFilters.sourceStr.length > 0
+                    // Fix: Always use saved sourceStr from config if userPanelFilters doesn't have it set
+                    // Check if userPanelFilters.sourceStr is explicitly set (not just empty array from initialization)
+                    sourceStr: (userPanelFilters?.sourceStr !== undefined && userPanelFilters.sourceStr.length > 0)
                         ? userPanelFilters.sourceStr
                         : (panelConfig?.sourceStr || [])
                 };

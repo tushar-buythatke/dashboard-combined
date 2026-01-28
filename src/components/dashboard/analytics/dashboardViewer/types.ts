@@ -55,4 +55,5 @@ export interface PanelData {
     rawGraphResponse?: any;
     hasLoadedOnce?: boolean; // Prevents infinite loading loops when API returns empty data
     eventPieCharts?: Record<string, any>;
+    jobIdPieCharts?: Record<string, any>; // Pie charts for each job ID
 }

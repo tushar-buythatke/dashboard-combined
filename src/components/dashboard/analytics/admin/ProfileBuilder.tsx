@@ -56,6 +56,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
     };
     showHourlyStats: boolean;
     showEventPieCharts?: boolean;
+    showJobIdPieCharts?: boolean; // New: Show pie charts for each selected job ID
     dailyDeviationCurve?: boolean;
     showUserFootfall?: boolean; // New: Show user total/new/unique footfall metrics as series
     isApiEvent?: boolean; // Toggle for API events vs regular events
@@ -450,6 +451,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             },
                             showHourlyStats: true,
                             showEventPieCharts: false,
+                            showJobIdPieCharts: false, // Default to false, only show when job IDs are selected
                             dailyDeviationCurve: true,
                             showUserFootfall: false,
                             isApiEvent: true,
@@ -536,6 +538,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                             },
                             showHourlyStats: savedConfig?.showHourlyStats ?? false, // Default to false (matches new panel default), preserve explicitly saved value
                             showEventPieCharts: savedConfig?.showEventPieCharts || false, // Default to false
+                            showJobIdPieCharts: savedConfig?.showJobIdPieCharts || false, // Default to false
                             // Default deviation curve to enabled unless explicitly disabled
                             dailyDeviationCurve: savedConfig?.dailyDeviationCurve !== false,
                             showUserFootfall: savedConfig?.showUserFootfall || false, // Load user footfall toggle
@@ -1092,6 +1095,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     },
                     showHourlyStats: p.showHourlyStats,
                     showEventPieCharts: p.showEventPieCharts,
+                    showJobIdPieCharts: p.showJobIdPieCharts || false, // Save job ID pie charts toggle
                     dailyDeviationCurve: p.dailyDeviationCurve,
                     showUserFootfall: p.showUserFootfall || false, // Save user footfall toggle
                     isApiEvent: p.isApiEvent || false // Save API event flag
@@ -2496,6 +2500,26 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                         <span className="text-[10px] text-muted-foreground">Creates separate POS/Platform/Source pie charts for each event</span>
                                                                                     </Label>
                                                                                 </div>
+                                                                                {/* Job ID Pie Charts - Only show when job IDs are selected */}
+                                                                                {(panel.filters.sourceStr && panel.filters.sourceStr.length > 0) && (
+                                                                                    <div className="flex items-center space-x-2">
+                                                                                        <Checkbox
+                                                                                            id={`${panel.panelId}-jobid-pie-charts`}
+                                                                                            checked={panel.showJobIdPieCharts || false}
+                                                                                            onCheckedChange={(checked) => {
+                                                                                                setPanels(prev => prev.map(p =>
+                                                                                                    p.panelId === panel.panelId
+                                                                                                        ? { ...p, showJobIdPieCharts: checked }
+                                                                                                        : p
+                                                                                                ));
+                                                                                            }}
+                                                                                        />
+                                                                                        <Label htmlFor={`${panel.panelId}-jobid-pie-charts`} className="cursor-pointer flex flex-col">
+                                                                                            <span className="font-medium">Show Pie Charts for Each Job ID</span>
+                                                                                            <span className="text-[10px] text-muted-foreground">Creates separate pie charts showing volumes for each selected job ID</span>
+                                                                                        </Label>
+                                                                                    </div>
+                                                                                )}
                                                                                 <div className="flex items-center space-x-2">
                                                                                     <Checkbox
                                                                                         id={`${panel.panelId}-daily-deviation`}
