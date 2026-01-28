@@ -2503,7 +2503,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 // NEW: Separate Pie Charts for each job ID
                 showJobIdPieCharts && selectedJobIds.length > 0
                     ? Promise.all(
-                        selectedJobIds.map(jobId =>
+                        selectedJobIds.map((jobId: string) =>
                             apiService.getPieChartData(
                                 panelFilters.events,
                                 hasApiEvents ? [] : panelFilters.platforms,
@@ -2517,7 +2517,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         )
                     ).then(results => {
                         const map: Record<string, any> = {};
-                        selectedJobIds.forEach((jobId, idx) => {
+                        selectedJobIds.forEach((jobId: string, idx: number) => {
                             if (results[idx]) map[jobId] = results[idx];
                         });
                         return map;

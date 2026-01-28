@@ -2509,7 +2509,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                             onCheckedChange={(checked) => {
                                                                                                 setPanels(prev => prev.map(p =>
                                                                                                     p.panelId === panel.panelId
-                                                                                                        ? { ...p, showJobIdPieCharts: checked }
+                                                                                                        ? { ...p, showJobIdPieCharts: checked === true }
                                                                                                         : p
                                                                                                 ));
                                                                                             }}
