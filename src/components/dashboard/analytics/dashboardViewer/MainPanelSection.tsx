@@ -2261,7 +2261,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             />
                                         </div>
                                         <div
-                                            className="w-full h-full origin-top-left transition-all duration-100 ease-out overflow-x-auto overflow-y-hidden"
+                                            className="w-full h-[420px] md:h-[450px] origin-top-left transition-all duration-100 ease-out overflow-x-auto overflow-y-hidden"
                                             onWheel={handleWheel}
                                         >
                                             <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>

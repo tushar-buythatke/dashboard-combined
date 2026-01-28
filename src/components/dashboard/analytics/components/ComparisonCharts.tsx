@@ -53,15 +53,32 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     const groupedByDay: Record<string, any[]> = {};
 
     data.forEach((record) => {
-        const date = new Date(record.timestamp || record.date);
+        const raw = (record as any)?.timestamp ?? (record as any)?.date;
+        let date = raw instanceof Date ? raw : new Date(raw);
+
+        // Some datasets use human-readable labels like "Jan 27, 5 AM" without a year.
+        // In that case, Date parsing may yield Invalid Date in some environments.
+        // If year is missing, append current year and try again.
+        if (Number.isNaN(date.getTime()) && typeof raw === 'string' && !/\b(19|20)\d{2}\b/.test(raw)) {
+            date = new Date(`${raw} ${new Date().getFullYear()}`);
+        }
+
+        // If still invalid, skip this record.
+        if (Number.isNaN(date.getTime())) {
+            return;
+        }
+
         const dayKey = date.toDateString();
 
         if (!groupedByDay[dayKey]) {
             groupedByDay[dayKey] = [];
         }
 
+        const hourFromRecord = Number((record as any)?.hour);
+        const hour = Number.isFinite(hourFromRecord) ? hourFromRecord : date.getHours();
+
         groupedByDay[dayKey].push({
-            hour: date.getHours(),
+            hour,
             ...record
         });
     });
@@ -165,6 +182,17 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     // Smoothing logic removed as per requirements to show raw data precision
     const comparisonData = baseData;
 
+    const nonNullPointsBySeriesLabel = daySeriesAsc.reduce<Record<string, number>>((acc, s) => {
+        const label = s.label;
+        let count = 0;
+        for (const point of comparisonData) {
+            const v = (point as any)?.[label];
+            if (typeof v === 'number' && !Number.isNaN(v)) count += 1;
+        }
+        acc[label] = count;
+        return acc;
+    }, {});
+
     // Derive simple insights for summary chips
     let peakHourTime: string | null = null;
     let peakHourValue: number | null = null;
@@ -210,7 +238,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     }
 
     const Content = (
-        <div className={cn("w-full transition-all duration-300", headless ? "h-full" : "h-[450px]")}>
+        <div className={cn("w-full transition-all duration-300", headless ? "h-full min-h-[380px]" : "h-[450px]")}>
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
@@ -228,6 +256,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                         tickFormatter={formatNumber}
                         width={65}
                         tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        domain={[0, 'dataMax']}
                     />
                     <Tooltip
                         content={({ active, payload, label }: any) => {
@@ -303,6 +332,9 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                             strokeWidth = 2.5;
                         }
 
+                        const nonNullPoints = nonNullPointsBySeriesLabel[label] || 0;
+                        const shouldShowSinglePointDot = nonNullPoints === 1;
+
                         return (
                             <Line
                                 key={dayKey}
@@ -312,7 +344,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                 stroke={strokeColor}
                                 strokeOpacity={strokeOpacity}
                                 strokeWidth={strokeWidth}
-                                dot={false}
+                                dot={shouldShowSinglePointDot ? { r: isSelected ? 5 : 4, strokeWidth: 2, stroke: '#fff', fill: strokeColor } : false}
                                 connectNulls={false}
                                 activeDot={{
                                     r: isSelected ? 5 : 3,
@@ -330,7 +362,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
 
     if (headless) {
         return (
-            <div className="w-full h-full flex flex-col gap-4">
+            <div className="w-full h-full flex flex-col gap-4 min-h-[380px]">
                 {/* Top Controls: Event Stats Badges */}
                 {eventStats && eventStats.length > 0 && (
                     <div className="flex flex-wrap gap-2 px-2 py-1 bg-white/50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">

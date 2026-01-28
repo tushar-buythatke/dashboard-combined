@@ -10,6 +10,7 @@ import { useChartZoom } from '@/hooks/useChartZoom';
 import { useChartKeyboardNav } from '@/hooks/useAccessibility';
 import { ChartZoomControls } from './ChartZoomControls';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Professional Pie Tooltip
 // Professional Pie Tooltip
@@ -105,6 +106,20 @@ interface ExpandedPieChartModalProps {
 
 export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType = 0 }: ExpandedPieChartModalProps) {
     const { t: themeClasses } = useAccentTheme();
+    const isMobile = useIsMobile();
+    const [isShortViewport, setIsShortViewport] = useState(false);
+
+    useEffect(() => {
+        const check = () => {
+            if (typeof window === 'undefined') return;
+            setIsShortViewport(window.innerHeight < 520);
+        };
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
+
+    const isCompact = isMobile || isShortViewport;
     // Local state to manage the currently selected distribution type within the modal
     const [activeType, setActiveType] = useState<'platform' | 'pos' | 'source'>('platform');
     const [minPercentage, setMinPercentage] = useState(0);
@@ -247,11 +262,11 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent
-                showCloseButton={true}
-                className="w-[98vw] max-w-[1800px] h-[92vh] max-h-[calc(100vh-64px)] overflow-hidden p-0 bg-white dark:bg-slate-950 flex flex-col md:flex-row gap-0 shadow-2xl !top-[calc(50%+32px)] !left-[50%] !translate-x-[-50%] !translate-y-[-50%]"
+                showCloseButton={false}
+                className="w-[100vw] md:w-[98vw] max-w-[1800px] h-[calc(100dvh-64px)] md:h-[92vh] max-h-[calc(100dvh-64px)] md:max-h-[calc(100vh-64px)] overflow-hidden p-0 bg-white dark:bg-slate-950 flex flex-col md:flex-row gap-0 shadow-2xl !top-[calc(50%+32px)] !left-[50%] !translate-x-[-50%] !translate-y-[-50%] rounded-none md:rounded-2xl"
             >
                 {/* Left Sidebar - Navigation */}
-                <div className={cn("w-full md:w-64 border-b md:border-b-0 md:border-r flex flex-col flex-shrink-0 bg-slate-50 dark:bg-slate-900", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                <div className={cn("w-full md:w-64 border-b md:border-b-0 md:border-r flex flex-col flex-shrink-0 bg-slate-50 dark:bg-slate-900 overflow-hidden max-h-[34dvh] md:max-h-none", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
                     <div className={cn("p-4 border-b", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
                         <div className="flex items-center gap-2.5 mb-3">
                             <div className={cn("h-7 w-7 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", themeClasses.buttonGradient)}>
@@ -286,7 +301,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                         </div>
                     </div>
 
-                    <div className="p-2 md:p-3 space-y-4 overflow-y-auto">
+                    <div className="p-2 md:p-3 space-y-4 overflow-y-auto flex-1 min-h-0">
                         <div className="space-y-1">
                             <div className="mb-2 px-2">
                                 <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Metrics</span>
@@ -373,7 +388,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                 </div>
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white dark:bg-slate-950">
+                <div className="flex-1 flex flex-col min-w-0 h-full min-h-0 overflow-hidden bg-white dark:bg-slate-950">
                     {/* Header for Mobile/Desktop */}
                     <div className={cn("px-4 py-2 md:px-6 md:py-2.5 border-b flex items-center justify-between z-10 min-h-[56px] bg-white dark:bg-slate-950", themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.textPrimary, themeClasses.textPrimaryDark)}>
                         <div>
@@ -392,19 +407,22 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                 variant="ghost"
                                 size="icon"
                                 onClick={onClose}
-                                className="h-9 w-9 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                                className="h-7 w-7 md:h-9 md:w-9 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
                             >
-                                <X className="h-5 w-5" />
+                                <X className="h-4 w-4 md:h-5 md:w-5" />
                             </Button>
                         </div>
                     </div>
 
                     {/* Chart Container */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 bg-white dark:bg-slate-950">
+                    <div
+                        className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-6 bg-white dark:bg-slate-950 overscroll-contain"
+                        style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
                         <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6 max-w-none mx-auto h-full items-start">
 
                             {/* Chart Section */}
-                            <div className="xl:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm relative min-h-[400px]">
+                            <div className="xl:col-span-7 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm relative min-h-[260px] sm:min-h-[400px]">
                                 {/* Zoom Controls */}
                                 <div className="absolute top-4 right-4 z-10">
                                     <ChartZoomControls
@@ -417,7 +435,11 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                     />
                                 </div>
 
-                                <div className="h-[400px] md:h-[650px] w-full flex flex-col items-center justify-center p-2" onWheel={handleWheel}>
+                                <div
+                                    className="h-[280px] sm:h-[400px] md:h-[calc(100dvh-260px)] w-full flex flex-col items-center justify-center p-2"
+                                    onWheel={isCompact ? undefined : handleWheel}
+                                    style={isCompact ? { touchAction: 'pan-y' } : undefined}
+                                >
                                     <div
                                         style={{
                                             transform: `scale(${zoomLevel})`,
@@ -438,8 +460,8 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                                     cy="50%"
                                                     startAngle={0}
                                                     endAngle={360}
-                                                    innerRadius={150}
-                                                    outerRadius={250}
+                                                    innerRadius={isCompact ? 90 : 150}
+                                                    outerRadius={isCompact ? 140 : 250}
                                                     paddingAngle={2}
                                                     dataKey="value"
                                                     strokeWidth={2}
@@ -465,6 +487,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                                             isApiEvent={pieData.isApiEvent}
                                                         />
                                                     }
+                                                    wrapperStyle={{ pointerEvents: 'none' }}
                                                 />
                                             </PieChart>
                                         </ResponsiveContainer>
@@ -483,7 +506,12 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                             </div>
 
                             {/* Data Table Section */}
-                            <div className="xl:col-span-5 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full max-h-[750px]">
+                            <div
+                                className={cn(
+                                    "xl:col-span-5 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm",
+                                    isCompact ? "overflow-visible h-auto max-h-none" : "overflow-hidden h-full max-h-[750px]"
+                                )}
+                            >
                                 <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
                                     <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500">
                                         {searchQuery ? `Search Results (${filteredData.length})` : 'Detailed Breakdown'}
@@ -492,7 +520,12 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                         {searchQuery ? filteredData.length : sortedData.length} items
                                     </span>
                                 </div>
-                                <div className="flex-1 overflow-y-auto">
+                                <div
+                                    className={cn(
+                                        isCompact ? "overflow-visible" : "flex-1 overflow-y-auto"
+                                    )}
+                                    style={isCompact ? undefined : { WebkitOverflowScrolling: 'touch' }}
+                                >
                                     {(searchQuery ? filteredData : sortedData).map((item: any, index: number) => {
                                         const percentage = total > 0 ? ((item.value / total) * 100) : 0;
                                         // Find original index for color consistency

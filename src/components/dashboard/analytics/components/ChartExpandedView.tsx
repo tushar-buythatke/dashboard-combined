@@ -30,9 +30,9 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" style={{ paddingTop: '64px' }}>
+        <div className="fixed inset-0 z-[110] flex items-start justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 pt-16">
             <div
-                className="w-full h-full sm:w-[95vw] sm:h-[calc(100vh-64px)] sm:max-h-[calc(100vh-64px)] sm:rounded-2xl shadow-2xl flex flex-col relative overflow-hidden bg-white dark:bg-slate-950"
+                className="w-full h-[calc(100dvh-64px)] sm:w-[95vw] sm:h-[calc(100vh-64px)] sm:max-h-[calc(100vh-64px)] sm:rounded-2xl shadow-2xl flex flex-col relative overflow-hidden bg-white dark:bg-slate-950"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -73,7 +73,8 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
                             width: `${zoomLevel * 100}%`,
                             minWidth: '100%',
                             // Ensure height takes full space if not zoomed, but expands if content needs it
-                            minHeight: '100%'
+                            minHeight: '100%',
+                            height: '100%'
                         }}
                     >
                         {children(zoomLevel)}
