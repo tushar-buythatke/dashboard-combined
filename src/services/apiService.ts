@@ -20,7 +20,7 @@ export const PLATFORMS = [
     { id: 8, name: 'Graph' },
     { id: 9, name: 'Desktop Web' },
     { id: 10, name: 'Mobile Web' },
-    { id: 11, name: 'Internal Analytics' },
+    { id: 11, name: 'Internal System' },
 ];
 
 // Source mappings (fixed values)
