@@ -21,11 +21,21 @@ const DAY_COLORS = [
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const formatNumber = (num: number | null | undefined) => {
-    if (num === null || num === undefined) return '0';
-    if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
-    return num.toString();
+    if (num === null || num === undefined || Number.isNaN(num)) return '0';
+
+    const abs = Math.abs(num);
+    const sign = num < 0 ? '-' : '';
+
+    const formatWithSuffix = (value: number, suffix: string) => {
+        const fixed = value.toFixed(1);
+        const trimmed = fixed.endsWith('.0') ? fixed.slice(0, -2) : fixed;
+        return `${sign}${trimmed}${suffix}`;
+    };
+
+    if (abs >= 1000000000) return formatWithSuffix(abs / 1000000000, 'B');
+    if (abs >= 1000000) return formatWithSuffix(abs / 1000000, 'M');
+    if (abs >= 1000) return formatWithSuffix(abs / 1000, 'K');
+    return `${num}`;
 };
 
 interface ComparisonChartsProps {
@@ -760,7 +770,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                         <div>
                             <CardTitle className="text-base md:text-lg">Daily Trends with Average Line</CardTitle>
                             <p className="text-sm text-muted-foreground mt-0.5 font-medium">
-                                {daysDiff} days • Average: {overallAvg.toFixed(2)}
+                                {daysDiff} days • Average: {formatNumber(overallAvg)}
                             </p>
                         </div>
                     </div>
@@ -838,13 +848,14 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     textAnchor="end"
                                     height={80}
                                 />
-                                <YAxis tick={{ fontSize: 12 }} />
+                                <YAxis tick={{ fontSize: 12 }} tickFormatter={formatNumber} />
                                 <Tooltip
                                     contentStyle={{
                                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                                         border: '1px solid #ddd',
                                         borderRadius: '8px'
                                     }}
+                                    formatter={(value: any) => formatNumber(Number(value))}
                                 />
                                 <Legend />
 
@@ -855,7 +866,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     strokeWidth={2}
                                     strokeDasharray="5 5"
                                     label={{
-                                        value: `Avg: ${overallAvg.toFixed(0)}`,
+                                        value: `Avg: ${formatNumber(overallAvg)}`,
                                         position: 'right',
                                         fill: '#f59e0b',
                                         fontSize: 12,
