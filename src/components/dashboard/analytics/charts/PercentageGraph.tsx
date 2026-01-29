@@ -388,8 +388,6 @@ export function PercentageGraph({
                 });
             });
 
-
-
             return Object.entries(groupedData)
                 .map(([timeKey, values]) => {
                     // For avg metrics, compute the actual average
@@ -985,7 +983,7 @@ export function PercentageGraph({
                     {/* Line Chart */}
                     <div className={cn("relative group", chartData.length > 0 && chartData[0].isAvgMetric ? "h-[420px] mt-2" : "h-[420px] mt-4")}>
                         <div className="absolute top-2 right-12 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-{/* Zoom controls removed for PercentageGraph to avoid obstruction and duplication */}
+                            {/* Zoom controls removed for PercentageGraph to avoid obstruction and duplication */}
                         </div>
                         <div 
                             className="w-full h-full origin-center transition-transform duration-100 ease-out"
@@ -1141,7 +1139,7 @@ export function PercentageGraph({
                                                                                 key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
                                                                             : (eventNames[String(key)] || `Event ${key}`);
                                                                         // Use color from eventColors or fallback to premium colors
-                                                                        const colors = ['#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#6366f1', '#ec4899'];
+                                                                        const colors = ['#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#14b8a6', '#a855f7', '#f97316'];
                                                                         const color = eventColors[key] || colors[idx % colors.length];
                                                                         return (
                                                                             <div key={key} className="flex items-center justify-between gap-3">
@@ -1602,7 +1600,7 @@ export function PercentageGraph({
                                             stroke="rgba(255,255,255,0.8)"
                                             isAnimationActive={false}
                                         >
-                                            {childEventPieData.map((entry, index) => {
+                                            {childEventPieData.map((entry: any, index: number) => {
                                                 // Use consistent premium colors palette to avoid garish overrides
                                                 const premiumColors = [
                                                     '#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b',
@@ -1695,6 +1693,9 @@ export function PercentageGraph({
                             </div>
                         </div>
                     )}
+
+                    {/* Job ID Pie Charts */}
+                    {null}
 
                 </CardContent>
             </Card>

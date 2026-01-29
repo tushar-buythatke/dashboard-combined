@@ -681,6 +681,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
 
                     </div>
+
                 </CardContent>
             </Card >
 

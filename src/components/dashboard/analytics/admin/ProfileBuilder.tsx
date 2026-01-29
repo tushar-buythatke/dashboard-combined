@@ -1807,6 +1807,25 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                         ? `${availableJobIds.length} job ID(s) available. Leave empty to show all jobs.`
                                                                         : 'Select at least one event, then click "Fetch Job IDs" to load options.'}
                                                                 </p>
+                                                                {(panel.graphType === 'percentage' || panel.graphType === 'funnel') && (
+                                                                    <div className="flex items-center space-x-2 pt-1">
+                                                                        <Checkbox
+                                                                            id={`${panel.panelId}-jobid-pie-charts-near-filter`}
+                                                                            checked={panel.showJobIdPieCharts || false}
+                                                                            onCheckedChange={(checked) => {
+                                                                                setPanels(prev => prev.map(p =>
+                                                                                    p.panelId === panel.panelId
+                                                                                        ? { ...p, showJobIdPieCharts: checked === true }
+                                                                                        : p
+                                                                                ));
+                                                                            }}
+                                                                        />
+                                                                        <Label htmlFor={`${panel.panelId}-jobid-pie-charts-near-filter`} className="cursor-pointer flex flex-col">
+                                                                            <span className="font-medium">Show Pie Charts for Each Job ID</span>
+                                                                            <span className="text-[10px] text-muted-foreground">Shows POS/Platform/Source distribution per Job ID in Percentage/Funnel graphs</span>
+                                                                        </Label>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -2452,6 +2471,41 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                                                                                         <li>• Status Code Distribution</li>
                                                                                         <li>• Cache Hit/Miss Analysis</li>
                                                                                     </ul>
+                                                                                </div>
+                                                                                <div className="flex items-center space-x-2">
+                                                                                    <Checkbox
+                                                                                        id={`${panel.panelId}-event-pie-charts`}
+                                                                                        checked={panel.showEventPieCharts}
+                                                                                        onCheckedChange={() => {
+                                                                                            setPanels(panels.map(p =>
+                                                                                                p.panelId === panel.panelId
+                                                                                                    ? { ...p, showEventPieCharts: !p.showEventPieCharts }
+                                                                                                    : p
+                                                                                            ));
+                                                                                        }}
+                                                                                    />
+                                                                                    <Label htmlFor={`${panel.panelId}-event-pie-charts`} className="cursor-pointer flex flex-col">
+                                                                                        <span className="font-medium">Show Distribution Pie Charts</span>
+                                                                                        <span className="text-[10px] text-muted-foreground">Creates separate POS/Platform/Source pie charts for each event</span>
+                                                                                    </Label>
+                                                                                </div>
+                                                                                {/* Job ID Pie Charts */}
+                                                                                <div className="flex items-center space-x-2">
+                                                                                    <Checkbox
+                                                                                        id={`${panel.panelId}-jobid-pie-charts-api`}
+                                                                                        checked={panel.showJobIdPieCharts || false}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            setPanels(prev => prev.map(p =>
+                                                                                                p.panelId === panel.panelId
+                                                                                                    ? { ...p, showJobIdPieCharts: checked === true }
+                                                                                                    : p
+                                                                                            ));
+                                                                                        }}
+                                                                                    />
+                                                                                    <Label htmlFor={`${panel.panelId}-jobid-pie-charts-api`} className="cursor-pointer flex flex-col">
+                                                                                        <span className="font-medium">Show Pie Charts for Each Job ID</span>
+                                                                                        <span className="text-[10px] text-muted-foreground">Creates separate pie charts showing volumes for each selected job ID (select specific Job IDs above)</span>
+                                                                                    </Label>
                                                                                 </div>
                                                                                 <div className="flex items-center space-x-2">
                                                                                     <Checkbox
