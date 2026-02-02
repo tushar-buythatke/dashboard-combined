@@ -56,12 +56,10 @@ const getAxisTickStyle = (fontSize: number = 10) => ({
   className: 'text-gray-500 dark:text-gray-400'
 });
 
-// Brand logo endpoint - same as pos-stats-grid.tsx
+// Brand logo endpoint - uses direct API since images don't have CORS restrictions
 const getBrandLogoEndpoint = (brand: string): string => {
-  const base = import.meta.env.DEV ? '/brand-logo' : '/api/brand-logo';
-  const url = new URL(base, window.location.origin);
-  url.searchParams.set('brand', brand);
-  return url.toString();
+  // Use direct API URL - images can be loaded cross-origin without CORS issues
+  return `https://search-new.bitbns.com/buyhatke/wrapper/brandLogo?brand=${encodeURIComponent(brand)}`;
 };
 
 // Get site logo - uses siteDetails image or brand logo API
@@ -71,7 +69,7 @@ const getSiteLogo = (siteName: string, siteImage?: string): string => {
     return siteImage;
   }
 
-  // Otherwise use brand logo endpoint
+  // Otherwise use brand logo endpoint with site name
   return getBrandLogoEndpoint(siteName);
 };
 
@@ -125,10 +123,10 @@ const getHeatmapColor = (value: number, max: number) => {
 // Custom tooltip with human-readable dates and detailed metrics
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
-  
+
   // Get the first payload item for event-based charts
   const data = payload[0]?.payload || {};
-  
+
   // Try to get event name from data or label
   let displayLabel = data.eventName || label;
   try {
@@ -495,84 +493,84 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
 
                 {/* Success vs Failure Distribution */}
                 <ChartCardRaw title="Success vs Failure Distribution" icon={<PieChart className="h-5 w-5 text-indigo-500" />}>
-                    <div className="h-[220px] w-full flex items-center justify-center pdf-page-break-avoid overflow-visible">
-                      <ResponsiveContainer width="100%" height="100%">
+                  <div className="h-[220px] w-full flex items-center justify-center pdf-page-break-avoid overflow-visible">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPie>
+                        <Pie
+                          data={[
+                            { name: 'Successful', value: report.executiveSummary.totalSuccessEvents },
+                            { name: 'Failed', value: report.executiveSummary.totalFailEvents }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          isAnimationActive={false}
+                        >
+                          <Cell fill="#10b981" />
+                          <Cell fill="#ef4444" />
+                        </Pie>
+                        <Tooltip wrapperStyle={{ zIndex: 9999 }} allowEscapeViewBox={{ x: true, y: true }} />
+                      </RechartsPie>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <div className="text-center">
+                      <p className={cn("text-4xl font-bold", report.executiveSummary.overallSuccessRate >= 95 ? "text-emerald-500" : report.executiveSummary.overallSuccessRate >= 80 ? "text-amber-500" : "text-red-500")}>
+                        {report.executiveSummary.overallSuccessRate.toFixed(1)}%
+                      </p>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider">Success Rate</p>
+                    </div>
+                    <div className="flex justify-center gap-6 pt-4 border-t">
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-emerald-500">{formatNumber(report.executiveSummary.totalSuccessEvents)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase">Successful</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-lg font-bold text-red-500">{formatNumber(report.executiveSummary.totalFailEvents)}</p>
+                        <p className="text-[10px] text-gray-500 uppercase">Failed</p>
+                      </div>
+                    </div>
+                  </div>
+                </ChartCardRaw>
+
+                {/* Platform Distribution */}
+                {report.platformBreakdown.length > 0 && (
+                  <ChartCard title="Platform Distribution" icon={<PieChart className="h-5 w-5 text-blue-500" />}>
+                    <div className="flex items-center h-[240px] pdf-page-break-avoid">
+                      <ResponsiveContainer width="55%" height="100%">
                         <RechartsPie>
-                          <Pie
-                            data={[
-                              { name: 'Successful', value: report.executiveSummary.totalSuccessEvents },
-                              { name: 'Failed', value: report.executiveSummary.totalFailEvents }
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                            isAnimationActive={false}
-                          >
-                            <Cell fill="#10b981" />
-                            <Cell fill="#ef4444" />
+                          <Pie data={report.platformBreakdown as any[]} cx="50%" cy="50%" innerRadius={45} outerRadius={80} dataKey="count" nameKey="platformName" paddingAngle={2} isAnimationActive={false}>
+                            {report.platformBreakdown.map((_: PlatformMetrics, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                           </Pie>
-                          <Tooltip wrapperStyle={{ zIndex: 9999 }} allowEscapeViewBox={{ x: true, y: true }} />
+                          <Tooltip content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null;
+                            const d = payload[0].payload;
+                            return (
+                              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border p-2 text-xs">
+                                <p className="font-semibold">{d.platformName}</p>
+                                <p>{formatNumber(d.count)} • {d.percentage.toFixed(1)}%</p>
+                                <p className={d.successRate >= 95 ? "text-emerald-500" : "text-amber-500"}>{d.successRate.toFixed(1)}% success</p>
+                              </div>
+                            );
+                          }} />
                         </RechartsPie>
                       </ResponsiveContainer>
-                    </div>
-                    <div className="flex-1 space-y-3">
-                      <div className="text-center">
-                        <p className={cn("text-4xl font-bold", report.executiveSummary.overallSuccessRate >= 95 ? "text-emerald-500" : report.executiveSummary.overallSuccessRate >= 80 ? "text-amber-500" : "text-red-500")}>
-                          {report.executiveSummary.overallSuccessRate.toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">Success Rate</p>
-                      </div>
-                      <div className="flex justify-center gap-6 pt-4 border-t">
-                        <div className="text-center">
-                          <p className="text-lg font-bold text-emerald-500">{formatNumber(report.executiveSummary.totalSuccessEvents)}</p>
-                          <p className="text-[10px] text-gray-500 uppercase">Successful</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-lg font-bold text-red-500">{formatNumber(report.executiveSummary.totalFailEvents)}</p>
-                          <p className="text-[10px] text-gray-500 uppercase">Failed</p>
-                        </div>
+                      <div className="flex-1 space-y-2">
+                        {report.platformBreakdown.slice(0, 5).map((p: PlatformMetrics, i: number) => (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span className="flex-1 truncate text-gray-700 dark:text-gray-300">{p.platformName}</span>
+                            <span className="font-mono text-gray-500">{p.percentage.toFixed(0)}%</span>
+                            <span className={cn("font-semibold text-[10px]", p.successRate >= 95 ? "text-emerald-500" : "text-amber-500")}>{p.successRate.toFixed(0)}✓</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </ChartCardRaw>
-
-                  {/* Platform Distribution */}
-                  {report.platformBreakdown.length > 0 && (
-                    <ChartCard title="Platform Distribution" icon={<PieChart className="h-5 w-5 text-blue-500" />}>
-                      <div className="flex items-center h-[240px] pdf-page-break-avoid">
-                        <ResponsiveContainer width="55%" height="100%">
-                          <RechartsPie>
-                            <Pie data={report.platformBreakdown as any[]} cx="50%" cy="50%" innerRadius={45} outerRadius={80} dataKey="count" nameKey="platformName" paddingAngle={2} isAnimationActive={false}>
-                              {report.platformBreakdown.map((_: PlatformMetrics, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                            </Pie>
-                            <Tooltip content={({ active, payload }) => {
-                              if (!active || !payload?.length) return null;
-                              const d = payload[0].payload;
-                              return (
-                                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border p-2 text-xs">
-                                  <p className="font-semibold">{d.platformName}</p>
-                                  <p>{formatNumber(d.count)} • {d.percentage.toFixed(1)}%</p>
-                                  <p className={d.successRate >= 95 ? "text-emerald-500" : "text-amber-500"}>{d.successRate.toFixed(1)}% success</p>
-                                </div>
-                              );
-                            }} />
-                          </RechartsPie>
-                        </ResponsiveContainer>
-                        <div className="flex-1 space-y-2">
-                          {report.platformBreakdown.slice(0, 5).map((p: PlatformMetrics, i: number) => (
-                            <div key={i} className="flex items-center gap-2 text-xs">
-                              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                              <span className="flex-1 truncate text-gray-700 dark:text-gray-300">{p.platformName}</span>
-                              <span className="font-mono text-gray-500">{p.percentage.toFixed(0)}%</span>
-                              <span className={cn("font-semibold text-[10px]", p.successRate >= 95 ? "text-emerald-500" : "text-amber-500")}>{p.successRate.toFixed(0)}✓</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </ChartCard>
-                  )}
+                  </ChartCard>
+                )}
 
                 {/* Top Events Horizontal Bar - Excludes API events */}
                 {report.eventMetrics.filter((e: EventMetrics) => !e.isApiEvent).length > 0 && (
@@ -798,63 +796,63 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                     ))}
                   </div>
 
-                  {/* Data Scientist Grade Visualization: Volume vs Reliability */}
-                  <div className="mt-6 pt-6 border-t border-white/20 dark:border-gray-800/20">
+                  {/* Top Sites by Volume - Clean Horizontal Bars */}
+                  <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between mb-4">
                       <div>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">Volume vs. Reliability Distribution</h4>
-                        <p className="text-[10px] text-gray-500">Relative scale of site impact and success rates</p>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">Top Sites by Volume</h4>
+                        <p className="text-[10px] text-gray-500">Ranked by event count with success rates</p>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                          <span className="text-[9px] font-bold text-gray-400">HIGH (≥95%)</span>
+                          <span className="text-[9px] font-bold text-gray-400">≥95%</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-amber-500" />
-                          <span className="text-[9px] font-bold text-gray-400">MID (80-95%)</span>
+                          <span className="text-[9px] font-bold text-gray-400">80-95%</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-rose-500" />
-                          <span className="text-[9px] font-bold text-gray-400">LOW {'(<80%)'}</span>
+                          <span className="text-[9px] font-bold text-gray-400">{'<80%'}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 items-end h-24">
-                      {report.posBreakdown.slice(0, 24).map((pos: POSMetrics, i: number) => {
-                        const height = Math.max(Math.sqrt(pos.percentage) * 15, 10);
-                        const width = Math.max(Math.sqrt(pos.percentage) * 12, 20);
+                    <div className="space-y-2">
+                      {report.posBreakdown.slice(0, 10).map((pos: POSMetrics, i: number) => {
+                        const maxCount = report.posBreakdown[0]?.count || 1;
+                        const barWidth = (pos.count / maxCount) * 100;
+                        const barColor = pos.successRate >= 95 ? 'bg-emerald-500' : pos.successRate >= 80 ? 'bg-amber-500' : 'bg-rose-500';
+
                         return (
-                          <div key={i} className="group relative">
-                            <div
-                              className={cn(
-                                "rounded-t-lg   hover:shadow-lg cursor-crosshair",
-                                pos.successRate >= 95 ? "bg-emerald-500/80" : pos.successRate >= 80 ? "bg-amber-500/80" : "bg-rose-500/80"
-                              )}
-                              style={{ width, height: `${height}%`, minHeight: '8px' }}
-                            />
-                            {/* Detailed Data Scientist Tooltip */}
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 pointer-events-none z-50">
-                              <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 p-3 rounded-xl shadow-lg border border-gray-700 dark:border-gray-200 min-w-[140px]">
-                                <p className="font-black text-xs border-b border-white/10 pb-1.5 mb-1.5">{pos.posName}</p>
-                                <div className="space-y-1">
-                                  <div className="flex justify-between text-[10px]">
-                                    <span className="opacity-60">Volume:</span>
-                                    <span className="font-mono font-bold">{formatNumber(pos.count)}</span>
-                                  </div>
-                                  <div className="flex justify-between text-[10px]">
-                                    <span className="opacity-60">Success:</span>
-                                    <span className="font-mono font-bold text-emerald-400 dark:text-emerald-600">{pos.successRate.toFixed(2)}%</span>
-                                  </div>
-                                  <div className="flex justify-between text-[10px]">
-                                    <span className="opacity-60">Failures:</span>
-                                    <span className="font-mono font-bold text-rose-400 dark:text-rose-600">{formatNumber(pos.failCount)}</span>
-                                  </div>
-                                </div>
-                                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900/95 dark:border-t-white/95" />
-                              </div>
+                          <div key={i} className="flex items-center gap-3">
+                            {/* Rank */}
+                            <span className="w-5 text-[10px] font-bold text-gray-400 text-right">{i + 1}</span>
+
+                            {/* Site Name */}
+                            <span className="w-32 text-xs font-semibold text-gray-700 dark:text-gray-300 truncate" title={pos.posName}>
+                              {pos.posName}
+                            </span>
+
+                            {/* Bar */}
+                            <div className="flex-1 h-5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden relative">
+                              <div
+                                className={cn("h-full rounded-full", barColor)}
+                                style={{ width: `${barWidth}%` }}
+                              />
+                              <span className="absolute inset-0 flex items-center justify-end pr-2 text-[10px] font-bold text-gray-600 dark:text-gray-400">
+                                {formatNumber(pos.count)}
+                              </span>
                             </div>
+
+                            {/* Success Rate */}
+                            <span className={cn(
+                              "w-14 text-right text-xs font-bold",
+                              pos.successRate >= 95 ? "text-emerald-600" : pos.successRate >= 80 ? "text-amber-600" : "text-rose-600"
+                            )}>
+                              {pos.successRate.toFixed(1)}%
+                            </span>
                           </div>
                         );
                       })}
@@ -1015,11 +1013,11 @@ function LoadingState({ featureName }: { featureName: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-80 gap-4">
       {/* Spinner with inline style for maximum compatibility */}
-      <div 
+      <div
         className="w-10 h-10 rounded-full animate-spin"
-        style={{ 
+        style={{
           border: '3px solid',
-          borderColor: 'rgb(229 231 235)',  
+          borderColor: 'rgb(229 231 235)',
           borderTopColor: '#6366f1'
         }}
       />
