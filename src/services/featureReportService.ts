@@ -342,44 +342,55 @@ function processEventMetrics(events: any[], graphData: any[], apiGraphData: any[
 }
 
 function processPlatformBreakdown(pieChartData: any): PlatformMetrics[] {
-  if (!pieChartData?.data?.platform) return [];
-  const platformData = pieChartData.data.platform;
-  const total = Object.values(platformData).reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+  // pieChartData is already transformed by apiService.getPieChartData() to { platform: [], pos: [], source: [] }
+  if (!pieChartData?.platform || !Array.isArray(pieChartData.platform)) return [];
+  
+  const platformData = pieChartData.platform;
+  const total = platformData.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
 
-  return Object.entries(platformData).map(([key, item]: [string, any]) => {
-    const platformId = item.platform ?? parseInt(key);
+  return platformData.map((item: any) => {
+    const platformId = item.id ?? 0;
+    const count = item.value || 0;
+    const successCount = item.successCount || count;
+    const failCount = item.failCount || 0;
     return {
       platformId,
-      platformName: PLATFORMS.find(p => p.id === platformId)?.name || `Platform ${platformId}`,
-      count: item.count || 0,
-      percentage: total > 0 ? ((item.count || 0) / total) * 100 : 0,
-      successCount: item.successCount || 0,
-      failCount: item.failCount || 0,
-      successRate: item.count > 0 ? ((item.successCount || 0) / item.count) * 100 : 0
+      platformName: item.name || PLATFORMS.find(p => p.id === platformId)?.name || `Platform ${platformId}`,
+      count,
+      percentage: total > 0 ? (count / total) * 100 : 0,
+      successCount,
+      failCount,
+      successRate: count > 0 ? (successCount / count) * 100 : 100
     };
-  }).sort((a, b) => b.count - a.count);
+  }).filter((p: PlatformMetrics) => p.count > 0).sort((a: PlatformMetrics, b: PlatformMetrics) => b.count - a.count);
 }
 
 function processSourceBreakdown(pieChartData: any): SourceMetrics[] {
-  if (!pieChartData?.data?.source) return [];
-  const sourceData = pieChartData.data.source;
-  const total = Object.values(sourceData).reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+  // pieChartData is already transformed by apiService.getPieChartData() to { platform: [], pos: [], source: [] }
+  if (!pieChartData?.source || !Array.isArray(pieChartData.source)) return [];
+  
+  const sourceData = pieChartData.source;
+  const total = sourceData.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
 
-  return Object.entries(sourceData).map(([key, item]: [string, any]) => {
-    const sourceId = item.source ?? parseInt(key);
+  return sourceData.map((item: any) => {
+    const sourceId = item.id ?? 0;
+    const count = item.value || 0;
     return {
       sourceId,
-      sourceName: SOURCES.find(s => s.id === sourceId)?.name || `Source ${sourceId}`,
-      count: item.count || 0,
-      percentage: total > 0 ? ((item.count || 0) / total) * 100 : 0
+      sourceName: item.name || SOURCES.find(s => s.id === sourceId)?.name || `Source ${sourceId}`,
+      count,
+      percentage: total > 0 ? (count / total) * 100 : 0
     };
-  }).sort((a, b) => b.count - a.count);
+  }).filter((s: SourceMetrics) => s.count > 0).sort((a: SourceMetrics, b: SourceMetrics) => b.count - a.count);
 }
 
 function processPOSBreakdown(pieChartData: any, siteDetails: Array<{ id: number; name: string; image: string }>): POSMetrics[] {
-  if (!pieChartData?.data?.pos) return [];
-  const posData = pieChartData.data.pos;
-  const total = Object.values(posData).reduce((sum: number, item: any) => sum + (item.count || 0), 0);
+  // pieChartData is already transformed by apiService.getPieChartData() to { platform: [], pos: [], source: [] }
+  // The pos array contains objects with { id, name, value, metricType, successCount, failCount }
+  if (!pieChartData?.pos || !Array.isArray(pieChartData.pos)) return [];
+  
+  const posData = pieChartData.pos;
+  const total = posData.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
 
   // Create a map of posId -> image for quick lookup
   const siteImageMap = new Map<number, string>();
@@ -389,22 +400,24 @@ function processPOSBreakdown(pieChartData: any, siteDetails: Array<{ id: number;
     }
   });
 
-  return Object.entries(posData).map(([key, item]: [string, any]) => {
-    const posId = item.pos ?? parseInt(key);
-    const count = item.count || 0;
-    const successCount = item.successCount || 0;
+  return posData.map((item: any) => {
+    const posId = item.id ?? 0;
+    const count = item.value || 0;
+    const successCount = item.successCount || count; // Default to count if not provided
     const failCount = item.failCount || 0;
-    const posName = apiService.getPosName(posId) || `POS ${posId}`;
+    const posName = item.name || `POS ${posId}`;
     return {
       posId,
       posName,
-      count, percentage: total > 0 ? (count / total) * 100 : 0,
-      successCount, failCount,
-      successRate: count > 0 ? (successCount / count) * 100 : 0,
+      count, 
+      percentage: total > 0 ? (count / total) * 100 : 0,
+      successCount, 
+      failCount,
+      successRate: count > 0 ? (successCount / count) * 100 : 100,
       failureRate: count > 0 ? (failCount / count) * 100 : 0,
       image: siteImageMap.get(posId) || '' // Include image from siteDetails
     };
-  }).sort((a, b) => b.count - a.count).slice(0, 20);
+  }).filter((p: POSMetrics) => p.count > 0).sort((a: POSMetrics, b: POSMetrics) => b.count - a.count).slice(0, 20);
 }
 
 function processDailyTrends(graphData: any[], apiGraphData: any[]): DailyTrend[] {
