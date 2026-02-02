@@ -64,14 +64,9 @@ const getBrandLogoEndpoint = (brand: string): string => {
   return url.toString();
 };
 
-// Get site logo - uses siteDetails image or brand logo API
-const getSiteLogo = (siteName: string, siteImage?: string): string => {
-  // If we have an image from siteDetails API, use it
-  if (siteImage && siteImage.trim()) {
-    return siteImage;
-  }
-
-  // Otherwise use brand logo endpoint with site name
+// Get site logo - ALWAYS uses brand logo API proxy to avoid CORS issues
+const getSiteLogo = (siteName: string, _siteImage?: string): string => {
+  // Always use brand logo proxy - siteDetails images may have CORS issues
   return getBrandLogoEndpoint(siteName);
 };
 
