@@ -493,8 +493,8 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                   </ChartCard>
                 )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 will-change-transform">
-                  <ChartCardRaw title="Success vs Failure Distribution" icon={<PieChart className="h-5 w-5 text-indigo-500" />}>
+                {/* Success vs Failure Distribution */}
+                <ChartCardRaw title="Success vs Failure Distribution" icon={<PieChart className="h-5 w-5 text-indigo-500" />}>
                     <div className="h-[220px] w-full flex items-center justify-center pdf-page-break-avoid overflow-visible">
                       <ResponsiveContainer width="100%" height="100%">
                         <RechartsPie>
@@ -573,7 +573,6 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                       </div>
                     </ChartCard>
                   )}
-                </div>
 
                 {/* Top Events Horizontal Bar - Excludes API events */}
                 {report.eventMetrics.filter((e: EventMetrics) => !e.isApiEvent).length > 0 && (
