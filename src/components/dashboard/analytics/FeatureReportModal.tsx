@@ -299,9 +299,10 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
       <DialogContent className="max-w-[100vw] sm:max-w-[95vw] w-full sm:w-[1400px] max-h-[100vh] sm:max-h-[95vh] overflow-hidden flex flex-col p-0 gap-0 bg-white dark:bg-gray-900 border-none sm:border sm:border-gray-200 dark:sm:border-gray-800 shadow-2xl" aria-describedby="report-desc" showCloseButton={false}>
         <style dangerouslySetInnerHTML={{ __html: chartStyles }} />
         {/* Clean Close Button */}
+        {/* Clean Close Button - Adjusted position for mobile */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 z-50 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center  shadow-sm border border-gray-200 dark:border-gray-700"
+          className="absolute right-3 top-3 sm:right-4 sm:top-4 z-[60] w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 flex items-center justify-center shadow-sm border border-gray-200 dark:border-gray-700 active:scale-95 transition-all"
           aria-label="Close"
         >
           <svg className="w-4 h-4 text-gray-500 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -310,7 +311,7 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
         </button>
 
         {/* Header - Master Brain Style */}
-        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <DialogHeader className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 pr-12">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 pr-10 sm:pr-12">
             {/* Left: Identity */}
             <div className="flex items-center gap-4">

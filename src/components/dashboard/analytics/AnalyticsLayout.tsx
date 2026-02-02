@@ -39,6 +39,7 @@ import { CustomEventLabelsProvider } from '@/contexts/CustomEventLabelsContext';
 import { AccentThemeSelector } from '@/components/ui/accent-theme-selector';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { PremiumSearch } from './components/PremiumSearch';
+import { MobileActionFab } from './MobileActionFab';
 
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers, refreshUser } = useAnalyticsAuth();
@@ -74,7 +75,7 @@ export function AnalyticsLayout() {
     useEffect(() => {
         const loadAllProfiles = async () => {
             if (!searchOpen) return;
-            
+
             try {
                 const result = await firebaseConfigService.getAllProfiles();
                 if (result.success) {
@@ -94,7 +95,7 @@ export function AnalyticsLayout() {
                 setAllProfiles([]);
             }
         };
-        
+
         loadAllProfiles();
     }, [searchOpen]);
 
@@ -122,15 +123,15 @@ export function AnalyticsLayout() {
             if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
                 // Only intercept if not actively typing in an input/textarea
                 const target = e.target as HTMLElement;
-                const isInput = target.tagName === 'INPUT' || 
-                              target.tagName === 'TEXTAREA' || 
-                              target.isContentEditable;
-                
+                const isInput = target.tagName === 'INPUT' ||
+                    target.tagName === 'TEXTAREA' ||
+                    target.isContentEditable;
+
                 // If search is already open and user is typing, don't intercept
                 if (searchOpen && isInput) {
                     return; // Let default behavior happen
                 }
-                
+
                 // Otherwise, intercept and open/close search
                 e.preventDefault();
                 e.stopPropagation();
@@ -571,7 +572,7 @@ export function AnalyticsLayout() {
                         <span className="text-muted-foreground text-xs lg:text-sm hidden md:inline">
                             Welcome, <span className="text-foreground font-medium">{user?.username}</span>
                         </span>
-                        <Button variant="ghost" size="icon" onClick={logout} className="text-muted-foreground hover:text-foreground hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 h-8 w-8">
+                        <Button variant="ghost" size="icon" onClick={logout} className="hidden md:flex text-muted-foreground hover:text-foreground hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 h-8 w-8">
                             <LogOut className="h-4 w-4" />
                         </Button>
                     </div>
@@ -730,434 +731,445 @@ export function AnalyticsLayout() {
     return (
         <CustomEventLabelsProvider>
             <div className="flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-indigo-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950/20 relative min-h-screen">
-            <header className="sticky top-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] bg-white/30 dark:bg-gray-900/30 backdrop-blur-2xl border-b border-gray-200/30 dark:border-gray-700/30 shadow-sm">
-                <div className="flex items-center gap-2 lg:gap-4">
-                    {/* Mobile Menu Button */}
-                    <div className="md:hidden">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setMobileSidebarOpen(true)}
-                        className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 text-gray-600 dark:text-gray-300"
-                    >
-                        <Menu className="h-4 w-4" />
-                    </Button>
-                </div>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                            setSelectedFeatureId(null);
-                            setSelectedProfileId(null);
-                            setIsCreatingProfile(false);
-                            // Force fresh remount of FeatureSelector to avoid stale loading state
-                            setFeatureSelectorKey(prev => prev + 1);
-                        }}
-                        className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 lg:h-9 lg:w-9 text-gray-600 dark:text-gray-300"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                    <div className="flex items-center gap-2 lg:gap-3">
-                        <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl bg-white dark:bg-gray-800 p-1 shadow-md shadow-indigo-100/50 dark:shadow-gray-900/50 border border-gray-200/80 dark:border-gray-700/50">
-                            <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
-                        </div>
-                        <div className="flex items-center gap-1.5 lg:gap-2">
-                            <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm lg:text-base">
-                                {selectedFeatureId ? getFeatureName(selectedFeatureId) : 'Analytics'}
-                            </span>
-                            <span className="text-xs text-gray-400 dark:text-gray-500 hidden md:inline font-medium">
-                                — {selectedOrganization?.name || 'Organization'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1.5 lg:gap-2">
-                    {/* Accent Theme Selector */}
-                    <AccentThemeSelector />
-
-                    {/* Theme Toggle */}
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={toggleMode}
-                        className="rounded-full border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm"
-                    >
-                        {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-600" />}
-                    </Button>
-
-                    {/* Admin Access Panel Button */}
-                    {isAdmin && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate('/admin')}
-                            className={cn(
-                                "hidden sm:flex items-center gap-1.5 h-8 px-3 transition-all duration-300 rounded-xl",
-                                pendingUsers.length > 0
-                                    ? "bg-red-50/80 dark:bg-red-900/30 border-red-200 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
-                                    : "bg-amber-50/80 dark:bg-amber-900/20 border-amber-200/80 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400"
-                            )}
-                        >
-                            <ShieldAlert className={cn(
-                                "h-3.5 w-3.5",
-                                pendingUsers.length > 0 ? "text-red-500" : "text-amber-600 dark:text-amber-400"
-                            )} />
-                            <span className="text-xs font-semibold hidden lg:inline">Admin Panel</span>
-                            {pendingUsers.length > 0 && (
-                                <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-red-500 text-white font-bold">
-                                    {pendingUsers.length}
-                                </span>
-                            )}
-                        </Button>
-                    )}
-
-                    {/* Feature Report Button */}
-                    {selectedFeatureId && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowReportModal(true)}
-                            className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/40 dark:hover:to-teal-900/40 text-emerald-700 dark:text-emerald-400 transition-all"
-                        >
-                            <FileText className="h-3.5 w-3.5" />
-                            <span className="text-xs font-semibold hidden lg:inline">Generate Report</span>
-                        </Button>
-                    )}
-
-                    {hasWriteAccess(selectedFeatureId) && (
-                        <div className="hidden sm:block">
+                <header className="sticky top-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] bg-white/30 dark:bg-gray-900/30 backdrop-blur-2xl border-b border-gray-200/30 dark:border-gray-700/30 shadow-sm">
+                    <div className="flex items-center gap-2 lg:gap-4">
+                        {/* Mobile Menu Button */}
+                        <div className="md:hidden">
                             <Button
-                                onClick={() => setShowNewConfigModal(true)}
-                                size="sm"
-                                className={cn(
-                                    "gap-2 bg-gradient-to-r shadow-lg h-8 rounded-xl",
-                                    themeClasses.buttonGradient,
-                                    themeClasses.buttonHover
-                                )}
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setMobileSidebarOpen(true)}
+                                className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 text-gray-600 dark:text-gray-300"
                             >
-                                <Plus className="h-4 w-4" />
-                                <span className="hidden lg:inline font-semibold">New Config</span>
+                                <Menu className="h-4 w-4" />
                             </Button>
                         </div>
-                    )}
-                    <span className="text-xs lg:text-sm px-3 lg:px-4 py-1.5 rounded-xl font-bold hidden sm:inline-flex border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm">
-                        {isAdmin ? 'Super Admin' : (hasWriteAccess(selectedFeatureId) ? 'Editor' : 'Viewer')}
-                    </span>
-                    <Button variant="ghost" size="icon" onClick={logout} className="hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 h-8 w-8 text-gray-500 dark:text-gray-400">
-                        <LogOut className="h-4 w-4" />
-                    </Button>
-                </div>
-            </header>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                                setSelectedFeatureId(null);
+                                setSelectedProfileId(null);
+                                setIsCreatingProfile(false);
+                                // Force fresh remount of FeatureSelector to avoid stale loading state
+                                setFeatureSelectorKey(prev => prev + 1);
+                            }}
+                            className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 lg:h-9 lg:w-9 text-gray-600 dark:text-gray-300"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="flex items-center gap-2 lg:gap-3">
+                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl bg-white dark:bg-gray-800 p-1 shadow-md shadow-indigo-100/50 dark:shadow-gray-900/50 border border-gray-200/80 dark:border-gray-700/50">
+                                <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
+                            </div>
+                            <div className="flex items-center gap-1.5 lg:gap-2">
+                                <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm lg:text-base">
+                                    {selectedFeatureId ? getFeatureName(selectedFeatureId) : 'Analytics'}
+                                </span>
+                                <span className="text-xs text-gray-400 dark:text-gray-500 hidden md:inline font-medium">
+                                    — {selectedOrganization?.name || 'Organization'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 lg:gap-2">
+                        {/* Accent Theme Selector */}
+                        <AccentThemeSelector />
 
-            <div className="flex min-h-[calc(100vh-3.5rem)] lg:min-h-[calc(100vh-4rem)]">
-                {/* Mobile Sidebar Overlay - No animation, just show/hide */}
-                {mobileSidebarOpen && (
-                    <>
-                        <div
-                            className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 md:hidden"
-                            onClick={() => setMobileSidebarOpen(false)}
-                        />
-                        <div className="fixed left-0 top-14 bottom-0 w-[280px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-gray-700/60 z-50 md:hidden overflow-hidden shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50">
-                            <div className="absolute top-2 right-2">
+                        {/* Theme Toggle */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={toggleMode}
+                            className="rounded-full border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm"
+                        >
+                            {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-600" />}
+                        </Button>
+
+                        {/* Admin Access Panel Button */}
+                        {isAdmin && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate('/admin')}
+                                className={cn(
+                                    "hidden sm:flex items-center gap-1.5 h-8 px-3 transition-all duration-300 rounded-xl",
+                                    pendingUsers.length > 0
+                                        ? "bg-red-50/80 dark:bg-red-900/30 border-red-200 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50"
+                                        : "bg-amber-50/80 dark:bg-amber-900/20 border-amber-200/80 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400"
+                                )}
+                            >
+                                <ShieldAlert className={cn(
+                                    "h-3.5 w-3.5",
+                                    pendingUsers.length > 0 ? "text-red-500" : "text-amber-600 dark:text-amber-400"
+                                )} />
+                                <span className="text-xs font-semibold hidden lg:inline">Admin Panel</span>
+                                {pendingUsers.length > 0 && (
+                                    <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-red-500 text-white font-bold">
+                                        {pendingUsers.length}
+                                    </span>
+                                )}
+                            </Button>
+                        )}
+
+                        {/* Feature Report Button */}
+                        {selectedFeatureId && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowReportModal(true)}
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/40 dark:hover:to-teal-900/40 text-emerald-700 dark:text-emerald-400 transition-all"
+                            >
+                                <FileText className="h-3.5 w-3.5" />
+                                <span className="text-xs font-semibold hidden lg:inline">Generate Report</span>
+                            </Button>
+                        )}
+
+                        {hasWriteAccess(selectedFeatureId) && (
+                            <div className="hidden sm:block">
                                 <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setMobileSidebarOpen(false)}
-                                    className="h-8 w-8"
+                                    onClick={() => setShowNewConfigModal(true)}
+                                    size="sm"
+                                    className={cn(
+                                        "gap-2 bg-gradient-to-r shadow-lg h-8 rounded-xl",
+                                        themeClasses.buttonGradient,
+                                        themeClasses.buttonHover
+                                    )}
                                 >
-                                    <X className="h-4 w-4" />
+                                    <Plus className="h-4 w-4" />
+                                    <span className="hidden lg:inline font-semibold">New Config</span>
                                 </Button>
                             </div>
+                        )}
+                        <span className="text-xs lg:text-sm px-3 lg:px-4 py-1.5 rounded-xl font-bold hidden sm:inline-flex border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm">
+                            {isAdmin ? 'Super Admin' : (hasWriteAccess(selectedFeatureId) ? 'Editor' : 'Viewer')}
+                        </span>
+                        <Button variant="ghost" size="icon" onClick={logout} className="hidden md:flex hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 h-8 w-8 text-gray-500 dark:text-gray-400">
+                            <LogOut className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </header>
+
+                <div className="flex min-h-[calc(100vh-3.5rem)] lg:min-h-[calc(100vh-4rem)]">
+                    {/* Mobile Sidebar Overlay - No animation, just show/hide */}
+                    {mobileSidebarOpen && (
+                        <>
+                            <div
+                                className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 md:hidden"
+                                onClick={() => setMobileSidebarOpen(false)}
+                            />
+                            <div className="fixed left-0 top-14 bottom-0 w-[280px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-gray-700/60 z-50 md:hidden overflow-hidden shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50">
+                                <div className="absolute top-2 right-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => setMobileSidebarOpen(false)}
+                                        className="h-8 w-8"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <ProfileSidebar
+                                    featureId={selectedFeatureId}
+                                    selectedProfileId={selectedProfileId}
+                                    onSelectProfile={(id) => {
+                                        setSelectedProfileId(id);
+                                        setIsCreatingProfile(false);
+                                        setMobileSidebarOpen(false);
+                                    }}
+                                    onCreateProfile={() => {
+                                        setIsCreatingProfile(true);
+                                        setSelectedProfileId(null);
+                                        setMobileSidebarOpen(false);
+                                    }}
+                                    refreshTrigger={sidebarRefreshTrigger}
+                                    isCollapsed={false}
+                                    onToggleCollapse={() => { }}
+                                    isMobileDrawer={true}
+                                    onJumpToPanel={handleJumpToPanel}
+                                    criticalAlerts={criticalAlertsData}
+                                    activePanelId={activePanelId}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {/* Desktop Sidebar - instant width change, no animation */}
+                    <div className="hidden md:block flex-shrink-0">
+                        <div
+                            className="border-r border-gray-200/80 dark:border-gray-700/60 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl flex flex-col sticky top-14 lg:top-16"
+                            style={{ width: sidebarCollapsed ? 60 : 280 }}
+                        >
                             <ProfileSidebar
                                 featureId={selectedFeatureId}
                                 selectedProfileId={selectedProfileId}
                                 onSelectProfile={(id) => {
                                     setSelectedProfileId(id);
                                     setIsCreatingProfile(false);
-                                    setMobileSidebarOpen(false);
                                 }}
                                 onCreateProfile={() => {
                                     setIsCreatingProfile(true);
                                     setSelectedProfileId(null);
-                                    setMobileSidebarOpen(false);
                                 }}
                                 refreshTrigger={sidebarRefreshTrigger}
-                                isCollapsed={false}
-                                onToggleCollapse={() => { }}
-                                isMobileDrawer={true}
+                                isCollapsed={sidebarCollapsed}
+                                onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
                                 onJumpToPanel={handleJumpToPanel}
                                 criticalAlerts={criticalAlertsData}
                                 activePanelId={activePanelId}
                             />
                         </div>
-                    </>
-                )}
-
-                {/* Desktop Sidebar - instant width change, no animation */}
-                <div className="hidden md:block flex-shrink-0">
-                    <div
-                        className="border-r border-gray-200/80 dark:border-gray-700/60 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl flex flex-col sticky top-14 lg:top-16"
-                        style={{ width: sidebarCollapsed ? 60 : 280 }}
-                    >
-                        <ProfileSidebar
-                            featureId={selectedFeatureId}
-                            selectedProfileId={selectedProfileId}
-                            onSelectProfile={(id) => {
-                                setSelectedProfileId(id);
-                                setIsCreatingProfile(false);
-                            }}
-                            onCreateProfile={() => {
-                                setIsCreatingProfile(true);
-                                setSelectedProfileId(null);
-                            }}
-                            refreshTrigger={sidebarRefreshTrigger}
-                            isCollapsed={sidebarCollapsed}
-                            onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-                            onJumpToPanel={handleJumpToPanel}
-                            criticalAlerts={criticalAlertsData}
-                            activePanelId={activePanelId}
-                        />
                     </div>
+
+                    <main className="flex-1 relative min-w-0">
+                        {/* Clean subtle background - no accent orbs */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                            <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 bg-gray-200/20 dark:bg-gray-800/20" />
+                            <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 bg-gray-100/20 dark:bg-gray-900/20" />
+                        </div>
+
+                        <div className="relative pt-4 lg:pt-5 px-4 pb-4 lg:px-6 lg:pb-6">
+
+                            {isCreatingProfile ? (
+                                <ProfileBuilder
+                                    featureId={selectedFeatureId}
+                                    onCancel={() => setIsCreatingProfile(false)}
+                                    onSave={handleProfileSaved}
+                                    initialProfileId={selectedProfileId}
+                                />
+                            ) : selectedProfileId ? (
+                                <ChartErrorBoundary>
+                                    <DashboardViewer
+                                        profileId={selectedProfileId}
+                                        onEditProfile={hasWriteAccess(selectedFeatureId) ? (_profile: DashboardProfile) => {
+                                            setIsCreatingProfile(true);
+                                        } : undefined}
+                                        onAlertsUpdate={setCriticalAlertsData}
+                                        onPanelActive={setActivePanelId}
+                                        onEventsLoaded={setDashboardEvents}
+                                    />
+                                </ChartErrorBoundary>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full">
+                                    <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900/30 dark:to-blue-900/30 flex items-center justify-center mb-5 shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 border border-indigo-200/50 dark:border-indigo-700/30">
+                                        <Layers className="h-10 w-10 text-indigo-500 dark:text-indigo-400" />
+                                    </div>
+                                    <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">Select a profile to view</p>
+                                    <p className="text-sm mt-1.5 text-gray-400 dark:text-gray-500 font-medium">Choose from the sidebar to get started</p>
+                                </div>
+                            )}
+                        </div>
+                    </main>
                 </div>
 
-                <main className="flex-1 relative min-w-0">
-                    {/* Clean subtle background - no accent orbs */}
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 bg-gray-200/20 dark:bg-gray-800/20" />
-                        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 bg-gray-100/20 dark:bg-gray-900/20" />
-                    </div>
-
-                    <div className="relative pt-4 lg:pt-5 px-4 pb-4 lg:px-6 lg:pb-6">
-
-                        {isCreatingProfile ? (
-                            <ProfileBuilder
-                                featureId={selectedFeatureId}
-                                onCancel={() => setIsCreatingProfile(false)}
-                                onSave={handleProfileSaved}
-                                initialProfileId={selectedProfileId}
-                            />
-                        ) : selectedProfileId ? (
-                            <ChartErrorBoundary>
-                                <DashboardViewer
-                                    profileId={selectedProfileId}
-                                    onEditProfile={hasWriteAccess(selectedFeatureId) ? (_profile: DashboardProfile) => {
-                                        setIsCreatingProfile(true);
-                                    } : undefined}
-                                    onAlertsUpdate={setCriticalAlertsData}
-                                    onPanelActive={setActivePanelId}
-                                    onEventsLoaded={setDashboardEvents}
-                                />
-                            </ChartErrorBoundary>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full">
-                                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-blue-100 dark:from-indigo-900/30 dark:to-blue-900/30 flex items-center justify-center mb-5 shadow-lg shadow-indigo-200/50 dark:shadow-indigo-900/30 border border-indigo-200/50 dark:border-indigo-700/30">
-                                    <Layers className="h-10 w-10 text-indigo-500 dark:text-indigo-400" />
-                                </div>
-                                <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">Select a profile to view</p>
-                                <p className="text-sm mt-1.5 text-gray-400 dark:text-gray-500 font-medium">Choose from the sidebar to get started</p>
-                            </div>
-                        )}
-                    </div>
-                </main>
-            </div>
-
-            {/* Premium Search Modal - Available on all pages */}
-            <PremiumSearch
-                isOpen={searchOpen}
-                onClose={() => setSearchOpen(false)}
-                onSelectFeature={(featureId) => {
-                    setSelectedFeatureId(featureId);
-                    setSelectedProfileId(null);
-                    setSearchOpen(false);
-                }}
-                onSelectProfile={(featureId, profileId) => {
-                    setSelectedFeatureId(featureId);
-                    setSelectedProfileId(profileId);
-                    setSearchOpen(false);
-                }}
-                onSelectPanel={(featureId, profileId, panelId) => {
-                    setSelectedFeatureId(featureId);
-                    setSelectedProfileId(profileId);
-                    setActivePanelId(panelId);
-                    setSearchOpen(false);
-                    // Scroll to panel after a short delay to allow navigation
-                    setTimeout(() => {
-                        handleJumpToPanel(panelId);
-                    }, 300);
-                }}
-                currentFeatureId={selectedFeatureId}
-                events={dashboardEvents}
-                profiles={allProfiles}
-            />
-
-            {/* New Config Modal (also available when feature is selected) */}
-            <Dialog open={showNewConfigModal} onOpenChange={setShowNewConfigModal}>
-                <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                        <DialogTitle>Create New Dashboard Config</DialogTitle>
-                        <DialogDescription>
-                            Create a new profile or add panels to an existing profile for {getFeatureName(selectedFeatureId || newConfigFeature)}.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        {/* Mode Selection */}
-                        <div className="grid gap-3">
-                            <Label>Configuration Mode</Label>
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    variant={newConfigMode === 'new' ? 'default' : 'outline'}
-                                    className="flex-1"
-                                    onClick={() => setNewConfigMode('new')}
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    New Profile
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={newConfigMode === 'existing' ? 'default' : 'outline'}
-                                    className="flex-1"
-                                    onClick={() => setNewConfigMode('existing')}
-                                >
-                                    <Layers className="h-4 w-4 mr-2" />
-                                    Add to Existing
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Feature Display */}
-                        <div className="grid gap-2">
-                            <Label>Feature Type</Label>
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 border">
-                                <span className="font-medium">{getFeatureName(selectedFeatureId || newConfigFeature)}</span>
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                                    {getFeatureShortName(selectedFeatureId || newConfigFeature)}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Conditional: New Profile Name OR Existing Profile Selection */}
-                        {newConfigMode === 'new' ? (
-                            <div className="grid gap-2">
-                                <Label htmlFor="config-name-2">Profile Name</Label>
-                                <Input
-                                    id="config-name-2"
-                                    placeholder={`e.g., ${getFeatureName(selectedFeatureId || newConfigFeature)} - Production`}
-                                    value={newConfigName}
-                                    onChange={(e) => setNewConfigName(e.target.value)}
-                                />
-                            </div>
-                        ) : (
-                            <div className="grid gap-2">
-                                <Label htmlFor="existing-profile-2">Select Existing Profile</Label>
-                                <Select value={selectedExistingProfile || undefined} onValueChange={setSelectedExistingProfile}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select profile to add panels to" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {existingProfiles.map(profile => (
-                                            <SelectItem key={profile.profileId} value={profile.profileId}>
-                                                {profile.profileName} ({profile.panels.length} panels)
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                {existingProfiles.length === 0 && (
-                                    <p className="text-xs text-muted-foreground">
-                                        No existing profiles for this feature. Create a new one instead.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => {
-                            setShowNewConfigModal(false);
-                            setNewConfigMode('new');
-                            setSelectedExistingProfile(null);
-                        }}>
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleCreateNewConfig}
-                            disabled={
-                                (newConfigMode === 'new' && !newConfigName.trim()) ||
-                                (newConfigMode === 'existing' && !selectedExistingProfile)
-                            }
-                        >
-                            {newConfigMode === 'new' ? (
-                                <>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create Profile
-                                </>
-                            ) : (
-                                <>
-                                    <Layers className="h-4 w-4 mr-2" />
-                                    Add Panels
-                                </>
-                            )}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Request Access Modal */}
-            <Dialog open={showRequestAccessModal} onOpenChange={setShowRequestAccessModal}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                        <DialogTitle>Request Feature Access</DialogTitle>
-                        <DialogDescription>
-                            Select the features you need access to. Admin approval is required.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2">
-                            <Label>Available Features</Label>
-                            {availableFeatures.map(feature => (
-                                <div key={feature.id} className="flex items-center space-x-2 border p-2 rounded hover:bg-muted/50 transition-colors">
-                                    <input
-                                        type="checkbox"
-                                        id={`req-feature-${feature.id}`}
-                                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                                        checked={requestFeatures.includes(String(feature.id))}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setRequestFeatures([...requestFeatures, String(feature.id)]);
-                                            } else {
-                                                setRequestFeatures(requestFeatures.filter(id => id !== String(feature.id)));
-                                            }
-                                        }}
-                                    />
-                                    <div className="flex-1">
-                                        <label htmlFor={`req-feature-${feature.id}`} className="text-sm font-medium leading-none cursor-pointer block">
-                                            {feature.name}
-                                        </label>
-                                        <p className="text-xs text-muted-foreground mt-0.5">{feature.description || "Analytics and tracking"}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowRequestAccessModal(false)}>Cancel</Button>
-                        <Button onClick={handleRequestAccess} disabled={isSubmittingRequest || requestFeatures.length === 0}>
-                            {isSubmittingRequest ? "Submitting..." : "Submit Request"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Feature Report Modal */}
-            {selectedFeatureId && (
-                <FeatureReportModal
-                    isOpen={showReportModal}
-                    onClose={() => setShowReportModal(false)}
-                    featureId={selectedFeatureId}
-                    featureName={getFeatureName(selectedFeatureId)}
-                    organizationId={selectedOrganization?.id ?? 0}
+                {/* Premium Search Modal - Available on all pages */}
+                <PremiumSearch
+                    isOpen={searchOpen}
+                    onClose={() => setSearchOpen(false)}
+                    onSelectFeature={(featureId) => {
+                        setSelectedFeatureId(featureId);
+                        setSelectedProfileId(null);
+                        setSearchOpen(false);
+                    }}
+                    onSelectProfile={(featureId, profileId) => {
+                        setSelectedFeatureId(featureId);
+                        setSelectedProfileId(profileId);
+                        setSearchOpen(false);
+                    }}
+                    onSelectPanel={(featureId, profileId, panelId) => {
+                        setSelectedFeatureId(featureId);
+                        setSelectedProfileId(profileId);
+                        setActivePanelId(panelId);
+                        setSearchOpen(false);
+                        // Scroll to panel after a short delay to allow navigation
+                        setTimeout(() => {
+                            handleJumpToPanel(panelId);
+                        }, 300);
+                    }}
+                    currentFeatureId={selectedFeatureId}
+                    events={dashboardEvents}
+                    profiles={allProfiles}
                 />
-            )}
-        </div>
+
+                {/* New Config Modal (also available when feature is selected) */}
+                <Dialog open={showNewConfigModal} onOpenChange={setShowNewConfigModal}>
+                    <DialogContent className="sm:max-w-[500px]">
+                        <DialogHeader>
+                            <DialogTitle>Create New Dashboard Config</DialogTitle>
+                            <DialogDescription>
+                                Create a new profile or add panels to an existing profile for {getFeatureName(selectedFeatureId || newConfigFeature)}.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            {/* Mode Selection */}
+                            <div className="grid gap-3">
+                                <Label>Configuration Mode</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={newConfigMode === 'new' ? 'default' : 'outline'}
+                                        className="flex-1"
+                                        onClick={() => setNewConfigMode('new')}
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        New Profile
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={newConfigMode === 'existing' ? 'default' : 'outline'}
+                                        className="flex-1"
+                                        onClick={() => setNewConfigMode('existing')}
+                                    >
+                                        <Layers className="h-4 w-4 mr-2" />
+                                        Add to Existing
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Feature Display */}
+                            <div className="grid gap-2">
+                                <Label>Feature Type</Label>
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 border">
+                                    <span className="font-medium">{getFeatureName(selectedFeatureId || newConfigFeature)}</span>
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                                        {getFeatureShortName(selectedFeatureId || newConfigFeature)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Conditional: New Profile Name OR Existing Profile Selection */}
+                            {newConfigMode === 'new' ? (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="config-name-2">Profile Name</Label>
+                                    <Input
+                                        id="config-name-2"
+                                        placeholder={`e.g., ${getFeatureName(selectedFeatureId || newConfigFeature)} - Production`}
+                                        value={newConfigName}
+                                        onChange={(e) => setNewConfigName(e.target.value)}
+                                    />
+                                </div>
+                            ) : (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="existing-profile-2">Select Existing Profile</Label>
+                                    <Select value={selectedExistingProfile || undefined} onValueChange={setSelectedExistingProfile}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select profile to add panels to" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {existingProfiles.map(profile => (
+                                                <SelectItem key={profile.profileId} value={profile.profileId}>
+                                                    {profile.profileName} ({profile.panels.length} panels)
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {existingProfiles.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">
+                                            No existing profiles for this feature. Create a new one instead.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => {
+                                setShowNewConfigModal(false);
+                                setNewConfigMode('new');
+                                setSelectedExistingProfile(null);
+                            }}>
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleCreateNewConfig}
+                                disabled={
+                                    (newConfigMode === 'new' && !newConfigName.trim()) ||
+                                    (newConfigMode === 'existing' && !selectedExistingProfile)
+                                }
+                            >
+                                {newConfigMode === 'new' ? (
+                                    <>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Create Profile
+                                    </>
+                                ) : (
+                                    <>
+                                        <Layers className="h-4 w-4 mr-2" />
+                                        Add Panels
+                                    </>
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Request Access Modal */}
+                <Dialog open={showRequestAccessModal} onOpenChange={setShowRequestAccessModal}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Request Feature Access</DialogTitle>
+                            <DialogDescription>
+                                Select the features you need access to. Admin approval is required.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid gap-2 max-h-[300px] overflow-y-auto pr-2">
+                                <Label>Available Features</Label>
+                                {availableFeatures.map(feature => (
+                                    <div key={feature.id} className="flex items-center space-x-2 border p-2 rounded hover:bg-muted/50 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            id={`req-feature-${feature.id}`}
+                                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                                            checked={requestFeatures.includes(String(feature.id))}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setRequestFeatures([...requestFeatures, String(feature.id)]);
+                                                } else {
+                                                    setRequestFeatures(requestFeatures.filter(id => id !== String(feature.id)));
+                                                }
+                                            }}
+                                        />
+                                        <div className="flex-1">
+                                            <label htmlFor={`req-feature-${feature.id}`} className="text-sm font-medium leading-none cursor-pointer block">
+                                                {feature.name}
+                                            </label>
+                                            <p className="text-xs text-muted-foreground mt-0.5">{feature.description || "Analytics and tracking"}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setShowRequestAccessModal(false)}>Cancel</Button>
+                            <Button onClick={handleRequestAccess} disabled={isSubmittingRequest || requestFeatures.length === 0}>
+                                {isSubmittingRequest ? "Submitting..." : "Submit Request"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Feature Report Modal */}
+                {selectedFeatureId && (
+                    <FeatureReportModal
+                        isOpen={showReportModal}
+                        onClose={() => setShowReportModal(false)}
+                        featureId={selectedFeatureId}
+                        featureName={getFeatureName(selectedFeatureId)}
+                        organizationId={selectedOrganization?.id ?? 0}
+                    />
+                )}
+                {/* Mobile Action FAB */}
+                <MobileActionFab
+                    isAdmin={isAdmin}
+                    pendingUsersCount={pendingUsers.length}
+                    hasPendingRequest={user?.pending_status === 1}
+                    onGenerateReport={selectedFeatureId ? () => setShowReportModal(true) : undefined}
+                    onNewConfig={hasWriteAccess(selectedFeatureId || newConfigFeature) ? () => setShowNewConfigModal(true) : undefined}
+                    onLogout={logout}
+                    hasWriteAccess={hasWriteAccess(selectedFeatureId)}
+                    showReport={!!selectedFeatureId}
+                />
+            </div>
         </CustomEventLabelsProvider>
     );
 }

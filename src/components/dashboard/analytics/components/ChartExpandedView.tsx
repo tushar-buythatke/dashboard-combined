@@ -80,6 +80,21 @@ export const ChartExpandedView: React.FC<ChartExpandedViewProps> = ({ isOpen, on
                         {children(zoomLevel)}
                     </div>
                 </div>
+                {/* Floating Close Button for Mobile (Thumb Zone) */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 sm:hidden">
+                    <Button
+                        variant="default"
+                        size="lg"
+                        onClick={onClose}
+                        className={cn(
+                            "rounded-full shadow-2xl px-6 h-12 gap-2 text-white font-bold",
+                            themeClasses.buttonGradient
+                        )}
+                    >
+                        <X className="h-5 w-5" />
+                        Close View
+                    </Button>
+                </div>
             </div>
         </div>
     );
