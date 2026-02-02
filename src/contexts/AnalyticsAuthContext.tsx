@@ -3,15 +3,35 @@ import type { ReactNode } from 'react';
 import type { User } from '../types/analytics';
 import { mockService } from '../services/mockData';
 
-const SESSION_EXPIRY = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds per user request
+const SESSION_EXPIRY = 5 * 24 * 60 * 60 * 1000; // 5 days in milliseconds after 2FA validation
+const DAY_EXTENSION = 1 * 24 * 60 * 60 * 1000; // 1 day extension for same IP
 const LOCAL_STORAGE_KEY = 'dashboard_combined_auth';
+
+// Session data structure with IP tracking
+interface SessionData {
+    user: User;
+    expiry: number;
+    whitelistedIp?: string;
+}
+
+// Utility to get user's current IP address
+const getUserIp = async (): Promise<string | null> => {
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+    } catch (e) {
+        console.warn('Failed to fetch user IP:', e);
+        return null;
+    }
+};
 
 interface AnalyticsAuthContextType {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (username: string, password: string) => Promise<{ success: boolean; message?: string }>;
-    loginUser: (user: User) => void;
+    loginUser: (user: User, is2FAVerified?: boolean) => void;
     logout: () => void;
     requestAccess: (permissions: any) => Promise<{ success: boolean; message?: string }>;
     adminAction: (userId: number | string, action: 'approve' | 'reject', permissions?: any) => Promise<{ success: boolean; message?: string }>;
@@ -35,10 +55,12 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         try {
             const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (!stored) return null;
-            const { user: savedUser, expiry } = JSON.parse(stored);
-            if (expiry && Date.now() < expiry) {
+            const sessionData: SessionData = JSON.parse(stored);
+            
+            // Check if session is valid
+            if (sessionData.expiry && Date.now() < sessionData.expiry) {
                 console.log('✅ Valid local session found for Feature Tracking');
-                return savedUser;
+                return sessionData.user;
             }
             localStorage.removeItem(LOCAL_STORAGE_KEY);
             return null;
@@ -53,9 +75,9 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
             try {
                 const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
                 if (stored) {
-                    const { user: savedUser, expiry } = JSON.parse(stored);
-                    if (expiry && Date.now() < expiry) {
-                        setUser(savedUser);
+                    const sessionData: SessionData = JSON.parse(stored);
+                    if (sessionData.expiry && Date.now() < sessionData.expiry) {
+                        setUser(sessionData.user);
                         return;
                     }
                 }
@@ -68,6 +90,39 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
+
+    // IP whitelist check: Extend session by 1 day if user is on same IP
+    useEffect(() => {
+        const checkIpAndExtendSession = async () => {
+            if (!user) return;
+            
+            try {
+                const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (!stored) return;
+                
+                const sessionData: SessionData = JSON.parse(stored);
+                if (!sessionData.whitelistedIp) return;
+                
+                const currentIp = await getUserIp();
+                if (!currentIp) return;
+                
+                // If on same IP, extend session by 1 day
+                if (currentIp === sessionData.whitelistedIp) {
+                    const newExpiry = sessionData.expiry + DAY_EXTENSION;
+                    const updatedSession: SessionData = {
+                        ...sessionData,
+                        expiry: newExpiry
+                    };
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSession));
+                    console.log('🔄 Session extended by 1 day - same IP detected:', currentIp);
+                }
+            } catch (e) {
+                console.warn('IP check failed:', e);
+            }
+        };
+        
+        checkIpAndExtendSession();
+    }, [user?.id]); // Run when user logs in or on page refresh
 
     // Auto-refresh user data to check for approval status changes
     // This ensures users who were approved get their status updated automatically
@@ -92,7 +147,7 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         }
     }, [user?.id, user?.pending_status]); // Re-run if user ID or pending status changes
 
-    const [isLoading, setIsLoading] = useState(false); // Already checked synchronously above
+    const [isLoading, setIsLoading] = useState(false);
 
     const login = async (username: string, password: string) => {
         setIsLoading(true);
@@ -151,17 +206,38 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         window.location.href = '/auth';
     };
 
-    // Standardized setUser wrapper for persistence
-    const loginUser = (userData: User | null) => {
+    // Standardized setUser wrapper for persistence with IP tracking on 2FA
+    const loginUser = async (userData: User, is2FAVerified: boolean = false) => {
         setUser(userData);
-        if (userData) {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({
-                user: userData,
-                expiry: Date.now() + SESSION_EXPIRY
-            }));
+        
+        const sessionData: SessionData = {
+            user: userData,
+            expiry: Date.now() + SESSION_EXPIRY
+        };
+        
+        // Only capture and whitelist IP on 2FA verification
+        if (is2FAVerified) {
+            const ip = await getUserIp();
+            if (ip) {
+                sessionData.whitelistedIp = ip;
+                console.log('🔒 IP whitelisted for session extension:', ip);
+            }
         } else {
-            localStorage.removeItem(LOCAL_STORAGE_KEY);
+            // Preserve existing whitelisted IP if available
+            try {
+                const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (stored) {
+                    const existing: SessionData = JSON.parse(stored);
+                    if (existing.whitelistedIp) {
+                        sessionData.whitelistedIp = existing.whitelistedIp;
+                    }
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
         }
+        
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionData));
     };
 
     const requestAccess = async (permissions: any) => {

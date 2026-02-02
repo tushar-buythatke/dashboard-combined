@@ -376,7 +376,8 @@ export default function AuthLogin() {
                     pending_permissions: backendUser.pending_permissions,
                     pending_status: backendUser.pending_status
                 }
-                loginUser(normalizedUser)
+                // Pass true for is2FAVerified to trigger IP whitelisting
+                loginUser(normalizedUser, true)
                 toast.success('Login successful!')
                 const from = (location.state as any)?.from?.pathname || '/analytics'
                 navigate(from, { replace: true })
