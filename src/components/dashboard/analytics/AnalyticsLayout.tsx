@@ -6,8 +6,9 @@ import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
+import { FeatureReportModal } from './FeatureReportModal';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
@@ -177,6 +178,9 @@ export function AnalyticsLayout() {
 
     // Mobile sidebar visibility
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+    // Feature Report Modal
+    const [showReportModal, setShowReportModal] = useState(false);
 
     const isAdmin = user?.role === 1;
 
@@ -807,6 +811,19 @@ export function AnalyticsLayout() {
                         </Button>
                     )}
 
+                    {/* Feature Report Button */}
+                    {selectedFeatureId && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowReportModal(true)}
+                            className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/40 dark:hover:to-teal-900/40 text-emerald-700 dark:text-emerald-400 transition-all"
+                        >
+                            <FileText className="h-3.5 w-3.5" />
+                            <span className="text-xs font-semibold hidden lg:inline">Generate Report</span>
+                        </Button>
+                    )}
+
                     {hasWriteAccess(selectedFeatureId) && (
                         <div className="hidden sm:block">
                             <Button
@@ -1129,6 +1146,17 @@ export function AnalyticsLayout() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Feature Report Modal */}
+            {selectedFeatureId && (
+                <FeatureReportModal
+                    isOpen={showReportModal}
+                    onClose={() => setShowReportModal(false)}
+                    featureId={selectedFeatureId}
+                    featureName={getFeatureName(selectedFeatureId)}
+                    organizationId={selectedOrganization?.id ?? 0}
+                />
+            )}
         </div>
         </CustomEventLabelsProvider>
     );

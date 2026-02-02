@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { Eye, EyeOff, Lock, User, LogIn, UserPlus, Clock, QrCode, Smartphone, CheckCircle2, RefreshCw, ArrowRight, Copy, Loader2, ShieldCheck, ShieldAlert, Settings2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
@@ -39,6 +39,9 @@ export default function AuthLogin() {
     const navigate = useNavigate()
     const location = useLocation()
     const { loginUser } = useAnalyticsAuth()
+    
+    // Ref to prevent double navigation
+    const isNavigatingRef = useRef(false)
 
     // Form state
     const [username, setUsername] = useState('')
@@ -70,14 +73,28 @@ export default function AuthLogin() {
     const [resetLoading, setResetLoading] = useState(false)
     const [resetUserData, setResetUserData] = useState<{ userId: number; userName: string } | null>(null)
 
-    // Redirect if already authenticated
+    // Redirect if already authenticated - only check on mount
     useEffect(() => {
+        // Prevent if already navigating from OTP verification
+        if (isNavigatingRef.current) return
+        
         const stored = localStorage.getItem('dashboard_combined_auth')
         if (stored) {
-            const from = (location.state as any)?.from?.pathname || '/analytics'
-            navigate(from, { replace: true })
+            try {
+                const sessionData = JSON.parse(stored)
+                // Verify session is valid before redirecting
+                if (sessionData.expiry && Date.now() < sessionData.expiry && sessionData.user) {
+                    isNavigatingRef.current = true
+                    const from = (location.state as any)?.from?.pathname || '/analytics'
+                    navigate(from, { replace: true })
+                }
+            } catch (e) {
+                // Invalid session data, don't redirect
+                localStorage.removeItem('dashboard_combined_auth')
+            }
         }
-    }, [navigate, location])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []) // Only run on mount to prevent navigation loops
 
     // Hardcoded features for local testing to avoid CORS/404 issues
     const MOCK_FEATURES: Feature[] = [
@@ -349,6 +366,11 @@ export default function AuthLogin() {
             setError('Please enter a valid 6-digit code')
             return
         }
+        
+        // Prevent double navigation
+        if (isNavigatingRef.current) {
+            return
+        }
 
         setLoading(true)
         setError(null)
@@ -376,9 +398,17 @@ export default function AuthLogin() {
                     pending_permissions: backendUser.pending_permissions,
                     pending_status: backendUser.pending_status
                 }
+                
+                // Mark as navigating to prevent double navigation
+                isNavigatingRef.current = true
+                
                 // Pass true for is2FAVerified to trigger IP whitelisting
-                loginUser(normalizedUser, true)
+                await loginUser(normalizedUser, true)
                 toast.success('Login successful!')
+                
+                // Small delay to ensure state is persisted before navigation
+                await new Promise(resolve => setTimeout(resolve, 100))
+                
                 const from = (location.state as any)?.from?.pathname || '/analytics'
                 navigate(from, { replace: true })
             } else {
@@ -387,6 +417,7 @@ export default function AuthLogin() {
             }
         } catch (err) {
             setError('Verification failed')
+            isNavigatingRef.current = false
         } finally {
             setLoading(false)
         }
