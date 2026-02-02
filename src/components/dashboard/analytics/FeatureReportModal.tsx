@@ -56,10 +56,13 @@ const getAxisTickStyle = (fontSize: number = 10) => ({
   className: 'text-gray-500 dark:text-gray-400'
 });
 
-// Brand logo endpoint - uses direct API since images don't have CORS restrictions
+// Brand logo endpoint - uses Vercel API in production, proxy in dev
 const getBrandLogoEndpoint = (brand: string): string => {
-  // Use direct API URL - images can be loaded cross-origin without CORS issues
-  return `https://search-new.bitbns.com/buyhatke/wrapper/brandLogo?brand=${encodeURIComponent(brand)}`;
+  // Use Vercel API endpoint for production, dev proxy for local
+  const base = import.meta.env.DEV 
+    ? '/brand-logo' 
+    : 'https://dashboard-combined.vercel.app/api/brand-logo';
+  return `${base}?brand=${encodeURIComponent(brand)}`;
 };
 
 // Get site logo - uses siteDetails image or brand logo API
