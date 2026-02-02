@@ -56,13 +56,12 @@ const getAxisTickStyle = (fontSize: number = 10) => ({
   className: 'text-gray-500 dark:text-gray-400'
 });
 
-// Brand logo endpoint - uses Vercel API in production, proxy in dev
+// Brand logo endpoint - SAME AS pos-stats-grid.tsx
 const getBrandLogoEndpoint = (brand: string): string => {
-  // Use Vercel API endpoint for production, dev proxy for local
-  const base = import.meta.env.DEV 
-    ? '/brand-logo' 
-    : 'https://dashboard-combined.vercel.app/api/brand-logo';
-  return `${base}?brand=${encodeURIComponent(brand)}`;
+  const base = import.meta.env.DEV ? '/brand-logo' : '/api/brand-logo';
+  const url = new URL(base, window.location.origin);
+  url.searchParams.set('brand', brand);
+  return url.toString();
 };
 
 // Get site logo - uses siteDetails image or brand logo API
