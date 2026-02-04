@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
 import { Activity, Target, Zap, X, PieChart as PieChartIcon, Check } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { cn } from '@/lib/utils';
 import { formatIsAvgValue } from '@/lib/formatters';
 import { getPOSName } from '@/lib/posMapping';
+import { PLATFORMS } from '@/services/apiService';
 import { useChartZoom } from '@/hooks/useChartZoom';
 import { useChartKeyboardNav } from '@/hooks/useAccessibility';
 import { ChartZoomControls } from './ChartZoomControls';
@@ -191,13 +193,26 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
 
     const total = currentData.reduce((acc: number, item: any) => acc + item.value, 0);
 
-    // Apply POS mapping if this is a POS chart
+    // Helper to get platform name from ID
+    const getPlatformName = (idOrName: string | number): string => {
+        const id = typeof idOrName === 'string' ? parseInt(idOrName, 10) : idOrName;
+        if (isNaN(id)) return String(idOrName);
+        const platform = PLATFORMS.find(p => p.id === id);
+        return platform?.name || String(idOrName);
+    };
+
+    // Apply POS mapping if this is a POS chart, or Platform mapping if this is a Platform chart
     const mappedData = activeType === 'pos'
         ? currentData.map((item: any) => ({
             ...item,
             name: getPOSName(item.name)
         }))
-        : currentData;
+        : activeType === 'platform'
+            ? currentData.map((item: any) => ({
+                ...item,
+                name: getPlatformName(item.name)
+            }))
+            : currentData;
 
     let processedData = [...mappedData].sort((a, b) => b.value - a.value);
 
@@ -264,7 +279,11 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
             <DialogContent
                 showCloseButton={false}
                 className="w-[100vw] md:w-[98vw] max-w-[1800px] h-[calc(100dvh-64px)] md:h-[92vh] max-h-[calc(100dvh-64px)] md:max-h-[calc(100vh-64px)] overflow-hidden p-0 bg-white dark:bg-slate-950 flex flex-col md:flex-row gap-0 shadow-2xl !top-[calc(50%+32px)] !left-[50%] !translate-x-[-50%] !translate-y-[-50%] rounded-none md:rounded-2xl"
+                aria-describedby={undefined}
             >
+                <VisuallyHidden.Root>
+                    <DialogTitle>{pieData?.title || 'Distribution Breakdown'}</DialogTitle>
+                </VisuallyHidden.Root>
                 {/* Left Sidebar - Navigation */}
                 <div className={cn("w-full md:w-64 border-b md:border-b-0 md:border-r flex flex-col flex-shrink-0 bg-slate-50 dark:bg-slate-900 overflow-hidden max-h-[34dvh] md:max-h-none", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
                     <div className={cn("p-4 border-b", themeClasses.borderAccent, themeClasses.borderAccentDark)}>

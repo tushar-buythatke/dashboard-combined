@@ -75,7 +75,16 @@ export const combinePieChartDuplicates = (data: any[] | Record<string, any>): an
     // Now combine duplicates by name
     const combinedMap = new Map<string, { value: number; metricType?: string }>();
     arrayData.forEach((item: any) => {
-        const name = item.name || 'Unknown';
+        let name = item.name;
+        // Fallback to ID fields if name is missing
+        if (name === undefined || name === null || name === '') {
+            if (item.platform !== undefined && item.platform !== null) name = String(item.platform);
+            else if (item.pos !== undefined && item.pos !== null) name = String(item.pos);
+            else if (item.source !== undefined && item.source !== null) name = String(item.source);
+            else if (item.sourceStr !== undefined && item.sourceStr !== null) name = item.sourceStr;
+        }
+
+        name = name || 'Unknown';
         const prev = combinedMap.get(name);
         const nextValue = (prev?.value || 0) + (item.value || 0);
         combinedMap.set(name, {

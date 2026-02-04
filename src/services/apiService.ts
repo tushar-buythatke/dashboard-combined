@@ -133,6 +133,9 @@ export const PLATFORM_NAMES: Record<number, string> = {
     6: 'Firefox Extension',
     7: 'Mail',
     8: 'Graph',
+    9: 'Desktop Web',
+    10: 'Mobile Web',
+    11: 'Internal System',
 };
 
 export const SOURCE_NAMES: Record<number, string> = {
