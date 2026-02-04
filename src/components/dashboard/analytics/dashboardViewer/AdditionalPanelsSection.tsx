@@ -1184,9 +1184,9 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     console.log(`🔍 Panel ${panel.panelId} - isApiEvent:`, panelConfig?.isApiEvent, 'panelConfig:', panelConfig);
                                                                     const shouldShow = !panelConfig?.isApiEvent;
                                                                     console.log(`🔍 Should show Job IDs filter:`, shouldShow);
-                                                                    
+
                                                                     if (!shouldShow) return null;
-                                                                    
+
                                                                     return (
                                                                         <div className="space-y-2">
                                                                             <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Job IDs</label>
@@ -3707,15 +3707,15 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 <>
                                                                     <ResponsiveContainer width="100%" height="100%">
                                                                         <PieChart>
-                                                                            <Pie 
-                                                                                data={pieData} 
-                                                                                cx="50%" 
-                                                                                cy="50%" 
-                                                                                innerRadius={45} 
-                                                                                outerRadius={70} 
-                                                                                paddingAngle={2} 
-                                                                                dataKey="value" 
-                                                                                isAnimationActive={false} 
+                                                                            <Pie
+                                                                                data={pieData}
+                                                                                cx="50%"
+                                                                                cy="50%"
+                                                                                innerRadius={45}
+                                                                                outerRadius={70}
+                                                                                paddingAngle={2}
+                                                                                dataKey="value"
+                                                                                isAnimationActive={false}
                                                                                 stroke="none"
                                                                             >
                                                                                 {pieData.map((_: any, index: number) => (
@@ -3817,7 +3817,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     const pieData = eventPieCharts[event.eventId];
                                                     if (!pieData) return null;
 
-                                                    const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                    const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform).map((item: any) => ({
+                                                        ...item,
+                                                        name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                                    })) : [];
                                                     const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                     const posData = rawPosData.map((item: any) => ({
                                                         ...item,
@@ -4089,7 +4092,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             const pieData = eventPieCharts[event.eventId];
                                                             if (!pieData) return null;
 
-                                                            const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                            const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform).map((item: any) => ({
+                                                                ...item,
+                                                                name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                                            })) : [];
                                                             const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                             const posData = rawPosData.map((item: any) => ({
                                                                 ...item,
@@ -4348,7 +4354,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 const pieData = eventPieCharts[event.eventId];
                                                 if (!pieData) return null;
 
-                                                const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform).map((item: any) => ({
+                                                    ...item,
+                                                    name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                                })) : [];
                                                 const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                 const posData = rawPosData.map((item: any) => ({
                                                     ...item,
@@ -4531,7 +4540,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             if (!pieData) return null;
 
                                             const apiData = pieData?.data || pieData;
-                                            const platformData = apiData?.platform ? combinePieChartDuplicates(apiData.platform) : [];
+                                            const platformData = apiData?.platform ? combinePieChartDuplicates(apiData.platform).map((item: any) => ({
+                                                ...item,
+                                                name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                            })) : [];
                                             const rawPosData = apiData?.pos ? combinePieChartDuplicates(apiData.pos) : [];
                                             const posData = rawPosData.map((item: any) => ({
                                                 ...item,
@@ -4690,16 +4702,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                     </div >
                 );
             })}
-            
+
             {/* Dashboard Chatbots for each panel */}
             {profile.panels.slice(1).map((panel: any) => {
                 if (activePanelIndex !== profile.panels.indexOf(panel)) return null;
-                
+
                 const panelData = panelsDataMap.get(panel.panelId);
                 const currentPanelFilters = panelFiltersState?.[panel.panelId] || panelData?.filters || {};
                 const currentPanelDateRange = panelDateRanges?.[panel.panelId] || dateRange;
                 const filteredGraphData = panelData?.graphData || [];
-                
+
                 return (
                     <DashboardChatbot
                         key={panel.panelId}

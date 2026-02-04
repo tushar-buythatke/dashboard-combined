@@ -48,6 +48,7 @@ import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, TooltipProvider }
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { PLATFORMS } from '@/services/apiService';
 import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { getPOSName } from '@/lib/posMapping';
@@ -285,7 +286,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 toggleChatbot();
                 return;
             }
-            
+
             // Command+Enter to refresh panel
             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -1092,9 +1093,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <div className="space-y-1.5">
                                                         <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Platforms</Label>
                                                         <MultiSelectDropdown
-                                                            options={platformOptions}
+                                                            options={PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }))}
                                                             selected={(currentFilters.platforms || []).map((id: number) => id.toString())}
-                                                            onChange={(values) => handleFilterChange('platforms', values)}
+                                                            onChange={(values) => {
+                                                                const numericValues = values.map((v: string) => parseInt(v)).filter((n: number) => !isNaN(n));
+                                                                handleFilterChange('platforms', numericValues);
+                                                            }}
                                                             placeholder="Select platforms"
                                                         />
                                                     </div>
@@ -1136,9 +1140,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <div className="space-y-2">
                                                     <Label className="text-sm uppercase tracking-wide text-muted-foreground font-semibold">Platform</Label>
                                                     <MultiSelectDropdown
-                                                        options={platformOptions}
+                                                        options={PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name }))}
                                                         selected={(profile?.panels?.[0] ? (panelFiltersState[profile.panels[0].panelId]?.platforms || []) : []).map(id => id.toString())}
-                                                        onChange={(values) => handleFilterChange('platforms', values)}
+                                                        onChange={(values) => {
+                                                            const numericValues = values.map((v: string) => parseInt(v)).filter((n: number) => !isNaN(n));
+                                                            handleFilterChange('platforms', numericValues);
+                                                        }}
                                                         placeholder="Select platforms"
                                                     />
                                                 </div>
@@ -3779,7 +3786,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     // This was too restrictive - let pie charts show if they have valid data
 
                     // Process pie chart data - combine duplicates and filter out single-item charts
-                    const platformData = pieChartData?.platform ? combinePieChartDuplicates(pieChartData.platform) : [];
+                    const platformData = pieChartData?.platform ? combinePieChartDuplicates(pieChartData.platform).map((item: any) => ({
+                        ...item,
+                        name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                    })) : [];
                     const rawPosData = pieChartData?.pos ? combinePieChartDuplicates(pieChartData.pos) : [];
                     // Apply POS mapping to convert IDs to human-readable names
                     const posData = rawPosData.map((item: any) => ({
@@ -4122,7 +4132,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         const pieData = eventPieCharts[event.eventId];
                                         if (!pieData) return null;
 
-                                        const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                        const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform).map((item: any) => ({
+                                            ...item,
+                                            name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                        })) : [];
                                         const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                         const posData = rawPosData.map((item: any) => ({
                                             ...item,
@@ -4397,7 +4410,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 const pieData = eventPieCharts[event.eventId];
                                                 if (!pieData) return null;
 
-                                                const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                                const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform).map((item: any) => ({
+                                                    ...item,
+                                                    name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                                })) : [];
                                                 const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                 const posData = rawPosData.map((item: any) => ({
                                                     ...item,
@@ -4649,7 +4665,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     const pieData = eventPieCharts[event.eventId];
                                     if (!pieData) return null;
 
-                                    const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform) : [];
+                                    const platformData = pieData?.platform ? combinePieChartDuplicates(pieData.platform).map((item: any) => ({
+                                        ...item,
+                                        name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                    })) : [];
                                     const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                     const posData = rawPosData.map((item: any) => ({
                                         ...item,
@@ -4920,7 +4939,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 if (!pieData) return null;
 
                                 const apiData = pieData?.data || pieData;
-                                const platformData = apiData?.platform ? combinePieChartDuplicates(apiData.platform) : [];
+                                const platformData = apiData?.platform ? combinePieChartDuplicates(apiData.platform).map((item: any) => ({
+                                    ...item,
+                                    name: PLATFORMS.find(p => p.id === Number(item.name))?.name || item.name
+                                })) : [];
                                 const rawPosData = apiData?.pos ? combinePieChartDuplicates(apiData.pos) : [];
                                 const posData = rawPosData.map((item: any) => ({
                                     ...item,
@@ -5081,10 +5103,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {
                 graphData.length > 0 && !isFirstPanelSpecialGraph && (
                     <div className="mt-6">
-                        <UserFootfallCard 
-                            graphData={graphData} 
-                            eventKeys={eventKeys} 
-                            events={events} 
+                        <UserFootfallCard
+                            graphData={graphData}
+                            eventKeys={eventKeys}
+                            events={events}
                         />
                     </div>
                 )
