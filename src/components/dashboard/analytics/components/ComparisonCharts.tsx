@@ -759,6 +759,14 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
         return codeA - codeB;
     }) : [];
 
+    // Auto-select first event on load if available
+    React.useEffect(() => {
+        if (sortedEventStats && sortedEventStats.length > 0 && !selectedEventKey && onEventClick) {
+            // Auto-select the first event
+            onEventClick(sortedEventStats[0].eventKey);
+        }
+    }, [sortedEventStats, selectedEventKey, onEventClick]);
+
     return (
         <Card className="border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-lg rounded-2xl">
             <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-emerald-50/80 to-green-50/60 dark:from-emerald-900/20 dark:to-green-900/10 border-b border-emerald-200/40 dark:border-emerald-500/20">
@@ -770,7 +778,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                         <div>
                             <CardTitle className="text-base md:text-lg">Daily Trends with Average Line</CardTitle>
                             <p className="text-sm text-muted-foreground mt-0.5 font-medium">
-                                {daysDiff} days • Average: {formatNumber(overallAvg)}
+                                {daysDiff} days • Average: {overallAvg.toFixed(2)}
                             </p>
                         </div>
                     </div>

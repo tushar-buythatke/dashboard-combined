@@ -125,7 +125,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
     // Local state to manage the currently selected distribution type within the modal
     const [activeType, setActiveType] = useState<'platform' | 'pos' | 'source'>('platform');
     const [minPercentage, setMinPercentage] = useState(0);
-    const [topItems, setTopItems] = useState<'5' | '10' | 'all'>('10');
+    const [topItems, setTopItems] = useState<'5' | '10' | 'all'>('all');
 
     // Sync local state with prop when modal opens
     useEffect(() => {
@@ -364,10 +364,10 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
                                         key={count}
                                         onClick={() => setTopItems(count)}
                                         className={cn(
-                                            "px-2 py-1 rounded text-[10px] font-bold uppercase transition-all",
+                                            "px-2.5 py-1.5 rounded text-[10px] font-bold uppercase transition-all border",
                                             topItems === count
-                                                ? cn("text-white shadow-sm", themeClasses.buttonGradient)
-                                                : cn("text-slate-500 hover:text-slate-700 dark:hover:text-slate-300", themeClasses.badgeBg, themeClasses.badgeBgDark)
+                                                ? "text-white bg-indigo-600 dark:bg-indigo-500 shadow-md border-indigo-700 dark:border-indigo-400"
+                                                : "text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
                                         )}
                                     >
                                         {count === 'all' ? 'All' : `Top ${count}`}
