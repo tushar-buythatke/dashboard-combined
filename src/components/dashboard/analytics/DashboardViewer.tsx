@@ -9,7 +9,7 @@ import { apiService, PLATFORMS, SOURCES } from '@/services/apiService';
 import { mockService } from '@/services/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { useAccentTheme, THEME_INFO } from '@/contexts/AccentThemeContext';
 import type { SiteDetail } from '@/services/apiService';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
@@ -1604,10 +1604,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             ...prev,
             [panelId]: { from, to }
         }));
-        
+
         // Sync with main date range so both stay in sync
         setDateRange({ from, to });
-        
+
         // Also sync ALL other panel date ranges with the new date range
         if (profile?.panels) {
             const updatedPanelRanges: Record<string, DateRangeState> = {};
@@ -1619,13 +1619,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 ...updatedPanelRanges
             }));
         }
-        
+
         // Mark that this panel's filters have changed so APPLY banner shows
         setPanelFilterChanges(prev => ({
             ...prev,
             [panelId]: true
         }));
-        
+
         // Trigger refresh
         setPendingRefresh(true);
     }, [profile?.panels]);
@@ -1680,7 +1680,10 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             setSelectedSourceStrs([]);
             _setPanelSelectedSourceStrs({});
 
-            setLoading(true);
+            // Only show full-page skeleton on initial mount or profile change
+            if (!initialLoadComplete.current || !profile) {
+                setLoading(true);
+            }
             setError(null);
 
             try {
@@ -2403,8 +2406,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             // New: Check if pie charts for each job ID are requested
             const showJobIdPieCharts = panelConfig?.showJobIdPieCharts === true;
             // Use panelFilters.sourceStr which includes saved config, or currentSourceStrFilter as fallback
-            const selectedJobIds = panelFilters.sourceStr && panelFilters.sourceStr.length > 0 
-                ? panelFilters.sourceStr 
+            const selectedJobIds = panelFilters.sourceStr && panelFilters.sourceStr.length > 0
+                ? panelFilters.sourceStr
                 : (currentSourceStrFilter.length > 0 ? currentSourceStrFilter : []);
 
             // Determine effective hourly override: use per-panel override if available, otherwise global defaults
@@ -3656,18 +3659,166 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         });
     }, [filters.events, eventConfigById]);
 
-    const DashboardLoadingSkeleton = () => (
-        <div className="space-y-6" style={{ zoom: 0.8 }}>
-            <div className="h-40 w-full rounded-2xl bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-800 dark:to-gray-700 animate-pulse" />
-            <div className="h-32 w-full rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
-                <div className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
-                <div className="h-32 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+    const DashboardLoadingSkeleton = () => {
+        const { actualTheme } = useAccentTheme();
+        const { colors: themeColors } = THEME_INFO[actualTheme];
+
+        // Dynamic colors from the active accent theme
+        const primaryColor = themeColors[0]; // main accent (e.g., indigo)
+        const secondaryColor = themeColors[1]; // mid accent (e.g., purple)
+        const tertiaryColor = themeColors[2]; // end accent (e.g., cyan)
+
+        return (
+            <div className="space-y-5 p-4">
+                {/* Dynamic CSS for Theme-Aware Skeleton */}
+                <style>{`
+                    @keyframes skeleton-shimmer {
+                        0% { transform: translateX(-100%); }
+                        100% { transform: translateX(100%); }
+                    }
+                    .skeleton-glass {
+                        position: relative;
+                        overflow: hidden;
+                        background: rgba(255,255,255,0.7);
+                        backdrop-filter: blur(16px);
+                        -webkit-backdrop-filter: blur(16px);
+                    }
+                    .skeleton-glass::after {
+                        content: '';
+                        position: absolute;
+                        inset: 0;
+                        background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+                        animation: skeleton-shimmer 2s ease-in-out infinite;
+                    }
+                    .dark .skeleton-glass {
+                        background: rgba(15,23,42,0.6);
+                        border: 1px solid ${primaryColor}20;
+                    }
+                    .dark .skeleton-glass::after {
+                        background: linear-gradient(90deg, transparent 0%, ${primaryColor}15 50%, transparent 100%);
+                    }
+
+                    /* Theme-Aware Shadows */
+                    .skeleton-shadow-premium {
+                        box-shadow: 0 10px 30px -5px rgba(0,0,0,0.08);
+                    }
+                    .dark .skeleton-shadow-premium {
+                        box-shadow: 
+                            0 15px 40px -10px rgba(0,0,0,0.4),
+                            0 0 40px -5px ${primaryColor}10,
+                            0 0 80px -10px ${secondaryColor}08;
+                    }
+
+                    .skeleton-bar {
+                        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+                    }
+                    .dark .skeleton-bar {
+                        background: linear-gradient(135deg, ${primaryColor}25 0%, ${secondaryColor}15 100%);
+                    }
+                `}</style>
+
+                {/* Hero Header - Matching Actual Layout & Theme */}
+                <div className="skeleton-glass skeleton-shadow-premium h-24 w-full rounded-3xl border border-slate-200/50 dark:border-indigo-500/20 relative group overflow-hidden">
+                    {/* Thematic Accent Bar */}
+                    <div className="absolute top-0 left-0 right-0 h-1 z-30 opacity-60"
+                        style={{ background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor}, ${tertiaryColor})` }} />
+
+                    <div className="absolute inset-0 opacity-[0.08] dark:opacity-[0.12]"
+                        style={{ background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor}, ${tertiaryColor})` }} />
+
+                    <div className="absolute top-1/2 -translate-y-1/2 left-6 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-white/40 dark:bg-white/10 backdrop-blur-md border border-white/20" />
+                        <div className="space-y-2">
+                            <div className="h-6 w-48 rounded-lg bg-white/50 dark:bg-white/20" />
+                            <div className="h-4 w-32 rounded-md bg-white/30 dark:bg-white/10" />
+                        </div>
+                    </div>
+
+                    {/* Action buttons skeleton */}
+                    <div className="absolute top-1/2 -translate-y-1/2 right-6 flex items-center gap-3">
+                        <div className="h-9 w-28 rounded-xl bg-white/40 dark:bg-white/10 border border-white/20" />
+                        <div className="h-9 w-28 rounded-xl bg-white/40 dark:bg-white/10 border border-white/20" />
+                    </div>
+                </div>
+
+                {/* Critical Alerts Panel Skeleton (Placeholder) */}
+                <div className="skeleton-glass skeleton-shadow-premium rounded-3xl border border-red-500/10 dark:border-red-500/20 p-5 relative">
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-red-500/30 rounded-t-3xl" />
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-red-500/20 animate-pulse" />
+                            <div className="space-y-1.5">
+                                <div className="h-4 w-40 rounded-md bg-red-500/10" />
+                                <div className="h-3 w-24 rounded bg-red-500/5" />
+                            </div>
+                        </div>
+                        <div className="h-8 w-8 rounded-lg skeleton-bar" />
+                    </div>
+                    <div className="grid grid-cols-4 gap-4 mb-6">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="h-16 rounded-2xl bg-red-500/5 dark:bg-red-500/10 border border-red-500/10" />
+                        ))}
+                    </div>
+                    <div className="h-32 w-full rounded-2xl bg-red-500/5 dark:bg-red-500/5 border border-red-500/10" />
+                </div>
+
+                {/* Filters Row - matching actual layout */}
+                <div className="skeleton-glass skeleton-shadow-premium h-14 w-full rounded-2xl border border-slate-200/50 dark:border-indigo-500/15 flex items-center px-5 gap-4">
+                    <div className="h-8 w-8 rounded-lg skeleton-bar" />
+                    <div className="h-4 w-24 rounded-md skeleton-bar" />
+                    <div className="flex-1" />
+                    <div className="h-8 w-24 rounded-lg skeleton-bar" />
+                    <div className="h-8 w-24 rounded-lg skeleton-bar" />
+                    <div className="h-8 w-24 rounded-lg skeleton-bar" />
+                    <div className="h-8 w-14 rounded-lg skeleton-bar" />
+                </div>
+
+                {/* Main Content Area - 4 Stats Cards */}
+                <div className="grid grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div
+                            key={i}
+                            className="skeleton-glass skeleton-shadow-premium h-28 rounded-2xl border border-slate-200/50 dark:border-indigo-500/15 p-5 flex flex-col justify-between"
+                            style={{ animationDelay: `${i * 0.1}s` }}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="h-4 w-20 rounded-md skeleton-bar" />
+                                <div className="h-6 w-6 rounded-lg skeleton-bar" />
+                            </div>
+                            <div className="h-8 w-28 rounded-lg skeleton-bar" />
+                        </div>
+                    ))}
+                </div>
+
+                {/* Big Chart Area Placeholder */}
+                <div className="skeleton-glass skeleton-shadow-premium rounded-3xl border border-slate-200/50 dark:border-indigo-500/15 p-6 h-[400px] overflow-hidden">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl skeleton-bar" />
+                            <div className="space-y-2">
+                                <div className="h-5 w-48 rounded-md skeleton-bar" />
+                                <div className="h-3 w-32 rounded-md skeleton-bar opacity-60" />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="h-9 w-24 rounded-xl skeleton-bar" />
+                            <div className="h-9 w-24 rounded-xl skeleton-bar" />
+                        </div>
+                    </div>
+
+                    <div className="h-[250px] w-full flex items-end gap-3 px-2">
+                        {[40, 25, 55, 35, 70, 45, 60, 30, 80, 50, 65, 40, 55, 30, 45, 20].map((h, i) => (
+                            <div
+                                key={i}
+                                className="flex-1 skeleton-bar rounded-t-xl opacity-60 hover:opacity-100 transition-opacity"
+                                style={{ height: `${h}%`, animationDelay: `${i * 0.05}s` }}
+                            />
+                        ))}
+                    </div>
+                </div>
             </div>
-            <div className="h-[400px] w-full rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
-        </div>
-    );
+        );
+    };
 
     if (loading) return <DashboardLoadingSkeleton />;
     if (!profile) return <div className="p-8 text-center text-destructive">Profile not found</div>;

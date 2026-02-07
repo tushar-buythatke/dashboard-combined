@@ -452,11 +452,13 @@ export const AdditionalPanelItem = React.memo(({
                 </div>
             </div>
 
-            <Card className={cn("rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 border mb-6", themeClasses.featureCardBorder, themeClasses.featureCardBorderDark)}>
+            <Card className={cn("relative rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] hover:shadow-card-hover transition-all duration-500 border border-slate-200/60 dark:border-indigo-500/20 backdrop-blur-xl mb-6 overflow-hidden", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                {/* Thematic gradient banner */}
+                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                 <CardHeader className="pb-4">
                     <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-3">
-                            <div className={cn("h-12 w-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg", themeClasses.buttonGradient)}>
+                            <div className={cn("h-12 w-12 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/20 dark:ring-white/10", themeClasses.buttonGradient)}>
                                 {panelGraphType === 'bar' ? (
                                     <BarChart3 className="h-6 w-6 text-white" />
                                 ) : (
@@ -871,11 +873,12 @@ export const AdditionalPanelItem = React.memo(({
 
                                     return (
                                         <div key={pieType}>
-                                            <Card className={cn("border-2 overflow-hidden group rounded-xl shadow-sm hover:shadow-md transition-all", borderColorMap[pieType])}>
+                                            <Card className={cn("relative border border-slate-200/60 dark:border-indigo-500/20 overflow-hidden group rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] transition-all backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                                <div className={cn("absolute top-0 left-0 right-0 h-1 transition-all duration-500 z-30 bg-gradient-to-r", gradientMap[pieType])} />
                                                 <CardHeader className="pb-2 px-4 pt-4">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
-                                                            <div className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md", gradientMap[pieType])}>
+                                                            <div className={cn("h-8 w-8 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-md ring-1 ring-white/20", gradientMap[pieType])}>
                                                                 {iconMap[pieType]}
                                                             </div>
                                                             <CardTitle className="text-sm font-semibold text-foreground capitalize">{pieType}</CardTitle>
@@ -912,15 +915,15 @@ export const AdditionalPanelItem = React.memo(({
                                                             <>
                                                                 <ResponsiveContainer width="100%" height="100%">
                                                                     <PieChart>
-                                                                        <Pie 
-                                                                            data={pieData} 
-                                                                            cx="50%" 
-                                                                            cy="50%" 
-                                                                            innerRadius={45} 
-                                                                            outerRadius={70} 
-                                                                            paddingAngle={2} 
-                                                                            dataKey="value" 
-                                                                            isAnimationActive={false} 
+                                                                        <Pie
+                                                                            data={pieData}
+                                                                            cx="50%"
+                                                                            cy="50%"
+                                                                            innerRadius={45}
+                                                                            outerRadius={70}
+                                                                            paddingAngle={2}
+                                                                            dataKey="value"
+                                                                            isAnimationActive={false}
                                                                             stroke="none"
                                                                         >
                                                                             {pieData.map((_: any, index: number) => (
@@ -962,109 +965,114 @@ export const AdditionalPanelItem = React.memo(({
                                                     </div>
                                                 </CardContent>
                                             </Card>
-                                        </div>
+                                        </div >
                                     );
                                 })}
-                            </div>
+                            </div >
                         ) : null;
                     })()}
 
                     {/* API Performance Metrics Chart */}
-                    {panelConfig?.isApiEvent && panelApiSeries.length > 0 && (
-                        <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl mb-6">
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
-                                            <button
-                                                key={tab}
-                                                onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
-                                                className={cn(
-                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
-                                                    panelMetricView === tab
-                                                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
-                                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                                                )}
-                                            >
-                                                {tab === 'timing' && '⏱️ Time (Avg)'}
-                                                {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
-                                                {tab === 'timing-anomaly' && '⚠️ Anomalies'}
-                                                {tab === 'bytes' && '📤 Bytes Out'}
-                                                {tab === 'bytes-in' && '📥 Bytes In'}
-                                                {tab === 'count' && '📈 Count'}
-                                            </button>
-                                        ))}
+                    {
+                        panelConfig?.isApiEvent && panelApiSeries.length > 0 && (
+                            <Card className={cn("relative border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl mb-6 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
+                                <CardHeader className="pb-2">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
+                                        <div className="flex flex-wrap gap-2">
+                                            {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
+                                                <button
+                                                    key={tab}
+                                                    onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
+                                                    className={cn(
+                                                        "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                        panelMetricView === tab
+                                                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
+                                                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                    )}
+                                                >
+                                                    {tab === 'timing' && '⏱️ Time (Avg)'}
+                                                    {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
+                                                    {tab === 'timing-anomaly' && '⚠️ Anomalies'}
+                                                    {tab === 'bytes' && '📤 Bytes Out'}
+                                                    {tab === 'bytes-in' && '📥 Bytes In'}
+                                                    {tab === 'count' && '📈 Count'}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
-                                <div className="h-[280px] md:h-[360px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
-                                            <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} axisLine={false} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
-                                            <YAxis
-                                                tick={{ fill: '#94a3b8', fontSize: 11 }}
-                                                axisLine={false}
-                                                tickLine={false}
-                                                tickFormatter={(value) => {
-                                                    if (!value || value <= 0) return '0';
-                                                    if (panelMetricView?.startsWith('timing')) return `${Number(value).toFixed(0)}ms`;
-                                                    if (panelMetricView?.startsWith('bytes')) return value >= 1000000 ? `${(value / 1000000).toFixed(1)}MB` : `${Number(value).toFixed(0)}B`;
-                                                    return formatNumber(value);
-                                                }}
-                                                width={65}
-                                                dx={-5}
-                                            />
-                                            <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
-                                            {apiEventKeyInfos.map((ek: any, idx: number) => {
-                                                const color = EVENT_COLORS[idx % EVENT_COLORS.length];
-                                                let dataKey = `${ek.eventKey}_count`;
-                                                if (panelMetricView === 'timing' || panelMetricView === 'timing-anomaly') dataKey = `${ek.eventKey}_avgServerToUser`;
-                                                if (panelMetricView === 'bytes') dataKey = `${ek.eventKey}_avgBytesOut`;
-                                                if (panelMetricView === 'bytes-in') dataKey = `${ek.eventKey}_avgBytesIn`;
+                                </CardHeader>
+                                <CardContent className="px-2 md:px-6 pb-4 md:pb-6">
+                                    <div className="h-[280px] md:h-[360px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                                                <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} axisLine={false} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
+                                                <YAxis
+                                                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tickFormatter={(value) => {
+                                                        if (!value || value <= 0) return '0';
+                                                        if (panelMetricView?.startsWith('timing')) return `${Number(value).toFixed(0)}ms`;
+                                                        if (panelMetricView?.startsWith('bytes')) return value >= 1000000 ? `${(value / 1000000).toFixed(1)}MB` : `${Number(value).toFixed(0)}B`;
+                                                        return formatNumber(value);
+                                                    }}
+                                                    width={65}
+                                                    dx={-5}
+                                                />
+                                                <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
+                                                {apiEventKeyInfos.map((ek: any, idx: number) => {
+                                                    const color = EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                    let dataKey = `${ek.eventKey}_count`;
+                                                    if (panelMetricView === 'timing' || panelMetricView === 'timing-anomaly') dataKey = `${ek.eventKey}_avgServerToUser`;
+                                                    if (panelMetricView === 'bytes') dataKey = `${ek.eventKey}_avgBytesOut`;
+                                                    if (panelMetricView === 'bytes-in') dataKey = `${ek.eventKey}_avgBytesIn`;
 
-                                                if (panelMetricView === 'timing-breakdown') {
+                                                    if (panelMetricView === 'timing-breakdown') {
+                                                        return (
+                                                            <Fragment key={`pbreak_fun_${panel.panelId}_${ek.eventKey}`}>
+                                                                <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                            </Fragment>
+                                                        );
+                                                    }
+
                                                     return (
-                                                        <Fragment key={`pbreak_fun_${panel.panelId}_${ek.eventKey}`}>
-                                                            <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
-                                                            <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
-                                                        </Fragment>
+                                                        <Area
+                                                            key={`papi_item_${panel.panelId}_${ek.eventKey}_${panelMetricView}`}
+                                                            type="monotone"
+                                                            dataKey={dataKey}
+                                                            name={ek.eventName}
+                                                            stroke={color}
+                                                            strokeWidth={2.5}
+                                                            fillOpacity={0.12}
+                                                            fill={color}
+                                                            dot={false}
+                                                            activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
+                                                            isAnimationActive={false} connectNulls={true}
+                                                        />
                                                     );
-                                                }
-
-                                                return (
-                                                    <Area
-                                                        key={`papi_item_${panel.panelId}_${ek.eventKey}_${panelMetricView}`}
-                                                        type="monotone"
-                                                        dataKey={dataKey}
-                                                        name={ek.eventName}
-                                                        stroke={color}
-                                                        strokeWidth={2.5}
-                                                        fillOpacity={0.12}
-                                                        fill={color}
-                                                        dot={false}
-                                                        activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
-                                                        isAnimationActive={false} connectNulls={true}
-                                                    />
-                                                );
-                                            })}
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                                })}
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )
+                    }
 
                     {/* Hourly Stats */}
-                    {pIsHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
-                        <div>
-                            <HourlyStatsCard graphData={filteredGraphData} isHourly={pIsHourly} eventKeys={pEventKeys} events={events} />
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
+                    {
+                        pIsHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
+                            <div>
+                                <HourlyStatsCard graphData={filteredGraphData} isHourly={pIsHourly} eventKeys={pEventKeys} events={events} />
+                            </div>
+                        )
+                    }
+                </CardContent >
+            </Card >
+        </div >
     );
 });

@@ -73,7 +73,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
         const rect = barContainer.getBoundingClientRect();
         const heightPct = Math.max(Math.min(stage.percentage, 100), 2);
         const barHeight = (rect.height * heightPct) / 100;
-        
+
         setTooltipPos({
             x: rect.left + rect.width / 2,
             y: rect.bottom - barHeight - 12 // Reduced margin slightly for tighter feel
@@ -174,37 +174,37 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             let stageUniqueUsers = 0;
 
             data.forEach((record) => {
-                const isMatch = isRawData 
+                const isMatch = isRawData
                     ? String(record.eventId) === String(stage.eventId)
                     : true; // For processed data, we assume the keys are stage-specific
 
                 if (isMatch) {
                     const baseName = eventNames[String(stage.eventId)] || `Event ${stage.eventId}`;
                     const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
-                    
+
                     // Priority 1: Keyed by event name (e.g., "GiftVoucher_totalUsers")
                     // Priority 2: Keyed by event ID (e.g., "45_totalUsers")
                     // Priority 3: Common snake_case keys
                     // Priority 4: Direct keys if it's raw data and the ID matches
                     stageTotalUsers += Number(
-                        record[`${eventKey}_totalUsers`] || 
-                        record[`${stage.eventId}_totalUsers`] || 
-                        record[`${eventKey}_users`] || 
-                        record[`${stage.eventId}_users`] || 
+                        record[`${eventKey}_totalUsers`] ||
+                        record[`${stage.eventId}_totalUsers`] ||
+                        record[`${eventKey}_users`] ||
+                        record[`${stage.eventId}_users`] ||
                         (isRawData ? (record.totalUsers || record.users || 0) : 0)
                     );
                     stageNewUsers += Number(
-                        record[`${eventKey}_newUsers`] || 
-                        record[`${stage.eventId}_newUsers`] || 
-                        record[`${eventKey}_new_users`] || 
-                        record[`${stage.eventId}_new_users`] || 
+                        record[`${eventKey}_newUsers`] ||
+                        record[`${stage.eventId}_newUsers`] ||
+                        record[`${eventKey}_new_users`] ||
+                        record[`${stage.eventId}_new_users`] ||
                         (isRawData ? (record.newUsers || record.new_users || 0) : 0)
                     );
                     stageUniqueUsers += Number(
-                        record[`${eventKey}_uniqueUsers`] || 
-                        record[`${stage.eventId}_uniqueUsers`] || 
-                        record[`${eventKey}_unique_users`] || 
-                        record[`${stage.eventId}_unique_users`] || 
+                        record[`${eventKey}_uniqueUsers`] ||
+                        record[`${stage.eventId}_uniqueUsers`] ||
+                        record[`${eventKey}_unique_users`] ||
+                        record[`${stage.eventId}_unique_users`] ||
                         (isRawData ? (record.uniqueUsers || record.unique_users || 0) : 0)
                     );
                 }
@@ -227,7 +227,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
             // Cap percentage at 100% for visualization purposes, but keep real value for labels if needed
             const rawPercentage = (stage.count / baseCount) * 100;
-            
+
             return {
                 eventId: stage.eventId,
                 eventName: stage.eventName || eventNames[String(stage.eventId)] || `Event ${stage.eventId}`,
@@ -257,7 +257,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                 const isRawData = data.length > 0 && data[0].eventId !== undefined;
                 const hasAvgData = isRawData && (data[0].avgDelay !== undefined || data[0].avg !== undefined);
                 data.forEach((record) => {
-                    const isMatch = isRawData 
+                    const isMatch = isRawData
                         ? String(record.eventId) === String(childEventId)
                         : true;
 
@@ -266,24 +266,24 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         const eventKey = baseName.replace(/[^a-zA-Z0-9]/g, '_');
 
                         childTotalUsers += Number(
-                            record[`${eventKey}_totalUsers`] || 
-                            record[`${childEventId}_totalUsers`] || 
-                            record[`${eventKey}_users`] || 
-                            record[`${childEventId}_users`] || 
+                            record[`${eventKey}_totalUsers`] ||
+                            record[`${childEventId}_totalUsers`] ||
+                            record[`${eventKey}_users`] ||
+                            record[`${childEventId}_users`] ||
                             (isRawData ? (record.totalUsers || record.users || 0) : 0)
                         );
                         childNewUsers += Number(
-                            record[`${eventKey}_newUsers`] || 
-                            record[`${childEventId}_newUsers`] || 
-                            record[`${eventKey}_new_users`] || 
-                            record[`${childEventId}_new_users`] || 
+                            record[`${eventKey}_newUsers`] ||
+                            record[`${childEventId}_newUsers`] ||
+                            record[`${eventKey}_new_users`] ||
+                            record[`${childEventId}_new_users`] ||
                             (isRawData ? (record.newUsers || record.new_users || 0) : 0)
                         );
                         childUniqueUsers += Number(
-                            record[`${eventKey}_uniqueUsers`] || 
-                            record[`${childEventId}_uniqueUsers`] || 
-                            record[`${eventKey}_unique_users`] || 
-                            record[`${childEventId}_unique_users`] || 
+                            record[`${eventKey}_uniqueUsers`] ||
+                            record[`${childEventId}_uniqueUsers`] ||
+                            record[`${eventKey}_unique_users`] ||
+                            record[`${childEventId}_unique_users`] ||
                             (isRawData ? (record.uniqueUsers || record.unique_users || 0) : 0)
                         );
                     }
@@ -337,8 +337,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             const dropoff = prevCount > 0 ? ((prevCount - totalLastStageCount) / prevCount) * 100 : 0;
 
             // If only 1 event in final stage, show its name; otherwise show "Final Stage (Combined)"
-            const finalStageName = lastStageChildren.length === 1 
-                ? lastStageChildren[0].eventName 
+            const finalStageName = lastStageChildren.length === 1
+                ? lastStageChildren[0].eventName
                 : 'Final Stage (Combined)';
 
             processedStages.push({
@@ -364,14 +364,18 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
     if (!funnelData || funnelData.length === 0) {
         return (
-            <Card className="border border-blue-200/60 dark:border-blue-500/30">
-                <CardHeader>
+            <Card className={cn("rounded-3xl overflow-hidden backdrop-blur-xl border-2 shadow-xl", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                {/* Thematic gradient accent bar */}
+                <div className={cn("h-1.5 w-full bg-gradient-to-r", themeClasses.buttonGradient)} />
+                <CardHeader className="bg-gradient-to-r from-white/50 via-gray-50/30 to-white/40 dark:from-gray-800/30 dark:via-gray-900/20 dark:to-gray-800/30 border-b border-gray-200/30 dark:border-gray-700/30">
                     <CardTitle className="text-base flex items-center gap-2">
-                        <Filter className="h-5 w-5 text-blue-500" />
+                        <div className={cn("h-10 w-10 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/30 dark:ring-white/10", themeClasses.buttonGradient)}>
+                            <Filter className="h-5 w-5 text-white" />
+                        </div>
                         Conversion Funnel
                     </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="bg-white/30 dark:bg-gray-900/30">
                     <p className="text-sm text-muted-foreground text-center py-8">
                         No data available for funnel stages
                     </p>
@@ -382,11 +386,13 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
     return (
         <>
-            <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-xl rounded-2xl">
-                <CardHeader className="pb-4 px-6 bg-gradient-to-r from-blue-50/80 to-cyan-50/60 dark:from-blue-900/20 dark:to-cyan-900/10 border-b border-blue-200/40 dark:border-blue-500/20">
+            <Card className={cn("rounded-3xl overflow-hidden backdrop-blur-xl border-2 shadow-xl relative", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                {/* Thematic gradient accent bar */}
+                <div className={cn("absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r z-10", themeClasses.buttonGradient)} />
+                <CardHeader className="pb-4 px-6 bg-gradient-to-r from-white/50 via-gray-50/30 to-white/40 dark:from-gray-800/30 dark:via-gray-900/20 dark:to-gray-800/30 border-b border-gray-200/30 dark:border-gray-700/30 pt-5">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                            <div className={cn("h-11 w-11 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg", themeClasses.buttonGradient)}>
+                            <div className={cn("h-11 w-11 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/30 dark:ring-white/10", themeClasses.buttonGradient)}>
                                 <Filter className="h-6 w-6 text-white" />
                             </div>
                             <div>
@@ -402,14 +408,14 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 <span className="font-medium">Success rate tracking</span>
                             </div>
                             {onToggleHourly && (
-                                <div className="flex bg-white dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <div className="flex bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-xl p-1 border border-gray-200/50 dark:border-gray-600/30 shadow-sm">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onToggleHourly(false); }}
                                         className={cn(
                                             "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             !isHourly
-                                                ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shadow-sm"
-                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
+                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
                                         )}
                                     >
                                         DAILY
@@ -419,8 +425,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                         className={cn(
                                             "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             isHourly
-                                                ? "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 shadow-sm"
-                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
+                                                : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
                                         )}
                                     >
                                         HOURLY
@@ -430,7 +436,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-6 md:p-8 relative">
+                <CardContent className="p-6 md:p-8 relative bg-white/40 dark:bg-gray-900/40">
                     <div className="absolute top-2 right-2 z-50">
                         <ChartZoomControls
                             zoomLevel={zoomLevel}
@@ -501,7 +507,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                         </span>
                                                     </div>
                                                 )}
-                                                
+
                                                 {/* Percentage and User Badges */}
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
                                                     <div className="flex flex-col items-center gap-0.5">
@@ -512,7 +518,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                             {stage.count.toLocaleString()} hits
                                                         </span>
                                                     </div>
-                                                    
+
                                                     {/* User Badges inside bar if space permits and data exists */}
                                                     {stage.percentage > 25 && (stage.totalUsers || 0) > 0 && (
                                                         <div className="mt-3 flex flex-col gap-1.5 w-full px-2 max-w-[120px]">
@@ -617,9 +623,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     </div>
 
                     {/* Summary Footer with Final Stage Toggle */}
-                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <div className="mt-8 pt-6 border-t border-gray-200/50 dark:border-gray-700/50">
                         <div className="grid grid-cols-4 gap-4 text-center">
-                            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-200/50 dark:border-indigo-500/30">
+                            <div className="bg-indigo-100/60 dark:bg-indigo-900/30 backdrop-blur-sm rounded-2xl p-4 border-2 border-indigo-300/50 dark:border-indigo-500/40 shadow-md">
                                 <div className="flex flex-col items-center">
                                     <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
                                         {funnelData[0]?.count.toLocaleString() || 0}
@@ -633,7 +639,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     )}
                                 </div>
                             </div>
-                            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-4 border border-emerald-200/50 dark:border-emerald-500/30">
+                            <div className="bg-emerald-100/60 dark:bg-emerald-900/30 backdrop-blur-sm rounded-2xl p-4 border-2 border-emerald-300/50 dark:border-emerald-500/40 shadow-md">
                                 <div className="flex flex-col items-center">
                                     <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
                                         {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
@@ -647,13 +653,13 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     )}
                                 </div>
                             </div>
-                            <div className="bg-gray-50 dark:bg-gray-800/30 rounded-xl p-4 border border-gray-200/50 dark:border-gray-500/30">
-                                <div className="text-2xl md:text-3xl font-bold text-gray-700 dark:text-gray-300">
+                            <div className={cn("backdrop-blur-sm rounded-2xl p-4 border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                                <div className={cn("text-2xl md:text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent", themeClasses.buttonGradient)}>
                                     {Math.min(funnelData[funnelData.length - 1]?.percentage || 0, 100).toFixed(1)}%
                                 </div>
                                 <div className="text-sm text-muted-foreground mt-1 font-medium">Conversion Rate</div>
                             </div>
-                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-200/50 dark:border-orange-500/30 relative z-20">
+                            <div className="bg-gradient-to-br from-orange-100/60 to-amber-100/60 dark:from-orange-900/30 dark:to-amber-900/30 backdrop-blur-sm rounded-2xl p-4 border-2 border-orange-300/50 dark:border-orange-500/40 shadow-md relative z-20">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -811,9 +817,9 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             </Dialog >
             {/* Global Portal Tooltip - Renders outside stacking contexts */}
             {hoveredStage && createPortal(
-                <div 
+                <div
                     className="fixed z-[99999] pointer-events-none animate-in fade-in-0 duration-300 ease-out"
-                    style={{ 
+                    style={{
                         left: tooltipPos.x,
                         top: tooltipPos.y,
                         transform: 'translate(-50%, -100%)'
@@ -822,7 +828,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4)] border-2 border-indigo-500/50 dark:border-indigo-400/40 p-5 min-w-[280px] isolation-auto relative">
                         {/* Tooltip Arrow */}
                         <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-slate-900 rotate-45 border-r-2 border-b-2 border-indigo-500/50 dark:border-indigo-400/40" />
-                        
+
                         <div className="font-bold text-gray-900 dark:text-gray-100 text-sm mb-3 truncate max-w-[240px] relative z-10" title={hoveredStage.eventName}>
                             {funnelData.findIndex(s => s.eventId === hoveredStage.eventId) + 1}. {hoveredStage.eventName}
                         </div>

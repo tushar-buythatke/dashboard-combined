@@ -28,10 +28,10 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             setLoading(true);
             try {
                 const orgId = selectedOrganization?.id ?? 0;
-                
+
                 // Direct API call - fast and reliable
                 const apiFeatures = await apiService.getFeaturesList(orgId);
-                
+
                 // Transform to Feature format
                 let baseFeatures: Feature[] = apiFeatures.map(f => ({
                     id: f.id.toString(),
@@ -162,19 +162,18 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
 
     return (
         <div className={cn(
-            "mx-4 lg:mx-9 py-6 lg:py-10 px-4 lg:px-8 flex-1 overflow-auto relative rounded-xl",
-            "bg-gradient-to-br from-gray-50/80 via-white to-gray-50/60",
-            "dark:from-gray-900/80 dark:via-gray-900 dark:to-gray-900/60"
+            "mx-4 lg:mx-9 py-6 lg:py-10 px-4 lg:px-8 flex-1 overflow-auto relative rounded-2xl",
+            "bg-white/40 dark:bg-gray-900/40",
+            "backdrop-blur-xl backdrop-saturate-150",
+            "border border-white/40 dark:border-white/10",
+            "shadow-[0_8px_32px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]"
         )} style={{ zoom: 0.9 }}>
-            {/* Clean subtle background - no accent orbs */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl bg-gray-200/20 dark:bg-gray-800/20" />
-                <div className="absolute top-1/2 -left-24 w-72 h-72 rounded-full blur-3xl bg-gray-100/15 dark:bg-gray-900/15" />
+            {/* Clean subtle background - soft orbs */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
+                <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl bg-indigo-200/10 dark:bg-indigo-800/10" />
+                <div className="absolute top-1/2 -left-24 w-72 h-72 rounded-full blur-3xl bg-purple-100/10 dark:bg-purple-900/10" />
+                <div className="absolute bottom-0 right-1/4 w-80 h-80 rounded-full blur-3xl bg-cyan-100/8 dark:bg-cyan-900/8" />
             </div>
-
-            {/* Gradient accent bars - theme colored */}
-            <div className={cn("absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent", t.buttonGradient, "to-transparent opacity-60")} />
-            <div className={cn("absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent", t.buttonGradient, "to-transparent opacity-40")} />
 
             <div className="relative z-10">
                 <div className="text-center mb-8 lg:mb-12">
@@ -185,7 +184,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
 
                     <h1 className="text-2xl lg:text-5xl font-bold mb-3 lg:mb-4">
                         <span
-                            className={cn("bg-gradient-to-r bg-clip-text text-transparent", t.headerGradient)}
+                            className={cn("bg-gradient-to-r bg-clip-text text-transparent", t.landingTitleGradient)}
                             style={{
                                 backgroundSize: '200% auto',
                                 animation: 'text-gradient-shimmer 3s linear infinite'
@@ -194,10 +193,10 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                             Hatke Analytics
                         </span>
                     </h1>
-                    <p className="text-muted-foreground text-sm lg:text-lg max-w-xl mx-auto px-4 mb-2">
+                    <p className={cn("text-sm lg:text-lg max-w-xl mx-auto px-4 mb-2", t.textMuted)}>
                         Choose a feature to explore detailed analytics and insights
                     </p>
-                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <div className={cn("flex items-center justify-center gap-2 text-xs", t.textMuted)}>
                         <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
                             <span className="font-semibold">⌘F</span>
                             <span>for faster search</span>
@@ -210,7 +209,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                     {features.map((feature) => {
                         const hasAlerts = (alertCounts[feature.id] || 0) > 0;
                         const isHovered = hoveredCard === feature.id;
-                        
+
                         return (
                             <div
                                 key={feature.id}
@@ -229,15 +228,21 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                                     className="cursor-pointer h-full"
                                 >
                                     <Card className={cn(
-                                        "group relative overflow-hidden rounded-2xl transition-all duration-200 h-full",
+                                        "group relative overflow-hidden rounded-2xl transition-all duration-300 h-full backdrop-blur-xl backdrop-saturate-150",
                                         hasAlerts
                                             ? isHovered
-                                                ? 'border-2 border-red-500/90 dark:border-red-400/80 bg-gradient-to-br from-red-50/90 via-white/95 to-orange-50/80 dark:from-red-900/20 dark:via-gray-900/90 dark:to-orange-900/15 shadow-[0_12px_40px_rgba(239,68,68,0.35)]'
-                                                : 'border-2 border-red-400/70 dark:border-red-500/60 bg-gradient-to-br from-red-50/90 via-white/95 to-orange-50/80 dark:from-red-900/20 dark:via-gray-900/90 dark:to-orange-900/15 shadow-[0_8px_30px_rgba(239,68,68,0.25)]'
+                                                ? 'border border-red-400/60 dark:border-red-500/50 bg-gradient-to-br from-red-50/70 via-white/80 to-orange-50/60 dark:from-red-900/30 dark:via-gray-900/80 dark:to-orange-900/25 shadow-[0_16px_50px_rgba(239,68,68,0.35),inset_0_1px_0_rgba(255,255,255,0.6)]'
+                                                : 'border border-red-300/50 dark:border-red-600/40 bg-gradient-to-br from-red-50/60 via-white/70 to-orange-50/50 dark:from-red-900/20 dark:via-gray-900/70 dark:to-orange-900/15 shadow-[0_8px_30px_rgba(239,68,68,0.2),inset_0_1px_0_rgba(255,255,255,0.5)]'
                                             : isHovered
-                                                ? cn('border-2 bg-white/95 dark:bg-gray-900/90 shadow-lg', t.borderAccent, t.borderAccentDark)
-                                                : cn('border bg-white/80 dark:bg-gray-900/80 shadow-sm hover:shadow-md', t.featureCardBorder, t.featureCardBorderDark)
+                                                ? cn('border bg-white/70 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.1)]', t.cardBg, t.borderAccent, t.borderAccentDark)
+                                                : cn('border bg-white/50 dark:bg-gray-900/50 shadow-[0_4px_20px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.05)]', t.featureCardBorder, t.featureCardBorderDark)
                                     )}>
+                                        {/* Subtle gradient overlay on hover */}
+                                        <div className={cn(
+                                            "absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300 pointer-events-none rounded-2xl",
+                                            isHovered && !hasAlerts && "opacity-8",
+                                            t.buttonGradient
+                                        )} />
 
                                         {/* === ALERT INDICATOR === */}
                                         {hasAlerts && (
@@ -270,16 +275,16 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                                                     {getIcon(feature.id)}
                                                 </div>
                                             </div>
-                                            <CardTitle className="text-sm lg:text-base text-foreground mb-1 font-bold leading-tight tracking-tight">
+                                            <CardTitle className={cn("text-sm lg:text-base mb-1 font-bold leading-tight tracking-tight", t.textBase)}>
                                                 {feature.name}
                                             </CardTitle>
-                                            <CardDescription className="text-muted-foreground text-[10px] lg:text-xs line-clamp-2 leading-relaxed">{feature.description}</CardDescription>
+                                            <CardDescription className={cn("text-[10px] lg:text-xs line-clamp-2 leading-relaxed", t.textMuted)}>{feature.description}</CardDescription>
                                         </CardHeader>
 
                                         <CardContent className="flex justify-center pb-3 lg:pb-4 pt-0 relative z-10">
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
                                                 className={cn(
                                                     "gap-1.5 text-[10px] lg:text-xs h-7 px-3.5 rounded-full font-semibold transition-all duration-200",
                                                     hasAlerts

@@ -379,18 +379,21 @@
 
   /* Global text selection styling - visible purple highlight */
   ::selection {
-    background-color: #a855f7; /* purple-500 */
+    background-color: #a855f7;
+    /* purple-500 */
     color: white;
   }
 
   ::-moz-selection {
-    background-color: #a855f7; /* purple-500 */
+    background-color: #a855f7;
+    /* purple-500 */
     color: white;
   }
 
   input::selection,
   textarea::selection {
-    background-color: #a855f7 !important; /* purple-500 */
+    background-color: #a855f7 !important;
+    /* purple-500 */
     color: white !important;
   }
 }

@@ -744,7 +744,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             </div>
                                                         </PopoverContent>
                                                     </Popover>
-                                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘K</span>
+                                                    <span className={cn("text-sm font-bold px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase)}>⌘K</span>
                                                 </div>
                                             )}
                                             {/* Chatbot Button */}
@@ -768,7 +768,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
                                                     <span>AI Chat</span>
                                                 </Button>
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘L</span>
+                                                <span className={cn("text-xs font-bold px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase)}>⌘L</span>
                                             </div>
                                             {/* Refresh Button - Updated to match Main Panel & Purple Flash */}
                                             <div className="flex flex-col items-center gap-0.5">

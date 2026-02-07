@@ -64,13 +64,13 @@ export function PremiumSearch({
                 try {
                     const orgId = selectedOrganization?.id ?? 0;
                     const apiFeatures = await apiService.getFeaturesList(orgId);
-                    
+
                     // Filter features based on user permissions
                     let filteredFeatures = apiFeatures;
                     if (user?.role !== 1 && user?.permissions?.features && Object.keys(user.permissions.features).length > 0) {
                         filteredFeatures = apiFeatures.filter(f => !!user?.permissions?.features?.[String(f.id)]);
                     }
-                    
+
                     setFeatures(filteredFeatures);
                 } catch (error) {
                     console.error('Failed to load features for search', error);
@@ -106,7 +106,7 @@ export function PremiumSearch({
         features.forEach(feature => {
             const nameMatch = feature.name.toLowerCase().includes(query);
             const descMatch = `${feature.name} analytics and tracking`.toLowerCase().includes(query);
-            
+
             if (nameMatch || descMatch) {
                 results.push({
                     id: `feature-${feature.id}`,
@@ -121,7 +121,7 @@ export function PremiumSearch({
         // Priority 2: Search profiles
         profiles.forEach(profile => {
             const nameMatch = profile.profileName.toLowerCase().includes(query);
-            
+
             if (nameMatch) {
                 results.push({
                     id: `profile-${profile.profileId}`,
@@ -138,7 +138,7 @@ export function PremiumSearch({
                 profile.panels.forEach(panel => {
                     const panelName = panel.panelName || panel.panelId;
                     const nameMatch = panelName.toLowerCase().includes(query);
-                    
+
                     if (nameMatch) {
                         results.push({
                             id: `panel-${panel.panelId}`,
@@ -163,13 +163,13 @@ export function PremiumSearch({
                 const idMatch = event.eventId.toString().includes(query);
                 const hostMatch = (event.host || '').toLowerCase().includes(query);
                 const urlMatch = (event.url || '').toLowerCase().includes(query);
-                
+
                 if (nameMatch || idMatch || hostMatch || urlMatch) {
                     results.push({
                         id: `event-${event.eventId}-${event.isApiEvent ? '1' : '0'}`,
                         type: 'event',
                         name: eventName,
-                        description: event.isApiEvent 
+                        description: event.isApiEvent
                             ? `${event.host || ''} ${event.url || ''}`.trim() || 'API Event'
                             : 'Event',
                         featureId: currentFeatureId,
@@ -237,7 +237,7 @@ export function PremiumSearch({
     // Keyboard shortcuts - Navigation and selection
     useEffect(() => {
         if (!isOpen) return;
-        
+
         const handleKeyDown = (e: KeyboardEvent) => {
             // Don't handle if user is typing in input (except for navigation keys)
             const target = e.target as HTMLElement;
@@ -286,7 +286,7 @@ export function PremiumSearch({
                 className="fixed inset-0 z-[200] bg-black/40 backdrop-blur-md animate-in fade-in duration-200"
                 onClick={onClose}
             />
-            
+
             {/* Search Container */}
             <div
                 ref={containerRef}
@@ -299,14 +299,14 @@ export function PremiumSearch({
                         "animate-in fade-in zoom-in-95 duration-300"
                     )}
                 >
-                    {/* Main Search Box - Premium Glassy Style */}
+                    {/* Main Search Box - Frosted Glass Style */}
                     <div
                         className={cn(
-                            "relative rounded-3xl shadow-2xl overflow-hidden",
-                            "bg-white/80 dark:bg-gray-900/80",
-                            "backdrop-blur-2xl",
-                            "border border-white/20 dark:border-gray-700/30",
-                            "shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
+                            "relative rounded-2xl shadow-2xl overflow-hidden",
+                            themeClasses.cardBg,
+                            "backdrop-blur-2xl backdrop-saturate-150",
+                            "border border-white/40 dark:border-white/10",
+                            "shadow-[0_8px_32px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)]"
                         )}
                     >
                         {/* Glassmorphic gradient overlay */}
@@ -324,44 +324,42 @@ export function PremiumSearch({
                         </div>
 
                         {/* Search Input */}
-                        <div className="relative z-10 p-6">
-                            <div className="flex items-center gap-4">
+                        <div className="relative z-10 p-4 pb-3">
+                            <div className="flex items-center gap-3">
                                 <div className={cn(
-                                    "flex items-center justify-center h-12 w-12 rounded-2xl",
+                                    "flex items-center justify-center h-9 w-9 rounded-xl",
                                     "bg-gradient-to-br",
                                     themeClasses.buttonGradient,
-                                    "shadow-lg"
+                                    "shadow-md"
                                 )}>
-                                    <Search className="h-5 w-5 text-white" />
+                                    <Search className="h-4 w-4 text-white" />
                                 </div>
-                                
+
                                 <div className="flex-1 relative">
                                     <input
                                         ref={inputRef}
                                         type="text"
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
-                                        placeholder="Search features, profiles, panels, and events..."
+                                        placeholder="Search features, profiles, panels, events..."
                                         className={cn(
-                                            "w-full h-14 px-6 pr-14 rounded-2xl",
-                                            "bg-white/70 dark:bg-gray-800/70",
-                                            "backdrop-blur-2xl",
-                                            "border-2 border-white/40 dark:border-gray-700/40",
-                                            "text-lg font-medium text-gray-900 dark:text-gray-100",
+                                            "w-full h-11 px-4 pr-10 rounded-xl",
+                                            "bg-gray-50/80 dark:bg-gray-800/60",
+                                            "border border-gray-200/60 dark:border-gray-700/40",
+                                            "text-base font-medium text-gray-900 dark:text-gray-100",
                                             "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-                                            "focus:outline-none focus:ring-4 focus:ring-opacity-30",
-                                            "focus:border-white/60 dark:focus:border-gray-600/60",
-                                            "transition-all duration-300",
-                                            themeClasses.ringAccent,
-                                            "shadow-xl"
+                                            "focus:outline-none focus:ring-2 focus:ring-opacity-40",
+                                            "focus:border-transparent",
+                                            "transition-all duration-200",
+                                            themeClasses.ringAccent
                                         )}
                                     />
                                     {searchQuery && (
                                         <button
                                             onClick={() => setSearchQuery('')}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-gray-200/50 dark:hover:bg-gray-700/50 transition-colors"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-gray-200/60 dark:hover:bg-gray-700/60 transition-colors"
                                         >
-                                            <X className="h-4 w-4 text-gray-500" />
+                                            <X className="h-3.5 w-3.5 text-gray-400" />
                                         </button>
                                     )}
                                 </div>
@@ -369,41 +367,28 @@ export function PremiumSearch({
                                 <button
                                     onClick={onClose}
                                     className={cn(
-                                        "h-12 w-12 rounded-2xl flex items-center justify-center",
+                                        "h-9 px-3 rounded-lg flex items-center justify-center",
                                         "bg-gray-100/80 dark:bg-gray-800/80",
-                                        "backdrop-blur-xl",
-                                        "border border-gray-200/50 dark:border-gray-700/50",
+                                        "border border-gray-200/60 dark:border-gray-700/50",
                                         "hover:bg-gray-200/80 dark:hover:bg-gray-700/80",
-                                        "transition-all duration-200",
-                                        "shadow-lg"
+                                        "transition-all duration-150",
+                                        "text-xs font-medium text-gray-500 dark:text-gray-400"
                                     )}
                                 >
-                                    <X className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                                    esc
                                 </button>
                             </div>
 
-                            {/* Keyboard Hint */}
-                            <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
-                                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
-                                    <Command className="h-3 w-3" />
-                                    <span className="font-medium">F</span>
+                            {/* Keyboard Hints - Compact like Spotlight */}
+                            <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400 dark:text-gray-500">
+                                <div className="flex items-center gap-1">
+                                    <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-medium">↑↓</kbd>
+                                    <span>navigate</span>
                                 </div>
-                                <span>to search</span>
-                                <span className="mx-1">•</span>
-                                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
-                                    <span className="font-medium">Enter</span>
+                                <div className="flex items-center gap-1">
+                                    <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-medium">↵</kbd>
+                                    <span>select</span>
                                 </div>
-                                <span>to select</span>
-                                <span className="mx-1">•</span>
-                                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
-                                    <span className="font-medium">↑↓</span>
-                                </div>
-                                <span>to navigate</span>
-                                <span className="mx-1">•</span>
-                                <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
-                                    <span className="font-medium">Esc</span>
-                                </div>
-                                <span>to close</span>
                             </div>
                         </div>
 
@@ -479,12 +464,12 @@ export function PremiumSearch({
                                                                     result.type === 'feature' || result.type === 'profile'
                                                                         ? cn("bg-gradient-to-r text-white", themeClasses.buttonGradient)
                                                                         : result.type === 'panel'
-                                                                        ? "bg-blue-200 dark:bg-blue-700 text-blue-700 dark:text-blue-300"
-                                                                        : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                                                                            ? "bg-blue-200 dark:bg-blue-700 text-blue-700 dark:text-blue-300"
+                                                                            : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
                                                                 )}>
-                                                                    {result.type === 'feature' ? 'Feature' : 
-                                                                     result.type === 'profile' ? 'Profile' :
-                                                                     result.type === 'panel' ? 'Panel' : 'Event'}
+                                                                    {result.type === 'feature' ? 'Feature' :
+                                                                        result.type === 'profile' ? 'Profile' :
+                                                                            result.type === 'panel' ? 'Panel' : 'Event'}
                                                                 </span>
                                                             </div>
                                                             {result.description && (

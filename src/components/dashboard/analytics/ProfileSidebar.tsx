@@ -66,6 +66,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     activePanelId = null
 }: ProfileSidebarProps) {
     const [profiles, setProfiles] = useState<DashboardProfile[]>([]);
+    const [isLoading, setIsLoading] = useState(true); // Add loading state
     const [alertCounts, setAlertCounts] = useState<Record<string, number>>({}); // Store alert counts by eventId
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -100,63 +101,72 @@ export const ProfileSidebar = memo(function ProfileSidebar({
 
     useEffect(() => {
         const loadProfiles = async () => {
-            // Use firebaseConfigService which has DB-first logic
-            const result = await firebaseConfigService.getProfiles(featureId, 'default');
-            if (result.success) {
-                // Convert DashboardProfileConfig to DashboardProfile format
-                const data = result.items.map(p => ({
-                    ...p,
-                    lastModified: p.updatedAt || p.createdAt,
-                })) as DashboardProfile[];
-                setProfiles(data);
-                if (!selectedProfileId && data.length > 0) {
-                    // Default to first non-APIs profile, or first profile if only APIs exists
-                    const defaultProfile = data.find(p => p.profileName !== 'APIs') || data[0];
-                    onSelectProfile(defaultProfile.profileId);
-                }
-            }
-
-            // Auto-sync API panels in background (non-blocking)
-            // Only run if we have loaded profiles to check against
-            if (featureId && result.success) {
-                (async () => {
-                    try {
-                        const apiService = await import('@/services/apiService');
-                        const dashboardDbService = await import('@/services/dashboardDbService');
-                        
-                        // Get all events for this feature
-                        const events = await apiService.apiService.getEventsList(featureId);
-                        const apiEvents = events.filter(e => e.isApiEvent === true);
-                        
-                        // Auto-sync API panels (creates/updates as needed)
-                        // Pass existing profiles to avoid duplicates
-                        if (apiEvents.length > 0) {
-                            const existingProfiles = result.items;
-                            const hasApiProfile = existingProfiles.some(p => p.profileName === 'APIs');
-                            
-                            // Only sync if there are new API events or no API profile exists
-                            const shouldSync = !hasApiProfile || apiEvents.length > 0;
-                            
-                            if (shouldSync) {
-                                await dashboardDbService.dashboardDbService.autoSyncApiPanels(
-                                    parseInt(featureId),
-                                    apiEvents
-                                );
-                                // Refresh profiles after sync to show new panels
-                                const refreshResult = await firebaseConfigService.getProfiles(featureId, 'default');
-                                if (refreshResult.success) {
-                                    const refreshedData = refreshResult.items.map(p => ({
-                                        ...p,
-                                        lastModified: p.updatedAt || p.createdAt,
-                                    })) as DashboardProfile[];
-                                    setProfiles(refreshedData);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Auto-sync API panels failed:', error);
+            setIsLoading(true);
+            try {
+                // Use firebaseConfigService which has DB-first logic
+                const result = await firebaseConfigService.getProfiles(featureId, 'default');
+                if (result.success) {
+                    // Convert DashboardProfileConfig to DashboardProfile format
+                    const data = result.items.map(p => ({
+                        ...p,
+                        lastModified: p.updatedAt || p.createdAt,
+                    })) as DashboardProfile[];
+                    setProfiles(data);
+                    setIsLoading(false); // Stop loading after profiles are set
+                    if (!selectedProfileId && data.length > 0) {
+                        // Default to first non-APIs profile, or first profile if only APIs exists
+                        const defaultProfile = data.find(p => p.profileName !== 'APIs') || data[0];
+                        onSelectProfile(defaultProfile.profileId);
                     }
-                })();
+
+                    // Auto-sync API panels in background (truly non-blocking with setTimeout)
+                    // This runs AFTER the UI has updated, preventing any perceived slowness
+                    if (featureId && result.success) {
+                        setTimeout(() => {
+                            (async () => {
+                                try {
+                                    const apiServiceMod = await import('@/services/apiService');
+                                    const dashboardDbServiceMod = await import('@/services/dashboardDbService');
+
+                                    // Get all events for this feature
+                                    const events = await apiServiceMod.apiService.getEventsList(featureId);
+                                    const apiEvents = events.filter(e => e.isApiEvent === true);
+
+                                    // Auto-sync API panels (creates/updates as needed)
+                                    // Pass existing profiles to avoid duplicates
+                                    if (apiEvents.length > 0) {
+                                        const existingProfiles = result.items;
+                                        const hasApiProfile = existingProfiles.some(p => p.profileName === 'APIs');
+
+                                        // Only sync if there are new API events or no API profile exists
+                                        const shouldSync = !hasApiProfile || apiEvents.length > 0;
+
+                                        if (shouldSync) {
+                                            await dashboardDbServiceMod.dashboardDbService.autoSyncApiPanels(
+                                                parseInt(featureId),
+                                                apiEvents
+                                            );
+                                            // Refresh profiles after sync to show new panels
+                                            const refreshResult = await firebaseConfigService.getProfiles(featureId, 'default');
+                                            if (refreshResult.success) {
+                                                const refreshedData = refreshResult.items.map(p => ({
+                                                    ...p,
+                                                    lastModified: p.updatedAt || p.createdAt,
+                                                })) as DashboardProfile[];
+                                                setProfiles(refreshedData);
+                                            }
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Auto-sync API panels failed:', error);
+                                }
+                            })();
+                        }, 100); // Delay auto-sync to let UI render first
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load profiles:', error);
+                setIsLoading(false);
             }
         };
         loadProfiles();
@@ -257,13 +267,13 @@ export const ProfileSidebar = memo(function ProfileSidebar({
         if (dbProfileId) {
             try {
                 const success = await dashboardDbService.deleteProfile(dbProfileId, parseInt(featureId));
-                
+
                 if (!success) {
                     console.error('Failed to delete profile from database');
                     // Don't update UI if DB delete failed
                     return;
                 }
-                
+
                 console.log('✅ Profile deleted from database');
             } catch (error) {
                 console.error('Error deleting profile:', error);
@@ -414,7 +424,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
 
     // Expanded Content JSX moved to separate variable for cleaner render
     const expandedContentJSX = (
-        <div className="flex flex-col h-full bg-white dark:bg-gray-900">
+        <div className={cn("flex flex-col h-full transition-colors duration-500", t.sidebarBg)}>
             {/* Unified Header + Search Section - Seamless */}
             <div className={cn(
                 "border-b",
@@ -459,7 +469,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                         </Button>
                     </div>
                 </div>
-                
+
                 {/* Search - Integrated seamlessly */}
                 <div className="px-3 pb-3">
                     <div className="relative">
@@ -477,229 +487,244 @@ export const ProfileSidebar = memo(function ProfileSidebar({
             {/* Profile List - Tree Hierarchy */}
             <div className="flex-1 overflow-y-auto p-2">
                 <div className="space-y-1">
-                    <AnimatePresence mode="popLayout">
-                        {filteredProfiles.map((profile) => {
-                            const isSelected = selectedProfileId === profile.profileId;
-                            const stats = getProfileStats(profile);
-
-                            return (
-                                <motion.div
-                                    key={profile.profileId}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="relative mb-1"
-                                >
-                                    {/* Profile Node */}
-                                    <div className="relative group flex items-center">
-                                        <button
-                                            onClick={() => handleSelectProfile(profile.profileId)}
-                                            className={cn(
-                                                "flex-1 text-left p-2 rounded-lg transition-all duration-200 flex items-center gap-2 group/btn",
-                                                isSelected
-                                                    ? cn("shadow-md border", t.sidebarActive, t.sidebarActiveDark, t.borderAccent, t.borderAccentDark)
-                                                    : cn("border border-transparent", t.cardHoverBorder, t.cardHoverBorderDark)
-                                            )}
-                                        >
-                                            <div className={cn(
-                                                "w-6 h-6 rounded-md flex items-center justify-center transition-all shadow-sm border",
-                                                isSelected
-                                                    ? cn("bg-gradient-to-br text-white", t.buttonGradient, t.borderAccent)
-                                                    : cn("bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700", t.textPrimary, t.textPrimaryDark)
-                                            )}>
-                                                <Layers className="w-3.5 h-3.5" />
-                                            </div>
-
-                                            <div className="flex-1 min-w-0 flex flex-col items-start text-left">
-                                                <span className={cn(
-                                                    "text-[12.5px] font-bold truncate w-full transition-colors",
-                                                    isSelected ? "text-gray-900 dark:text-gray-50" : cn("text-slate-600 dark:text-slate-400", t.linkHover, t.linkHoverDark)
-                                                )} title={profile.profileName.includes(' - /') ? profile.profileName.split(' - ')[0] : profile.profileName}>
-                                                    {(() => {
-                                                        const parts = profile.profileName.split(' - ');
-                                                        if (parts.length === 2 && parts[1].trim().startsWith('/')) {
-                                                            return parts[1].trim();
-                                                        }
-                                                        return profile.profileName;
-                                                    })()}
-                                                </span>
-                                                <div className="flex items-center gap-1.5 text-[9.5px] mt-0.5">
-                                                    <span className="text-muted-foreground font-medium">{stats.panelCount} items</span>
-                                                    {stats.hasApi && (
-                                                        <span className="flex items-center gap-0.5 px-1 rounded-sm bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold border border-blue-100 dark:border-blue-500/20">
-                                                            <Activity className="w-2 h-2" /> API
-                                                        </span>
-                                                    )}
-                                                    {/* Profile-level alert badge - accumulated from all panels */}
-                                                    {(() => {
-                                                        // Calculate total alerts for this profile
-                                                        let totalAlerts = 0;
-                                                        profile.panels.forEach(panel => {
-                                                            const eventIds = panel.events?.map(e => Number(e.eventId)) ||
-                                                                panel.filterConfig?.events || [];
-                                                            eventIds.forEach((evtId: number) => {
-                                                                totalAlerts += (alertCounts[String(evtId)] || 0);
-                                                            });
-                                                        });
-                                                        if (totalAlerts > 0) {
-                                                            return (
-                                                                <span
-                                                                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 text-[9px] font-bold border border-red-200 dark:border-red-500/30 cursor-help"
-                                                                    title={`${totalAlerts} alerts across ${profile.panels.length} panels (Last 7 days)`}
-                                                                >
-                                                                    <AlertTriangle className="w-2.5 h-2.5" />
-                                                                    {totalAlerts}
-                                                                </span>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
-                                                </div>
-                                            </div>
-
-                                            {hasWriteAccess && (
-                                                <div
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-opacity cursor-pointer"
-                                                    onClick={(e) => handleDeleteClick(e, profile)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter' || e.key === ' ') {
-                                                            e.preventDefault();
-                                                            handleDeleteClick(e as any, profile);
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 className="h-3 w-3 text-red-500/70" />
-                                                </div>
-                                            )}
-                                        </button>
-
-                                        {/* Dynamic Indicator for Selected */}
-                                        {/* Removed active-indicator bar */}
+                    {/* Skeleton Loading UI */}
+                    {isLoading ? (
+                        <div className="space-y-2 px-1">
+                            {[...Array(4)].map((_, idx) => (
+                                <div key={idx} className="animate-pulse flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                                    <div className="w-6 h-6 rounded-md bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="h-3.5 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                                        <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded w-1/2" />
                                     </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <AnimatePresence mode="popLayout">
+                            {filteredProfiles.map((profile) => {
+                                const isSelected = selectedProfileId === profile.profileId;
+                                const stats = getProfileStats(profile);
 
-                                    {/* Nested Tree - Panels */}
-                                    <AnimatePresence>
-                                        {isSelected && profile.panels && profile.panels.length > 0 && (
-                                            <motion.div
-                                                initial={{ height: 0, opacity: 0 }}
-                                                animate={{ height: 'auto', opacity: 1 }}
-                                                exit={{ height: 0, opacity: 0 }}
-                                                className={cn("overflow-hidden ml-5 mt-1 border-l-2 border-dashed pl-3 space-y-1 relative", t.borderAccent, t.borderAccentDark)}
+                                return (
+                                    <motion.div
+                                        key={profile.profileId}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95 }}
+                                        className="relative mb-1"
+                                    >
+                                        {/* Profile Node */}
+                                        <div className="relative group flex items-center">
+                                            <button
+                                                onClick={() => handleSelectProfile(profile.profileId)}
+                                                className={cn(
+                                                    "flex-1 text-left p-2 rounded-lg transition-all duration-200 flex items-center gap-2 group/btn",
+                                                    isSelected
+                                                        ? cn("shadow-md border", t.sidebarActive, t.sidebarActiveDark, t.borderAccent, t.borderAccentDark)
+                                                        : cn("border border-transparent", t.cardHoverBorder, t.cardHoverBorderDark)
+                                                )}
                                             >
-                                                {profile.panels.map((panel, pIndex) => {
-                                                    // Get alert count for THIS specific panel based on its alertsConfig
-                                                    const panelAlerts = (() => {
-                                                        // Check if this panel has alert config with specific event filter
-                                                        const panelAlertConfig = (panel as any).alertsConfig;
-                                                        const panelEventFilter = panelAlertConfig?.filterByEvents?.map((id: string) => parseInt(id)) || [];
+                                                <div className={cn(
+                                                    "w-6 h-6 rounded-md flex items-center justify-center transition-all shadow-sm border",
+                                                    isSelected
+                                                        ? cn("bg-gradient-to-br text-white", t.buttonGradient, t.borderAccent)
+                                                        : cn("bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700", t.textPrimary, t.textPrimaryDark)
+                                                )}>
+                                                    <Layers className="w-3.5 h-3.5" />
+                                                </div>
 
-                                                        // If no specific events selected in panel config, check panel's regular events
-                                                        const relevantEventIds = panelEventFilter.length > 0
-                                                            ? panelEventFilter
-                                                            : (panel.events?.map((e: any) => Number(e.eventId)) || []);
-
-                                                        if (relevantEventIds.length === 0) return 0;
-
-                                                        // Count alerts matching this panel's events from alertCounts state
-                                                        return relevantEventIds.reduce((sum: number, evtId: number) => {
-                                                            return sum + (alertCounts[String(evtId)] || 0);
-                                                        }, 0);
-                                                    })();
-
-                                                    const isPanelActive = activePanelId && (panel.panelId === activePanelId || `panel-${panel.panelId}` === activePanelId);
-
-                                                    const panelName = panel.panelName || `Panel ${pIndex + 1}`;
-                                                    const panelParts = panelName.split(' - ');
-                                                    const hasDomainAndEndpoint = panelParts.length === 2 && panelParts[1].trim().startsWith('/');
-                                                    const domainName = hasDomainAndEndpoint ? panelParts[0].trim() : '';
-                                                    const displayName = hasDomainAndEndpoint ? panelParts[1].trim() : panelName;
-                                                    
-                                                    return (
-                                                        <TooltipProvider key={panel.panelId} delayDuration={200}>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <motion.button
-                                                                        whileHover={{ x: 2 }}
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            onJumpToPanel?.(panel.panelId, panel.panelName || `Panel ${pIndex + 1}`);
-                                                                        }}
-                                                                        className={cn(
-                                                                            "w-full relative py-1.5 px-2 rounded-md flex items-center gap-2 group/panel transition-all border",
-                                                                            isPanelActive
-                                                                                ? cn("shadow-sm font-semibold", t.sidebarActive, t.sidebarActiveDark, t.sidebarActiveText, t.sidebarActiveTextDark, t.borderAccent, t.borderAccentDark)
-                                                                                : cn("bg-transparent hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent", t.cardHoverBorder, t.cardHoverBorderDark)
-                                                                        )}
+                                                <div className="flex-1 min-w-0 flex flex-col items-start text-left">
+                                                    <span className={cn(
+                                                        "text-[12.5px] font-bold truncate w-full transition-colors",
+                                                        isSelected ? "text-gray-900 dark:text-gray-50" : cn("text-slate-600 dark:text-slate-400", t.linkHover, t.linkHoverDark)
+                                                    )} title={profile.profileName.includes(' - /') ? profile.profileName.split(' - ')[0] : profile.profileName}>
+                                                        {(() => {
+                                                            const parts = profile.profileName.split(' - ');
+                                                            if (parts.length === 2 && parts[1].trim().startsWith('/')) {
+                                                                return parts[1].trim();
+                                                            }
+                                                            return profile.profileName;
+                                                        })()}
+                                                    </span>
+                                                    <div className="flex items-center gap-1.5 text-[9.5px] mt-0.5">
+                                                        <span className="text-muted-foreground font-medium">{stats.panelCount} items</span>
+                                                        {stats.hasApi && (
+                                                            <span className="flex items-center gap-0.5 px-1 rounded-sm bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold border border-blue-100 dark:border-blue-500/20">
+                                                                <Activity className="w-2 h-2" /> API
+                                                            </span>
+                                                        )}
+                                                        {/* Profile-level alert badge - accumulated from all panels */}
+                                                        {(() => {
+                                                            // Calculate total alerts for this profile
+                                                            let totalAlerts = 0;
+                                                            profile.panels.forEach(panel => {
+                                                                const eventIds = panel.events?.map(e => Number(e.eventId)) ||
+                                                                    panel.filterConfig?.events || [];
+                                                                eventIds.forEach((evtId: number) => {
+                                                                    totalAlerts += (alertCounts[String(evtId)] || 0);
+                                                                });
+                                                            });
+                                                            if (totalAlerts > 0) {
+                                                                return (
+                                                                    <span
+                                                                        className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 text-[9px] font-bold border border-red-200 dark:border-red-500/30 cursor-help"
+                                                                        title={`${totalAlerts} alerts across ${profile.panels.length} panels (Last 7 days)`}
                                                                     >
-                                                                        <div className={cn(
-                                                                            "absolute -left-[14px] top-1/2 w-3 h-[1px]",
-                                                                            isPanelActive ? cn(t.textPrimary, t.textPrimaryDark).replace('text-', 'bg-') : "bg-gray-200 dark:bg-gray-700"
-                                                                        )} />
+                                                                        <AlertTriangle className="w-2.5 h-2.5" />
+                                                                        {totalAlerts}
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                    </div>
+                                                </div>
 
-                                                                        <div className={cn(
-                                                                            "w-4 h-4 rounded-sm flex items-center justify-center",
-                                                                            isPanelActive
-                                                                                ? cn("bg-white dark:bg-gray-900", t.textPrimary, t.textPrimaryDark)
-                                                                                : "bg-slate-50 dark:bg-slate-900 text-slate-400"
-                                                                        )}>
-                                                                            {getChartIcon(panel)}
-                                                                        </div>
-                                                                        <div className="flex-1 min-w-0 flex items-center justify-start text-left">
-                                                                            <span className={cn(
-                                                                                "text-[11px] truncate block w-full text-left transition-colors",
+                                                {hasWriteAccess && (
+                                                    <div
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 dark:hover:bg-red-500/10 rounded transition-opacity cursor-pointer"
+                                                        onClick={(e) => handleDeleteClick(e, profile)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                e.preventDefault();
+                                                                handleDeleteClick(e as any, profile);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-3 w-3 text-red-500/70" />
+                                                    </div>
+                                                )}
+                                            </button>
+
+                                            {/* Dynamic Indicator for Selected */}
+                                            {/* Removed active-indicator bar */}
+                                        </div>
+
+                                        {/* Nested Tree - Panels */}
+                                        <AnimatePresence>
+                                            {isSelected && profile.panels && profile.panels.length > 0 && (
+                                                <motion.div
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: 'auto', opacity: 1 }}
+                                                    exit={{ height: 0, opacity: 0 }}
+                                                    className={cn("overflow-hidden ml-5 mt-1 border-l-2 border-dashed pl-3 space-y-1 relative", t.borderAccent, t.borderAccentDark)}
+                                                >
+                                                    {profile.panels.map((panel, pIndex) => {
+                                                        // Get alert count for THIS specific panel based on its alertsConfig
+                                                        const panelAlerts = (() => {
+                                                            // Check if this panel has alert config with specific event filter
+                                                            const panelAlertConfig = (panel as any).alertsConfig;
+                                                            const panelEventFilter = panelAlertConfig?.filterByEvents?.map((id: string) => parseInt(id)) || [];
+
+                                                            // If no specific events selected in panel config, check panel's regular events
+                                                            const relevantEventIds = panelEventFilter.length > 0
+                                                                ? panelEventFilter
+                                                                : (panel.events?.map((e: any) => Number(e.eventId)) || []);
+
+                                                            if (relevantEventIds.length === 0) return 0;
+
+                                                            // Count alerts matching this panel's events from alertCounts state
+                                                            return relevantEventIds.reduce((sum: number, evtId: number) => {
+                                                                return sum + (alertCounts[String(evtId)] || 0);
+                                                            }, 0);
+                                                        })();
+
+                                                        const isPanelActive = activePanelId && (panel.panelId === activePanelId || `panel-${panel.panelId}` === activePanelId);
+
+                                                        const panelName = panel.panelName || `Panel ${pIndex + 1}`;
+                                                        const panelParts = panelName.split(' - ');
+                                                        const hasDomainAndEndpoint = panelParts.length === 2 && panelParts[1].trim().startsWith('/');
+                                                        const domainName = hasDomainAndEndpoint ? panelParts[0].trim() : '';
+                                                        const displayName = hasDomainAndEndpoint ? panelParts[1].trim() : panelName;
+
+                                                        return (
+                                                            <TooltipProvider key={panel.panelId} delayDuration={200}>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <motion.button
+                                                                            whileHover={{ x: 2 }}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                onJumpToPanel?.(panel.panelId, panel.panelName || `Panel ${pIndex + 1}`);
+                                                                            }}
+                                                                            className={cn(
+                                                                                "w-full relative py-1.5 px-2 rounded-md flex items-center gap-2 group/panel transition-all border",
                                                                                 isPanelActive
-                                                                                    ? cn(t.sidebarActiveText, t.sidebarActiveTextDark)
-                                                                                    : "font-medium text-slate-500 dark:text-slate-400"
-                                                                            )}>
-                                                                                {displayName}
-                                                                            </span>
-                                                                        </div>
+                                                                                    ? cn("shadow-sm font-semibold", t.sidebarActive, t.sidebarActiveDark, t.sidebarActiveText, t.sidebarActiveTextDark, t.borderAccent, t.borderAccentDark)
+                                                                                    : cn("bg-transparent hover:bg-white dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border-transparent", t.cardHoverBorder, t.cardHoverBorderDark)
+                                                                            )}
+                                                                        >
+                                                                            <div className={cn(
+                                                                                "absolute -left-[14px] top-1/2 w-3 h-[1px]",
+                                                                                isPanelActive ? cn(t.textPrimary, t.textPrimaryDark).replace('text-', 'bg-') : "bg-gray-200 dark:bg-gray-700"
+                                                                            )} />
 
-                                                                        {panelAlerts > 0 && (
-                                                                            <TooltipProvider delayDuration={100}>
-                                                                                <Tooltip>
-                                                                                    <TooltipTrigger asChild>
-                                                                                        <span className="flex items-center gap-1 font-black text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(220,38,38,0.4)] animate-pulse-subtle cursor-help">
-                                                                                            <AlertTriangle className="w-3 h-3 fill-white/20" /> {panelAlerts}
-                                                                                        </span>
-                                                                                    </TooltipTrigger>
-                                                                                    <TooltipContent side="right" className="bg-red-950 text-white border-red-800 p-3 max-w-xs shadow-2xl">
-                                                                                        <div className="space-y-1">
-                                                                                            <p className="font-bold flex items-center gap-2 text-sm">
-                                                                                                <AlertTriangle className="w-4 h-4 text-orange-400" />
-                                                                                                Critical Alerts Detected
-                                                                                            </p>
-                                                                                            <p className="text-red-200 text-[11px] leading-relaxed">
-                                                                                                There are {panelAlerts} high-severity events in this panel. Please check the dashboard for details.
-                                                                                            </p>
-                                                                                        </div>
-                                                                                    </TooltipContent>
-                                                                                </Tooltip>
-                                                                            </TooltipProvider>
-                                                                        )}
-                                                                    </motion.button>
-                                                                </TooltipTrigger>
-                                                                {domainName && (
-                                                                    <TooltipContent side="right" className="bg-slate-900 text-white border-slate-700 px-3 py-2">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Activity className="w-3.5 h-3.5 text-blue-400" />
-                                                                            <span className="font-semibold text-xs">{domainName}</span>
-                                                                        </div>
-                                                                    </TooltipContent>
-                                                                )}
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    );
-                                                })}
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresence>
+                                                                            <div className={cn(
+                                                                                "w-4 h-4 rounded-sm flex items-center justify-center",
+                                                                                isPanelActive
+                                                                                    ? cn("bg-white dark:bg-gray-900", t.textPrimary, t.textPrimaryDark)
+                                                                                    : "bg-slate-50 dark:bg-slate-900 text-slate-400"
+                                                                            )}>
+                                                                                {getChartIcon(panel)}
+                                                                            </div>
+                                                                            <div className="flex-1 min-w-0 flex items-center justify-start text-left">
+                                                                                <span className={cn(
+                                                                                    "text-[11px] truncate block w-full text-left transition-colors",
+                                                                                    isPanelActive
+                                                                                        ? cn(t.sidebarActiveText, t.sidebarActiveTextDark)
+                                                                                        : "font-medium text-slate-500 dark:text-slate-400"
+                                                                                )}>
+                                                                                    {displayName}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            {panelAlerts > 0 && (
+                                                                                <TooltipProvider delayDuration={100}>
+                                                                                    <Tooltip>
+                                                                                        <TooltipTrigger asChild>
+                                                                                            <span className="flex items-center gap-1 font-black text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(220,38,38,0.4)] animate-pulse-subtle cursor-help">
+                                                                                                <AlertTriangle className="w-3 h-3 fill-white/20" /> {panelAlerts}
+                                                                                            </span>
+                                                                                        </TooltipTrigger>
+                                                                                        <TooltipContent side="right" className="bg-red-950 text-white border-red-800 p-3 max-w-xs shadow-2xl">
+                                                                                            <div className="space-y-1">
+                                                                                                <p className="font-bold flex items-center gap-2 text-sm">
+                                                                                                    <AlertTriangle className="w-4 h-4 text-orange-400" />
+                                                                                                    Critical Alerts Detected
+                                                                                                </p>
+                                                                                                <p className="text-red-200 text-[11px] leading-relaxed">
+                                                                                                    There are {panelAlerts} high-severity events in this panel. Please check the dashboard for details.
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        </TooltipContent>
+                                                                                    </Tooltip>
+                                                                                </TooltipProvider>
+                                                                            )}
+                                                                        </motion.button>
+                                                                    </TooltipTrigger>
+                                                                    {domainName && (
+                                                                        <TooltipContent side="right" className="bg-slate-900 text-white border-slate-700 px-3 py-2">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Activity className="w-3.5 h-3.5 text-blue-400" />
+                                                                                <span className="font-semibold text-xs">{domainName}</span>
+                                                                            </div>
+                                                                        </TooltipContent>
+                                                                    )}
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        );
+                                                    })}
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </motion.div>
+                                );
+                            })}
+                        </AnimatePresence>
+                    )}
                 </div>
 
                 {filteredProfiles.length === 0 && (
@@ -719,7 +744,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     // If rendered in mobile drawer from parent, just show content directly
     if (isMobileDrawer) {
         return (
-            <div className="flex flex-col h-full bg-background">
+            <div className={cn("flex flex-col h-full transition-colors duration-500", t.sidebarBg)}>
                 {expandedContentJSX}
             </div>
         );
@@ -746,14 +771,14 @@ export const ProfileSidebar = memo(function ProfileSidebar({
             {/* Mobile Sidebar */}
             {isMobileOpen && (
                 <div
-                    className="fixed inset-y-0 left-0 w-72 bg-background border-r border-border/50 flex flex-col z-50 lg:hidden shadow-xl"
+                    className={cn("fixed inset-y-0 left-0 w-72 flex flex-col z-50 lg:hidden shadow-xl transition-colors duration-500", t.sidebarBg, t.borderAccent)}
                 >
                     {expandedContentJSX}
                 </div>
             )}
 
             {/* Desktop Sidebar (width handled by parent) */}
-            <div className="hidden lg:flex flex-col bg-background h-full">
+            <div className={cn("hidden lg:flex flex-col h-full transition-colors duration-500", t.sidebarBg)}>
                 {isCollapsed ? collapsedContentJSX : expandedContentJSX}
             </div>
 

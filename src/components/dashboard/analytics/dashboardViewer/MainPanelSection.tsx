@@ -444,8 +444,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
                 className={cn(
-                    "rounded-2xl overflow-hidden group transition-all duration-300 relative mb-6",
-                    filtersFlash && cn("ring-4 shadow-lg", themeClasses.ringAccent)
+                    "rounded-3xl overflow-hidden group transition-all duration-300 relative mb-6 backdrop-blur-xl border-2 shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)]",
+                    themeClasses.cardBg,
+                    themeClasses.featureCardBorder, themeClasses.featureCardBorderDark,
+                    filtersFlash && cn("ring-4 shadow-2xl", themeClasses.ringAccent)
                 )}
             >
                 {/* Flash Overlay */}
@@ -645,7 +647,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                         </PopoverContent>
                                     </Popover>
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘K</span>
+                                    <span className={cn("text-sm font-bold px-2 py-0.5 rounded-md border shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase, "border-slate-200/70 dark:border-slate-700/70")}>⌘K</span>
                                 </div>
                             )}
                             {/* Chatbot Button */}
@@ -665,7 +667,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
                                     <span>AI Chat</span>
                                 </Button>
-                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 px-2 py-0.5 rounded-md bg-white/70 dark:bg-slate-900/50 border border-slate-200/70 dark:border-slate-700/70 shadow-sm">⌘L</span>
+                                <span className={cn("text-xs font-bold px-2 py-0.5 rounded-md border shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase, "border-slate-200/70 dark:border-slate-700/70")}>⌘L</span>
                             </div>
                             {/* Quick Refresh Shortcut Hint */}
                             <div className={cn("hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border shadow-sm", "bg-gradient-to-r", themeClasses.buttonGradient, "border-transparent")}>
@@ -1473,11 +1475,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <Hash className="h-4 w-4 text-white" />
                                                 </div>
                                                 <div
-                                                    className={cn("text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent min-h-[32px]", themeClasses.headerGradient)}
+                                                    className="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-white dark:to-slate-200 bg-clip-text text-transparent min-h-[32px]"
                                                 >
                                                     {dataLoading ? <Skeleton className="h-8 w-24" /> : <AnimatedNumber value={totalCount} />}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
+                                                <div className={cn("text-xs mt-0.5 font-medium flex items-center gap-1", themeClasses.textMuted)}>
                                                     Total Events
                                                     <InfoTooltip content="Grand total of all events recorded within the selected timeframe and filters." />
                                                 </div>
@@ -1508,11 +1510,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <div className="flex items-start justify-between">
                                             <div>
                                                 <div
-                                                    className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent min-h-[32px]"
+                                                    className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent min-h-[32px]"
                                                 >
                                                     {dataLoading ? <Skeleton className="h-8 w-20" /> : <AnimatedNumber value={totalSuccess} />}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
+                                                <div className={cn("text-xs mt-0.5 font-medium flex items-center gap-1", themeClasses.textMuted)}>
                                                     Success Count
                                                     <InfoTooltip content="Total number of events that were processed successfully." />
                                                 </div>
@@ -1558,11 +1560,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     <XCircle className="h-4 w-4 text-white" />
                                                 </div>
                                                 <div
-                                                    className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent min-h-[32px]"
+                                                    className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent min-h-[32px]"
                                                 >
                                                     {dataLoading ? <Skeleton className="h-8 w-16" /> : <AnimatedNumber value={totalFail} />}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-0.5 font-medium flex items-center gap-1">
+                                                <div className={cn("text-xs mt-0.5 font-medium flex items-center gap-1", themeClasses.textMuted)}>
                                                     Fail Count
                                                     <InfoTooltip content="Total number of events that encountered errors or failed processing." />
                                                 </div>
@@ -1967,7 +1969,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                         // Merge filter state with config
                         return (
-                            <Card className="border border-gray-200/60 dark:border-gray-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 mt-4">
+                            <Card className={cn("relative border border-slate-200/60 dark:border-indigo-500/20 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl mt-4", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                                 <CardHeader className="pb-2 bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/30 dark:to-slate-800/20 border-b border-gray-200/40 dark:border-gray-500/20">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
@@ -2145,7 +2148,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 : normalEventKeys.map(e => e.eventKey);
 
                             return (
-                                <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                                     <CardHeader className="pb-2 px-3 md:px-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
@@ -2213,7 +2217,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 : normalEventKeys.map(e => e.eventKey);
 
                             return (
-                                <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                                     <CardHeader className="pb-2 px-3 md:px-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
@@ -2296,7 +2301,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 : normalEventKeys.map(e => e.eventKey);
 
                             return (
-                                <Card className="border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
+                                <Card className={cn("relative border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                                     <CardHeader className="pb-2 px-3 md:px-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
@@ -2345,7 +2351,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     // Otherwise show the regular chart
                     return (
                         <div>
-                            <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                            <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                                 <CardHeader className="pb-2 px-3 md:px-6">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
@@ -2927,7 +2934,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {
                 avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
-                        <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                        <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                            <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
@@ -3167,7 +3175,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                     return (
                         <div>
-                            <Card className="border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                            <Card className={cn("relative border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                                 <CardHeader className="pb-2 px-3 md:px-6">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
@@ -3431,7 +3440,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {
                 errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
-                        <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-premium rounded-2xl hover:shadow-card-hover transition-all duration-300">
+                        <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+                            <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                             <CardHeader className="pb-2 px-3 md:px-6">
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
@@ -3634,7 +3644,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 {/* Status Code Distribution */}
                                 {showStatus && (
                                     <div>
-                                        <Card className="relative border border-blue-200/60 dark:border-blue-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                        <Card className={cn("relative border border-blue-200/60 dark:border-blue-500/30 overflow-hidden group rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
                                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400" />
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
@@ -3708,7 +3718,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 {/* Cache Status Distribution */}
                                 {showCacheStatus && (
                                     <div>
-                                        <Card className="relative border border-gray-200/60 dark:border-gray-600/40 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                        <Card className={cn("relative border border-gray-200/60 dark:border-gray-600/40 overflow-hidden group rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
                                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-500 via-slate-500 to-gray-400" />
                                             <CardHeader className="pb-2">
                                                 <div className="flex items-center justify-between">
@@ -3821,7 +3831,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 const platformTotal = platformData.reduce((acc: number, item: any) => acc + item.value, 0);
                                 return (
                                     <div>
-                                        <Card className="relative border border-indigo-200/60 dark:border-indigo-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                        <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden group rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
                                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-blue-500 to-indigo-400" />
                                             <CardHeader className="pb-2 px-4 pt-4">
                                                 <div className="flex items-center justify-between">
@@ -3908,7 +3918,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 const posTotal = posData.reduce((acc: number, item: any) => acc + item.value, 0);
                                 return (
                                     <div>
-                                        <Card className="relative border border-emerald-200/60 dark:border-emerald-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                        <Card className={cn("relative border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden group rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15_50px_rgba(0,0,0,0.5)] transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
                                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400" />
                                             <CardHeader className="pb-2 px-4 pt-4">
                                                 <div className="flex items-center justify-between">
@@ -3995,7 +4005,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 const sourceTotal = sourceData.reduce((acc: number, item: any) => acc + item.value, 0);
                                 return (
                                     <div>
-                                        <Card className="relative border border-amber-200/60 dark:border-amber-500/30 bg-white/95 dark:bg-gray-900/95 overflow-hidden group rounded-2xl shadow-md hover:shadow-lg transition-all duration-300">
+                                        <Card className={cn("relative border border-amber-200/60 dark:border-amber-500/30 overflow-hidden group rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
                                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400" />
                                             <CardHeader className="pb-2 px-4 pt-4">
                                                 <div className="flex items-center justify-between">

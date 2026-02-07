@@ -818,10 +818,12 @@ export function PercentageGraph({
 
     if (!chartData || chartData.length === 0) {
         return (
-            <Card className="border border-gray-200/60 dark:border-gray-500/30 rounded-2xl">
-                <CardHeader className="bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/20 dark:to-slate-800/10 border-b border-gray-200/40 dark:border-gray-500/20">
+            <Card className={cn("rounded-3xl overflow-hidden backdrop-blur-xl border-2 shadow-xl", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                {/* Thematic gradient accent bar */}
+                <div className={cn("h-1.5 w-full bg-gradient-to-r", themeClasses.buttonGradient)} />
+                <CardHeader className="bg-gradient-to-r from-white/50 via-gray-50/30 to-white/40 dark:from-gray-800/30 dark:via-gray-900/20 dark:to-gray-800/30 border-b border-gray-200/30 dark:border-gray-700/30">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
+                        <div className={cn("h-10 w-10 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/30 dark:ring-white/10", themeClasses.buttonGradient)}>
                             <Percent className="h-5 w-5 text-white" />
                         </div>
                         <div>
@@ -832,7 +834,7 @@ export function PercentageGraph({
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="bg-white/30 dark:bg-gray-900/30">
                     <p className="text-sm text-muted-foreground text-center py-8">
                         No data available for the selected date range
                     </p>
@@ -875,11 +877,13 @@ export function PercentageGraph({
 
     return (
         <>
-            <Card className="border border-gray-200/60 dark:border-gray-500/30 overflow-hidden shadow-xl rounded-2xl">
-                <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/20 dark:to-slate-800/10 border-b border-gray-200/40 dark:border-gray-500/20">
+            <Card className={cn("rounded-3xl overflow-hidden backdrop-blur-xl border-2 shadow-xl relative", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                {/* Thematic gradient accent bar */}
+                <div className={cn("absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r z-10", themeClasses.buttonGradient)} />
+                <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-white/50 via-gray-50/30 to-white/40 dark:from-gray-800/30 dark:via-gray-900/20 dark:to-gray-800/30 border-b border-gray-200/30 dark:border-gray-700/30 pt-5">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
+                            <div className={cn("h-11 w-11 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/30 dark:ring-white/10", themeClasses.buttonGradient)}>
                                 <Percent className="h-6 w-6 text-white" />
                             </div>
                             <div>
@@ -892,14 +896,14 @@ export function PercentageGraph({
                         <div className="flex items-center gap-3">
                             {/* Day-wise / Hourly Toggle */}
                             {onToggleHourly && (
-                                <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-gray-200 dark:border-gray-500/30 p-1 shadow-sm">
+                                <div className="flex items-center gap-1 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-600/30 p-1 shadow-sm">
                                     <button
                                         onClick={() => onToggleHourly(false)}
                                         className={cn(
                                             "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             !isHourly
-                                                ? "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-sm"
-                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
+                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
                                         )}
                                     >
                                         Daily
@@ -909,8 +913,8 @@ export function PercentageGraph({
                                         className={cn(
                                             "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
                                             isHourly
-                                                ? "bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-sm"
-                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
+                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
                                         )}
                                     >
                                         Hourly
@@ -922,7 +926,7 @@ export function PercentageGraph({
                                     variant="outline"
                                     size="sm"
                                     onClick={onToggleBackToFunnel}
-                                    className="text-sm font-semibold bg-white/80 hover:bg-white border-gray-300 text-gray-800 hover:text-gray-800 h-10 px-4"
+                                    className={cn("text-sm font-semibold bg-white/60 dark:bg-slate-800/60 backdrop-blur-md hover:bg-white/80 border h-10 px-4", themeClasses.borderAccent)}
                                 >
                                     <BarChart3 className="h-4 w-4 mr-1.5" />
                                     Back to Funnel
@@ -932,25 +936,25 @@ export function PercentageGraph({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-7 w-7 text-gray-500 hover:text-gray-700"
+                                    className="h-7 w-7 text-gray-500 hover:text-gray-700 bg-white/40 dark:bg-gray-800/40 backdrop-blur-sm"
                                     title="See full page expansion"
                                     onClick={onExpand}
                                 >
                                     <Maximize2 className="h-5 w-5" />
                                 </Button>
                             )}
-                            <Badge variant="secondary" className="bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300 px-3 py-1">
+                            <Badge variant="secondary" className={cn("bg-gradient-to-r text-white px-3 py-1 shadow-md", themeClasses.buttonGradient)}>
                                 <span className="text-lg font-bold">{overallStats.percentage.toFixed(2)}%</span>
                             </Badge>
                         </div>
                     </div>
                 </CardHeader>
 
-                <CardContent className="p-4 md:p-6">
+                <CardContent className="p-4 md:p-6 bg-white/40 dark:bg-gray-900/40">
                     {/* Summary Stats - Parent on Left, Child on Right - Only show for count-based events */}
                     {chartData.length > 0 && !chartData[0].isAvgMetric && (
                         <div className="grid grid-cols-3 gap-4 mb-6">
-                            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30">
+                            <div className="text-center p-4 bg-blue-100/60 dark:bg-blue-900/30 backdrop-blur-sm rounded-2xl border-2 border-blue-300/50 dark:border-blue-500/40 shadow-md">
                                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                                     {overallStats.totalParent.toLocaleString()}
                                 </div>
@@ -959,8 +963,8 @@ export function PercentageGraph({
                                     {getParentEventNames()}
                                 </div>
                             </div>
-                            <div className="text-center p-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg border border-gray-200 dark:border-gray-500/30">
-                                <div className="text-2xl font-bold text-gray-700 dark:text-gray-400">
+                            <div className={cn("text-center p-4 backdrop-blur-sm rounded-2xl border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                                <div className={cn("text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent", themeClasses.buttonGradient)}>
                                     {overallStats.percentage.toFixed(2)}%
                                 </div>
                                 <div className="text-sm text-muted-foreground mt-1 font-medium">Overall Ratio</div>
@@ -968,7 +972,7 @@ export function PercentageGraph({
                                     Range: {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
                                 </div>
                             </div>
-                            <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-500/30">
+                            <div className="text-center p-4 bg-green-100/60 dark:bg-green-900/30 backdrop-blur-sm rounded-2xl border-2 border-green-300/50 dark:border-green-500/40 shadow-md">
                                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                                     {overallStats.totalChild.toLocaleString()}
                                 </div>
@@ -985,364 +989,364 @@ export function PercentageGraph({
                         <div className="absolute top-2 right-12 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             {/* Zoom controls removed for PercentageGraph to avoid obstruction and duplication */}
                         </div>
-                        <div 
+                        <div
                             className="w-full h-full origin-center transition-transform duration-100 ease-out"
                             style={{ transform: `scale(${zoomLevel})` }}
                             onWheel={handleWheel}
                         >
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart
-                                data={chartData}
-                                margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
-                                onClick={(e: any) => {
-                                    // Handle chart background click
-                                    if (e?.activePayload?.[0]?.payload) {
-                                        handleDataPointClick(e.activePayload[0].payload);
-                                    }
-                                }}
-                            >
-                                <defs>
-                                    <linearGradient id="percentageGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
-                                <XAxis
-                                    dataKey="time"
-                                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                                    angle={-45}
-                                    textAnchor="end"
-                                    height={80}
-                                    tickMargin={8}
-                                    interval="preserveStartEnd"
-                                />
-                                <YAxis
-                                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                                    label={{ value: getYAxisLabel(), angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
-                                    domain={isAvgEventType >= 1 ? ['auto', 'auto'] : yAxisConfig.domain}
-                                    ticks={isAvgEventType >= 1 ? undefined : (yAxisConfig.ticks as any)}
-                                    tickFormatter={isAvgEventType >= 1 ? (value: number) => formatValue(value, true) : undefined}
-                                />
-                                <ReferenceLine
-                                    y={overallStats.percentage}
-                                    stroke="#facc15"
-                                    strokeWidth={2}
-                                    strokeDasharray="4 4"
-                                    label={{ value: 'Avg', position: 'right', fill: '#facc15', fontSize: 11 }}
-                                />
-                                <Tooltip
-                                    wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
-                                    content={({ active, payload }) => {
-                                        if (active && payload && payload.length) {
-                                            const data = payload[0].payload;
-                                            const isAvgDelay = data.isAvgMetric;
-                                            const parentBreakdown = (data.parentBreakdown || {}) as Record<string, number>;
-                                            const childBreakdown = (data.childBreakdown || {}) as Record<string, number>;
-                                            const parentEntries = Object.entries(parentBreakdown);
-                                            const childEntries = Object.entries(childBreakdown);
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart
+                                    data={chartData}
+                                    margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+                                    onClick={(e: any) => {
+                                        // Handle chart background click
+                                        if (e?.activePayload?.[0]?.payload) {
+                                            handleDataPointClick(e.activePayload[0].payload);
+                                        }
+                                    }}
+                                >
+                                    <defs>
+                                        <linearGradient id="percentageGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                                    <XAxis
+                                        dataKey="time"
+                                        tick={{ fontSize: 11, fill: '#6b7280' }}
+                                        angle={-45}
+                                        textAnchor="end"
+                                        height={80}
+                                        tickMargin={8}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis
+                                        tick={{ fontSize: 11, fill: '#6b7280' }}
+                                        label={{ value: getYAxisLabel(), angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                                        domain={isAvgEventType >= 1 ? ['auto', 'auto'] : yAxisConfig.domain}
+                                        ticks={isAvgEventType >= 1 ? undefined : (yAxisConfig.ticks as any)}
+                                        tickFormatter={isAvgEventType >= 1 ? (value: number) => formatValue(value, true) : undefined}
+                                    />
+                                    <ReferenceLine
+                                        y={overallStats.percentage}
+                                        stroke="#facc15"
+                                        strokeWidth={2}
+                                        strokeDasharray="4 4"
+                                        label={{ value: 'Avg', position: 'right', fill: '#facc15', fontSize: 11 }}
+                                    />
+                                    <Tooltip
+                                        wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const data = payload[0].payload;
+                                                const isAvgDelay = data.isAvgMetric;
+                                                const parentBreakdown = (data.parentBreakdown || {}) as Record<string, number>;
+                                                const childBreakdown = (data.childBreakdown || {}) as Record<string, number>;
+                                                const parentEntries = Object.entries(parentBreakdown);
+                                                const childEntries = Object.entries(childBreakdown);
 
-                                            // Helper to keep only the filtered status/cache codes and drop raw eventIds
-                                            const statusSet = new Set((filters?.statusCodes || []).map((s) => String(s)));
-                                            const cacheSet = new Set((filters?.cacheStatus || []).map((c) => String(c)));
-                                            const shouldKeepApiEntry = (key: string) => {
-                                                const isStatus = key.startsWith('status_');
-                                                const isCache = key.startsWith('cache_');
-                                                const code = isStatus ? key.replace('status_', '') : isCache ? key.replace('cache_', '') : key;
+                                                // Helper to keep only the filtered status/cache codes and drop raw eventIds
+                                                const statusSet = new Set((filters?.statusCodes || []).map((s) => String(s)));
+                                                const cacheSet = new Set((filters?.cacheStatus || []).map((c) => String(c)));
+                                                const shouldKeepApiEntry = (key: string) => {
+                                                    const isStatus = key.startsWith('status_');
+                                                    const isCache = key.startsWith('cache_');
+                                                    const code = isStatus ? key.replace('status_', '') : isCache ? key.replace('cache_', '') : key;
 
-                                                // Hide raw eventIds when in API mode
-                                                if (!isStatus && !isCache) return false;
-                                                if (isStatus && statusSet.size > 0 && !statusSet.has(code)) return false;
-                                                if (isCache && cacheSet.size > 0 && !cacheSet.has(code)) return false;
-                                                return true;
-                                            };
+                                                    // Hide raw eventIds when in API mode
+                                                    if (!isStatus && !isCache) return false;
+                                                    if (isStatus && statusSet.size > 0 && !statusSet.has(code)) return false;
+                                                    if (isCache && cacheSet.size > 0 && !cacheSet.has(code)) return false;
+                                                    return true;
+                                                };
 
-                                            // Custom tooltip for "Same Parent/Child" mode (Dual Success/Fail lines)
-                                            if (data.isSameParentChild) {
-                                                const eventId = childEvents[0];
-                                                const eventName = eventId ? (eventNames[String(eventId)] || `Event ${eventId}`) : 'Event';
+                                                // Custom tooltip for "Same Parent/Child" mode (Dual Success/Fail lines)
+                                                if (data.isSameParentChild) {
+                                                    const eventId = childEvents[0];
+                                                    const eventName = eventId ? (eventNames[String(eventId)] || `Event ${eventId}`) : 'Event';
+
+                                                    return (
+                                                        <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
+                                                            <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
+                                                            <div className="space-y-2 text-xs">
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <span className="font-semibold text-green-600 flex items-center gap-1.5">
+                                                                        <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                                                                        {eventName} Success
+                                                                    </span>
+                                                                    <span className="font-mono font-bold text-gray-900">
+                                                                        {Number(data.successCount).toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center justify-between gap-3">
+                                                                    <span className="font-semibold text-red-600 flex items-center gap-1.5">
+                                                                        <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                                                                        {eventName} Fail
+                                                                    </span>
+                                                                    <span className="font-mono font-bold text-gray-900">
+                                                                        {Number(data.failCount).toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                                {/* Show percentages as supplemental info */}
+                                                                <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between text-[10px] text-muted-foreground">
+                                                                    <span className="text-green-600/80">Success Rate: {data.success_percentage.toFixed(2)}%</span>
+                                                                    <span className="text-red-600/80">Fail Rate: {data.fail_percentage.toFixed(2)}%</span>
+                                                                </div>
+                                                                {data.hasAnomaly && (
+                                                                    <div className="mt-1 px-2 py-1 bg-amber-50 text-amber-700 rounded border border-amber-200 text-xs font-bold text-center flex items-center justify-center gap-1">
+                                                                        <span>⚠️</span> Anomaly Detected
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                // Sort child entries by value descending (highest first)
+                                                const filteredChildEntries = (isApiEventMode
+                                                    ? childEntries.filter(([key]) => shouldKeepApiEntry(key))
+                                                    : childEntries
+                                                ).sort((a, b) => Number(b[1]) - Number(a[1]));
+
+                                                // Sort parent entries by value descending (highest first)
+                                                const filteredParentEntries = (isApiEventMode
+                                                    ? parentEntries.filter(([key]) => shouldKeepApiEntry(key))
+                                                    : parentEntries
+                                                ).sort((a, b) => Number(b[1]) - Number(a[1]));
 
                                                 return (
-                                                    <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
-                                                        <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
+                                                    <div className="bg-white dark:bg-white p-4 rounded-xl shadow-xl border-2 border-gray-100 min-w-[220px]" style={{ backgroundColor: 'white' }}>
+                                                        <p className="text-sm font-bold mb-3 text-gray-900 border-b pb-2">{data.time}</p>
                                                         <div className="space-y-2 text-xs">
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <span className="font-semibold text-green-600 flex items-center gap-1.5">
-                                                                    <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                                                                    {eventName} Success
-                                                                </span>
-                                                                <span className="font-mono font-bold text-gray-900">
-                                                                    {Number(data.successCount).toLocaleString()}
-                                                                </span>
+                                                            <div className="flex items-center justify-between gap-4">
+                                                                <span className="text-gray-500">Percentage:</span>
+                                                                <span className="font-bold text-gray-700 text-sm">{data.percentage.toFixed(2)}%</span>
                                                             </div>
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <span className="font-semibold text-red-600 flex items-center gap-1.5">
-                                                                    <span className="h-2 w-2 rounded-full bg-red-500"></span>
-                                                                    {eventName} Fail
-                                                                </span>
-                                                                <span className="font-mono font-bold text-gray-900">
-                                                                    {Number(data.failCount).toLocaleString()}
-                                                                </span>
+                                                            <div className="flex items-center justify-between gap-4">
+                                                                <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Child Amount' : 'Child Delay') : isAvgDelay ? 'Child Avg' : 'Child'}:</span>
+                                                                <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.childCount) : isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}</span>
                                                             </div>
-                                                            {/* Show percentages as supplemental info */}
-                                                            <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between text-[10px] text-muted-foreground">
-                                                                <span className="text-green-600/80">Success Rate: {data.success_percentage.toFixed(2)}%</span>
-                                                                <span className="text-red-600/80">Fail Rate: {data.fail_percentage.toFixed(2)}%</span>
+                                                            <div className="flex items-center justify-between gap-4">
+                                                                <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Parent Amount' : 'Parent Delay') : isAvgDelay ? 'Parent Avg' : 'Parent'}:</span>
+                                                                <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.parentCount) : isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}</span>
                                                             </div>
-                                                            {data.hasAnomaly && (
-                                                                <div className="mt-1 px-2 py-1 bg-amber-50 text-amber-700 rounded border border-amber-200 text-xs font-bold text-center flex items-center justify-center gap-1">
-                                                                    <span>⚠️</span> Anomaly Detected
+                                                            {filteredChildEntries.length > 0 && (
+                                                                <div className="mt-3 pt-2 border-t border-gray-100">
+                                                                    <p className="font-bold mb-2 text-xs text-green-700 flex items-center gap-1">
+                                                                        {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
+                                                                    </p>
+                                                                    <div className="space-y-1.5">
+                                                                        {filteredChildEntries.map(([key, count], idx) => {
+                                                                            const displayLabel = isApiEventMode
+                                                                                ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                                    key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
+                                                                                : (eventNames[String(key)] || `Event ${key}`);
+                                                                            // Use color from eventColors or fallback to premium colors
+                                                                            const colors = ['#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#14b8a6', '#a855f7', '#f97316'];
+                                                                            const color = eventColors[key] || colors[idx % colors.length];
+                                                                            return (
+                                                                                <div key={key} className="flex items-center justify-between gap-3">
+                                                                                    <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
+                                                                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                                                                                        {displayLabel}
+                                                                                    </span>
+                                                                                    <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {filteredParentEntries.length > 0 && (
+                                                                <div className="mt-3 pt-2 border-t border-gray-100">
+                                                                    <p className="font-bold mb-2 text-xs text-blue-700 flex items-center gap-1">
+                                                                        {isApiEventMode ? 'Status/Cache Breakdown' : 'Parent breakdown'}
+                                                                    </p>
+                                                                    <div className="space-y-1.5">
+                                                                        {filteredParentEntries.map(([key, count], idx) => {
+                                                                            const displayLabel = isApiEventMode
+                                                                                ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                                    key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
+                                                                                : (eventNames[String(key)] || `Event ${key}`);
+                                                                            const colors = ['#3b82f6', '#14b8a6', '#a855f7', '#f97316', '#22c55e'];
+                                                                            const color = eventColors[key] || colors[idx % colors.length];
+                                                                            return (
+                                                                                <div key={key} className="flex items-center justify-between gap-3">
+                                                                                    <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
+                                                                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                                                                                        {displayLabel}
+                                                                                    </span>
+                                                                                    <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
                                                 );
                                             }
+                                            return null;
+                                        }}
+                                    />
 
-                                            // Sort child entries by value descending (highest first)
-                                            const filteredChildEntries = (isApiEventMode
-                                                ? childEntries.filter(([key]) => shouldKeepApiEntry(key))
-                                                : childEntries
-                                            ).sort((a, b) => Number(b[1]) - Number(a[1]));
+                                    {/* Individual child event lines - one for each child OR status code OR success/fail for same parent/child */}
+                                    {(() => {
+                                        // SPECIAL CASE: Same parent and child events - show success% and fail% as 2 lines
+                                        const isSameParentChildMode = chartData.length > 0 && chartData[0].isSameParentChild;
 
-                                            // Sort parent entries by value descending (highest first)
-                                            const filteredParentEntries = (isApiEventMode
-                                                ? parentEntries.filter(([key]) => shouldKeepApiEntry(key))
-                                                : parentEntries
-                                            ).sort((a, b) => Number(b[1]) - Number(a[1]));
+                                        if (isSameParentChildMode) {
+                                            // Render SUCCESS and FAIL lines for same parent/child
+                                            const lines = [
+                                                { id: 'success', dataKey: 'success_percentage', color: '#22c55e', name: 'Success %' }, // Fixed to Green
+                                                { id: 'fail', dataKey: 'fail_percentage', color: '#ef4444', name: 'Fail %' }
+                                            ];
 
                                             return (
-                                                <div className="bg-white dark:bg-white p-4 rounded-xl shadow-xl border-2 border-gray-100 min-w-[220px]" style={{ backgroundColor: 'white' }}>
-                                                    <p className="text-sm font-bold mb-3 text-gray-900 border-b pb-2">{data.time}</p>
-                                                    <div className="space-y-2 text-xs">
-                                                        <div className="flex items-center justify-between gap-4">
-                                                            <span className="text-gray-500">Percentage:</span>
-                                                            <span className="font-bold text-gray-700 text-sm">{data.percentage.toFixed(2)}%</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between gap-4">
-                                                            <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Child Amount' : 'Child Delay') : isAvgDelay ? 'Child Avg' : 'Child'}:</span>
-                                                            <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.childCount) : isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}</span>
-                                                        </div>
-                                                        <div className="flex items-center justify-between gap-4">
-                                                            <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Parent Amount' : 'Parent Delay') : isAvgDelay ? 'Parent Avg' : 'Parent'}:</span>
-                                                            <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.parentCount) : isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}</span>
-                                                        </div>
-                                                        {filteredChildEntries.length > 0 && (
-                                                            <div className="mt-3 pt-2 border-t border-gray-100">
-                                                                <p className="font-bold mb-2 text-xs text-green-700 flex items-center gap-1">
-                                                                    {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
-                                                                </p>
-                                                                <div className="space-y-1.5">
-                                                                    {filteredChildEntries.map(([key, count], idx) => {
-                                                                        const displayLabel = isApiEventMode
-                                                                            ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
-                                                                            : (eventNames[String(key)] || `Event ${key}`);
-                                                                        // Use color from eventColors or fallback to premium colors
-                                                                        const colors = ['#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#14b8a6', '#a855f7', '#f97316'];
-                                                                        const color = eventColors[key] || colors[idx % colors.length];
-                                                                        return (
-                                                                            <div key={key} className="flex items-center justify-between gap-3">
-                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
-                                                                                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                                                                    {displayLabel}
-                                                                                </span>
-                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                        {filteredParentEntries.length > 0 && (
-                                                            <div className="mt-3 pt-2 border-t border-gray-100">
-                                                                <p className="font-bold mb-2 text-xs text-blue-700 flex items-center gap-1">
-                                                                    {isApiEventMode ? 'Status/Cache Breakdown' : 'Parent breakdown'}
-                                                                </p>
-                                                                <div className="space-y-1.5">
-                                                                    {filteredParentEntries.map(([key, count], idx) => {
-                                                                        const displayLabel = isApiEventMode
-                                                                            ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
-                                                                            : (eventNames[String(key)] || `Event ${key}`);
-                                                                        const colors = ['#3b82f6', '#14b8a6', '#a855f7', '#f97316', '#22c55e'];
-                                                                        const color = eventColors[key] || colors[idx % colors.length];
-                                                                        return (
-                                                                            <div key={key} className="flex items-center justify-between gap-3">
-                                                                                <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
-                                                                                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                                                                    {displayLabel}
-                                                                                </span>
-                                                                                <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
-                                                                            </div>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
+                                                <>
+                                                    {lines.map(({ id, dataKey, color, name }) => {
+                                                        const isLineSelected = selectedLineId === null || selectedLineId === id;
+                                                        const lineOpacity = isLineSelected ? 1 : 0.15;
+                                                        const lineWidth = isLineSelected ? 2.5 : 1;
+
+                                                        return (
+                                                            <Area
+                                                                key={`same-parent-child-${id}`}
+                                                                type="monotone"
+                                                                dataKey={dataKey}
+                                                                stroke={color}
+                                                                strokeWidth={lineWidth}
+                                                                strokeOpacity={lineOpacity}
+                                                                fill="none"
+                                                                name={name}
+                                                                isAnimationActive={false}
+                                                                dot={false}
+                                                                activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
+                                                            />
+                                                        );
+                                                    })}
+                                                    {/* Anomaly Scatter Plot Layer */}
+                                                    <Scatter
+                                                        name="Anomaly Detected"
+                                                        dataKey="anomalyValue"
+                                                        fill="#f59e0b"
+                                                        shape={(props: any) => {
+                                                            const { cx, cy, payload } = props;
+                                                            if (payload.hasAnomaly) {
+                                                                return (
+                                                                    <foreignObject x={cx - 10} y={cy - 10} width={20} height={20}>
+                                                                        <div className="flex items-center justify-center w-full h-full bg-amber-100 rounded-full border border-amber-500 shadow-sm animate-pulse">
+                                                                            <AlertTriangle className="h-3 w-3 text-amber-600" />
+                                                                        </div>
+                                                                    </foreignObject>
+                                                                );
+                                                            }
+                                                            return <g />;
+                                                        }}
+                                                    />
+                                                </>
                                             );
                                         }
-                                        return null;
-                                    }}
-                                />
 
-                                {/* Individual child event lines - one for each child OR status code OR success/fail for same parent/child */}
-                                {(() => {
-                                    // SPECIAL CASE: Same parent and child events - show success% and fail% as 2 lines
-                                    const isSameParentChildMode = chartData.length > 0 && chartData[0].isSameParentChild;
+                                        // For avgDelay metrics, use child events directly
+                                        // For API events with filters, use status codes
+                                        // Otherwise, use child events
+                                        const isAvgMetric = chartData.length > 0 && chartData[0].isAvgMetric;
 
-                                    if (isSameParentChildMode) {
-                                        // Render SUCCESS and FAIL lines for same parent/child
-                                        const lines = [
-                                            { id: 'success', dataKey: 'success_percentage', color: '#22c55e', name: 'Success %' }, // Fixed to Green
-                                            { id: 'fail', dataKey: 'fail_percentage', color: '#ef4444', name: 'Fail %' }
-                                        ];
+                                        const renderKeys = isAvgMetric
+                                            ? childEvents // For avgDelay, render each child event
+                                            : isApiEventMode
+                                                ? [
+                                                    ...(filters?.statusCodes || []).map((code: any) => `status_${code}`),
+                                                    ...(filters?.cacheStatus || []).map((status: any) => `cache_${status}`)
+                                                ]
+                                                : childEvents;
 
-                                        return (
-                                            <>
-                                                {lines.map(({ id, dataKey, color, name }) => {
-                                                    const isLineSelected = selectedLineId === null || selectedLineId === id;
-                                                    const lineOpacity = isLineSelected ? 1 : 0.15;
-                                                    const lineWidth = isLineSelected ? 2.5 : 1;
+                                        return renderKeys.map((childId, index) => {
+                                            const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+                                            const color = eventColors[childId] || colors[index % colors.length];
+                                            const childDataKey = `child_${childId}_percentage`;
 
-                                                    return (
-                                                        <Area
-                                                            key={`same-parent-child-${id}`}
-                                                            type="monotone"
-                                                            dataKey={dataKey}
-                                                            stroke={color}
-                                                            strokeWidth={lineWidth}
-                                                            strokeOpacity={lineOpacity}
-                                                            fill="none"
-                                                            name={name}
-                                                            isAnimationActive={false}
-                                                            dot={false}
-                                                            activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
-                                                        />
-                                                    );
-                                                })}
-                                                {/* Anomaly Scatter Plot Layer */}
-                                                <Scatter
-                                                    name="Anomaly Detected"
-                                                    dataKey="anomalyValue"
-                                                    fill="#f59e0b"
-                                                    shape={(props: any) => {
-                                                        const { cx, cy, payload } = props;
-                                                        if (payload.hasAnomaly) {
-                                                            return (
-                                                                <foreignObject x={cx - 10} y={cy - 10} width={20} height={20}>
-                                                                    <div className="flex items-center justify-center w-full h-full bg-amber-100 rounded-full border border-amber-500 shadow-sm animate-pulse">
-                                                                        <AlertTriangle className="h-3 w-3 text-amber-600" />
-                                                                    </div>
-                                                                </foreignObject>
-                                                            );
-                                                        }
-                                                        return <g />;
-                                                    }}
+                                            const displayName = isApiEventMode
+                                                ? (childId.startsWith('status_') ? `Status ${childId.replace('status_', '')}` :
+                                                    childId.startsWith('cache_') ? `Cache: ${childId.replace('cache_', '')}` : childId)
+                                                : (eventNames[String(childId)] || `Event ${childId}`);
+
+                                            // Apply line selection filtering
+                                            const isLineSelected = selectedLineId === null || selectedLineId === childId;
+                                            const lineOpacity = isLineSelected ? 1 : 0.15;
+                                            const lineWidth = isLineSelected ? 2.5 : 1;
+
+                                            return (
+                                                <Area
+                                                    key={`child-line-${childId}`}
+                                                    type="monotone"
+                                                    dataKey={childDataKey}
+                                                    stroke={color}
+                                                    strokeWidth={lineWidth}
+                                                    strokeOpacity={lineOpacity}
+                                                    fill="none"
+                                                    name={displayName}
+                                                    isAnimationActive={false}
+                                                    dot={false}
+                                                    activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
                                                 />
-                                            </>
-                                        );
-                                    }
+                                            );
+                                        });
+                                    })()}
 
-                                    // For avgDelay metrics, use child events directly
-                                    // For API events with filters, use status codes
-                                    // Otherwise, use child events
-                                    const isAvgMetric = chartData.length > 0 && chartData[0].isAvgMetric;
+                                    {/* Parent Event Line (Base 100%) - For avgDelay metrics */}
+                                    {chartData.length > 0 && chartData[0].isAvgMetric && (
+                                        <Area
+                                            type="monotone"
+                                            dataKey="parent_percentage"
+                                            stroke="#3b82f6"
+                                            strokeWidth={2}
+                                            fill="none"
+                                            name="Parent Event (Avg)"
+                                            isAnimationActive={false}
+                                            dot={false}
+                                            strokeDasharray="5 5"
+                                            activeDot={{ r: 6, fill: "#3b82f6", stroke: '#fff', strokeWidth: 2 }}
+                                        />
+                                    )}
 
-                                    const renderKeys = isAvgMetric
-                                        ? childEvents // For avgDelay, render each child event
-                                        : isApiEventMode
-                                            ? [
-                                                ...(filters?.statusCodes || []).map((code: any) => `status_${code}`),
-                                                ...(filters?.cacheStatus || []).map((status: any) => `cache_${status}`)
-                                            ]
-                                            : childEvents;
-
-                                    return renderKeys.map((childId, index) => {
-                                        const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-                                        const color = eventColors[childId] || colors[index % colors.length];
-                                        const childDataKey = `child_${childId}_percentage`;
-
-                                        const displayName = isApiEventMode
-                                            ? (childId.startsWith('status_') ? `Status ${childId.replace('status_', '')}` :
-                                                childId.startsWith('cache_') ? `Cache: ${childId.replace('cache_', '')}` : childId)
-                                            : (eventNames[String(childId)] || `Event ${childId}`);
-
-                                        // Apply line selection filtering
-                                        const isLineSelected = selectedLineId === null || selectedLineId === childId;
-                                        const lineOpacity = isLineSelected ? 1 : 0.15;
-                                        const lineWidth = isLineSelected ? 2.5 : 1;
-
-                                        return (
-                                            <Area
-                                                key={`child-line-${childId}`}
-                                                type="monotone"
-                                                dataKey={childDataKey}
-                                                stroke={color}
-                                                strokeWidth={lineWidth}
-                                                strokeOpacity={lineOpacity}
-                                                fill="none"
-                                                name={displayName}
-                                                isAnimationActive={false}
-                                                dot={false}
-                                                activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
-                                            />
-                                        );
-                                    });
-                                })()}
-
-                                {/* Parent Event Line (Base 100%) - For avgDelay metrics */}
-                                {chartData.length > 0 && chartData[0].isAvgMetric && (
-                                    <Area
-                                        type="monotone"
-                                        dataKey="parent_percentage"
-                                        stroke="#3b82f6"
-                                        strokeWidth={2}
-                                        fill="none"
-                                        name="Parent Event (Avg)"
-                                        isAnimationActive={false}
-                                        dot={false}
-                                        strokeDasharray="5 5"
-                                        activeDot={{ r: 6, fill: "#3b82f6", stroke: '#fff', strokeWidth: 2 }}
-                                    />
-                                )}
-
-                                {/* Combined percentage line - show when All is selected, hide when single event is selected */}
-                                {showCombinedPercentage && selectedLineId === null && (
-                                    <Area
-                                        type="monotone"
-                                        dataKey="percentage"
-                                        stroke="#8b5cf6"
-                                        strokeWidth={3}
-                                        fill="url(#percentageGradient)"
-                                        name="Combined %"
-                                        isAnimationActive={false}
-                                        dot={false}
-                                        activeDot={{
-                                            r: 8,
-                                            fill: "#8b5cf6",
-                                            stroke: "#fff",
-                                            strokeWidth: 2,
-                                            cursor: "pointer",
-                                            onClick: (e: any, payload: any) => {
-                                                e?.stopPropagation?.();
-                                                if (payload?.payload) {
-                                                    handleDataPointClick(payload.payload);
+                                    {/* Combined percentage line - show when All is selected, hide when single event is selected */}
+                                    {showCombinedPercentage && selectedLineId === null && (
+                                        <Area
+                                            type="monotone"
+                                            dataKey="percentage"
+                                            stroke="#8b5cf6"
+                                            strokeWidth={3}
+                                            fill="url(#percentageGradient)"
+                                            name="Combined %"
+                                            isAnimationActive={false}
+                                            dot={false}
+                                            activeDot={{
+                                                r: 8,
+                                                fill: "#8b5cf6",
+                                                stroke: "#fff",
+                                                strokeWidth: 2,
+                                                cursor: "pointer",
+                                                onClick: (e: any, payload: any) => {
+                                                    e?.stopPropagation?.();
+                                                    if (payload?.payload) {
+                                                        handleDataPointClick(payload.payload);
+                                                    }
                                                 }
-                                            }
-                                        }}
-                                        onClick={(e: any) => {
-                                            e?.stopPropagation?.();
-                                            if (e?.activePayload?.[0]?.payload) {
-                                                handleDataPointClick(e.activePayload[0].payload);
-                                            }
-                                        }}
-                                    />
-                                )}
-                            </ComposedChart>
-                        </ResponsiveContainer>
+                                            }}
+                                            onClick={(e: any) => {
+                                                e?.stopPropagation?.();
+                                                if (e?.activePayload?.[0]?.payload) {
+                                                    handleDataPointClick(e.activePayload[0].payload);
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                </ComposedChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
 

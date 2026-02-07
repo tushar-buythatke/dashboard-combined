@@ -433,7 +433,7 @@ export function AnalyticsLayout() {
 
     if (!selectedFeatureId) {
         return (
-            <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-gray-50/30 dark:to-gray-950/10 relative overflow-hidden">
+            <div className={cn("min-h-screen flex flex-col relative overflow-hidden transition-colors duration-500", themeClasses.pageBg)}>
                 {/* Background effects */}
                 <div className="pointer-events-none">
                     <GradientMeshBackground />
@@ -730,8 +730,8 @@ export function AnalyticsLayout() {
 
     return (
         <CustomEventLabelsProvider>
-            <div className="flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-indigo-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950/20 relative min-h-screen">
-                <header className="sticky top-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] bg-white/30 dark:bg-gray-900/30 backdrop-blur-2xl border-b border-gray-200/30 dark:border-gray-700/30 shadow-sm">
+            <div className={cn("flex flex-col relative min-h-screen transition-colors duration-500", themeClasses.pageBg)}>
+                <header className={cn("sticky top-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] border-b shadow-lg transition-all duration-500", themeClasses.headerBg, themeClasses.borderAccent)}>
                     <div className="flex items-center gap-2 lg:gap-4">
                         {/* Mobile Menu Button */}
                         <div className="md:hidden">
@@ -897,7 +897,7 @@ export function AnalyticsLayout() {
                     {/* Desktop Sidebar - instant width change, no animation */}
                     <div className="hidden md:block flex-shrink-0">
                         <div
-                            className="border-r border-gray-200/80 dark:border-gray-700/60 bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl flex flex-col sticky top-14 lg:top-16"
+                            className="border-r border-white/30 dark:border-white/10 bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 flex flex-col sticky top-14 lg:top-16 shadow-[inset_-1px_0_0_rgba(255,255,255,0.3)] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)]"
                             style={{ width: sidebarCollapsed ? 60 : 280 }}
                         >
                             <ProfileSidebar

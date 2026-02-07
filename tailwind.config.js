@@ -40,22 +40,40 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        // Horizon UI Premium Colors
+        // Premium Theme Colors
+        midnight: {
+          deep: '#1a103c',
+          navy: '#0a0b1e', // AMOLED
+          lavender: '#b19cd9',
+        },
+        afterhours: {
+          lime: '#afff00',
+          charcoal: '#121212',
+          slate: '#2d3436',
+        },
+        gold: {
+          primary: '#d4af37',
+          champagne: '#f7e7ce',
+          obsidian: '#000000',
+        },
+        neon: {
+          pink: '#ff007f',
+          cyan: '#00e5ff',
+        },
         horizon: {
           primary: '#6366F1',
-          secondary: '#A855F7',
-          'accent-blue': '#3B82F6',
-          'accent-pink': '#EC4899',
-          'accent-cyan': '#06B6D4',
-          'accent-emerald': '#10B981',
-        },
-      },
+...
       boxShadow: {
         'premium': '0 8px 30px rgb(0 0 0 / 0.05)',
         'card-hover': '0 20px 40px rgb(0 0 0 / 0.08)',
         'glow-indigo': '0 0 30px rgba(99, 102, 241, 0.25)',
         'glow-purple': '0 0 30px rgba(168, 85, 247, 0.25)',
         'glow-pink': '0 0 30px rgba(236, 72, 153, 0.25)',
+        'glow-midnight': '0 0 35px rgba(177, 156, 217, 0.3)',
+        'glow-afterhours': '0 0 35px rgba(175, 255, 0, 0.25)',
+        'glow-gold': '0 0 40px rgba(212, 175, 55, 0.3)',
+        'glow-neon-pink': '0 0 35px rgba(255, 0, 127, 0.3)',
+        'glow-neon-cyan': '0 0 35px rgba(0, 229, 255, 0.3)',
       },
       borderRadius: {
         lg: "var(--radius-lg)",

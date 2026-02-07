@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface UserFlowVisualizationProps {
     data: any[]; // Raw event data or transitions
@@ -129,24 +130,25 @@ const CustomLink = (props: any) => {
 export function UserFlowVisualization({
     data,
     eventNames,
-    config = {},
-    height = 500,
+    config,
+    height = 400,
     onConfigChange,
     availableEvents = [],
-    isEditable = true
+    isEditable = false
 }: UserFlowVisualizationProps) {
+    const { t: themeClasses } = useAccentTheme();
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
-    const [localStages, setLocalStages] = useState<any[]>(config.stages || []);
+    const [localStages, setLocalStages] = useState(config?.stages || []);
 
     // Sync local stages with config prop
     useEffect(() => {
-        if (config.stages) {
+        if (config?.stages) {
             setLocalStages(config.stages);
         } else if (localStages.length === 0) {
             // Initialize with default empty stage if strictly no config
             setLocalStages([{ id: 'stage-1', label: 'Step 1', eventIds: [] }]);
         }
-    }, [config.stages]);
+    }, [config?.stages]);
 
     // Handle updates to stages
     const handleStageUpdate = (updatedStages: any[]) => {
@@ -324,12 +326,17 @@ export function UserFlowVisualization({
     }, [availableEvents]);
 
     return (
-        <Card className="border-gray-200/60 dark:border-gray-500/30 overflow-hidden relative group">
-            <CardHeader className="pb-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/20 space-y-4">
+        <Card className={cn("border-slate-200/60 dark:border-indigo-500/20 overflow-hidden relative group backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)]", themeClasses.cardBg)}>
+            {/* Thematic Accent Bar */}
+            <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
+
+            <CardHeader className="pb-3 border-b border-slate-100 dark:border-indigo-500/10 bg-slate-50/40 dark:bg-indigo-950/10 space-y-4">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
-                        <GitBranch className="h-4 w-4 text-gray-500" />
-                        User Flow Analysis
+                        <div className={cn("p-2 rounded-xl bg-gradient-to-br shadow-lg ring-1 ring-white/20", themeClasses.buttonGradient)}>
+                            <GitBranch className="h-4 w-4 text-white" />
+                        </div>
+                        <span className="font-bold tracking-tight text-slate-800 dark:text-slate-100">User Flow Analysis</span>
                     </CardTitle>
                     <div className="flex items-center gap-2">
                         <ChartZoomControls
@@ -343,17 +350,17 @@ export function UserFlowVisualization({
 
                 {/* Interactive Stage Configuration Header */}
                 {isEditable && (
-                    <div className="w-full relative bg-white dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <div className="w-full relative bg-white/50 dark:bg-slate-950/40 backdrop-blur-md rounded-2xl border border-slate-200 dark:border-indigo-500/15 shadow-sm overflow-hidden">
                         <ScrollArea className="w-full whitespace-nowrap">
                             <div className="flex items-start p-3 gap-3 min-w-max">
                                 {localStages.map((stage, index) => (
                                     <div key={stage.id || index} className="flex items-start">
-                                        <div className="w-[240px] flex-shrink-0 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 p-2 group/stage relative hover:border-gray-300 dark:hover:border-gray-500/50 transition-colors">
+                                        <div className="w-[240px] flex-shrink-0 bg-slate-50/60 dark:bg-slate-900/40 rounded-xl border border-slate-200/60 dark:border-indigo-500/10 p-2.5 group/stage relative hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-all duration-300">
 
                                             {/* Stage Header */}
                                             <div className="flex items-center justify-between mb-2">
                                                 <Input
-                                                    className="h-7 text-xs font-semibold bg-transparent border-transparent hover:border-slate-200 focus:border-gray-400 px-1 w-[140px]"
+                                                    className="h-7 text-xs font-bold bg-transparent border-transparent hover:bg-white/40 dark:hover:bg-white/5 focus:border-indigo-400 dark:focus:border-indigo-500/40 px-2 w-[140px] transition-all"
                                                     value={stage.label}
                                                     onChange={(e) => {
                                                         const newStages = [...localStages];
@@ -362,13 +369,13 @@ export function UserFlowVisualization({
                                                     }}
                                                 />
                                                 <div className="flex items-center">
-                                                    <Badge variant="secondary" className="text-[10px] h-5 bg-gray-100 dark:bg-gray-700/30 text-gray-700 dark:text-gray-300">
+                                                    <Badge variant="secondary" className="text-[10px] h-5 bg-indigo-100/50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border-none">
                                                         Step {index + 1}
                                                     </Badge>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        className="h-6 w-6 ml-1 opacity-0 group-hover/stage:opacity-100 text-slate-400 hover:text-red-500"
+                                                        className="h-6 w-6 ml-1 opacity-0 group-hover/stage:opacity-100 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
                                                         onClick={() => {
                                                             const newStages = localStages.filter((_, i) => i !== index);
                                                             handleStageUpdate(newStages);
@@ -390,25 +397,25 @@ export function UserFlowVisualization({
                                                         handleStageUpdate(newStages);
                                                     }}
                                                     placeholder="Select events..."
-                                                    className="w-full h-8 text-xs bg-white dark:bg-slate-950"
+                                                    className={cn("w-full h-8 text-xs border-slate-200/60 dark:border-indigo-500/10 transition-colors duration-500", themeClasses.cardBg)}
                                                 />
                                             </div>
                                         </div>
 
                                         {/* Connector Arrow */}
                                         {index < localStages.length - 1 && (
-                                            <div className="h-[100px] flex items-center justify-center px-1 text-slate-300 dark:text-slate-700">
-                                                <ChevronRight className="h-5 w-5" />
+                                            <div className="h-[105px] flex items-center justify-center px-1 text-indigo-300 dark:text-indigo-500/30">
+                                                <ChevronRight className="h-6 w-6 animate-pulse" style={{ animationDuration: '3s' }} />
                                             </div>
                                         )}
                                     </div>
                                 ))}
 
                                 {/* Add Stage Button */}
-                                <div className="h-[100px] flex items-center ml-2">
+                                <div className="h-[105px] flex items-center ml-2">
                                     <Button
                                         variant="outline"
-                                        className="h-full border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 flex flex-col gap-2 px-4"
+                                        className="h-full border-dashed border-slate-300 dark:border-indigo-500/20 text-slate-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-500/10 flex flex-col gap-2 px-5 transition-all duration-300 rounded-xl"
                                         onClick={() => {
                                             const newStage = {
                                                 id: `stage-${Date.now()}`,
@@ -419,7 +426,7 @@ export function UserFlowVisualization({
                                         }}
                                     >
                                         <Plus className="h-5 w-5" />
-                                        <span className="text-xs font-semibold">Add Step</span>
+                                        <span className="text-xs font-bold uppercase tracking-wider">Add Step</span>
                                     </Button>
                                 </div>
                             </div>
@@ -429,19 +436,19 @@ export function UserFlowVisualization({
                 )}
             </CardHeader>
 
-            <CardContent className="p-0 bg-white dark:bg-slate-950 relative" onWheel={handleWheel}>
+            <CardContent className="p-0 bg-transparent relative" onWheel={handleWheel}>
                 {sankeyData.nodes.length > 0 && sankeyData.links.length > 0 ? (
-                    <div className="relative border-t border-slate-100 dark:border-slate-800">
+                    <div className="relative border-t border-slate-100 dark:border-indigo-500/10">
                         {/* Stage Identification Header for Sankey Area */}
                         <div
-                            className="sticky top-0 z-10 bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800 pointer-events-none"
+                            className="sticky top-0 z-10 bg-slate-50/60 dark:bg-slate-900/60 backdrop-blur-md border-b border-slate-100 dark:border-indigo-500/10 pointer-events-none"
                             style={{ width: `${Math.max(100, zoomLevel * 100)}%` }}
                         >
                             <div className="flex items-center justify-between px-20 h-10">
                                 {localStages.map((stage, idx) => (
                                     <div key={`header-${idx}`} className="flex flex-col items-center">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stage.label || `Stage ${idx + 1}`}</span>
-                                        <div className="h-1 w-8 bg-gray-400/30 rounded-full mt-0.5" />
+                                        <span className="text-[10px] font-extrabold text-indigo-500/80 dark:text-indigo-400 uppercase tracking-widest">{stage.label || `Stage ${idx + 1}`}</span>
+                                        <div className={cn("h-1 w-10 rounded-full mt-0.5 shadow-[0_0_8px_rgba(99,102,241,0.4)]", themeClasses.headerGradient)} />
                                     </div>
                                 ))}
                             </div>
@@ -469,26 +476,27 @@ export function UserFlowVisualization({
                                                     const data = payload[0].payload;
                                                     const isNode = !('source' in data);
                                                     return (
-                                                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-lg shadow-xl animate-in fade-in zoom-in duration-200">
+                                                        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-indigo-500/30 p-4 rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200 ring-1 ring-white/10">
                                                             {isNode ? (
-                                                                <div className="space-y-1">
-                                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{data.name}</p>
+                                                                <div className="space-y-1.5">
+                                                                    <p className="text-xs font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">{data.name}</p>
                                                                     <div className="flex items-center gap-2">
-                                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color }} />
-                                                                        <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                                                                            Actual Count: <span className="font-semibold">{Math.round(data.displayValue || data.value).toLocaleString()}</span>
+                                                                        <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.2)]" style={{ backgroundColor: data.color }} />
+                                                                        <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                                                                            Count: <span className="font-bold text-slate-900 dark:text-white">{Math.round(data.displayValue || data.value).toLocaleString()}</span>
                                                                         </p>
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                <div className="space-y-1">
-                                                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-                                                                        <span>{data.source.name}</span>
-                                                                        <ChevronRight className="h-3 w-3" />
-                                                                        <span>{data.target.name}</span>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+                                                                        <span className="truncate max-w-[100px]">{data.source.name}</span>
+                                                                        <ChevronRight className="h-3.5 w-3.5 text-indigo-500" />
+                                                                        <span className="truncate max-w-[100px]">{data.target.name}</span>
                                                                     </div>
-                                                                    <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                                                                        Flow: <span className="font-bold text-slate-900 dark:text-slate-100">{Math.round(data.value).toLocaleString()}</span>
+                                                                    <div className="h-px bg-slate-100 dark:bg-indigo-500/20 w-full" />
+                                                                    <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                                                                        Flow: <span className="font-extrabold text-slate-900 dark:text-white text-base ml-1">{Math.round(data.value).toLocaleString()}</span>
                                                                     </p>
                                                                 </div>
                                                             )}
@@ -505,21 +513,23 @@ export function UserFlowVisualization({
                         </ScrollArea>
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-[500px] text-muted-foreground">
-                        <GitBranch className="h-10 w-10 mb-3 opacity-20" />
-                        <p className="text-sm font-medium">Configure flow steps to visualize data</p>
-                        <p className="text-xs opacity-60 mt-1">Add steps and select events above</p>
+                    <div className="flex flex-col items-center justify-center h-[500px] text-muted-foreground bg-slate-50/20 dark:bg-indigo-950/5">
+                        <div className="p-5 rounded-full bg-slate-100/50 dark:bg-indigo-500/10 mb-5 relative group-hover:scale-110 transition-transform duration-500">
+                            <GitBranch className="h-10 w-10 opacity-40 text-indigo-500" />
+                        </div>
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Configure flow steps to visualize data</p>
+                        <p className="text-xs opacity-60 mt-1 font-medium">Add steps and select events above</p>
                     </div>
                 )}
 
                 {/* Overlay Hint */}
-                <div className="absolute bottom-4 left-4 z-20 text-[10px] text-slate-400 opacity-60 pointer-events-none flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                        <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">Ctrl</kbd>
+                <div className="absolute bottom-4 left-6 z-20 text-[10px] text-slate-500 dark:text-indigo-400/60 font-bold uppercase tracking-widest pointer-events-none flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                        <kbd className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-indigo-500/20 shadow-sm transition-all group-hover:bg-white dark:group-hover:bg-slate-800">Ctrl</kbd>
                         <span>+ Scroll to zoom</span>
                     </div>
                     <span>•</span>
-                    <span>Scroll horizontally to scrub flow</span>
+                    <span className="transition-all group-hover:text-indigo-500">Scroll horizontally to scrub flow</span>
                 </div>
             </CardContent>
         </Card>
