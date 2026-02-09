@@ -58,6 +58,7 @@ export interface POSMetrics {
   successRate: number;
   failureRate: number;
   image?: string; // Logo URL from siteDetails API
+  colour?: string; // Brand colour from live sites API
 }
 
 export interface DailyTrend {
@@ -344,7 +345,7 @@ function processEventMetrics(events: any[], graphData: any[], apiGraphData: any[
 function processPlatformBreakdown(pieChartData: any): PlatformMetrics[] {
   // pieChartData is already transformed by apiService.getPieChartData() to { platform: [], pos: [], source: [] }
   if (!pieChartData?.platform || !Array.isArray(pieChartData.platform)) return [];
-  
+
   const platformData = pieChartData.platform;
   const total = platformData.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
 
@@ -368,7 +369,7 @@ function processPlatformBreakdown(pieChartData: any): PlatformMetrics[] {
 function processSourceBreakdown(pieChartData: any): SourceMetrics[] {
   // pieChartData is already transformed by apiService.getPieChartData() to { platform: [], pos: [], source: [] }
   if (!pieChartData?.source || !Array.isArray(pieChartData.source)) return [];
-  
+
   const sourceData = pieChartData.source;
   const total = sourceData.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
 
@@ -384,19 +385,23 @@ function processSourceBreakdown(pieChartData: any): SourceMetrics[] {
   }).filter((s: SourceMetrics) => s.count > 0).sort((a: SourceMetrics, b: SourceMetrics) => b.count - a.count);
 }
 
-function processPOSBreakdown(pieChartData: any, siteDetails: Array<{ id: number; name: string; image: string }>): POSMetrics[] {
+function processPOSBreakdown(pieChartData: any, siteDetails: Array<{ id: number; name: string; image: string; colour?: string }>): POSMetrics[] {
   // pieChartData is already transformed by apiService.getPieChartData() to { platform: [], pos: [], source: [] }
   // The pos array contains objects with { id, name, value, metricType, successCount, failCount }
   if (!pieChartData?.pos || !Array.isArray(pieChartData.pos)) return [];
-  
+
   const posData = pieChartData.pos;
   const total = posData.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
 
-  // Create a map of posId -> image for quick lookup
+  // Create maps for posId -> image and colour for quick lookup
   const siteImageMap = new Map<number, string>();
+  const siteColourMap = new Map<number, string>();
   siteDetails.forEach(site => {
     if (site.image) {
       siteImageMap.set(site.id, site.image);
+    }
+    if (site.colour) {
+      siteColourMap.set(site.id, site.colour);
     }
   });
 
@@ -409,13 +414,14 @@ function processPOSBreakdown(pieChartData: any, siteDetails: Array<{ id: number;
     return {
       posId,
       posName,
-      count, 
+      count,
       percentage: total > 0 ? (count / total) * 100 : 0,
-      successCount, 
+      successCount,
       failCount,
       successRate: count > 0 ? (successCount / count) * 100 : 100,
       failureRate: count > 0 ? (failCount / count) * 100 : 0,
-      image: siteImageMap.get(posId) || '' // Include image from siteDetails
+      image: siteImageMap.get(posId) || '', // Include image from siteDetails
+      colour: siteColourMap.get(posId) || '' // Include colour from live sites
     };
   }).filter((p: POSMetrics) => p.count > 0).sort((a: POSMetrics, b: POSMetrics) => b.count - a.count).slice(0, 20);
 }

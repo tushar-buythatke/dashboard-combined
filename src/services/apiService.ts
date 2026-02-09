@@ -40,11 +40,30 @@ export interface SiteDetail {
     id: number;
     name: string;
     image: string;
+    colour?: string;
 }
+
+// Live site info from liveSitesWeb.json API
+export interface LiveSiteInfo {
+    pos: string;
+    name: string;
+    logo: string;
+    colour: string;
+    lowestDiscount: string;
+    highestDiscount: string;
+    voucherType?: string;
+}
+
+// Live sites API URL
+const LIVE_SITES_API_URL = 'https://search-new.bitbns.com/extension/configs-giftVoucher/prod/liveSitesWeb.json';
 
 // Cache for site details
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let cachedSiteDetails: SiteDetail[] | null = null;
+
+// Cache for live sites (keyed by POS string)
+let cachedLiveSites: Map<string, LiveSiteInfo> | null = null;
+let liveSitesFetchPromise: Promise<Map<string, LiveSiteInfo>> | null = null;
 
 // ============ DYNAMIC FEATURE DATA ============
 // Cached features from API
@@ -521,8 +540,75 @@ export class APIService {
     }
 
     /**
+     * Fetch live sites data from the external API
+     * Used for getting accurate site names and logos for POS values
+     */
+    async getLiveSites(): Promise<Map<string, LiveSiteInfo>> {
+        // Return cached data if available
+        if (cachedLiveSites) {
+            return cachedLiveSites;
+        }
+
+        // Return existing promise if fetch is in progress
+        if (liveSitesFetchPromise) {
+            return liveSitesFetchPromise;
+        }
+
+        // Create and store the promise
+        liveSitesFetchPromise = (async () => {
+            try {
+                // Add random query param to prevent caching issues
+                const response = await fetch(`${LIVE_SITES_API_URL}?rand=${Date.now()}`);
+
+                if (!response.ok) {
+                    console.error(`❌ Live sites API HTTP error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Failed to fetch live sites: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+
+                // The API returns { siteList: [...] }
+                const siteList: LiveSiteInfo[] = result.siteList || [];
+                const sitesMap = new Map<string, LiveSiteInfo>();
+
+                siteList.forEach(site => {
+                    if (site.pos) {
+                        sitesMap.set(String(site.pos), site);
+                        // Also update the siteDetailsMap for name lookups
+                        const posId = parseInt(site.pos);
+                        if (!isNaN(posId) && site.name) {
+                            this.siteDetailsMap[posId] = site.name;
+                        }
+                    }
+                });
+
+                // Cache the result
+                cachedLiveSites = sitesMap;
+                console.log(`✅ Loaded ${sitesMap.size} live sites from API`);
+                return sitesMap;
+            } catch (error) {
+                console.error(`❌ Failed to fetch live sites:`, error);
+                liveSitesFetchPromise = null; // Reset so it can be retried
+                // Return empty map as fallback
+                return new Map<string, LiveSiteInfo>();
+            }
+        })();
+
+        return liveSitesFetchPromise;
+    }
+
+    /**
+     * Get a single live site by POS value
+     */
+    async getLiveSiteByPos(pos: number | string): Promise<LiveSiteInfo | undefined> {
+        const sites = await this.getLiveSites();
+        return sites.get(String(pos));
+    }
+
+    /**
      * Fetch site details for POS options
      * For feature ID 2 (Auto Coupons), merges coupon config with siteDetails API
+     * Also merges data from live sites API for accurate names and logos
      */
     async getSiteDetails(featureId?: number): Promise<SiteDetail[]> {
         // First, ensure we have the base siteDetails
@@ -574,21 +660,21 @@ export class APIService {
             }
         }
 
+        // Start with the base cache
+        let result = [...(this.siteDetailsCache || [])];
+
         // For feature 2, also fetch and merge coupon config sites
         if (featureId === 2) {
             try {
                 const couponSites = await this.getCouponConfigPosData();
                 if (couponSites.length > 0) {
                     // Merge: add coupon sites not already in siteDetails
-                    const existingIds = new Set(this.siteDetailsCache!.map(s => s.id));
+                    const existingIds = new Set(result.map(s => s.id));
                     const newSites = couponSites.filter(s => !existingIds.has(s.id));
 
                     if (newSites.length > 0) {
                         // console.log(`✅ Adding ${newSites.length} new sites from coupon config`);
-                        const merged = [...this.siteDetailsCache!, ...newSites];
-                        // Sort by name for easier search
-                        merged.sort((a, b) => a.name.localeCompare(b.name));
-                        return merged;
+                        result = [...result, ...newSites];
                     }
                 }
             } catch (error) {
@@ -596,7 +682,46 @@ export class APIService {
             }
         }
 
-        return this.siteDetailsCache || [];
+        // Merge live sites data for enhanced names and logos
+        try {
+            const liveSites = await this.getLiveSites();
+            if (liveSites.size > 0) {
+                // Update existing sites with live site data (better names/logos)
+                result = result.map(site => {
+                    const liveSite = liveSites.get(String(site.id));
+                    if (liveSite) {
+                        return {
+                            ...site,
+                            name: liveSite.name || site.name,
+                            image: liveSite.logo || site.image,
+                            colour: liveSite.colour
+                        };
+                    }
+                    return site;
+                });
+
+                // Add any new sites from live sites that aren't in our list
+                const existingIds = new Set(result.map(s => s.id));
+                liveSites.forEach((liveSite, posKey) => {
+                    const posId = parseInt(posKey);
+                    if (!isNaN(posId) && !existingIds.has(posId)) {
+                        result.push({
+                            id: posId,
+                            name: liveSite.name,
+                            image: liveSite.logo,
+                            colour: liveSite.colour
+                        });
+                    }
+                });
+            }
+        } catch (error) {
+            // console.log('⚠️ Live sites fetch failed, using existing data');
+        }
+
+        // Sort by name for easier search
+        result.sort((a, b) => a.name.localeCompare(b.name));
+
+        return result;
     }
 
     /**
