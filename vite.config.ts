@@ -46,6 +46,18 @@ export default defineConfig({
           return p.replace(/^\/coupon-config/, '/extension/configs-coupons/prod')
         },
       },
+      // Proxy for live sites API (CORS bypass)
+      '/live-sites': {
+        target: 'https://search-new.bitbns.com',
+        changeOrigin: true,
+        secure: true,
+        headers: {
+          referer: 'https://search-new.bitbns.com/',
+          origin: 'https://search-new.bitbns.com',
+          'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+        },
+        rewrite: () => '/extension/configs-giftVoucher/prod/liveSitesWeb.json',
+      },
     },
   },
   build: {

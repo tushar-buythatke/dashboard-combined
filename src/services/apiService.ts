@@ -54,8 +54,10 @@ export interface LiveSiteInfo {
     voucherType?: string;
 }
 
-// Live sites API URL
-const LIVE_SITES_API_URL = 'https://search-new.bitbns.com/extension/configs-giftVoucher/prod/liveSitesWeb.json';
+// Live sites API URL - uses proxy to bypass CORS
+// In dev: Vite proxy handles this
+// In prod: Vercel rewrites handle this
+const LIVE_SITES_API_URL = '/live-sites';
 
 // Cache for site details
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
