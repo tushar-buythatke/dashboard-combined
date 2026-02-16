@@ -16,6 +16,7 @@ import { fetcher } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { type DateRange } from "react-day-picker"
+import { PLATFORMS } from "@/services/apiService"
 
 // All database events with better organization
 const ALL_EVENTS = [
@@ -50,13 +51,6 @@ const CATEGORY_SERIES_STYLE: Record<string, { strokeWidth: number; dotRadius: nu
   success: { strokeWidth: 3, dotRadius: 5 },
   errors: { strokeWidth: 3, dotRadius: 5, strokeDasharray: "8 4" },
 }
-
-const PLATFORMS = [
-  { id: -1, name: 'Unknown' },
-  { id: 0, name: 'Extension' },
-  { id: 1, name: 'Android' },
-  { id: 2, name: 'iOS' },
-]
 
 const TOP_5_POS = [
   { id: 2, name: 'Flipkart' },

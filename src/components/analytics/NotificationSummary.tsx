@@ -26,12 +26,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { PLATFORMS as CENTRAL_PLATFORMS } from '@/services/apiService'
 
-const PLATFORMS = [
-  { id: 0, name: 'Extension', color: '#8b5cf6', icon: Monitor },
-  { id: 1, name: 'Android', color: '#22c55e', icon: Smartphone },
-  { id: 2, name: 'iOS', color: '#3b82f6', icon: Smartphone },
-]
+const PLATFORM_UI: Record<number, { color: string; icon: LucideIcon }> = {
+  0: { color: '#8b5cf6', icon: Monitor },
+  1: { color: '#22c55e', icon: Smartphone },
+  2: { color: '#3b82f6', icon: Smartphone },
+}
+
+const PLATFORMS = CENTRAL_PLATFORMS.map(p => ({
+  ...p,
+  color: PLATFORM_UI[p.id]?.color || '#94a3b8',
+  icon: PLATFORM_UI[p.id]?.icon || Monitor
+}))
 
 type NotificationSummaryProps = {
   summaryData: NotificationSummaryData

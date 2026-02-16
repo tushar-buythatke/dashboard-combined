@@ -144,28 +144,14 @@ export const clearFeaturesCache = () => {
 // Get cached organizations
 export const getCachedOrganizations = (): OrganizationInfo[] | null => cachedOrganizations;
 
-// Reverse mappings for display
-export const PLATFORM_NAMES: Record<number, string> = {
-    0: 'Chrome Extension',
-    1: 'Android App',
-    2: 'iOS App',
-    3: 'Mobile Extension',
-    4: 'Edge Extension',
-    5: 'Safari Extension',
-    6: 'Firefox Extension',
-    7: 'Mail',
-    8: 'Graph',
-    9: 'Desktop Web',
-    10: 'Mobile Web',
-    11: 'Internal System',
-};
+// Reverse mappings for display derived from the lists above
+export const PLATFORM_NAMES: Record<number, string> = Object.fromEntries(
+    PLATFORMS.map(p => [p.id, p.name])
+);
 
-export const SOURCE_NAMES: Record<number, string> = {
-    1: 'Spidy',
-    2: 'Kafka',
-    3: 'Self',
-    8: 'Graph',
-};
+export const SOURCE_NAMES: Record<number, string> = Object.fromEntries(
+    SOURCES.map(s => [s.id, s.name])
+);
 
 interface GraphAPIRequest {
     filter: {
@@ -1123,7 +1109,7 @@ export class APIService {
                 if (type === 'platform') {
                     return {
                         id: item.platform,
-                        name: PLATFORM_NAMES[item.platform] || 'Unknown',
+                        name: PLATFORM_NAMES[item.platform] || `Platform ${item.platform}`,
                         value: metric.value,
                         metricType: metric.metricType,
                         successCount: item.successCount,
@@ -1132,7 +1118,7 @@ export class APIService {
                 } else if (type === 'pos') {
                     return {
                         id: item.pos,
-                        name: this.siteDetailsMap[item.pos] || (item.pos === 0 ? 'Unknown' : `POS ${item.pos}`),
+                        name: this.siteDetailsMap[item.pos] || (item.pos === 0 ? 'Default' : `POS ${item.pos}`),
                         value: metric.value,
                         metricType: metric.metricType,
                         successCount: item.successCount,
@@ -1141,7 +1127,7 @@ export class APIService {
                 } else {
                     return {
                         id: item.source,
-                        name: SOURCE_NAMES[item.source] || (item.source === -1 ? 'Unknown' : 'Unknown'),
+                        name: SOURCE_NAMES[item.source] || (item.source === -1 ? 'Not Applicable' : `Source ${item.source}`),
                         value: metric.value,
                         metricType: metric.metricType,
                         successCount: item.successCount,
