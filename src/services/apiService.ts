@@ -33,6 +33,7 @@ export const SOURCES = [
     { id: 7, name: 'Self Extension Crawling' },
     { id: 8, name: 'Graph' },
     { id: 9, name: 'Grocery Search' },
+    { id: 11, name: 'Internal System' },
     { id: -1, name: 'Not Applicable' }, // Sends -1 to API
 ];
 
