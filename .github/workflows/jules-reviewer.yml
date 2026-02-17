@@ -64,14 +64,13 @@ jobs:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.issue.number }}
-          # Pass the repository name into the environment
           REPO: ${{ github.repository }}
         run: |
           echo "Waiting for Jules to finish..."
           
-          # Poll the Jules API every 10 seconds (up to 2 minutes)
-          for i in {1..12}; do
-            sleep 10
+          # Poll the Jules API every 15 seconds (up to 10 minutes max)
+          for i in {1..40}; do
+            sleep 15
             ACTIVITIES=$(curl -s "https://jules.googleapis.com/v1alpha/sessions/${SESSION_ID}/activities" -H "x-goog-api-key: $JULES_API_KEY")
             
             # Look for the agent's text response
@@ -80,7 +79,6 @@ jobs:
             # If we got a real response, post it to GitHub and exit successfully!
             if [ "$REVIEW_TEXT" != "null" ] && [ -n "$REVIEW_TEXT" ]; then
               echo "Review received! Posting to GitHub..."
-              # 🛠️ ADDED THE --repo FLAG HERE!
               gh pr comment $PR_NUMBER --repo "$REPO" --body "$REVIEW_TEXT"
               exit 0
             fi
@@ -88,6 +86,5 @@ jobs:
           done
           
           # If it takes too long, let you know
-          # 🛠️ ADDED THE --repo FLAG HERE TOO!
-          gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Jules timed out while trying to review this PR."
+          gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Jules took longer than 10 minutes to review this PR. The action timed out."
           exit 1
