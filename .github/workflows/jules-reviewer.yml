@@ -6,7 +6,6 @@ on:
 
 jobs:
   review:
-    # Listening for your reverted /jules-review trigger!
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/jules-review') }}
     runs-on: ubuntu-latest
     permissions:
@@ -22,17 +21,20 @@ jobs:
           echo "User not authorized to trigger Jules."
           exit 1
 
-      # 2. GET THE BRANCH NAME
-      - name: Get PR Branch Name
+      # 2. GET BOTH THE PR BRANCH AND THE BASE BRANCH
+      - name: Get PR Branch Context
         id: get-branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_URL="${{ github.event.issue.pull_request.url }}"
-          BRANCH_NAME=$(curl -s -H "Authorization: token $GITHUB_TOKEN" $PR_URL | jq -r .head.ref)
+          PR_DATA=$(curl -s -H "Authorization: token $GITHUB_TOKEN" $PR_URL)
+          BRANCH_NAME=$(echo "$PR_DATA" | jq -r .head.ref)
+          BASE_BRANCH=$(echo "$PR_DATA" | jq -r .base.ref)
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "BASE_BRANCH=$BASE_BRANCH" >> $GITHUB_ENV
 
-      # 3. TRIGGER JULES & SAVE THE SESSION ID
+      # 3. TRIGGER JULES WITH A STRICT READ-ONLY PROMPT
       - name: Start Jules Review Session
         id: start-session
         env:
@@ -43,22 +45,21 @@ jobs:
             -H "Content-Type: application/json" \
             -H "x-goog-api-key: $JULES_API_KEY" \
             -d '{
-              "prompt": "You are a strict code reviewer. Review the code changes in this pull request. Output only your review feedback in markdown format.",
+              "prompt": "You are a STRICT, READ-ONLY code reviewer. Do EXACTLY this:\n1. Run `git diff origin/'"$BASE_BRANCH"'...origin/'"$BRANCH_NAME"'` to see the exact code changes.\n2. ONLY review the specific files and lines that have changed in this diff.\n3. DO NOT run any bash commands like npm install, lint, or build. DO NOT run pre-commit steps.\n4. DO NOT modify, create, or edit any files (do not touch package-lock.json).\n5. Output your comprehensive review feedback in markdown format directly as a message to me, and then finish.",
               "sourceContext": {
                 "source": "sources/github/'"$REPO_FULL_NAME"'",
                 "githubRepoContext": {
                   "startingBranch": "'"$BRANCH_NAME"'"
                 }
               },
-              "title": "PR Review"
+              "title": "PR Review: Read-Only"
             }')
           
-          # Extract the Session ID so we can check on it later
           SESSION_ID=$(echo $RESPONSE | jq -r '.id')
           echo "SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
           echo "Started Jules Session: $SESSION_ID"
 
-      # 4. WAIT FOR JULES AND POST THE COMMENT (The Missing Link!)
+      # 4. WAIT FOR JULES AND POST THE COMMENT
       - name: Wait for Review & Post to PR
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
@@ -68,16 +69,15 @@ jobs:
         run: |
           echo "Waiting for Jules to finish..."
           
-          # Poll the Jules API every 15 seconds (up to 10 minutes max)
           for i in {1..40}; do
             sleep 15
             ACTIVITIES=$(curl -s "https://jules.googleapis.com/v1alpha/sessions/${SESSION_ID}/activities" -H "x-goog-api-key: $JULES_API_KEY")
             
-            # 🚨 FIX: Grab the text using the correct Jules API structure!
-            REVIEW_TEXT=$(echo "$ACTIVITIES" | jq -r '.activities[]? | select(.originator == "agent" or .originator == "AGENT") | .agentMessaged.agentMessage // empty' | tail -n 1)
+            # Extract the last non-empty agent message safely
+            REVIEW_TEXT=$(echo "$ACTIVITIES" | jq -r '[.activities[]? | select((.originator == "agent" or .originator == "AGENT") and .agentMessaged != null) | .agentMessaged.agentMessage] | last // empty')
             
             # If we got a real response, post it to GitHub and exit successfully!
-            if [ -n "$REVIEW_TEXT" ]; then
+            if [ -n "$REVIEW_TEXT" ] && [ "$REVIEW_TEXT" != "null" ]; then
               echo "Review received! Posting to GitHub..."
               gh pr comment $PR_NUMBER --repo "$REPO" --body "$REVIEW_TEXT"
               exit 0
@@ -85,6 +85,5 @@ jobs:
             echo "Jules is still thinking..."
           done
           
-          # If it takes too long, let you know
-          gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Jules took longer than 10 minutes to review this PR. The action timed out."
+          gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Jules took longer than 10 minutes or encountered an unexpected error while trying to review this PR."
           exit 1
