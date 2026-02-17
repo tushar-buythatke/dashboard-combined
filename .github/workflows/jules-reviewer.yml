@@ -73,11 +73,11 @@ jobs:
             sleep 15
             ACTIVITIES=$(curl -s "https://jules.googleapis.com/v1alpha/sessions/${SESSION_ID}/activities" -H "x-goog-api-key: $JULES_API_KEY")
             
-            # Look for the agent's text response
-            REVIEW_TEXT=$(echo "$ACTIVITIES" | jq -r '.activities[]? | select(.actor == "AGENT") | .message.text' | tail -n 1)
+            # 🚨 FIX: Grab the text using the correct Jules API structure!
+            REVIEW_TEXT=$(echo "$ACTIVITIES" | jq -r '.activities[]? | select(.originator == "agent" or .originator == "AGENT") | .agentMessaged.agentMessage // empty' | tail -n 1)
             
             # If we got a real response, post it to GitHub and exit successfully!
-            if [ "$REVIEW_TEXT" != "null" ] && [ -n "$REVIEW_TEXT" ]; then
+            if [ -n "$REVIEW_TEXT" ]; then
               echo "Review received! Posting to GitHub..."
               gh pr comment $PR_NUMBER --repo "$REPO" --body "$REVIEW_TEXT"
               exit 0
