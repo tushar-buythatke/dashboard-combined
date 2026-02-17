@@ -1,0 +1,34 @@
+name: Jules PR Reviewer
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    # Only run if the comment is on a Pull Request AND contains our magic trigger
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/jules-review') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    
+    steps:
+      # 🛡️ SECURITY STEP: Prevent random internet strangers from using up your Jules daily quota
+      - name: Check Allowlist
+        if: ${{ !contains(fromJSON('["your-github-username", "your-coworkers-username"]'), github.event.comment.user.login) }}
+        run: |
+          echo "User not authorized to trigger Jules."
+          exit 1
+
+      # 🤖 TRIGGER JULES
+      - name: Invoke Jules Agent
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          prompt: |
+            You are a strict, senior code reviewer. 
+            Please review the code changes in this pull request. 
+            Focus heavily on detecting subtle bugs, unhandled edge cases, and logic flaws. 
+            Explain your reasoning clearly, drop your feedback in a comment, and suggest actionable fixes.
