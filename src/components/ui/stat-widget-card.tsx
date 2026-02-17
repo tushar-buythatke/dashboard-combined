@@ -32,6 +32,7 @@ const BORDER_HOVER_STATIC = {
     purple: 'hover:border-violet-200 dark:hover:border-violet-600/40',
 };
 console.log("CHECKING the jules review !");
+console.log("OK lets try again");
 
 const SPARKLINE_COLORS_STATIC = {
     success: '#10B981',
