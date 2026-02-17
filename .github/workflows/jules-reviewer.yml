@@ -14,6 +14,19 @@ jobs:
       issues: write
     
     steps:
+      # 0. ACKNOWLEDGE THE COMMAND WITH A REACTION
+      - name: Add Reaction to Comment
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/$REPO/issues/comments/$COMMENT_ID/reactions \
+            -f content='rocket'
       # 1. RANDOMLY SELECT AN API KEY FROM THE POOL
       - name: Pick Random API Key
         id: resolve-key
