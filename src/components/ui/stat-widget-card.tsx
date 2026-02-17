@@ -33,6 +33,7 @@ const BORDER_HOVER_STATIC = {
 };
 console.log("CHECKING the jules review, long shot man !");
 console.log("OK lets try againwewwewewewe !@#!@#");
+console.log("reviewing the wokring of the jules");
 
 const SPARKLINE_COLORS_STATIC = {
     success: '#10B981',
