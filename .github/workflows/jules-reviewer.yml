@@ -6,29 +6,48 @@ on:
 
 jobs:
   review:
-    # Only run if the comment is on a Pull Request AND contains our magic trigger
+    # Only run if the comment is on a PR AND contains our magic trigger
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/jules-review') }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      pull-requests: read
       issues: write
     
     steps:
-      # 🛡️ SECURITY STEP: Prevent random internet strangers from using up your Jules daily quota
+      # 1. SECURITY STEP
       - name: Check Allowlist
-        if: ${{ !contains(fromJSON('["tushar-buythatke", "your-coworkers-username"]'), github.event.comment.user.login) }}
+        if: ${{ !contains(fromJSON('["tushar-buythatke"]'), github.event.comment.user.login) }}
         run: |
           echo "User not authorized to trigger Jules."
           exit 1
 
-      # 🤖 TRIGGER JULES
-      - name: Invoke Jules Agent
-        uses: google-labs-code/jules-invoke@v1
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          prompt: |
-            You are a strict, senior code reviewer. 
-            Please review the code changes in this pull request. 
-            Focus heavily on detecting subtle bugs, unhandled edge cases, and logic flaws. 
-            Explain your reasoning clearly, drop your feedback in a comment, and suggest actionable fixes.
+      # 2. GET THE BRANCH NAME (Comments don't have this by default!)
+      - name: Get PR Branch Name
+        id: get-branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL="${{ github.event.issue.pull_request.url }}"
+          BRANCH_NAME=$(curl -s -H "Authorization: token $GITHUB_TOKEN" $PR_URL | jq -r .head.ref)
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      # 3. TRIGGER JULES VIA REST API
+      - name: Invoke Jules REST API
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          REPO_FULL_NAME: ${{ github.repository }}
+        run: |
+          curl -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
+            -H "Content-Type: application/json" \
+            -H "x-goog-api-key: $JULES_API_KEY" \
+            -d '{
+              "prompt": "You are a strict, senior code reviewer. Please review the code changes in this pull request. Focus heavily on detecting subtle bugs, unhandled edge cases, and logic flaws. Explain your reasoning clearly, drop your feedback in a comment, and suggest actionable fixes.",
+              "sourceContext": {
+                "source": "sources/github/'"$REPO_FULL_NAME"'",
+                "githubRepoContext": {
+                  "startingBranch": "'"$BRANCH_NAME"'"
+                }
+              },
+              "title": "PR Review: Triggered by Comment"
+            }'
