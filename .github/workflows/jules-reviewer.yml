@@ -6,12 +6,12 @@ on:
 
 jobs:
   review:
-    # Only run if the comment is on a PR AND contains our magic trigger
+    # Listening for your reverted /jules-review trigger!
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/jules-review') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: write
     
     steps:
@@ -22,7 +22,7 @@ jobs:
           echo "User not authorized to trigger Jules."
           exit 1
 
-      # 2. GET THE BRANCH NAME (Comments don't have this by default!)
+      # 2. GET THE BRANCH NAME
       - name: Get PR Branch Name
         id: get-branch
         env:
@@ -32,22 +32,58 @@ jobs:
           BRANCH_NAME=$(curl -s -H "Authorization: token $GITHUB_TOKEN" $PR_URL | jq -r .head.ref)
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
-      # 3. TRIGGER JULES VIA REST API
-      - name: Invoke Jules REST API
+      # 3. TRIGGER JULES & SAVE THE SESSION ID
+      - name: Start Jules Review Session
+        id: start-session
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
           REPO_FULL_NAME: ${{ github.repository }}
         run: |
-          curl -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
+          RESPONSE=$(curl -s -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
             -H "Content-Type: application/json" \
             -H "x-goog-api-key: $JULES_API_KEY" \
             -d '{
-              "prompt": "You are a strict, senior code reviewer. Please review the code changes in this pull request. Focus heavily on detecting subtle bugs, unhandled edge cases, and logic flaws. Explain your reasoning clearly, drop your feedback in a comment, and suggest actionable fixes.",
+              "prompt": "You are a strict code reviewer. Review the code changes in this pull request. Output only your review feedback in markdown format.",
               "sourceContext": {
                 "source": "sources/github/'"$REPO_FULL_NAME"'",
                 "githubRepoContext": {
                   "startingBranch": "'"$BRANCH_NAME"'"
                 }
               },
-              "title": "PR Review: Triggered by Comment"
-            }'
+              "title": "PR Review"
+            }')
+          
+          # Extract the Session ID so we can check on it later
+          SESSION_ID=$(echo $RESPONSE | jq -r '.id')
+          echo "SESSION_ID=$SESSION_ID" >> $GITHUB_ENV
+          echo "Started Jules Session: $SESSION_ID"
+
+      # 4. WAIT FOR JULES AND POST THE COMMENT (The Missing Link!)
+      - name: Wait for Review & Post to PR
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          echo "Waiting for Jules to finish..."
+          
+          # Poll the Jules API every 10 seconds (up to 2 minutes)
+          for i in {1..12}; do
+            sleep 10
+            ACTIVITIES=$(curl -s "https://jules.googleapis.com/v1alpha/sessions/${SESSION_ID}/activities" -H "x-goog-api-key: $JULES_API_KEY")
+            
+            # Look for the agent's text response
+            REVIEW_TEXT=$(echo "$ACTIVITIES" | jq -r '.activities[]? | select(.actor == "AGENT") | .message.text' | tail -n 1)
+            
+            # If we got a real response, post it to GitHub and exit successfully!
+            if [ "$REVIEW_TEXT" != "null" ] && [ -n "$REVIEW_TEXT" ]; then
+              echo "Review received! Posting to GitHub..."
+              gh pr comment $PR_NUMBER --body "$REVIEW_TEXT"
+              exit 0
+            fi
+            echo "Jules is still thinking..."
+          done
+          
+          # If it takes too long, let you know
+          gh pr comment $PR_NUMBER --body "⚠️ Jules timed out while trying to review this PR."
+          exit 1
