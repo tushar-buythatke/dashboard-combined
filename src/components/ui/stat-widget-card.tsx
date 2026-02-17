@@ -31,7 +31,7 @@ const BORDER_HOVER_STATIC = {
     info: 'hover:border-blue-200 dark:hover:border-blue-600/40',
     purple: 'hover:border-violet-200 dark:hover:border-violet-600/40',
 };
-console.log("CHECKING the jules review !");
+console.log("CHECKING the jules review, long shot man !");
 console.log("OK lets try againwewwewewewe !@#!@#");
 
 const SPARKLINE_COLORS_STATIC = {
