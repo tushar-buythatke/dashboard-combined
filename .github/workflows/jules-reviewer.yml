@@ -73,17 +73,28 @@ jobs:
             sleep 15
             ACTIVITIES=$(curl -s "https://jules.googleapis.com/v1alpha/sessions/${SESSION_ID}/activities" -H "x-goog-api-key: $JULES_API_KEY")
             
-            # Extract the last non-empty agent message safely
+            # 1. Check if Jules successfully responded
             REVIEW_TEXT=$(echo "$ACTIVITIES" | jq -r '[.activities[]? | select((.originator == "agent" or .originator == "AGENT") and .agentMessaged != null) | .agentMessaged.agentMessage] | last // empty')
             
-            # If we got a real response, post it to GitHub and exit successfully!
+            # 2. Check if Jules encountered a fatal error
+            ERROR_TEXT=$(echo "$ACTIVITIES" | jq -r '[.activities[]? | select(.sessionFailed != null) | .sessionFailed.reason] | last // empty')
+            
+            # Handle Errors First!
+            if [ -n "$ERROR_TEXT" ] && [ "$ERROR_TEXT" != "null" ]; then
+              echo "Jules encountered an internal error!"
+              gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ **Jules encountered an internal error and couldn't complete the review:** $ERROR_TEXT"
+              exit 1
+            fi
+            
+            # Handle Success!
             if [ -n "$REVIEW_TEXT" ] && [ "$REVIEW_TEXT" != "null" ]; then
               echo "Review received! Posting to GitHub..."
               gh pr comment $PR_NUMBER --repo "$REPO" --body "$REVIEW_TEXT"
               exit 0
             fi
+            
             echo "Jules is still thinking..."
           done
           
-          gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Jules took longer than 10 minutes or encountered an unexpected error while trying to review this PR."
+          gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Jules took longer than 10 minutes. The action timed out."
           exit 1
