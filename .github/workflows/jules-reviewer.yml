@@ -14,12 +14,32 @@ jobs:
       issues: write
     
     steps:
-      # 1. SECURITY STEP
-      - name: Check Allowlist
-        if: ${{ !contains(fromJSON('["tushar-buythatke"]'), github.event.comment.user.login) }}
+      # 1. RANDOMLY SELECT AN API KEY FROM THE POOL
+      - name: Pick Random API Key
+        id: resolve-key
+        env:
+          KEY_POOL: ${{ secrets.JULES_API_KEY_POOL }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "User not authorized to trigger Jules."
-          exit 1
+          # Ensure the pool isn't empty
+          if [ -z "$KEY_POOL" ]; then
+            gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ The API key pool (\`JULES_API_KEY_POOL\`) is missing or empty."
+            exit 1
+          fi
+          
+          # Parse the JSON array and pick a random key using 'shuf'
+          SELECTED_KEY=$(echo "$KEY_POOL" | jq -r '.[]' | shuf -n 1)
+          
+          if [ -z "$SELECTED_KEY" ] || [ "$SELECTED_KEY" == "null" ]; then
+            gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Failed to parse a valid key from the \`JULES_API_KEY_POOL\`. Ensure it is formatted as a valid JSON array."
+            exit 1
+          fi
+          
+          # Mask the key so it NEVER shows up in GitHub logs
+          echo "::add-mask::$SELECTED_KEY"
+          echo "JULES_API_KEY=$SELECTED_KEY" >> $GITHUB_ENV
 
       # 2. GET BOTH THE PR BRANCH AND THE BASE BRANCH
       - name: Get PR Branch Context
@@ -34,11 +54,10 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "BASE_BRANCH=$BASE_BRANCH" >> $GITHUB_ENV
 
-      # 3. TRIGGER JULES WITH A STRICT READ-ONLY PROMPT
+      # 3. TRIGGER JULES
       - name: Start Jules Review Session
         id: start-session
         env:
-          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
           REPO_FULL_NAME: ${{ github.repository }}
         run: |
           RESPONSE=$(curl -s -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
@@ -62,7 +81,6 @@ jobs:
       # 4. WAIT FOR JULES AND POST THE COMMENT
       - name: Wait for Review & Post to PR
         env:
-          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.issue.number }}
           REPO: ${{ github.repository }}
@@ -73,20 +91,15 @@ jobs:
             sleep 15
             ACTIVITIES=$(curl -s "https://jules.googleapis.com/v1alpha/sessions/${SESSION_ID}/activities" -H "x-goog-api-key: $JULES_API_KEY")
             
-            # 1. Check if Jules successfully responded
             REVIEW_TEXT=$(echo "$ACTIVITIES" | jq -r '[.activities[]? | select((.originator == "agent" or .originator == "AGENT") and .agentMessaged != null) | .agentMessaged.agentMessage] | last // empty')
-            
-            # 2. Check if Jules encountered a fatal error
             ERROR_TEXT=$(echo "$ACTIVITIES" | jq -r '[.activities[]? | select(.sessionFailed != null) | .sessionFailed.reason] | last // empty')
             
-            # Handle Errors First!
             if [ -n "$ERROR_TEXT" ] && [ "$ERROR_TEXT" != "null" ]; then
               echo "Jules encountered an internal error!"
-              gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ **Jules encountered an internal error and couldn't complete the review:** $ERROR_TEXT"
+              gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ **Jules encountered an internal error:** $ERROR_TEXT"
               exit 1
             fi
             
-            # Handle Success!
             if [ -n "$REVIEW_TEXT" ] && [ "$REVIEW_TEXT" != "null" ]; then
               echo "Review received! Posting to GitHub..."
               gh pr comment $PR_NUMBER --repo "$REPO" --body "$REVIEW_TEXT"
