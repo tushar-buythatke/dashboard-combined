@@ -187,6 +187,9 @@ function Sidebar({
     )
   }
   console.log("CHECKING the jules review !");
+  console.log(
+    "REtesting the jules"
+  )
 
   return (
     <div
