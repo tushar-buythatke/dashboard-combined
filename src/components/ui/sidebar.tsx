@@ -186,6 +186,7 @@ function Sidebar({
       </Sheet>
     )
   }
+  console.log("CHECKING the jules review !");
 
   return (
     <div
