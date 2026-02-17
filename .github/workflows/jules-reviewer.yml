@@ -64,6 +64,8 @@ jobs:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.issue.number }}
+          # Pass the repository name into the environment
+          REPO: ${{ github.repository }}
         run: |
           echo "Waiting for Jules to finish..."
           
@@ -78,12 +80,14 @@ jobs:
             # If we got a real response, post it to GitHub and exit successfully!
             if [ "$REVIEW_TEXT" != "null" ] && [ -n "$REVIEW_TEXT" ]; then
               echo "Review received! Posting to GitHub..."
-              gh pr comment $PR_NUMBER --body "$REVIEW_TEXT"
+              # 🛠️ ADDED THE --repo FLAG HERE!
+              gh pr comment $PR_NUMBER --repo "$REPO" --body "$REVIEW_TEXT"
               exit 0
             fi
             echo "Jules is still thinking..."
           done
           
           # If it takes too long, let you know
-          gh pr comment $PR_NUMBER --body "⚠️ Jules timed out while trying to review this PR."
+          # 🛠️ ADDED THE --repo FLAG HERE TOO!
+          gh pr comment $PR_NUMBER --repo "$REPO" --body "⚠️ Jules timed out while trying to review this PR."
           exit 1
