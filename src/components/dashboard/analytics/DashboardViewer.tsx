@@ -2237,17 +2237,26 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         );
 
         // Build event keys metadata with isErrorEvent and isAvgEvent
-        const eventKeysInData = Array.from(eventIds).map(id => {
-            const name = eventNameMap.get(id) || `Event ${id}`;
-            const config = eventConfigMap.get(id);
-            return {
-                eventId: id,
-                eventName: name,
-                eventKey: name.replace(/[^a-zA-Z0-9]/g, '_'),
-                isErrorEvent: config?.isErrorEvent || 0,
-                isAvgEvent: config?.isAvgEvent || 0
-            };
-        });
+        // Deduplicate by eventKey (name-based) to avoid duplicate legend buttons
+        // when multiple event IDs share the same name
+        const seenEventKeys = new Set<string>();
+        const eventKeysInData = Array.from(eventIds)
+            .map(id => {
+                const name = eventNameMap.get(id) || `Event ${id}`;
+                const config = eventConfigMap.get(id);
+                return {
+                    eventId: id,
+                    eventName: name,
+                    eventKey: name.replace(/[^a-zA-Z0-9]/g, '_'),
+                    isErrorEvent: config?.isErrorEvent || 0,
+                    isAvgEvent: config?.isAvgEvent || 0
+                };
+            })
+            .filter(ek => {
+                if (seenEventKeys.has(ek.eventKey)) return false;
+                seenEventKeys.add(ek.eventKey);
+                return true;
+            });
 
         return {
             data: sortedData,
