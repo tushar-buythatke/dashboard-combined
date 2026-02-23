@@ -1714,7 +1714,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                 userId: user.id,
                                 action: 'feature_visit',
                                 featureId: loadedProfile.featureId,
-                                featureName: loadedProfile.name || loadedProfile.featureId
+                                featureName: loadedProfile.profileName || loadedProfile.featureId
                             })
                         }).catch(() => {});
                     }
