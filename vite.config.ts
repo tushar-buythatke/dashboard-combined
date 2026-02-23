@@ -58,6 +58,20 @@ export default defineConfig({
         },
         rewrite: () => '/extension/configs-giftVoucher/prod/liveSitesWeb.json',
       },
+      // Proxy for Onramp coins API (POS list for org 4)
+      '/onramp-coins': {
+        target: 'https://api.onramp.money',
+        changeOrigin: true,
+        secure: true,
+        rewrite: () => '/onramp/api/v3/buy/public/listAllCoins',
+      },
+      // Proxy for Onramp country config API (source list for org 4)
+      '/onramp-countries': {
+        target: 'https://api.onramp.money',
+        changeOrigin: true,
+        secure: true,
+        rewrite: () => '/onramp/api/v2/common/public/fetchAllCountryConfig',
+      },
     },
   },
   build: {

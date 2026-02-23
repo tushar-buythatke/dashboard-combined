@@ -756,6 +756,93 @@ export class APIService {
     }
 
     /**
+     * Fetch POS list for Onramp (org 4) from their coins API (via Vite proxy).
+     * Maps coinId → SiteDetail, coinName as display name.
+     */
+    async getOnrampSiteDetails(): Promise<SiteDetail[]> {
+        try {
+            const response = await fetch('/onramp-coins');
+            if (!response.ok) throw new Error('Onramp coins API failed');
+            const result = await response.json();
+            if (result.status !== 1 || !result.data) return [];
+            const sites: SiteDetail[] = Object.entries(result.data).map(([, coin]: [string, any]) => ({
+                id: coin.coinId,
+                name: coin.coinName,
+                image: coin.coinIcon || '',
+            }));
+            sites.sort((a, b) => a.name.localeCompare(b.name));
+            return sites;
+        } catch (e) {
+            console.error('Failed to fetch Onramp coins:', e);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch sources for a given org (via Vite proxy for Onramp).
+     * For Onramp (org 4): merges buy + sell country configs, returns labeled sources.
+     *   Buy entries: id = key (1, 2…), name = "Buy · INR (IN)"
+     *   Sell entries that differ from buy: id = key, name = "Sell · INR (IN)"
+     *   Entries present in both: name = "INR (IN)"
+     * For all other orgs: returns the static SOURCES array.
+     */
+    async getSourcesForOrg(organizationId: number): Promise<Array<{ id: number; name: string }>> {
+        if (organizationId !== 4) return SOURCES;
+        try {
+            const response = await fetch('/onramp-countries');
+            if (!response.ok) throw new Error('Onramp country config API failed');
+            const result = await response.json();
+            if (result.status !== 1 || !result.data) return SOURCES;
+
+            const buy: Record<string, any> = result.data.buy || {};
+            const sell: Record<string, any> = result.data.sell || {};
+
+            // Build a merged map: id → { buyName, sellName }
+            const allIds = new Set([...Object.keys(buy), ...Object.keys(sell)]);
+            const sources: Array<{ id: number; name: string }> = [];
+
+            for (const key of allIds) {
+                const id = parseInt(key);
+                if (isNaN(id)) continue;
+                const bc = buy[key];
+                const sc = sell[key];
+                const hasBuy = bc?.currency && bc?.country;
+                const hasSell = sc?.currency && sc?.country;
+                if (!hasBuy && !hasSell) continue;
+
+                const buyLabel = hasBuy ? `${bc.currency} (${bc.country})` : null;
+                const sellLabel = hasSell ? `${sc.currency} (${sc.country})` : null;
+
+                if (hasBuy && hasSell && buyLabel === sellLabel) {
+                    // Same in both — no prefix needed
+                    sources.push({ id, name: buyLabel! });
+                } else {
+                    if (hasBuy) sources.push({ id, name: `Buy · ${buyLabel}` });
+                    if (hasSell) sources.push({ id: id + 1000, name: `Sell · ${sellLabel}` });
+                }
+            }
+
+            sources.sort((a, b) => a.id - b.id);
+            return sources.length > 0 ? sources : SOURCES;
+        } catch (e) {
+            console.error('Failed to fetch Onramp country config:', e);
+            return SOURCES;
+        }
+    }
+
+    /**
+     * Fetch site details (POS list) for a given org + featureId.
+     * For Onramp (org 4): returns coins from their API.
+     * For others: delegates to standard getSiteDetails().
+     */
+    async getSiteDetailsForOrg(organizationId: number, featureId?: number): Promise<SiteDetail[]> {
+        if (organizationId === 4) {
+            return this.getOnrampSiteDetails();
+        }
+        return this.getSiteDetails(featureId);
+    }
+
+    /**
      * Fetch critical alerts
      * @param panelId - Optional DB panel ID for isApi=2 (percent/funnel) alerts
      */

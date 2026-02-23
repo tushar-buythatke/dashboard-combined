@@ -339,6 +339,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     // API data
     const [events, setEvents] = useState<EventConfig[]>([]);
     const [siteDetails, setSiteDetails] = useState<SiteDetail[]>([]);
+    const [orgSources, setOrgSources] = useState<Array<{ id: number; name: string }>>(SOURCES);
 
     // Multi-select filter state
     // Note: Empty array means "all" for any filter - API sends [] which backend treats as all
@@ -518,7 +519,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             const options = {
                 platforms: PLATFORMS,
                 pos: siteDetails.map(s => ({ id: s.id, name: s.name })),
-                sources: SOURCES,
+                sources: orgSources,
                 events: events.map(e => ({ id: Number(e.eventId), name: e.eventName }))
             };
 
@@ -1694,12 +1695,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
 
                     // Fetch site details and events in parallel to reduce
                     // perceived latency on first render.
-                    const [sites, featureEvents] = await Promise.all([
-                        apiService.getSiteDetails(parseInt(loadedProfile.featureId) || undefined),
-                        apiService.getEventsList(loadedProfile.featureId)
+                    const orgId = selectedOrganization?.id ?? 0;
+                    const [sites, featureEvents, orgSourcesList] = await Promise.all([
+                        apiService.getSiteDetailsForOrg(orgId, parseInt(loadedProfile.featureId) || undefined),
+                        apiService.getEventsList(loadedProfile.featureId, orgId),
+                        apiService.getSourcesForOrg(orgId)
                     ]);
 
                     setSiteDetails(sites);
+                    setOrgSources(orgSourcesList);
                     console.log('Loaded events with customName:', featureEvents.map(e => ({ id: e.eventId, name: e.eventName, customName: (e as any).customName || (e as any).custom_name })));
                     setEvents(featureEvents);
                     // Expose events to parent for search
@@ -3663,7 +3667,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             }),
         [siteDetails]
     );
-    const sourceOptions = useMemo(() => SOURCES.map(s => ({ value: s.id.toString(), label: s.name })), []);
+    const sourceOptions = useMemo(() => orgSources.map(s => ({ value: s.id.toString(), label: s.name })), [orgSources]);
 
     const selectedEventsList = useMemo(() => {
         if (filters.events.length === 0) return ['All Events'];
@@ -4258,6 +4262,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         updatePanelFilter={updatePanelFilter}
                         events={events}
                         siteDetails={siteDetails}
+                        sourceOptions={sourceOptions}
                         panelAvailableStatusCodes={panelAvailableStatusCodes}
                         panelAvailableCacheStatuses={panelAvailableCacheStatuses}
                         setPanelFiltersState={setPanelFiltersState}

@@ -76,11 +76,23 @@ function getUserInitials(email: string): string {
     return name.slice(0, 2).toUpperCase();
 }
 
-// Merge same action+featureId within 5s into one entry with count
+// Merge same action+featureId within 5s into one entry with count.
+// Special rule: org_visit for the same orgId is deduplicated per calendar day (show only first visit).
 function deduplicateLogs(logs: TrackerLogEntry[]): DedupLogEntry[] {
     const DEDUP_WINDOW = 5000;
+    const seenOrgVisitDays = new Set<string>(); // "orgId_YYYY-MM-DD"
     const result: DedupLogEntry[] = [];
     for (const log of logs) {
+        // Per-day dedup for org_visit
+        if (log.action === 'org_visit') {
+            const dayKey = new Date(log.timestamp).toISOString().slice(0, 10);
+            const orgDayKey = `${String(log.featureId ?? '')}_${dayKey}`;
+            if (seenOrgVisitDays.has(orgDayKey)) continue; // skip — already have this org's visit for this day
+            seenOrgVisitDays.add(orgDayKey);
+            result.push({ ...log, count: 1 });
+            continue;
+        }
+        // 5s dedup for everything else
         const last = result[result.length - 1];
         if (
             last &&

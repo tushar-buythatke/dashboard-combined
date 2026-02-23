@@ -32,7 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { mockService } from '@/services/mockData';
 import { firebaseConfigService } from '@/services/firebaseConfigService';
-import { getFeatureName, getFeatureShortName } from '@/services/apiService';
+import { apiService, getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground } from '@/components/ui/animated-background';
 import { CustomEventLabelsProvider } from '@/contexts/CustomEventLabelsContext';
@@ -202,9 +202,13 @@ export function AnalyticsLayout() {
         return !!user.permissions.features[featureId];
     };
 
-    // Track org visits when the selected organization changes
+    // Track org visits — at most once per org per calendar day (suppress re-fires from auto-navigate)
     useEffect(() => {
         if (!user?.id || !selectedOrganization) return;
+        const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+        const cacheKey = `org_visit_${user.id}_${selectedOrganization.id}_${today}`;
+        if (localStorage.getItem(cacheKey)) return; // Already logged today for this org
+        localStorage.setItem(cacheKey, '1');
         fetch('https://ext1.buyhatke.com/feature-tracking/userTracker/log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -215,9 +219,8 @@ export function AnalyticsLayout() {
                 featureId: selectedOrganization.id
             })
         }).catch(() => {});
-    // Only fire when org actually changes, not on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedOrganization?.id]);
+    }, [selectedOrganization?.id, user?.id]);
 
     // Security: when user/permissions load, clear any feature the user doesn't have access to.
     // This prevents URL manipulation attacks (e.g. changing ?feature=2 to ?feature=3 manually).
@@ -378,16 +381,45 @@ export function AnalyticsLayout() {
         loadExistingProfiles();
     }, [showNewConfigModal, newConfigMode, newConfigFeature]);
 
-    // When organization changes, restore selection from URL
+    // When organization changes, restore selection from URL — or auto-navigate to first accessible feature
     useEffect(() => {
-        if (selectedOrganization) {
-            const featureFromUrl = searchParams.get('feature');
-            const profileFromUrl = searchParams.get('profile');
+        if (!selectedOrganization) return;
+        const featureFromUrl = searchParams.get('feature');
+        const profileFromUrl = searchParams.get('profile');
+
+        if (featureFromUrl) {
             setSelectedFeatureId(featureFromUrl);
             setSelectedProfileId(profileFromUrl);
             setFeatureSelectorKey(prev => prev + 1);
+        } else {
+            // No feature in URL — auto-navigate to the first accessible feature for this org
+            setSelectedFeatureId(null);
+            setSelectedProfileId(null);
+            setFeatureSelectorKey(prev => prev + 1);
+
+            (async () => {
+                try {
+                    const orgId = selectedOrganization.id;
+                    const apiFeatures = await apiService.getFeaturesList(orgId);
+                    let features = apiFeatures.map(f => ({ id: f.id.toString(), name: f.name }));
+
+                    // Filter to only accessible features (match FeatureSelector logic)
+                    if (user?.role !== 1 && user?.permissions?.features && Object.keys(user.permissions.features).length > 0) {
+                        const perms = user.permissions.features;
+                        // Prefer write-access features first, then read, then all
+                        const writeFeatures = features.filter(f => perms[f.id] === 'write');
+                        const readFeatures = features.filter(f => perms[f.id] === 'read');
+                        features = writeFeatures.length > 0 ? writeFeatures : readFeatures.length > 0 ? readFeatures : features.filter(f => !!perms[f.id]);
+                    }
+
+                    if (features.length > 0) {
+                        setSelectedFeatureId(features[0].id);
+                    }
+                } catch (_) { /* silently ignore — user will see feature selector */ }
+            })();
         }
-    }, [selectedOrganization?.id, searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedOrganization?.id]);
 
     // When a feature is selected, auto-set the new config feature to match
     useEffect(() => {

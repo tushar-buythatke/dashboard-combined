@@ -142,7 +142,10 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
     handleVoiceTranscript = () => { },
     isAdmin = false,
     setVoiceStatus = () => { },
+    sourceOptions: sourceOptionsProp,
 }: any) {
+    // Use org-specific sources if passed, otherwise fall back to static SOURCES
+    const dynamicSourceOptions = sourceOptionsProp || SOURCES.map((s: any) => ({ value: s.id.toString(), label: s.name }));
     const { t: themeClasses } = useAccentTheme();
     const isMobile = useIsMobile();
     const [eventDistModes, setEventDistModes] = useState<Record<string, 'platform' | 'pos' | 'source'>>({});
@@ -1170,7 +1173,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 <div className="space-y-2">
                                                                     <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Sources</label>
                                                                     <MultiSelectDropdown
-                                                                        options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
+                                                                        options={dynamicSourceOptions}
                                                                         selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
                                                                         onChange={(values) => {
                                                                             const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
@@ -1437,7 +1440,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             <div className="space-y-2">
                                                                 <label className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Sources</label>
                                                                 <MultiSelectDropdown
-                                                                    options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
+                                                                    options={dynamicSourceOptions}
                                                                     selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
                                                                     onChange={(values) => {
                                                                         const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
@@ -1533,7 +1536,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 <div className="space-y-1.5">
                                                                     <label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Sources</label>
                                                                     <MultiSelectDropdown
-                                                                        options={SOURCES.map(s => ({ value: s.id.toString(), label: s.name }))}
+                                                                        options={dynamicSourceOptions}
                                                                         selected={(currentPanelFilters.sources || []).map((id: any) => id.toString())}
                                                                         onChange={(values) => {
                                                                             const numericValues = values.map(v => parseInt(v)).filter(id => !isNaN(id));
@@ -4727,7 +4730,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             availableOptions: {
                                 platforms: PLATFORMS.map(p => ({ id: p.id, name: p.name })),
                                 pos: siteDetails.map((s: any) => ({ id: s.id, name: s.name })),
-                                sources: (SOURCES as Array<{ id: number; name: string }>).map((s) => s.name),
+                                sources: dynamicSourceOptions.map((s: any) => s.label),
                                 events: events
                                     .filter((e: any) => !e.isApiEvent)
                                     .map((e: any) => ({ id: parseInt(e.eventId), name: e.eventName || getEventDisplayName(e) }))

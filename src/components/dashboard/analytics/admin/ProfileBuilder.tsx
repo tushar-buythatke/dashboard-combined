@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import type { DashboardProfile, PanelConfig, EventConfig } from '@/types/analytics';
 import { mockService } from '@/services/mockData';
 import { apiService, PLATFORMS, SOURCES, getFeatureName, getFeatureShortName } from '@/services/apiService';
@@ -73,6 +74,7 @@ interface ExtendedPanelConfig extends Omit<PanelConfig, 'type'> {
 export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }: ProfileBuilderProps) {
     const { t: themeClasses } = useAccentTheme();
     const { user } = useAnalyticsAuth();
+    const { selectedOrganization } = useOrganization();
     const { toast } = useToast();
     const { getEventDisplayName } = useEventName();
     const [profileName, setProfileName] = useState('New Profile');
@@ -410,7 +412,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         const loadApiData = async () => {
             try {
                 // Load events for this feature
-                const events = await apiService.getEventsList(featureId);
+                const events = await apiService.getEventsList(featureId, selectedOrganization?.id ?? 0);
                 setAvailableEvents(events);
 
                 // Load site details for POS

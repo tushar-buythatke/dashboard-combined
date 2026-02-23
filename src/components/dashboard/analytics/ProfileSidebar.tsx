@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -74,6 +75,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     const [panelTreeExpanded, setPanelTreeExpanded] = useState(true);
     const { user } = useAnalyticsAuth();
     const { t } = useAccentTheme();
+    const { selectedOrganization } = useOrganization();
     const isAdmin = useMemo(() => user?.role === 1, [user?.role]);
 
     // Helper to check write access for this specific feature
@@ -129,7 +131,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                     const dashboardDbServiceMod = await import('@/services/dashboardDbService');
 
                                     // Get all events for this feature
-                                    const events = await apiServiceMod.apiService.getEventsList(featureId);
+                                    const events = await apiServiceMod.apiService.getEventsList(featureId, selectedOrganization?.id ?? 0);
                                     const apiEvents = events.filter(e => e.isApiEvent === true);
 
                                     // Auto-sync API panels (creates/updates as needed)
