@@ -835,7 +835,7 @@ export const AdditionalPanelItem = React.memo(({
                             const mappedPieData = pieType === 'pos'
                                 ? combinedPieData.map((item: any) => ({
                                     ...item,
-                                    name: getPOSName(item.name)
+                                    name: getPOSName(item.name, siteDetails, item.originalKey)
                                 }))
                                 : combinedPieData;
                             const showChart = shouldShowPieChart(mappedPieData);

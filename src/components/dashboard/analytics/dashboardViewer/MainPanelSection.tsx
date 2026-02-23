@@ -180,6 +180,7 @@ type MainPanelSectionProps = {
     handleVoiceTranscript?: (text: string) => void;
     isAdmin?: boolean;
     setVoiceStatus?: (status: any) => void;
+    siteDetails?: Array<{ id: number; name: string; image?: string }>;
 };
 
 import { UserFootfallCard } from './UserFootfallCard';
@@ -261,6 +262,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
     handleVoiceTranscript = () => { },
     isAdmin = false,
     setVoiceStatus = () => { },
+    siteDetails = [],
 }: MainPanelSectionProps) {
     const { t: themeClasses } = useAccentTheme();
     const isMobile = useIsMobile();
@@ -3817,7 +3819,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     // Apply POS mapping to convert IDs to human-readable names
                     const posData = rawPosData.map((item: any) => ({
                         ...item,
-                        name: getPOSName(item.name)
+                        name: getPOSName(item.name, siteDetails, item.originalKey)
                     }));
                     const sourceData = pieChartData?.source ? combinePieChartDuplicates(pieChartData.source) : [];
 
@@ -4162,7 +4164,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                         const posData = rawPosData.map((item: any) => ({
                                             ...item,
-                                            name: getPOSName(item.name)
+                                            name: getPOSName(item.name, siteDetails, item.originalKey)
                                         }));
                                         const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
 
@@ -4440,7 +4442,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                 const posData = rawPosData.map((item: any) => ({
                                                     ...item,
-                                                    name: getPOSName(item.name)
+                                                    name: getPOSName(item.name, siteDetails, item.originalKey)
                                                 }));
                                                 const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
 
@@ -4695,7 +4697,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                     const posData = rawPosData.map((item: any) => ({
                                         ...item,
-                                        name: getPOSName(item.name)
+                                        name: getPOSName(item.name, siteDetails, item.originalKey)
                                     }));
                                     const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
 
@@ -4969,7 +4971,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 const rawPosData = apiData?.pos ? combinePieChartDuplicates(apiData.pos) : [];
                                 const posData = rawPosData.map((item: any) => ({
                                     ...item,
-                                    name: getPOSName(item.name)
+                                    name: getPOSName(item.name, siteDetails, item.originalKey)
                                 }));
                                 const sourceData = apiData?.source ? combinePieChartDuplicates(apiData.source) : [];
 

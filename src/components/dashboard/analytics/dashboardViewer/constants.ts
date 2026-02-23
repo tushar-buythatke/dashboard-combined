@@ -61,6 +61,7 @@ export const combinePieChartDuplicates = (data: any[] | Record<string, any>): an
                 name: item.name || key, // Use key as name if no name property
                 value: item.value ?? item.count ?? 0, // Use value, or count from API
                 metricType: item.metricType,
+                originalKey: key, // PRESERVE the original numeric key for siteDetails lookup
                 // Preserve other useful properties
                 platform: item.platform,
                 pos: item.pos,
@@ -73,7 +74,7 @@ export const combinePieChartDuplicates = (data: any[] | Record<string, any>): an
     if (arrayData.length === 0) return [];
 
     // Now combine duplicates by name
-    const combinedMap = new Map<string, { value: number; metricType?: string }>();
+    const combinedMap = new Map<string, { value: number; metricType?: string; originalKey?: string }>();
     arrayData.forEach((item: any) => {
         let name = item.name;
         // Fallback to ID fields if name is missing
@@ -90,10 +91,11 @@ export const combinePieChartDuplicates = (data: any[] | Record<string, any>): an
         combinedMap.set(name, {
             value: nextValue,
             metricType: prev?.metricType || item.metricType,
+            originalKey: prev?.originalKey || item.originalKey,
         });
     });
 
-    return Array.from(combinedMap.entries()).map(([name, meta]) => ({ name, value: meta.value, metricType: meta.metricType }));
+    return Array.from(combinedMap.entries()).map(([name, meta]) => ({ name, value: meta.value, metricType: meta.metricType, originalKey: meta.originalKey }));
 };
 
 // Utility function to check if pie chart should be displayed

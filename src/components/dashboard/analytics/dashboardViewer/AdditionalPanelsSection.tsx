@@ -3631,7 +3631,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                 const mappedPieData = pieType === 'pos'
                                     ? combinedPieData.map((item: any) => ({
                                         ...item,
-                                        name: getPOSName(item.name)
+                                        name: getPOSName(item.name, siteDetails, item.originalKey)
                                     }))
                                     : combinedPieData;
                                 const showChart = shouldShowPieChart(mappedPieData);
@@ -3828,7 +3828,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                     const posData = rawPosData.map((item: any) => ({
                                                         ...item,
-                                                        name: getPOSName(item.name)
+                                                        name: getPOSName(item.name, siteDetails, item.originalKey)
                                                     }));
                                                     const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
 
@@ -4103,7 +4103,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                             const posData = rawPosData.map((item: any) => ({
                                                                 ...item,
-                                                                name: getPOSName(item.name)
+                                                                name: getPOSName(item.name, siteDetails, item.originalKey)
                                                             }));
                                                             const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
 
@@ -4365,7 +4365,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 const rawPosData = pieData?.pos ? combinePieChartDuplicates(pieData.pos) : [];
                                                 const posData = rawPosData.map((item: any) => ({
                                                     ...item,
-                                                    name: getPOSName(item.name)
+                                                    name: getPOSName(item.name, siteDetails, item.originalKey)
                                                 }));
                                                 const sourceData = pieData?.source ? combinePieChartDuplicates(pieData.source) : [];
 
@@ -4551,7 +4551,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             const rawPosData = apiData?.pos ? combinePieChartDuplicates(apiData.pos) : [];
                                             const posData = rawPosData.map((item: any) => ({
                                                 ...item,
-                                                name: getPOSName(item.name)
+                                                name: getPOSName(item.name, siteDetails, item.originalKey)
                                             }));
                                             const sourceData = apiData?.source ? combinePieChartDuplicates(apiData.source) : [];
 

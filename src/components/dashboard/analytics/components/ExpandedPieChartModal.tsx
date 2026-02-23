@@ -45,12 +45,12 @@ export const PIE_COLORS = [
 ];
 
 // Professional Pie Tooltip
-export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0, isPosChart = false, isApiEvent = false }: any) => {
+export const PieTooltip = ({ active, payload, totalValue, isAvgEventType = 0, isPosChart = false, isApiEvent = false, siteDetails = [] }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         const percentage = ((data.value / totalValue) * 100).toFixed(2);
         // Apply POS mapping if this is a POS chart
-        const displayName = isPosChart ? getPOSName(data.name) : data.name;
+        const displayName = isPosChart ? getPOSName(data.name, siteDetails, data.originalKey) : data.name;
 
         // Format value logic
         const formattedValue = isAvgEventType === 2
@@ -104,9 +104,10 @@ interface ExpandedPieChartModalProps {
     onClose: () => void;
     pieData: ExpandedPieData | null;
     isAvgEventType?: number; // 0=count, 1=time(ms), 2=rupees
+    siteDetails?: Array<{ id: number; name: string; image?: string }>;
 }
 
-export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType = 0 }: ExpandedPieChartModalProps) {
+export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType = 0, siteDetails = [] }: ExpandedPieChartModalProps) {
     const { t: themeClasses } = useAccentTheme();
     const isMobile = useIsMobile();
     const [isShortViewport, setIsShortViewport] = useState(false);
@@ -205,7 +206,7 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
     const mappedData = activeType === 'pos'
         ? currentData.map((item: any) => ({
             ...item,
-            name: getPOSName(item.name)
+            name: getPOSName(item.name, siteDetails, item.originalKey)
         }))
         : activeType === 'platform'
             ? currentData.map((item: any) => ({

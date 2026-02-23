@@ -4246,6 +4246,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                             setManualTranscript={setManualTranscript}
                             isAdmin={isAdmin}
                             setVoiceStatus={setVoiceStatus}
+                            siteDetails={siteDetails}
                         />
 
 
@@ -4332,6 +4333,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 }}
                 pieData={expandedPie}
                 isAvgEventType={globalAvgEventType}
+                siteDetails={siteDetails}
             />
 
             {/* Chart Expanded View Modal */}

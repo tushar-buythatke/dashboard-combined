@@ -35,31 +35,60 @@ export const POS_MAPPING: Record<number, POSInfo> = {
 
 /**
  * Get human-readable name for a POS ID
- * Handles: numeric IDs, "Pos XXXXX" strings, and name strings
+ * Priority: siteDetails (by originalKey) > POS_MAPPING > siteDetails (by name lookup) > pass-through
+ * @param id - The POS name or ID to resolve
+ * @param siteDetails - Optional siteDetails array from the API (has proper short names)
+ * @param originalKey - Optional original key from the API response (numeric POS ID)
  */
-export function getPOSName(id: number | string): string {
+export function getPOSName(
+    id: number | string,
+    siteDetails?: Array<{ id: number; name: string; image?: string }>,
+    originalKey?: string
+): string {
     if (id === null || id === undefined) {
         return 'Unknown POS';
     }
-    
+
     const idStr = String(id).trim();
-    
-    // CRITICAL: Check if it's in format "Pos 25850" - extract the number!
+
+    // 1. Try siteDetails by originalKey first (highest priority — this is the numeric POS ID)
+    if (originalKey && siteDetails && siteDetails.length > 0) {
+        const keyNum = parseInt(originalKey);
+        if (!isNaN(keyNum)) {
+            const siteMatch = siteDetails.find(s => s.id === keyNum);
+            if (siteMatch && siteMatch.name && !/^\d+$/.test(siteMatch.name.trim())) {
+                return siteMatch.name;
+            }
+        }
+    }
+
+    // 2. CRITICAL: Check if it's in format "Pos 25850" - extract the number!
     const posMatch = idStr.match(/^pos\s+(\d+)$/i);
     if (posMatch) {
         const extractedId = parseInt(posMatch[1]);
+        // Check siteDetails first
+        if (siteDetails && siteDetails.length > 0) {
+            const siteMatch = siteDetails.find(s => s.id === extractedId);
+            if (siteMatch && siteMatch.name && !/^\d+$/.test(siteMatch.name.trim())) return siteMatch.name;
+        }
         if (POS_MAPPING[extractedId]) {
             return POS_MAPPING[extractedId].name;
         }
     }
-    
-    // Try numeric lookup
+
+    // 3. Try numeric lookup (siteDetails first, then POS_MAPPING)
     const numericId = typeof id === 'number' ? id : parseInt(idStr);
-    if (!isNaN(numericId) && POS_MAPPING[numericId]) {
-        return POS_MAPPING[numericId].name;
+    if (!isNaN(numericId)) {
+        if (siteDetails && siteDetails.length > 0) {
+            const siteMatch = siteDetails.find(s => s.id === numericId);
+            if (siteMatch && siteMatch.name && !/^\d+$/.test(siteMatch.name.trim())) return siteMatch.name;
+        }
+        if (POS_MAPPING[numericId]) {
+            return POS_MAPPING[numericId].name;
+        }
     }
-    
-    // Try string name lookup (case-insensitive)
+
+    // 4. Try string name lookup in POS_MAPPING (case-insensitive)
     const lowerStr = idStr.toLowerCase();
     const found = Object.values(POS_MAPPING).find(
         pos => pos.name.toLowerCase() === lowerStr
@@ -67,12 +96,12 @@ export function getPOSName(id: number | string): string {
     if (found) {
         return found.name;
     }
-    
-    // Capitalize valid strings
+
+    // 5. Capitalize valid strings
     if (isNaN(Number(idStr)) && idStr.length > 0) {
         return idStr.charAt(0).toUpperCase() + idStr.slice(1);
     }
-    
+
     return `POS ${id}`;
 }
 
