@@ -26,19 +26,12 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
                 setError(null);
                 const orgs = await apiService.getOrganizationsList();
                 setOrganizations(orgs);
-                
-                // Load saved organization from localStorage or default to first one
-                const savedOrgId = localStorage.getItem('selectedOrganizationId');
-                if (savedOrgId) {
-                    const savedOrg = orgs.find(o => o.id === parseInt(savedOrgId));
-                    if (savedOrg) {
-                        setSelectedOrganizationState(savedOrg);
-                    } else {
-                        setSelectedOrganizationState(orgs[0] || null);
-                    }
-                } else {
-                    setSelectedOrganizationState(orgs[0] || null);
-                }
+
+                // Priority: URL ?org= → localStorage → first org
+                const urlOrgId = new URLSearchParams(window.location.search).get('org');
+                const resolvedId = urlOrgId ?? localStorage.getItem('selectedOrganizationId');
+                const matchedOrg = resolvedId ? orgs.find(o => o.id === parseInt(resolvedId)) : null;
+                setSelectedOrganizationState(matchedOrg || orgs[0] || null);
             } catch (err) {
                 console.error('Failed to load organizations:', err);
                 setError('Failed to load organizations');

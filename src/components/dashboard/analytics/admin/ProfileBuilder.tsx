@@ -301,6 +301,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
     // Data loaded from APIs
     const [availableEvents, setAvailableEvents] = useState<EventConfig[]>([]);
     const [siteDetails, setSiteDetails] = useState<SiteDetail[]>([]);
+    const [orgSources, setOrgSources] = useState<Array<{ id: number; name: string }>>(SOURCES);
     const [availableJobIds, setAvailableJobIds] = useState<string[]>([]); // Job IDs from API
     const [availableStatusCodes, setAvailableStatusCodes] = useState<string[]>([]); // Status codes from API
     const [availableCacheStatuses, setAvailableCacheStatuses] = useState<string[]>([]); // Cache statuses from API
@@ -415,9 +416,14 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 const events = await apiService.getEventsList(featureId, selectedOrganization?.id ?? 0);
                 setAvailableEvents(events);
 
-                // Load site details for POS
-                const sites = await apiService.getSiteDetails(parseInt(featureId) || undefined);
+                // Load site details for POS (org-aware: Onramp coins for org 4)
+                const orgId = selectedOrganization?.id ?? 0;
+                const sites = await apiService.getSiteDetailsForOrg(orgId, parseInt(featureId) || undefined);
                 setSiteDetails(sites);
+
+                // Load sources for org (org-aware: Onramp country configs for org 4)
+                const sources = await apiService.getSourcesForOrg(orgId);
+                setOrgSources(sources);
 
                 // Auto-create individual API panels if API events exist and no panels exist yet
                 const apiEvents = events.filter(e => e.isApiEvent === true);
@@ -672,7 +678,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         label: e.eventName
     }));
 
-    const platformOptions = PLATFORMS.map(p => ({
+    const platformOptions = (selectedOrganization?.id === 4 ? [] : PLATFORMS).map(p => ({
         value: p.id.toString(),
         label: p.name
     }));
@@ -683,7 +689,7 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
         brand: (s.id === 0 || s.id === -1) ? undefined : (s?.name || '').trim()
     }));
 
-    const sourceOptions = SOURCES.map(s => ({
+    const sourceOptions = orgSources.map(s => ({
         value: s.id.toString(),
         label: s.name
     }));
@@ -730,20 +736,22 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                 alertsIsHourly: false // Default to daily
             }
         };
-        setPanels([...panels, newPanel]);
-        setCurrentPanelIndex(panels.length); // Navigate to the new panel
+        const newPanels = [...panels, newPanel];
+        setPanels(newPanels);
+        // Navigate to the newly added panel (index within non-alerts panels)
+        setCurrentPanelIndex(newPanels.filter(p => p.type !== 'alerts').length - 1);
     };
 
     const deletePanel = async (panelId: string) => {
         const panelToDelete = panels.find(p => p.panelId === panelId);
-        
+
         // If panel exists in database, call API to delete it
         if (panelToDelete && (panelToDelete as any)._dbPanelId && dbProfileId) {
             const dbPanelId = (panelToDelete as any)._dbPanelId;
-            
+
             try {
                 const success = await dashboardDbService.deletePanel(dbPanelId, dbProfileId);
-                
+
                 if (!success) {
                     toast({
                         title: 'Error',
@@ -752,12 +760,12 @@ export function ProfileBuilder({ featureId, onCancel, onSave, initialProfileId }
                     });
                     return;
                 }
-                
+
                 // Remove from dbPanelIds tracking
                 const updatedDbPanelIds = { ...dbPanelIds };
                 delete updatedDbPanelIds[panelId];
                 setDbPanelIds(updatedDbPanelIds);
-                
+
                 toast({
                     title: 'Success',
                     description: 'Panel deleted successfully',

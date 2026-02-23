@@ -618,7 +618,7 @@ export default function AdminPanel() {
                                                         {dayGroups.map(({ dayKey, dayLabel, entries }) => (
                                                             <div key={dayKey}>
                                                                 {/* Day header */}
-                                                                <div className="flex items-center gap-3 mb-3 sticky top-0 bg-card/95 backdrop-blur-sm py-1 -mx-1 px-1 z-10">
+                                                                <div className="flex items-center gap-3 mb-3 sticky top-0 bg-card py-2 -mx-1 px-1 z-20 border-b border-border/30">
                                                                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
                                                                         <Calendar className="h-3 w-3" />
                                                                         {dayLabel}

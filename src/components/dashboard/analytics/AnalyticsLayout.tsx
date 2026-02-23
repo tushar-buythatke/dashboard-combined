@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { DashboardProfile, Feature } from '@/types/analytics';
@@ -70,6 +70,8 @@ export function AnalyticsLayout() {
     const [searchOpen, setSearchOpen] = useState(false);
     const [dashboardEvents, setDashboardEvents] = useState<any[]>([]);
     const [allProfiles, setAllProfiles] = useState<Array<{ profileId: string; profileName: string; featureId: string; panels?: Array<{ panelId: string; panelName?: string }> }>>([]);
+    // Track whether we've done the initial URL restore (so subsequent org switches don't re-read stale params)
+    const hasRestoredFromUrl = useRef(false);
 
     // Load all profiles for search when search opens
     useEffect(() => {
@@ -145,10 +147,13 @@ export function AnalyticsLayout() {
         return () => window.removeEventListener('keydown', handleKeyDown, true);
     }, [searchOpen]);
 
-    // Keep selected feature/profile in sync with URL
+    // Keep selected org/feature/profile in sync with URL
     useEffect(() => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev as any);
+            if (selectedOrganization) {
+                next.set('org', String(selectedOrganization.id));
+            }
             if (selectedFeatureId) {
                 next.set('feature', selectedFeatureId);
             } else {
@@ -161,7 +166,7 @@ export function AnalyticsLayout() {
             }
             return next;
         });
-    }, [selectedFeatureId, selectedProfileId, setSearchParams]);
+    }, [selectedOrganization?.id, selectedFeatureId, selectedProfileId, setSearchParams]);
 
     // New Dashboard Config Modal
     const [showNewConfigModal, setShowNewConfigModal] = useState(false);
@@ -218,8 +223,8 @@ export function AnalyticsLayout() {
                 featureName: selectedOrganization.name,
                 featureId: selectedOrganization.id
             })
-        }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        }).catch(() => { });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOrganization?.id, user?.id]);
 
     // Security: when user/permissions load, clear any feature the user doesn't have access to.
@@ -236,7 +241,7 @@ export function AnalyticsLayout() {
                 description: "You don't have permission to view this feature.",
             });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id, user?.permissions, selectedFeatureId]);
 
     // Panel navigation - scroll to specific panel by ID and auto-fetch data
@@ -381,44 +386,30 @@ export function AnalyticsLayout() {
         loadExistingProfiles();
     }, [showNewConfigModal, newConfigMode, newConfigFeature]);
 
-    // When organization changes, restore selection from URL — or auto-navigate to first accessible feature
+    // When organization changes:
+    //  • First mount → restore feature/profile from URL (if present)
+    //  • Subsequent switches → clear selection and show the feature selector grid
     useEffect(() => {
         if (!selectedOrganization) return;
-        const featureFromUrl = searchParams.get('feature');
-        const profileFromUrl = searchParams.get('profile');
 
-        if (featureFromUrl) {
-            setSelectedFeatureId(featureFromUrl);
-            setSelectedProfileId(profileFromUrl);
-            setFeatureSelectorKey(prev => prev + 1);
-        } else {
-            // No feature in URL — auto-navigate to the first accessible feature for this org
-            setSelectedFeatureId(null);
-            setSelectedProfileId(null);
-            setFeatureSelectorKey(prev => prev + 1);
-
-            (async () => {
-                try {
-                    const orgId = selectedOrganization.id;
-                    const apiFeatures = await apiService.getFeaturesList(orgId);
-                    let features = apiFeatures.map(f => ({ id: f.id.toString(), name: f.name }));
-
-                    // Filter to only accessible features (match FeatureSelector logic)
-                    if (user?.role !== 1 && user?.permissions?.features && Object.keys(user.permissions.features).length > 0) {
-                        const perms = user.permissions.features;
-                        // Prefer write-access features first, then read, then all
-                        const writeFeatures = features.filter(f => perms[f.id] === 'write');
-                        const readFeatures = features.filter(f => perms[f.id] === 'read');
-                        features = writeFeatures.length > 0 ? writeFeatures : readFeatures.length > 0 ? readFeatures : features.filter(f => !!perms[f.id]);
-                    }
-
-                    if (features.length > 0) {
-                        setSelectedFeatureId(features[0].id);
-                    }
-                } catch (_) { /* silently ignore — user will see feature selector */ }
-            })();
+        if (!hasRestoredFromUrl.current) {
+            // First mount: restore from URL if available
+            hasRestoredFromUrl.current = true;
+            const featureFromUrl = searchParams.get('feature');
+            const profileFromUrl = searchParams.get('profile');
+            if (featureFromUrl) {
+                setSelectedFeatureId(featureFromUrl);
+                setSelectedProfileId(profileFromUrl);
+                setFeatureSelectorKey(prev => prev + 1);
+                return;
+            }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+        // Org switch (or first mount with no feature in URL): show the feature grid
+        setSelectedFeatureId(null);
+        setSelectedProfileId(null);
+        setFeatureSelectorKey(prev => prev + 1);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedOrganization?.id]);
 
     // When a feature is selected, auto-set the new config feature to match

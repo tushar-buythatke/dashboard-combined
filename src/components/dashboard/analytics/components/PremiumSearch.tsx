@@ -31,6 +31,7 @@ interface SearchResult {
     panelId?: string;
     eventId?: string;
     isApiEvent?: boolean;
+    orgId?: number;
 }
 
 export function PremiumSearch({
@@ -45,7 +46,7 @@ export function PremiumSearch({
     profiles = []
 }: PremiumSearchProps) {
     const { t: themeClasses } = useAccentTheme();
-    const { selectedOrganization } = useOrganization();
+    const { selectedOrganization, organizations, setSelectedOrganization } = useOrganization();
     const { user } = useAnalyticsAuth();
     const { getEventDisplayName } = useEventName();
     const [searchQuery, setSearchQuery] = useState('');
@@ -56,32 +57,65 @@ export function PremiumSearch({
     const containerRef = useRef<HTMLDivElement>(null);
     const resultsRef = useRef<HTMLDivElement>(null);
 
-    // Load features for search
+    const SEARCH_FEATURES_CACHE_KEY = 'premiumSearch_allFeatures';
+
+    // Load features from ALL organizations for search (with localStorage caching)
     useEffect(() => {
-        if (isOpen) {
-            const loadFeatures = async () => {
-                setLoading(true);
-                try {
-                    const orgId = selectedOrganization?.id ?? 0;
-                    const apiFeatures = await apiService.getFeaturesList(orgId);
+        if (!isOpen) return;
 
-                    // Filter features based on user permissions
-                    let filteredFeatures = apiFeatures;
-                    if (user?.role !== 1 && user?.permissions?.features && Object.keys(user.permissions.features).length > 0) {
-                        filteredFeatures = apiFeatures.filter(f => !!user?.permissions?.features?.[String(f.id)]);
-                    }
-
-                    setFeatures(filteredFeatures);
-                } catch (error) {
-                    console.error('Failed to load features for search', error);
-                    setFeatures([]);
-                } finally {
-                    setLoading(false);
+        // 1. Load from localStorage cache instantly
+        try {
+            const cached = localStorage.getItem(SEARCH_FEATURES_CACHE_KEY);
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                // Apply permission filter on cached data
+                let filtered = parsed;
+                if (user?.role !== 1 && user?.permissions?.features && Object.keys(user.permissions.features).length > 0) {
+                    filtered = parsed.filter((f: any) => !!user?.permissions?.features?.[String(f.id)]);
                 }
-            };
-            loadFeatures();
-        }
-    }, [isOpen, selectedOrganization?.id, user?.role, user?.permissions]);
+                setFeatures(filtered);
+            }
+        } catch (_) { /* ignore parse errors */ }
+
+        // 2. Refresh from API in background
+        const refreshFeatures = async () => {
+            // Only show spinner if no cached data
+            if (!localStorage.getItem(SEARCH_FEATURES_CACHE_KEY)) setLoading(true);
+            try {
+                const allFeatures: any[] = [];
+                const seen = new Set<string>();
+
+                for (const org of organizations) {
+                    try {
+                        const apiFeatures = await apiService.getFeaturesList(org.id);
+                        for (const f of apiFeatures) {
+                            const key = `${org.id}-${f.id}`;
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                allFeatures.push({ ...f, orgId: org.id, orgName: org.name });
+                            }
+                        }
+                    } catch (_) { /* skip orgs that fail */ }
+                }
+
+                // Save to localStorage
+                try { localStorage.setItem(SEARCH_FEATURES_CACHE_KEY, JSON.stringify(allFeatures)); } catch (_) { }
+
+                // Apply permission filter
+                let filteredFeatures = allFeatures;
+                if (user?.role !== 1 && user?.permissions?.features && Object.keys(user.permissions.features).length > 0) {
+                    filteredFeatures = allFeatures.filter(f => !!user?.permissions?.features?.[String(f.id)]);
+                }
+
+                setFeatures(filteredFeatures);
+            } catch (error) {
+                console.error('Failed to load features for search', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        refreshFeatures();
+    }, [isOpen, organizations, user?.role, user?.permissions]);
 
     // Focus input when opened
     useEffect(() => {
@@ -95,56 +129,83 @@ export function PremiumSearch({
         }
     }, [isOpen]);
 
+    // Build a quick-lookup map of feature id -> name
+    const featureMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        features.forEach(f => { map[f.id.toString()] = f.name; });
+        return map;
+    }, [features]);
+
+    // Filter profiles to only those belonging to accessible features
+    const accessibleProfiles = useMemo(() => {
+        return profiles.filter(p => !!featureMap[p.featureId]);
+    }, [profiles, featureMap]);
+
     // Search results - Must be defined before keyboard handler
     const searchResults = useMemo(() => {
-        if (!searchQuery.trim()) return [];
-
         const query = searchQuery.toLowerCase().trim();
         const results: SearchResult[] = [];
+        const isEmptyQuery = !query;
 
-        // Priority 1: Search features
+        // Priority 1: Search features (skip if empty — show profiles directly)
         features.forEach(feature => {
+            const orgLabel = feature.orgName || '';
+            if (isEmptyQuery) {
+                // Show all features as browsable items
+                results.push({
+                    id: `feature-${feature.orgId}-${feature.id}`,
+                    type: 'feature',
+                    name: feature.name,
+                    description: orgLabel,
+                    featureId: feature.id.toString(),
+                    orgId: feature.orgId
+                });
+                return;
+            }
             const nameMatch = feature.name.toLowerCase().includes(query);
             const descMatch = `${feature.name} analytics and tracking`.toLowerCase().includes(query);
 
-            if (nameMatch || descMatch) {
+            if (nameMatch || descMatch || orgLabel.toLowerCase().includes(query)) {
                 results.push({
-                    id: `feature-${feature.id}`,
+                    id: `feature-${feature.orgId}-${feature.id}`,
                     type: 'feature',
                     name: feature.name,
-                    description: `${feature.name} analytics and tracking`,
-                    featureId: feature.id.toString()
+                    description: orgLabel,
+                    featureId: feature.id.toString(),
+                    orgId: feature.orgId
                 });
             }
         });
 
-        // Priority 2: Search profiles
-        profiles.forEach(profile => {
-            const nameMatch = profile.profileName.toLowerCase().includes(query);
+        // Priority 2: Search profiles across ALL accessible features
+        accessibleProfiles.forEach(profile => {
+            const featureName = featureMap[profile.featureId] || 'Unknown';
+            const nameMatch = isEmptyQuery || profile.profileName.toLowerCase().includes(query);
+            const featureNameMatch = !isEmptyQuery && featureName.toLowerCase().includes(query);
 
-            if (nameMatch) {
+            if (nameMatch || featureNameMatch) {
                 results.push({
                     id: `profile-${profile.profileId}`,
                     type: 'profile',
                     name: profile.profileName,
-                    description: `Dashboard profile for ${profile.featureId ? features.find(f => f.id.toString() === profile.featureId)?.name || 'feature' : 'feature'}`,
+                    description: `${featureName}`,
                     featureId: profile.featureId,
                     profileId: profile.profileId
                 });
             }
 
-            // Priority 3: Search panels within profiles
-            if (profile.panels && profile.panels.length > 0) {
+            // Priority 3: Search panels within profiles (only when query is present)
+            if (!isEmptyQuery && profile.panels && profile.panels.length > 0) {
                 profile.panels.forEach(panel => {
                     const panelName = panel.panelName || panel.panelId;
-                    const nameMatch = panelName.toLowerCase().includes(query);
+                    const panelNameMatch = panelName.toLowerCase().includes(query);
 
-                    if (nameMatch) {
+                    if (panelNameMatch) {
                         results.push({
                             id: `panel-${panel.panelId}`,
                             type: 'panel',
                             name: panelName,
-                            description: `Panel in ${profile.profileName}`,
+                            description: `${profile.profileName} › ${featureName}`,
                             featureId: profile.featureId,
                             profileId: profile.profileId,
                             panelId: panel.panelId
@@ -155,8 +216,7 @@ export function PremiumSearch({
         });
 
         // Priority 4: Search events (only if we have events and a current feature)
-        // Only show events if user is already viewing a dashboard
-        if (currentFeatureId && events.length > 0) {
+        if (!isEmptyQuery && currentFeatureId && events.length > 0) {
             events.forEach(event => {
                 const eventName = getEventDisplayName(event);
                 const nameMatch = eventName.toLowerCase().includes(query);
@@ -193,7 +253,7 @@ export function PremiumSearch({
             if (priorityDiff !== 0) return priorityDiff;
             return a.name.localeCompare(b.name);
         });
-    }, [searchQuery, features, profiles, events, currentFeatureId, getEventDisplayName]);
+    }, [searchQuery, features, accessibleProfiles, featureMap, events, currentFeatureId, getEventDisplayName]);
 
     // Reset selected index when search results change
     useEffect(() => {
@@ -201,32 +261,46 @@ export function PremiumSearch({
     }, [searchQuery]);
 
     const handleSelect = (result: SearchResult) => {
+        // Switch org if needed before navigating
+        const switchOrgIfNeeded = () => {
+            if (result.orgId != null && result.orgId !== selectedOrganization?.id) {
+                const targetOrg = organizations.find(o => o.id === result.orgId);
+                if (targetOrg) {
+                    setSelectedOrganization(targetOrg);
+                }
+            }
+        };
+
         if (result.type === 'feature' && result.featureId && onSelectFeature) {
-            onSelectFeature(result.featureId);
+            switchOrgIfNeeded();
+            // Small delay to let org switch propagate before feature navigation
+            setTimeout(() => {
+                onSelectFeature(result.featureId!);
+            }, result.orgId !== selectedOrganization?.id ? 100 : 0);
             onClose();
         } else if (result.type === 'profile' && result.featureId && result.profileId) {
-            // Navigate to profile
-            if (onSelectProfile) {
-                onSelectProfile(result.featureId, result.profileId);
-            } else if (onSelectFeature) {
-                // Fallback: navigate to feature first
-                onSelectFeature(result.featureId);
-            }
+            switchOrgIfNeeded();
+            setTimeout(() => {
+                if (onSelectProfile) {
+                    onSelectProfile(result.featureId!, result.profileId!);
+                } else if (onSelectFeature) {
+                    onSelectFeature(result.featureId!);
+                }
+            }, result.orgId !== selectedOrganization?.id ? 100 : 0);
             onClose();
         } else if (result.type === 'panel' && result.featureId && result.profileId && result.panelId) {
-            // Navigate to panel
-            if (onSelectPanel) {
-                onSelectPanel(result.featureId, result.profileId, result.panelId);
-            } else if (onSelectProfile) {
-                // Fallback: navigate to profile
-                onSelectProfile(result.featureId, result.profileId);
-            } else if (onSelectFeature) {
-                // Fallback: navigate to feature
-                onSelectFeature(result.featureId);
-            }
+            switchOrgIfNeeded();
+            setTimeout(() => {
+                if (onSelectPanel) {
+                    onSelectPanel(result.featureId!, result.profileId!, result.panelId!);
+                } else if (onSelectProfile) {
+                    onSelectProfile(result.featureId!, result.profileId!);
+                } else if (onSelectFeature) {
+                    onSelectFeature(result.featureId!);
+                }
+            }, result.orgId !== selectedOrganization?.id ? 100 : 0);
             onClose();
         } else if (result.type === 'event' && result.featureId) {
-            // For events, navigate to the feature first if not already there
             if (result.featureId !== currentFeatureId && onSelectFeature) {
                 onSelectFeature(result.featureId);
             }
@@ -393,7 +467,8 @@ export function PremiumSearch({
                         </div>
 
                         {/* Results */}
-                        {searchQuery.trim() && (
+                        {/* Always show results — browsable index when empty, search results when typing */}
+                        {(
                             <div className="relative z-10 border-t border-gray-200/50 dark:border-gray-700/50">
                                 <div className="max-h-[60vh] overflow-y-auto">
                                     {loading ? (
@@ -498,20 +573,7 @@ export function PremiumSearch({
                             </div>
                         )}
 
-                        {/* Empty State */}
-                        {!searchQuery.trim() && (
-                            <div className="relative z-10 border-t border-gray-200/50 dark:border-gray-700/50 p-8">
-                                <div className="text-center">
-                                    <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-gray-100/50 dark:bg-gray-800/50 mb-4">
-                                        <Sparkles className="h-8 w-8 text-gray-400" />
-                                    </div>
-                                    <p className="text-gray-600 dark:text-gray-400 font-medium mb-2">Start typing to search</p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-500">
-                                        Search for features, profiles, panels, and events across your analytics
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+
                     </div>
                 </div>
             </div>

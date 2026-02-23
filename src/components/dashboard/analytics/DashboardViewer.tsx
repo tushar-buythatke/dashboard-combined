@@ -1720,7 +1720,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                 featureId: loadedProfile.featureId,
                                 featureName: loadedProfile.profileName || loadedProfile.featureId
                             })
-                        }).catch(() => {});
+                        }).catch(() => { });
                     }
 
                     // Initialize panel filter states from admin configs (these reset on refresh)
@@ -3648,7 +3648,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         return names;
     }, [eventOptions]);
 
-    const platformOptions = useMemo(() => PLATFORMS.map(p => ({ value: p.id.toString(), label: p.name })), []);
+    const platformOptions = useMemo(() => (selectedOrganization?.id === 4 ? [] : PLATFORMS).map(p => ({ value: p.id.toString(), label: p.name })), [selectedOrganization?.id]);
     const posOptions = useMemo(
         () =>
             siteDetails.map((s) => {
