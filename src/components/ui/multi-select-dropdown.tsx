@@ -160,7 +160,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
                 </Button>
             </PopoverTrigger>
             <PopoverContent
-                className="w-full min-w-[250px] max-w-[400px] p-0"
+                className="w-full min-w-[250px] max-w-[400px] p-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl dark:shadow-black/40"
                 align="start"
                 side="bottom"
                 sideOffset={4}
@@ -169,14 +169,14 @@ export function MultiSelectDropdown<T extends string | number = string>({
             >
                 {/* Search Input */}
                 {searchable && (
-                    <div className="p-2 border-b">
+                    <div className="p-2 border-b border-gray-200 dark:border-gray-700">
                         <div className="relative">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search by name or ID..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-8 h-9 text-sm"
+                                className="pl-8 h-9 text-sm bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                             />
                         </div>
                     </div>
@@ -184,21 +184,21 @@ export function MultiSelectDropdown<T extends string | number = string>({
 
                 {/* Select All / Deselect All Buttons */}
                 {showAllOption && (
-                    <div className="flex items-center gap-2 p-2 border-b bg-muted/30">
+                    <div className="flex items-center gap-2 p-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80">
                         <Button
                             variant="ghost"
                             size="sm"
-                            className={cn("flex-1 h-8 text-xs font-medium", themeClasses.textPrimary, themeClasses.textPrimaryDark, "hover:bg-accent")}
+                            className={cn("flex-1 h-8 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700", themeClasses.textPrimary, themeClasses.textPrimaryDark)}
                             onClick={handleSelectAll}
                             disabled={isAllSelected}
                         >
                             Select All
                         </Button>
-                        <div className="w-px h-4 bg-border" />
+                        <div className="w-px h-4 bg-gray-200 dark:bg-gray-600" />
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="flex-1 h-8 text-xs font-medium hover:bg-destructive/10 hover:text-destructive"
+                            className="flex-1 h-8 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
                             onClick={handleDeselectAll}
                             disabled={isNoneSelected}
                         >
@@ -216,8 +216,10 @@ export function MultiSelectDropdown<T extends string | number = string>({
                                     key={String(option.value)}
                                     className={cn(
                                         "flex items-center space-x-2 p-2 rounded cursor-pointer transition-colors",
-                                        "hover:bg-accent/50",
-                                        selected.includes(option.value) && cn("bg-accent/50", themeClasses.badgeBg, themeClasses.badgeBgDark)
+                                        "hover:bg-gray-100 dark:hover:bg-gray-800",
+                                        selected.includes(option.value)
+                                            ? cn("bg-gray-100 dark:bg-gray-800", themeClasses.badgeBg, themeClasses.badgeBgDark)
+                                            : ""
                                     )}
                                     onClick={() => handleToggle(option.value)}
                                 >
@@ -226,7 +228,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
                                         checked={selected.includes(option.value)}
                                         className="pointer-events-none"
                                     />
-                                    <Label className="flex-1 cursor-pointer text-sm flex items-center gap-2">
+                                    <Label className="flex-1 cursor-pointer text-sm flex items-center gap-2 text-gray-800 dark:text-gray-200">
                                         {option.brand ? <BrandLogo brand={option.brand} /> : null}
                                         <span className="min-w-0 truncate">{option.label}</span>
                                     </Label>
@@ -255,13 +257,13 @@ export function MultiSelectDropdown<T extends string | number = string>({
                         })}
 
                         {filteredOptions.length === 0 && searchQuery && (
-                            <div className="text-center text-muted-foreground py-4 text-sm">
+                            <div className="text-center text-gray-400 dark:text-gray-500 py-4 text-sm">
                                 No matches for "{searchQuery}"
                             </div>
                         )}
 
                         {options.length === 0 && (
-                            <div className="text-center text-muted-foreground py-4 text-sm">
+                            <div className="text-center text-gray-400 dark:text-gray-500 py-4 text-sm">
                                 No options available
                             </div>
                         )}
@@ -270,7 +272,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
 
                 {/* Selected items badges (shown below dropdown when multiple selected) */}
                 {selected.length > maxDisplayItems && (
-                    <div className="border-t p-2">
+                    <div className="border-t border-gray-200 dark:border-gray-700 p-2 bg-gray-50 dark:bg-gray-800/50">
                         <div className="flex flex-wrap gap-1">
                             {selected.slice(0, 5).map((value) => {
                                 const option = options.find(opt => opt.value === value);

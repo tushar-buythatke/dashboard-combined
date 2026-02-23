@@ -14,7 +14,7 @@ interface FeatureSelectorProps {
 }
 
 export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
-    const { selectedOrganization } = useOrganization();
+    const { selectedOrganization, loading: orgLoading } = useOrganization();
     const { user } = useAnalyticsAuth();
     const { t } = useAccentTheme();
     const [features, setFeatures] = useState<Feature[]>([]);
@@ -24,6 +24,10 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
 
     // Load base features - FAST: Direct API call, no Firebase
     useEffect(() => {
+        // Wait for org to be resolved from localStorage before fetching,
+        // to avoid briefly loading org-0 features when user is on a different org.
+        if (orgLoading) return;
+
         const loadFeatures = async () => {
             setLoading(true);
             try {
@@ -56,7 +60,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
             }
         };
         loadFeatures();
-    }, [selectedOrganization?.id, user?.role, user?.permissions]);
+    }, [selectedOrganization?.id, user?.role, user?.permissions, orgLoading]);
 
     // Load alert counts for features (runs after features load, doesn't block UI)
     useEffect(() => {

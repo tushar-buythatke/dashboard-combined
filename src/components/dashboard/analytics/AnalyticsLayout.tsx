@@ -194,13 +194,47 @@ export function AnalyticsLayout() {
         return user.permissions.features[featureId] === 'write';
     };
 
-    // Helper to check if user has access to a feature
+    // Helper to check if user has access to a feature.
+    // Matches FeatureSelector logic: if no explicit permissions set, all features are accessible.
     const hasFeatureAccess = (featureId: string) => {
         if (isAdmin) return true;
-
-        if (!user?.permissions?.features) return false;
+        if (!user?.permissions?.features || Object.keys(user.permissions.features).length === 0) return true;
         return !!user.permissions.features[featureId];
     };
+
+    // Track org visits when the selected organization changes
+    useEffect(() => {
+        if (!user?.id || !selectedOrganization) return;
+        fetch('https://ext1.buyhatke.com/feature-tracking/userTracker/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userId: user.id,
+                action: 'org_visit',
+                featureName: selectedOrganization.name,
+                featureId: selectedOrganization.id
+            })
+        }).catch(() => {});
+    // Only fire when org actually changes, not on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedOrganization?.id]);
+
+    // Security: when user/permissions load, clear any feature the user doesn't have access to.
+    // This prevents URL manipulation attacks (e.g. changing ?feature=2 to ?feature=3 manually).
+    useEffect(() => {
+        if (!user || !selectedFeatureId) return;
+        if (!hasFeatureAccess(selectedFeatureId)) {
+            console.warn(`🚫 Access denied to feature ${selectedFeatureId} — clearing selection`);
+            setSelectedFeatureId(null);
+            setSelectedProfileId(null);
+            toast({
+                variant: 'destructive',
+                title: 'Access Denied',
+                description: "You don't have permission to view this feature.",
+            });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id, user?.permissions, selectedFeatureId]);
 
     // Panel navigation - scroll to specific panel by ID and auto-fetch data
     const handleJumpToPanel = (panelId: string, panelName?: string) => {
@@ -252,8 +286,7 @@ export function AnalyticsLayout() {
             }
         };
         loadFeatures();
-        loadFeatures();
-    }, [selectedOrganization?.id, selectedFeatureId, user?.permissions]);
+    }, [selectedOrganization?.id, user?.permissions]);
 
     // Load pending users for Admin
     useEffect(() => {
@@ -448,13 +481,17 @@ export function AnalyticsLayout() {
                             {/* Organization Selector Dropdown */}
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <button className="flex items-center gap-1.5 font-bold text-sm lg:text-lg text-foreground leading-tight hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                                    <button className="flex items-center gap-1.5 font-bold text-sm lg:text-lg text-foreground leading-tight hover:text-gray-800 dark:hover:text-gray-200 transition-colors outline-none focus:outline-none">
                                         <Building2 className="h-4 w-4 text-gray-500" />
                                         {selectedOrganization?.name || 'Select Organization'}
                                         <ChevronDown className="h-3 w-3 opacity-50" />
                                     </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-56">
+                                <DropdownMenuContent
+                                    align="start"
+                                    className="w-56"
+                                    onCloseAutoFocus={(e) => e.preventDefault()}
+                                >
                                     {organizations.map((org) => (
                                         <DropdownMenuItem
                                             key={org.id}

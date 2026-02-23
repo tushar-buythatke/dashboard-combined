@@ -4,11 +4,16 @@ import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Search, Key, Send, CheckCircle, ChevronDown, ChevronUp, Sparkles, Lock, Unlock, Eye, Edit3, Shield, Plus, Clock } from 'lucide-react';
+import { ArrowLeft, Search, Key, Send, CheckCircle, ChevronDown, ChevronUp, Sparkles, Lock, Unlock, Eye, Edit3, Shield, Plus, Clock, Building2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Feature {
     id: string;
+    name: string;
+}
+
+interface Organization {
+    id: number;
     name: string;
 }
 
@@ -18,15 +23,21 @@ interface SelectedPermission {
     isExisting?: boolean; // true if user already has this permission
 }
 
+const FEATURE_TRACKING_DASHBOARD_API = 'https://ext1.buyhatke.com/feature-tracking/dashboard';
+
 export default function RequestAccess() {
     const { user, requestAccess, refreshUser } = useAnalyticsAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
 
+    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
+    const [orgsLoading, setOrgsLoading] = useState(true);
     const [features, setFeatures] = useState<Feature[]>([]);
+    const [featuresLoading, setFeaturesLoading] = useState(false);
     const [selectedPermissions, setSelectedPermissions] = useState<SelectedPermission[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showAll, setShowAll] = useState(false);
     const [lastChecked, setLastChecked] = useState<Date | null>(null);
@@ -68,40 +79,70 @@ export default function RequestAccess() {
         }
     }, [user?.pending_status]);
 
-    // Fetch features from API and pre-select existing permissions
+    // Fetch organizations on mount
     useEffect(() => {
-        const fetchFeatures = async () => {
+        const fetchOrgs = async () => {
+            setOrgsLoading(true);
             try {
-                const response = await fetch('https://ext1.buyhatke.com/feature-tracking/dashboard/featuresList?organizationId=0');
+                const response = await fetch(`${FEATURE_TRACKING_DASHBOARD_API}/organizationsList`);
                 const data = await response.json();
-                if (data.status === 1 && data.data?.featureMap) {
-                    const featureList: Feature[] = Object.entries(data.data.featureMap).map(([id, name]) => ({
-                        id,
+                if (data.status === 1 && data.data?.organizationMap) {
+                    const orgs: Organization[] = Object.entries(data.data.organizationMap).map(([id, name]) => ({
+                        id: parseInt(id),
                         name: name as string
                     }));
-                    setFeatures(featureList);
-
-                    // Pre-select existing permissions
-                    const existing: SelectedPermission[] = Object.entries(existingPermissions).map(([featureId, access]) => ({
-                        featureId,
-                        access: access as 'read' | 'write',
-                        isExisting: true
-                    }));
-                    setSelectedPermissions(existing);
+                    setOrganizations(orgs);
                 }
             } catch (error) {
-                console.error('Failed to fetch features:', error);
-                toast({
-                    variant: "destructive",
-                    title: "Error",
-                    description: "Failed to load features list."
-                });
+                console.error('Failed to fetch organizations:', error);
             } finally {
-                setIsLoading(false);
+                setOrgsLoading(false);
             }
         };
-        fetchFeatures();
-    }, [toast, existingPermissions]);
+        fetchOrgs();
+    }, []);
+
+    // Fetch features when an org is selected
+    const fetchFeaturesForOrg = async (orgId: number) => {
+        setFeaturesLoading(true);
+        setFeatures([]);
+        setSelectedPermissions(prev => prev.filter(p => p.isExisting)); // keep existing
+        try {
+            const response = await fetch(`${FEATURE_TRACKING_DASHBOARD_API}/featuresList?organizationId=${orgId}`);
+            const data = await response.json();
+            if (data.status === 1 && data.data?.featureMap) {
+                const featureList: Feature[] = Object.entries(data.data.featureMap).map(([id, name]) => ({
+                    id,
+                    name: name as string
+                }));
+                setFeatures(featureList);
+
+                // Pre-select existing permissions for this org's features
+                const existing: SelectedPermission[] = Object.entries(existingPermissions).map(([featureId, access]) => ({
+                    featureId,
+                    access: access as 'read' | 'write',
+                    isExisting: true
+                }));
+                setSelectedPermissions(existing);
+            }
+        } catch (error) {
+            console.error('Failed to fetch features:', error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to load features list."
+            });
+        } finally {
+            setFeaturesLoading(false);
+        }
+    };
+
+    const handleOrgSelect = (orgId: number) => {
+        setSelectedOrgId(orgId);
+        fetchFeaturesForOrg(orgId);
+        setShowAll(false);
+        setSearchQuery('');
+    };
 
     // Filter features based on search
     const filteredFeatures = useMemo(() => {
@@ -367,7 +408,43 @@ export default function RequestAccess() {
 
             {/* Content */}
             <main className="max-w-7xl mx-auto p-6 space-y-8">
-                {/* Search */}
+                {/* Step 1: Select Organization */}
+                <div className="bg-card rounded-2xl border p-5 space-y-3">
+                    <div className="flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-purple-600" />
+                        <span className="font-semibold text-foreground">Step 1: Select Organization</span>
+                    </div>
+                    {orgsLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="w-4 h-4 animate-spin" /> Loading organizations...
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap gap-2">
+                            {organizations.map(org => (
+                                <button
+                                    key={org.id}
+                                    type="button"
+                                    onClick={() => handleOrgSelect(org.id)}
+                                    className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
+                                        selectedOrgId === org.id
+                                            ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-purple-400'
+                                    }`}
+                                >
+                                    {org.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    {selectedOrgId !== null && (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                            ✓ Organization selected — features loaded below
+                        </p>
+                    )}
+                </div>
+
+                {/* Search — only show when org is selected */}
+                {selectedOrgId !== null && (
                 <div className="relative max-w-xl mx-auto">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -377,6 +454,7 @@ export default function RequestAccess() {
                         className="pl-12 h-12 text-lg rounded-xl border-2 focus:border-purple-400"
                     />
                 </div>
+                )}
 
                 {/* Pending Request Card */}
                 {user?.pending_status === 1 && user?.pending_permissions?.features && (
@@ -471,9 +549,14 @@ export default function RequestAccess() {
                     </Card>
                 )}
 
-                {isLoading ? (
+                {featuresLoading ? (
                     <div className="flex items-center justify-center py-20">
                         <div className="h-10 w-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                ) : selectedOrgId === null ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
+                        <Building2 className="h-12 w-12 opacity-30" />
+                        <p className="text-base">Select an organization above to browse features</p>
                     </div>
                 ) : (
                     <>

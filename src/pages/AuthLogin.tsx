@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
-import { Eye, EyeOff, Lock, User, LogIn, UserPlus, Clock, QrCode, Smartphone, CheckCircle2, RefreshCw, ArrowRight, Copy, Loader2, ShieldCheck, ShieldAlert, Settings2 } from 'lucide-react'
+import { Eye, EyeOff, Lock, User, LogIn, UserPlus, Clock, QrCode, Smartphone, CheckCircle2, RefreshCw, ArrowRight, Copy, Loader2, ShieldCheck, ShieldAlert, Settings2, Building2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +35,11 @@ interface Feature {
     name: string
 }
 
+interface Organization {
+    id: number
+    name: string
+}
+
 export default function AuthLogin() {
     const navigate = useNavigate()
     const location = useLocation()
@@ -56,6 +61,9 @@ export default function AuthLogin() {
     const [userData, setUserData] = useState<UserData | null>(null)
 
     // Permission request state (for signup)
+    const [organizations, setOrganizations] = useState<Organization[]>([])
+    const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null)
+    const [featuresLoading, setFeaturesLoading] = useState(false)
     const [availableFeatures, setAvailableFeatures] = useState<Feature[]>([])
     const [featureSearch, setFeatureSearch] = useState('')
     const [selectedFeatures, setSelectedFeatures] = useState<Record<string, 'read' | 'write'>>({})
@@ -96,59 +104,54 @@ export default function AuthLogin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []) // Only run on mount to prevent navigation loops
 
-    // Hardcoded features for local testing to avoid CORS/404 issues
-    const MOCK_FEATURES: Feature[] = [
-        { id: 1, name: "Price Alert" },
-        { id: 2, name: "Auto Coupons" },
-        { id: 3, name: "Spend Calculator" },
-        { id: 4, name: "Spidy" },
-        { id: 6, name: "lookAlike" },
-        { id: 7, name: "PriceComparison" },
-        { id: 8, name: "Grocery" },
-        { id: 9, name: "Chat AI" },
-        { id: 10, name: "Gift Voucher" },
-        { id: 11, name: "Checkout" },
-        { id: 12, name: "Cab Comparison" },
-        { id: 13, name: "Deal Scanner" },
-        { id: 14, name: "Coupon Scraper" },
-        { id: 15, name: "Send Pair/Current" },
-        { id: 16, name: "Price Data Consumer" },
-        { id: 17, name: "Cloudflare API Monitoring" },
-        { id: 18, name: "Pid Data Consumer" },
-        { id: 19, name: "Search Api" },
-        { id: 20, name: "Grocery Send Pair/Current" },
-        { id: 21, name: "Buyhatke Website" },
-        { id: 22, name: "Offers" },
-        { id: 23, name: "Graph" },
-        { id: 24, name: "Grocery Pid Data Consumer" },
-        { id: 25, name: "Grocery Price Data Consumer" },
-        { id: 26, name: "Buyhatke App Stats" }
-    ];
+    const FEATURE_TRACKING_DASHBOARD_API = 'https://ext1.buyhatke.com/feature-tracking/dashboard'
 
-    // Fetch features on mount
+    // Fetch organizations on mount (for signup flow)
     useEffect(() => {
-        // use hardcoded for now as requested
-        setAvailableFeatures(MOCK_FEATURES);
-
-        /* Uncomment when backend is ready/accessible
-        const fetchFeatures = async () => {
+        const fetchOrgs = async () => {
             try {
-                const response = await fetch(`${FEATURE_TRACKING_API}/featuresList?organizationId=0`)
+                const response = await fetch(`${FEATURE_TRACKING_DASHBOARD_API}/organizationsList`)
                 const result = await response.json()
-                if (result.status === 1 && result.data?.featureMap) {
-                    const features = Object.entries(result.data.featureMap).map(([id, name]) => ({
+                if (result.status === 1 && result.data?.organizationMap) {
+                    const orgs: Organization[] = Object.entries(result.data.organizationMap).map(([id, name]) => ({
                         id: parseInt(id),
                         name: name as string
                     }))
-                    setAvailableFeatures(features)
+                    setOrganizations(orgs)
                 }
             } catch (err) {
-                console.error("Failed to fetch features:", err)
+                console.error("Failed to fetch organizations:", err)
             }
         }
-        fetchFeatures()
-        */
+        fetchOrgs()
     }, [])
+
+    // Fetch features when an org is selected
+    const fetchFeaturesForOrg = async (orgId: number) => {
+        setFeaturesLoading(true)
+        setAvailableFeatures([])
+        setSelectedFeatures({})
+        try {
+            const response = await fetch(`${FEATURE_TRACKING_DASHBOARD_API}/featuresList?organizationId=${orgId}`)
+            const result = await response.json()
+            if (result.status === 1 && result.data?.featureMap) {
+                const features: Feature[] = Object.entries(result.data.featureMap).map(([id, name]) => ({
+                    id: parseInt(id),
+                    name: name as string
+                }))
+                setAvailableFeatures(features)
+            }
+        } catch (err) {
+            console.error("Failed to fetch features:", err)
+        } finally {
+            setFeaturesLoading(false)
+        }
+    }
+
+    const handleOrgSelect = (orgId: number) => {
+        setSelectedOrgId(orgId)
+        fetchFeaturesForOrg(orgId)
+    }
 
     const toggleFeature = (id: number) => {
         const idStr = String(id)
@@ -226,10 +229,15 @@ export default function AuthLogin() {
             return
         }
 
-        // Validate @buyhatke.com email
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@buyhatke\.com$/i
+        // Validate allowed email domains
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@(buyhatke\.com|0fiat\.com|bitbns\.com|onramp\.money)$/i
         if (!emailRegex.test(username.trim())) {
-            setError('Only @buyhatke.com email addresses are allowed')
+            setError('Only @buyhatke.com, @0fiat.com, @bitbns.com, or @onramp.money email addresses are allowed')
+            return
+        }
+
+        if (selectedOrgId === null) {
+            setError('Please select an organization')
             return
         }
 
@@ -570,6 +578,10 @@ export default function AuthLogin() {
         setResetLoading(false)
         setForgotStep('email')
         setResetUserData(null)
+        setSelectedOrgId(null)
+        setAvailableFeatures([])
+        setSelectedFeatures({})
+        setFeatureSearch('')
     }
 
     // Render functions
@@ -620,7 +632,7 @@ export default function AuthLogin() {
                 />
             </div>
             <p className="mt-2 text-[10px] text-muted-foreground ml-1 italic">
-                Use your official @buyhatke.com email
+                Use your official email (@buyhatke.com, @0fiat.com, @bitbns.com, @onramp.money)
             </p>
 
             <div className="space-y-2">
@@ -826,6 +838,33 @@ export default function AuthLogin() {
 
     const renderSignupForm = () => (
         <form onSubmit={handleSignup} className="space-y-6">
+            {/* Step 1: Select Organization */}
+            <div className="space-y-3">
+                <Label className="flex items-center gap-2 text-base font-bold text-emerald-700 dark:text-emerald-400">
+                    <Building2 className="w-4 h-4" />Select Organization
+                </Label>
+                {organizations.length === 0 ? (
+                    <div className="text-xs text-muted-foreground animate-pulse">Loading organizations...</div>
+                ) : (
+                    <div className="flex flex-wrap gap-2">
+                        {organizations.map(org => (
+                            <button
+                                key={org.id}
+                                type="button"
+                                onClick={() => handleOrgSelect(org.id)}
+                                className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
+                                    selectedOrgId === org.id
+                                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-400'
+                                }`}
+                            >
+                                {org.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label className="flex items-center gap-2"><User className="w-4 h-4 text-emerald-600" />Username</Label>
@@ -839,7 +878,7 @@ export default function AuthLogin() {
                     />
                 </div>
                 <p className="mt-2 text-[10px] text-muted-foreground ml-1 italic">
-                    Registration requires a @buyhatke.com email
+                    Allowed: @buyhatke.com, @0fiat.com, @bitbns.com, @onramp.money
                 </p>
 
                 <div className="space-y-2">
@@ -872,8 +911,12 @@ export default function AuthLogin() {
                             Feature Access Permissions
                         </Label>
                     </div>
+                    {selectedOrgId === null && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400 italic">Select an organization above to load features</span>
+                    )}
                 </div>
 
+                {selectedOrgId !== null && (
                 <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-emerald-100 shadow-sm">
                     <Input
                         type="text"
@@ -886,8 +929,23 @@ export default function AuthLogin() {
                         {availableFeatures.filter(f => f.name.toLowerCase().includes(featureSearch.toLowerCase())).length} Available
                     </Badge>
                 </div>
+                )}
 
                 <div className="rounded-2xl border bg-muted/30 overflow-hidden shadow-inner">
+                    {featuresLoading ? (
+                        <div className="h-[200px] flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                            <span className="ml-2 text-sm text-muted-foreground">Loading features...</span>
+                        </div>
+                    ) : selectedOrgId === null ? (
+                        <div className="h-[120px] flex items-center justify-center text-sm text-muted-foreground">
+                            Select an organization to see available features
+                        </div>
+                    ) : availableFeatures.length === 0 ? (
+                        <div className="h-[120px] flex items-center justify-center text-sm text-muted-foreground">
+                            No features found for this organization
+                        </div>
+                    ) : (
                     <ScrollArea className="h-[280px] px-4 py-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {availableFeatures
@@ -953,6 +1011,7 @@ export default function AuthLogin() {
                                 })}
                         </div>
                     </ScrollArea>
+                    )}
                 </div>
             </div>
 

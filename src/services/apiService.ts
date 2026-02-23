@@ -1,5 +1,6 @@
 // Real API service for analytics dashboard
 import type { AnalyticsDataResponse, EventConfig } from '@/types/analytics';
+import { GROCERY_POS } from '@/lib/posMapping';
 
 // Direct API URLs - backend now handles CORS
 const API_BASE_URL = 'https://ext1.buyhatke.com/feature-tracking/dashboard';
@@ -599,9 +600,30 @@ export class APIService {
      * Fetch site details for POS options
      * For feature ID 2 (Auto Coupons), merges coupon config with siteDetails API
      * Also merges data from live sites API for accurate names and logos
+     * Uses localStorage cache (1 hour TTL) for fast repeat loads.
      */
     async getSiteDetails(featureId?: number): Promise<SiteDetail[]> {
+        const LS_CACHE_KEY = 'site_details_cache_v2';
+        const LS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
         // First, ensure we have the base siteDetails
+        if (!this.siteDetailsCache) {
+            // Try localStorage cache first for instant load
+            try {
+                const raw = localStorage.getItem(LS_CACHE_KEY);
+                if (raw) {
+                    const { data, updatedAt } = JSON.parse(raw) as { data: SiteDetail[]; updatedAt: number };
+                    if (Date.now() - updatedAt < LS_CACHE_TTL && data?.length > 0) {
+                        this.siteDetailsCache = data;
+                        // Rebuild siteDetailsMap from cache
+                        data.forEach(s => {
+                            if (s.id !== 0 && s.id !== -1) this.siteDetailsMap[s.id] = s.name;
+                        });
+                    }
+                }
+            } catch (_) { /* ignore parse errors */ }
+        }
+
         if (!this.siteDetailsCache) {
             // console.log(`📋 Fetching site details for POS options`);
 
@@ -638,6 +660,11 @@ export class APIService {
 
                 this.siteDetailsCache = specialSites;
                 cachedSiteDetails = sites;
+
+                // Persist to localStorage for next page load
+                try {
+                    localStorage.setItem(LS_CACHE_KEY, JSON.stringify({ data: specialSites, updatedAt: Date.now() }));
+                } catch (_) { /* storage quota exceeded — ignore */ }
                 // console.log(`✅ Loaded ${sites.length} sites from siteDetails API`);
             } catch (error) {
                 console.error('Failed to fetch site details:', error);
@@ -676,13 +703,16 @@ export class APIService {
         try {
             const liveSites = await this.getLiveSites();
             if (liveSites.size > 0) {
-                // Update existing sites with live site data (better names/logos)
+                // Update existing sites with live site data.
+                // Only override the name if the current name is just a number (no proper name from main API).
+                // Always take logos and colour from live sites (those are valid).
                 result = result.map(site => {
                     const liveSite = liveSites.get(String(site.id));
                     if (liveSite) {
+                        const nameIsJustNumber = /^\d+$/.test((site.name || '').trim());
                         return {
                             ...site,
-                            name: liveSite.name || site.name,
+                            name: nameIsJustNumber ? (liveSite.name || site.name) : site.name,
                             image: liveSite.logo || site.image,
                             colour: liveSite.colour
                         };
@@ -706,6 +736,17 @@ export class APIService {
             }
         } catch (error) {
             // console.log('⚠️ Live sites fetch failed, using existing data');
+        }
+
+        // Merge grocery POS IDs (from posMapping.ts) — add any not already present
+        const existingIds = new Set(result.map(s => s.id));
+        for (const [posIdStr, posInfo] of Object.entries(GROCERY_POS)) {
+            const posId = parseInt(posIdStr);
+            if (!existingIds.has(posId)) {
+                result.push({ id: posId, name: posInfo.name, image: '' });
+                this.siteDetailsMap[posId] = posInfo.name;
+                existingIds.add(posId);
+            }
         }
 
         // Sort by name for easier search

@@ -457,13 +457,26 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 {/* Gradient Accent Bar - Theme aware */}
                 <div className={cn("absolute top-0 left-0 w-full h-1 bg-gradient-to-r", themeClasses.headerGradient)} />
 
-                <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-900/20 transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
+                <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-100/60 dark:hover:bg-white/[0.04] select-none transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <span
-                                className="w-2 h-2 rounded-full bg-primary"
-                            />
-                            <span className="font-bold text-lg">Filters</span>
+                            <div className={cn(
+                                "h-7 w-7 rounded-lg flex items-center justify-center transition-all",
+                                filtersCollapsed
+                                    ? "bg-gray-200 dark:bg-gray-700"
+                                    : cn("bg-gradient-to-br", themeClasses.buttonGradient)
+                            )}>
+                                <Filter className={cn("h-4 w-4", filtersCollapsed ? "text-gray-500 dark:text-gray-300" : "text-white")} />
+                            </div>
+                            <span className="font-bold text-lg text-gray-800 dark:text-gray-100">Filters</span>
+                            <span className={cn(
+                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                                filtersCollapsed
+                                    ? "text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
+                                    : cn(themeClasses.badgeText, themeClasses.badgeTextDark, themeClasses.badgeBg, themeClasses.badgeBgDark, themeClasses.borderAccent, themeClasses.borderAccentDark)
+                            )}>
+                                {filtersCollapsed ? "click to expand" : "expanded"}
+                            </span>
                             {/* API Event Badge */}
                             {isMainPanelApi && (
                                 <span className={cn("px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)}>
@@ -1498,8 +1511,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 </Card>
                             </div>
 
-                            {/* Success Count Card */}
-                            <div
+                            {/* Success Count Card — hidden when totalCount == totalSuccess (no failures) */}
+                            {totalCount !== totalSuccess && <div
                                 className="group"
                             >
                                 <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-green-200/60 dark:border-green-500/30 hover:border-green-400/60 dark:hover:border-green-400/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
@@ -1541,10 +1554,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </div>
+                            </div>}
 
-                            {/* Fail Count Card */}
-                            <div
+                            {/* Fail Count Card — hidden when totalCount == totalSuccess (no failures) */}
+                            {totalCount !== totalSuccess && <div
                                 className="group"
                             >
                                 <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-red-200/60 dark:border-red-500/30 hover:border-red-400/60 dark:hover:border-red-400/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
@@ -1584,7 +1597,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </CardContent>
                                 </Card>
-                            </div>
+                            </div>}
 
                             {/* Selected Events Card */}
                             <div

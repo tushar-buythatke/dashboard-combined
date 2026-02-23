@@ -528,8 +528,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                     <div className={cn(
                                         "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4 p-2 rounded-xl transition-all duration-300",
                                         panelFiltersCollapsed?.[panel.panelId] !== false
-                                            ? "bg-slate-100 dark:bg-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-800/80"
-                                            : "border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                                            ? "bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200/70 dark:hover:bg-slate-700/90 cursor-pointer select-none"
+                                            : "border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60"
                                     )}>
                                         {/* Clickable Filter Toggle Left Section */}
                                         <div
@@ -1673,7 +1673,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         <div className="text-sm text-muted-foreground mt-1">Total</div>
                                     </CardContent>
                                 </Card>
-                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-green-200/60 dark:border-green-500/30 shadow-sm hover:shadow-md transition-all overflow-hidden">
+                                {/* Success/Fail cards hidden when totalCount == totalSuccess (no failures at all) */}
+                                {pTotalCount !== pTotalSuccess && <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-green-200/60 dark:border-green-500/30 shadow-sm hover:shadow-md transition-all overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-400" />
                                     <CardContent className="pt-4 pb-4">
                                         <div className="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -1681,8 +1682,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         </div>
                                         <div className="text-sm text-muted-foreground mt-1">Success</div>
                                     </CardContent>
-                                </Card>
-                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-red-200/60 dark:border-red-500/30 shadow-sm hover:shadow-md transition-all overflow-hidden">
+                                </Card>}
+                                {pTotalCount !== pTotalSuccess && <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-red-200/60 dark:border-red-500/30 shadow-sm hover:shadow-md transition-all overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-amber-400" />
                                     <CardContent className="pt-4 pb-4">
                                         <div className="text-2xl font-bold text-red-600 dark:text-red-400">
@@ -1690,7 +1691,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         </div>
                                         <div className="text-sm text-muted-foreground mt-1">Failed</div>
                                     </CardContent>
-                                </Card>
+                                </Card>}
                                 <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-gray-200/60 dark:border-gray-600/40 shadow-sm hover:shadow-md transition-all overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-400 via-slate-500 to-gray-600" />
                                     <CardContent className="pt-4 pb-4">

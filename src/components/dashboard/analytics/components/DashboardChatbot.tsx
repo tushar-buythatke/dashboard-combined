@@ -9,6 +9,7 @@ import { generateChatbotResponse, loadChatHistory, saveChatHistory, type ChatMes
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 
 interface DashboardChatbotProps {
     isOpen: boolean;
@@ -48,6 +49,7 @@ export function DashboardChatbot({
     onExternalMessageProcessed
 }: DashboardChatbotProps) {
     const { t: themeClasses } = useAccentTheme();
+    const { user } = useAnalyticsAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -229,7 +231,7 @@ export function DashboardChatbot({
         };
     }, [isMinimized, position.y]);
 
-    const handleSend = useCallback(async (message: string) => {
+    const handleSend = useCallback(async (message: string, isVoice = false) => {
         if (!message.trim() || isLoading) return;
 
         const userMessage: ChatMessage = {
@@ -241,6 +243,19 @@ export function DashboardChatbot({
         setMessages(prev => [...prev, userMessage]);
         setInputValue(''); // Clear input after sending
         setIsLoading(true);
+
+        // Track AI/Voice chat usage
+        if (user?.id) {
+            fetch('https://ext1.buyhatke.com/feature-tracking/userTracker/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.id,
+                    action: isVoice ? 'voice_chat' : 'ai_chat',
+                    featureId: featureId || undefined
+                })
+            }).catch(() => {});
+        }
 
         try {
             const result = await generateChatbotResponse(message, context, featureId);
@@ -326,7 +341,7 @@ export function DashboardChatbot({
         // ONLY handle Enter key - let everything else (including Space) work normally
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSend(inputValue);
+            handleSend(inputValue, voiceIsRecording || isRecording);
         }
         // Shift+Enter for new line works automatically in textarea
         // Space and all other keys work normally - NO preventDefault!
@@ -730,7 +745,7 @@ export function DashboardChatbot({
                             </div>
                         </div>
                         <Button
-                            onClick={() => handleSend(inputValue)}
+                            onClick={() => handleSend(inputValue, voiceIsRecording || isRecording)}
                             onMouseDown={(e) => e.stopPropagation()}
                             disabled={!inputValue.trim() || isLoading}
                             className={cn(

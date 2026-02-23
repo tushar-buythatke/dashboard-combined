@@ -614,7 +614,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             {index + 1}. {stage.eventName}
                                         </div>
                                         <div className="text-xs text-gray-500 dark:text-gray-400">
-                                            {stage.count.toLocaleString()} users
+                                            {stage.count.toLocaleString()} events
                                         </div>
                                     </div>
                                 </div>
@@ -634,7 +634,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     {(funnelData[0]?.totalUsers || 0) > 0 && (
                                         <div className="mt-2 flex items-center gap-2 text-[10px] bg-indigo-100/50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-full">
                                             <Users className="h-3 w-3 text-indigo-500" />
-                                            <span className="text-indigo-700 dark:text-indigo-300 font-bold">{(funnelData[0]?.totalUsers || 0).toLocaleString()} users</span>
+                                            <span className="text-indigo-700 dark:text-indigo-300 font-bold">{(funnelData[0]?.totalUsers || 0).toLocaleString()} events</span>
                                         </div>
                                     )}
                                 </div>
@@ -648,7 +648,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     {(funnelData[funnelData.length - 1]?.totalUsers || 0) > 0 && (
                                         <div className="mt-2 flex items-center gap-2 text-[10px] bg-emerald-100/50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
                                             <Users className="h-3 w-3 text-emerald-500" />
-                                            <span className="text-emerald-700 dark:text-emerald-300 font-bold">{(funnelData[funnelData.length - 1]?.totalUsers || 0).toLocaleString()} users</span>
+                                            <span className="text-emerald-700 dark:text-emerald-300 font-bold">{(funnelData[funnelData.length - 1]?.totalUsers || 0).toLocaleString()} events</span>
                                         </div>
                                     )}
                                 </div>

@@ -1705,6 +1705,20 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     // Expose events to parent for search
                     onEventsLoaded?.(featureEvents);
 
+                    // Track feature visit
+                    if (user?.id) {
+                        fetch('https://ext1.buyhatke.com/feature-tracking/userTracker/log', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: user.id,
+                                action: 'feature_visit',
+                                featureId: loadedProfile.featureId,
+                                featureName: loadedProfile.name || loadedProfile.featureId
+                            })
+                        }).catch(() => {});
+                    }
+
                     // Initialize panel filter states from admin configs (these reset on refresh)
                     const initialPanelFilters: Record<string, FilterState> = {};
                     const initialPanelDateRanges: Record<string, DateRangeState> = {};

@@ -238,6 +238,17 @@ export function AnalyticsAuthProvider({ children }: { children: ReactNode }) {
         }
         
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(sessionData));
+
+        // Track login event
+        if (is2FAVerified && userData.id) {
+            try {
+                fetch('https://ext1.buyhatke.com/feature-tracking/userTracker/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userData.id, action: 'login' })
+                }).catch(() => {});
+            } catch (_) {}
+        }
     };
 
     const requestAccess = async (permissions: any) => {

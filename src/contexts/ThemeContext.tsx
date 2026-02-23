@@ -6,7 +6,7 @@ export const ORGANIZATION_THEMES: Record<string, string> = {
     'Buyhatke': 'violet',      // Purple theme for Buyhatke
     'Cab Comparison': 'amber', // Warm orange for Cab Comparison
     'Grocery': 'emerald',      // Green for Grocery
-    'Autosnipe': 'autosnipe',  // Matrix green/neon for Autosnipe
+    'Autosnipe': 'emerald',    // Green theme for Autosnipe
 };
 
 // Theme color palettes for programmatic access
@@ -85,11 +85,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
         // Apply theme to document root
         document.documentElement.setAttribute('data-theme', theme);
-
-        // For Autosnipe, also add dark mode class
-        if (theme === 'autosnipe') {
-            document.documentElement.classList.add('dark');
-        }
 
         console.log(`🎨 Theme applied: ${theme} for org: ${selectedOrganization?.name}`);
     }, [selectedOrganization, manualTheme]);
