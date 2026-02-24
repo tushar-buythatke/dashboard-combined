@@ -564,10 +564,15 @@ export class APIService {
 
                 siteList.forEach(site => {
                     if (site.pos) {
-                        sitesMap.set(String(site.pos), site);
-                        // Also update the siteDetailsMap for name lookups
+                        // Only store the FIRST live-site entry per POS (not the last)
+                        // This avoids "Amazon Prime 12 months Membership" overriding "Amazon Pay"
+                        if (!sitesMap.has(String(site.pos))) {
+                            sitesMap.set(String(site.pos), site);
+                        }
+                        // Only update siteDetailsMap if there's NO existing name from siteDetails API
+                        // siteDetails is the primary source of truth; live-sites is fallback only
                         const posId = parseInt(site.pos);
-                        if (!isNaN(posId) && site.name) {
+                        if (!isNaN(posId) && site.name && !this.siteDetailsMap[posId]) {
                             this.siteDetailsMap[posId] = site.name;
                         }
                     }
