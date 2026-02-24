@@ -603,7 +603,7 @@ export class APIService {
      * Uses localStorage cache (1 hour TTL) for fast repeat loads.
      */
     async getSiteDetails(featureId?: number): Promise<SiteDetail[]> {
-        const LS_CACHE_KEY = 'site_details_cache_v2';
+        const LS_CACHE_KEY = 'site_details_cache_v3';
         const LS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
         // First, ensure we have the base siteDetails
@@ -738,11 +738,19 @@ export class APIService {
             // console.log('⚠️ Live sites fetch failed, using existing data');
         }
 
-        // Merge grocery POS IDs (from posMapping.ts) — add any not already present
+        // Merge grocery POS IDs (from posMapping.ts) — add if not present, or fix name if still numeric
         const existingIds = new Set(result.map(s => s.id));
         for (const [posIdStr, posInfo] of Object.entries(GROCERY_POS)) {
             const posId = parseInt(posIdStr);
-            if (!existingIds.has(posId)) {
+            const existingIdx = result.findIndex(s => s.id === posId);
+            if (existingIdx >= 0) {
+                // Update name only if it's still a raw number (no proper name assigned yet)
+                const nameIsJustNumber = /^\d+$/.test((result[existingIdx].name || '').trim());
+                if (nameIsJustNumber) {
+                    result[existingIdx] = { ...result[existingIdx], name: posInfo.name };
+                    this.siteDetailsMap[posId] = posInfo.name;
+                }
+            } else {
                 result.push({ id: posId, name: posInfo.name, image: '' });
                 this.siteDetailsMap[posId] = posInfo.name;
                 existingIds.add(posId);
