@@ -1,6 +1,7 @@
 // Real API service for analytics dashboard
 import type { AnalyticsDataResponse, EventConfig } from '@/types/analytics';
 import { GROCERY_POS } from '@/lib/posMapping';
+import * as Sentry from '@sentry/react';
 
 // Direct API URLs - backend now handles CORS
 const API_BASE_URL = 'https://ext1.buyhatke.com/feature-tracking/dashboard';
@@ -396,6 +397,7 @@ export class APIService {
             return events;
         } catch (error) {
             console.error(`❌ Failed to fetch events:`, error);
+            Sentry.captureException(error);
             throw error;
         }
     }
@@ -461,6 +463,7 @@ export class APIService {
                 return features;
             } catch (error) {
                 console.error(`❌ Failed to fetch features:`, error);
+                Sentry.captureException(error);
                 featuresFetchPromise = null; // Reset so it can be retried
                 throw error;
             }
@@ -526,6 +529,7 @@ export class APIService {
             return sites;
         } catch (error) {
             console.error('Failed to fetch coupon config POS:', error);
+            Sentry.captureException(error);
             throw error;
         }
     }
@@ -584,6 +588,7 @@ export class APIService {
                 return sitesMap;
             } catch (error) {
                 console.error(`❌ Failed to fetch live sites:`, error);
+                Sentry.captureException(error);
                 liveSitesFetchPromise = null; // Reset so it can be retried
                 // Return empty map as fallback
                 return new Map<string, LiveSiteInfo>();
@@ -673,6 +678,7 @@ export class APIService {
                 // console.log(`✅ Loaded ${sites.length} sites from siteDetails API`);
             } catch (error) {
                 console.error('Failed to fetch site details:', error);
+                Sentry.captureException(error);
                 // Set fallback cache with special POS values
                 this.siteDetailsCache = [
                     { id: 0, name: 'Default', image: '' },
@@ -918,6 +924,7 @@ export class APIService {
             return { alerts: [], summary: {} };
         } catch (error) {
             console.error("Error fetching alerts:", error);
+            Sentry.captureException(error);
             return { alerts: [], summary: {} };
         }
     }
@@ -967,6 +974,7 @@ export class APIService {
             return {};
         } catch (error) {
             console.error("Error fetching alert list:", error);
+            Sentry.captureException(error);
             return {};
         }
     }
@@ -1015,6 +1023,7 @@ export class APIService {
             return sourceStrs.filter((s: string) => s && s.trim() !== ''); // Filter out empty strings
         } catch (error) {
             console.error('Failed to fetch sourceStr:', error);
+            Sentry.captureException(error);
             return [];
         }
     }
@@ -1399,6 +1408,7 @@ export class APIService {
             console.log('✅ Child config uploaded successfully for panelId:', panelId);
         } catch (error) {
             console.error('Failed to upload child config:', error);
+            Sentry.captureException(error);
             // Don't throw - this is a non-critical operation
         }
     }
@@ -1465,6 +1475,7 @@ export class APIService {
                 return organizations;
             } catch (error) {
                 console.error(`❌ Failed to fetch organizations:`, error);
+                Sentry.captureException(error);
                 organizationsFetchPromise = null; // Reset so it can be retried
                 throw error;
             }
