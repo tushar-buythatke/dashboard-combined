@@ -985,7 +985,7 @@ export function PercentageGraph({
                     )}
 
                     {/* Line Chart */}
-                    <div className={cn("relative group", chartData.length > 0 && chartData[0].isAvgMetric ? "h-[420px] mt-2" : "h-[420px] mt-4")}>
+                    <div className={cn("relative group", chartData.length > 0 && chartData[0].isAvgMetric ? "h-[280px] sm:h-[350px] md:h-[420px] mt-2" : "h-[280px] sm:h-[350px] md:h-[420px] mt-4")}>
                         <div className="absolute top-2 right-12 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             {/* Zoom controls removed for PercentageGraph to avoid obstruction and duplication */}
                         </div>

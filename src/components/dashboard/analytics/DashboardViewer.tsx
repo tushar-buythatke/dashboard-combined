@@ -3818,7 +3818,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                 </div>
 
                 {/* Big Chart Area Placeholder */}
-                <div className="skeleton-glass skeleton-shadow-premium rounded-3xl border border-slate-200/50 dark:border-indigo-500/15 p-6 h-[400px] overflow-hidden">
+                <div className="skeleton-glass skeleton-shadow-premium rounded-3xl border border-slate-200/50 dark:border-indigo-500/15 p-6 h-[260px] sm:h-[340px] md:h-[400px] overflow-hidden">
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl skeleton-bar" />

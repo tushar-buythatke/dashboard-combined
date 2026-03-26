@@ -248,7 +248,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     }
 
     const Content = (
-        <div className={cn("w-full transition-all duration-300", headless ? "h-full min-h-[380px]" : "h-[450px]")}>
+        <div className={cn("w-full transition-all duration-300", headless ? "h-full min-h-[280px] sm:min-h-[380px]" : "h-[280px] sm:h-[380px] md:h-[450px]")}>
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
@@ -372,7 +372,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
 
     if (headless) {
         return (
-            <div className="w-full h-full flex flex-col gap-4 min-h-[380px]">
+            <div className="w-full h-full flex flex-col gap-4 min-h-[280px] sm:min-h-[380px]">
                 {/* Top Controls: Event Stats Badges */}
                 {eventStats && eventStats.length > 0 && (
                     <div className="flex flex-wrap gap-2 px-2 py-1 bg-white/50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-800">
@@ -551,7 +551,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                     {/* Volatility chip intentionally removed for now */}
                 </div>
 
-                <div className="h-[400px] w-full relative">
+                <div className="h-[260px] sm:h-[340px] md:h-[400px] w-full relative">
                     {Content}
                 </div>
             </CardContent>
@@ -626,7 +626,7 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                 </div>
             </CardHeader>
             <CardContent className="p-4 md:p-6">
-                <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
+                <div className="h-[260px] sm:h-[340px] md:h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
                     <div
                         className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
                         style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
@@ -835,7 +835,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                 )}
             </CardHeader>
             <CardContent className="p-4 md:p-6">
-                <div className="h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
+                <div className="h-[260px] sm:h-[340px] md:h-[400px] w-full cursor-pointer overflow-hidden relative" onWheel={handleWheel}>
                     <div
                         className="w-full h-full origin-top-left transition-transform duration-100 ease-out"
                         style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}

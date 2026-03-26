@@ -2660,7 +2660,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
+                                                <div className="h-[260px] sm:h-[340px] md:h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
                                                     {/* Zoom Controls for Event Trends */}
                                                     <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <ChartZoomControls
@@ -3029,7 +3029,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelAvgSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelAvgEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
+                                                <div className="h-[260px] sm:h-[340px] md:h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
                                                     {/* Zoom Controls for Time Delay Trends */}
                                                     <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <ChartZoomControls
@@ -3260,7 +3260,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
+                                                <div className="h-[260px] sm:h-[340px] md:h-[400px] relative group overflow-x-auto overflow-y-hidden touch-pan-y">
                                                     {/* Zoom Controls for Error Event Trends */}
                                                     <div className="absolute top-2 right-2 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                         <ChartZoomControls
@@ -3421,7 +3421,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
-                                                    <div className="h-[400px]">
+                                                    <div className="h-[260px] sm:h-[340px] md:h-[400px]">
                                                         {filteredGraphData.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
@@ -3510,7 +3510,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     </div>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
-                                                    <div className="h-[400px]">
+                                                    <div className="h-[260px] sm:h-[340px] md:h-[400px]">
                                                         {filteredGraphData.length > 0 ? (
                                                             <ResponsiveContainer width="100%" height="100%">
                                                                 <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
@@ -3573,7 +3573,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     selectedEventKey={panelSelectedEventKey?.[panel.panelId] || null}
                                                     onEventClick={(eventKey: string) => handlePanelEventClick?.(panel.panelId, eventKey)}
                                                 />
-                                                <div className="h-[400px]">
+                                                <div className="h-[260px] sm:h-[340px] md:h-[400px]">
                                                     {filteredGraphData.length > 0 ? (
                                                         <ResponsiveContainer width="100%" height="100%">
                                                             <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
@@ -3855,7 +3855,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                     </div>
                                                                 </CardHeader>
                                                                 <CardContent className="p-4">
-                                                                    <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-3" : availableCharts.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                                                    <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-1 sm:grid-cols-3" : availableCharts.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
                                                                         {availableCharts.map((chart) => {
                                                                             const totalVal = chart.data.reduce((acc: number, item: any) => acc + item.value, 0);
                                                                             return (
@@ -4143,7 +4143,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             </div>
                                                                         </CardHeader>
                                                                         <CardContent className="p-4">
-                                                                            <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-3" : availableCharts.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                                                            <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-1 sm:grid-cols-3" : availableCharts.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
                                                                                 {availableCharts.map((chart) => {
                                                                                     const totalVal = chart.data.reduce((acc: number, item: any) => acc + item.value, 0);
                                                                                     return (

@@ -33,7 +33,7 @@ export function CombinedPanel({ panel, data }: CombinedPanelProps) {
             <CardContent className="flex-1 flex flex-col gap-4 relative z-10">
                 {/* Line/Bar Graph */}
                 {panel.visualizations.lineGraph.enabled && (
-                    <div className="h-64 w-full bg-slate-50/30 dark:bg-slate-950/20 rounded-2xl p-2 border border-slate-100 dark:border-indigo-500/10">
+                    <div className="h-48 sm:h-56 md:h-64 w-full bg-slate-50/30 dark:bg-slate-950/20 rounded-2xl p-2 border border-slate-100 dark:border-indigo-500/10">
                         {hasData ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={graphData}>

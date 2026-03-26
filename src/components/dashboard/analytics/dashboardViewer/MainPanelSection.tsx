@@ -2167,9 +2167,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <CardHeader className="pb-2 px-3 md:px-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-5 w-5 text-indigo-600" />
-                                                <CardTitle className="text-base md:text-lg">8-Day Hourly Comparison</CardTitle>
-                                                <span className="px-2 py-0.5 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold rounded-md border border-indigo-300 dark:border-indigo-600" title="Press ⌘+Shift to toggle Hourly/Daily">⌘+Shift</span>
+                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
+                                                <CardTitle className="text-sm sm:text-base md:text-lg">8-Day Hourly</CardTitle>
+                                                <span className="hidden sm:inline px-2 py-0.5 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold rounded-md border border-indigo-300 dark:border-indigo-600" title="Press ⌘+Shift to toggle Hourly/Daily">⌘+Shift</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
@@ -2236,8 +2236,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <CardHeader className="pb-2 px-3 md:px-6">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-5 w-5 text-indigo-600" />
-                                                <CardTitle className="text-base md:text-lg">Daily Overlay Comparison</CardTitle>
+                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
+                                                <CardTitle className="text-sm sm:text-base md:text-lg">Daily Overlay</CardTitle>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
@@ -2288,7 +2288,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             />
                                         </div>
                                         <div
-                                            className="w-full h-[420px] md:h-[450px] origin-top-left transition-all duration-100 ease-out overflow-x-auto overflow-y-hidden"
+                                            className="w-full h-[280px] sm:h-[380px] md:h-[450px] origin-top-left transition-all duration-100 ease-out overflow-x-auto overflow-y-hidden"
                                             onWheel={handleWheel}
                                         >
                                             <div style={{ width: `${zoomLevel * 100}%`, height: '100%', minWidth: '100%' }}>
@@ -2459,7 +2459,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <button
                                                     onClick={() => setHourlyOverride?.(true)}
                                                     className={cn(
-                                                        "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                         isHourly
                                                             ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                             : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
@@ -2470,7 +2470,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <button
                                                     onClick={() => setHourlyOverride?.(false)}
                                                     className={cn(
-                                                        "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                         !isHourly
                                                             ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                             : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
@@ -4203,7 +4203,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         </div>
                                                     </CardHeader>
                                                     <CardContent className="p-4">
-                                                        <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-3" : availableCharts.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                                        <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-1 sm:grid-cols-3" : availableCharts.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
                                                             {availableCharts.map((chart) => {
                                                                 const totalVal = chart.data.reduce((acc: number, item: any) => acc + item.value, 0);
                                                                 return (
@@ -4481,7 +4481,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 </div>
                                                             </CardHeader>
                                                             <CardContent className="p-4">
-                                                                <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-3" : availableCharts.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                                                <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-1 sm:grid-cols-3" : availableCharts.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
                                                                     {availableCharts.map((chart) => {
                                                                         const totalVal = chart.data.reduce((acc: number, item: any) => acc + item.value, 0);
                                                                         return (
@@ -4723,7 +4723,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     </div>
                                                 </CardHeader>
                                                 <CardContent className="p-4">
-                                                    <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-3" : availableCharts.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+                                                    <div className={cn("grid gap-4", availableCharts.length === 3 ? "grid-cols-1 sm:grid-cols-3" : availableCharts.length === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
                                                         {availableCharts.map((chart) => {
                                                             const totalVal = chart.data.reduce((acc: number, item: any) => acc + item.value, 0);
                                                             return (

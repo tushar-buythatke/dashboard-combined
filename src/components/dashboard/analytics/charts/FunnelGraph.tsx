@@ -389,21 +389,21 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
             <Card className={cn("rounded-3xl overflow-hidden backdrop-blur-xl border-2 shadow-xl relative", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)}>
                 {/* Thematic gradient accent bar */}
                 <div className={cn("absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r z-10", themeClasses.buttonGradient)} />
-                <CardHeader className="pb-4 px-6 bg-gradient-to-r from-white/50 via-gray-50/30 to-white/40 dark:from-gray-800/30 dark:via-gray-900/20 dark:to-gray-800/30 border-b border-gray-200/30 dark:border-gray-700/30 pt-5">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div className="flex items-center gap-3">
-                            <div className={cn("h-11 w-11 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/30 dark:ring-white/10", themeClasses.buttonGradient)}>
-                                <Filter className="h-6 w-6 text-white" />
+                <CardHeader className="pb-3 sm:pb-4 px-3 sm:px-6 bg-gradient-to-r from-white/50 via-gray-50/30 to-white/40 dark:from-gray-800/30 dark:via-gray-900/20 dark:to-gray-800/30 border-b border-gray-200/30 dark:border-gray-700/30 pt-4 sm:pt-5">
+                    <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <div className={cn("h-9 w-9 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/30 dark:ring-white/10", themeClasses.buttonGradient)}>
+                                <Filter className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                             </div>
                             <div>
-                                <CardTitle className="text-base md:text-lg">Conversion Funnel</CardTitle>
-                                <p className="text-xs text-muted-foreground mt-0.5">
+                                <CardTitle className="text-sm sm:text-base md:text-lg">Conversion Funnel</CardTitle>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
                                     Event flow analysis • {funnelData.length} stages
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                                 <TrendingDown className="h-5 w-5" />
                                 <span className="font-medium">Success rate tracking</span>
                             </div>
@@ -412,7 +412,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onToggleHourly(false); }}
                                         className={cn(
-                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                            "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all",
                                             !isHourly
                                                 ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
                                                 : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
@@ -423,7 +423,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onToggleHourly(true); }}
                                         className={cn(
-                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                            "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all",
                                             isHourly
                                                 ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
                                                 : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
@@ -446,19 +446,19 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         />
                     </div>
                     <div
-                        className="relative h-[450px] flex items-end justify-center gap-6 md:gap-8 pl-12 pr-8 md:pl-14 md:pr-12 origin-center transition-transform duration-100 ease-out"
+                        className="relative h-[300px] sm:h-[380px] md:h-[450px] flex items-end justify-center gap-2 sm:gap-6 md:gap-8 pl-8 pr-4 sm:pl-12 sm:pr-8 md:pl-14 md:pr-12 origin-center transition-transform duration-100 ease-out"
                         style={{ transform: `scale(${zoomLevel})` }}
                         onWheel={handleWheel}
                     >
                         {/* Grid Lines - representing 0%, 25%, 50%, 75%, 100% */}
-                        <div className="absolute inset-x-0 bottom-0 h-full pointer-events-none" style={{ left: '3rem', right: '2rem' }}>
+                        <div className="absolute inset-x-0 bottom-0 h-full pointer-events-none" style={{ left: '2rem', right: '1rem' }}>
                             {[0, 25, 50, 75, 100].map((level) => (
                                 <div
                                     key={level}
                                     className="absolute left-0 w-full flex items-center"
                                     style={{ bottom: `${level}%` }}
                                 >
-                                    <span className="absolute -left-9 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                    <span className="absolute -left-7 sm:-left-9 text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400">
                                         {level}%
                                     </span>
                                     <div className="w-full border-t border-dashed border-gray-300 dark:border-gray-600/50" />
@@ -474,7 +474,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             return (
                                 <div
                                     key={stage.eventId}
-                                    className="flex flex-col items-center group w-24 sm:w-32 md:w-40 h-full cursor-pointer relative z-10"
+                                    className="flex flex-col items-center group w-14 sm:w-24 md:w-40 h-full cursor-pointer relative z-10"
                                     onClick={() => setSelectedStage(stage)}
                                     onMouseEnter={(e) => handleMouseEnter(stage, e)}
                                     onMouseLeave={() => setHoveredStage(null)}
@@ -498,30 +498,30 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             >
                                                 {/* Labels ABOVE bar when percentage < 10% - positioned at top of bar with negative offset */}
                                                 {stage.percentage < 10 && (
-                                                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 whitespace-nowrap transition-opacity duration-200 group-hover:opacity-0">
-                                                        <span className="font-bold text-base sm:text-lg text-indigo-600 dark:text-indigo-400 drop-shadow-sm">
+                                                    <div className="absolute -top-10 sm:-top-12 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 whitespace-nowrap transition-opacity duration-200 group-hover:opacity-0">
+                                                        <span className="font-bold text-xs sm:text-lg text-indigo-600 dark:text-indigo-400 drop-shadow-sm">
                                                             {Math.min(stage.percentage, 100).toFixed(1)}%
                                                         </span>
-                                                        <span className="font-semibold text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                                        <span className="font-semibold text-[10px] sm:text-sm text-gray-600 dark:text-gray-400">
                                                             {stage.count.toLocaleString()}
                                                         </span>
                                                     </div>
                                                 )}
 
                                                 {/* Percentage and User Badges */}
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
+                                                <div className="absolute inset-0 flex flex-col items-center justify-center p-1 sm:p-2">
                                                     <div className="flex flex-col items-center gap-0.5">
-                                                        <span className="text-white font-bold text-base sm:text-lg md:text-xl drop-shadow-lg leading-none">
+                                                        <span className="text-white font-bold text-[10px] sm:text-lg md:text-xl drop-shadow-lg leading-none">
                                                             {Math.min(stage.percentage, 100).toFixed(1)}%
                                                         </span>
-                                                        <span className="text-white/80 font-semibold text-[10px] sm:text-xs drop-shadow-lg leading-none">
+                                                        <span className="text-white/80 font-semibold text-[8px] sm:text-xs drop-shadow-lg leading-none">
                                                             {stage.count.toLocaleString()} hits
                                                         </span>
                                                     </div>
 
                                                     {/* User Badges inside bar if space permits and data exists */}
                                                     {stage.percentage > 25 && (stage.totalUsers || 0) > 0 && (
-                                                        <div className="mt-3 flex flex-col gap-1.5 w-full px-2 max-w-[120px]">
+                                                        <div className="mt-1 sm:mt-3 flex-col gap-1.5 w-full px-1 sm:px-2 max-w-[120px] hidden sm:flex">
                                                             <div className="flex items-center justify-between bg-black/20 backdrop-blur-md rounded-md px-2 py-1 border border-white/10">
                                                                 <Users className="h-2.5 w-2.5 text-white/80" />
                                                                 <span className="text-[10px] font-bold text-white">{(stage.totalUsers || 0).toLocaleString()}</span>
@@ -538,8 +538,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
                                                 {/* High drop-off indicator */}
                                                 {stage.dropoffPercentage > 20 && stage.percentage >= 10 && (
-                                                    <div className="absolute top-2 right-2 bg-red-500/40 backdrop-blur-md rounded-full px-2 py-1 border border-white/20">
-                                                        <span className="text-white text-[10px] font-bold">{stage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(stage.dropoffPercentage).toFixed(0)}%</span>
+                                                    <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-red-500/40 backdrop-blur-md rounded-full px-1 sm:px-2 py-0.5 sm:py-1 border border-white/20">
+                                                        <span className="text-white text-[8px] sm:text-[10px] font-bold">{stage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(stage.dropoffPercentage).toFixed(0)}%</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -624,64 +624,62 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
 
                     {/* Summary Footer with Final Stage Toggle */}
                     <div className="mt-8 pt-6 border-t border-gray-200/50 dark:border-gray-700/50">
-                        <div className="grid grid-cols-4 gap-4 text-center">
-                            <div className="bg-indigo-100/60 dark:bg-indigo-900/30 backdrop-blur-sm rounded-2xl p-4 border-2 border-indigo-300/50 dark:border-indigo-500/40 shadow-md">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
+                            <div className="bg-indigo-100/60 dark:bg-indigo-900/30 backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 border-indigo-300/50 dark:border-indigo-500/40 shadow-md overflow-hidden">
                                 <div className="flex flex-col items-center">
-                                    <div className="text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+                                    <div className="text-base sm:text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400 truncate w-full">
                                         {funnelData[0]?.count.toLocaleString() || 0}
                                     </div>
-                                    <div className="text-sm text-muted-foreground mt-1 font-medium">Total Hits</div>
+                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Total Hits</div>
                                     {(funnelData[0]?.totalUsers || 0) > 0 && (
-                                        <div className="mt-2 flex items-center gap-2 text-[10px] bg-indigo-100/50 dark:bg-indigo-500/10 px-2 py-0.5 rounded-full">
-                                            <Users className="h-3 w-3 text-indigo-500" />
-                                            <span className="text-indigo-700 dark:text-indigo-300 font-bold">{(funnelData[0]?.totalUsers || 0).toLocaleString()} events</span>
+                                        <div className="mt-1 sm:mt-2 flex items-center gap-1 sm:gap-2 text-[9px] sm:text-[10px] bg-indigo-100/50 dark:bg-indigo-500/10 px-1.5 sm:px-2 py-0.5 rounded-full">
+                                            <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-indigo-500" />
+                                            <span className="text-indigo-700 dark:text-indigo-300 font-bold truncate">{(funnelData[0]?.totalUsers || 0).toLocaleString()}</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="bg-emerald-100/60 dark:bg-emerald-900/30 backdrop-blur-sm rounded-2xl p-4 border-2 border-emerald-300/50 dark:border-emerald-500/40 shadow-md">
+                            <div className="bg-emerald-100/60 dark:bg-emerald-900/30 backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 border-emerald-300/50 dark:border-emerald-500/40 shadow-md overflow-hidden">
                                 <div className="flex flex-col items-center">
-                                    <div className="text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                                    <div className="text-base sm:text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400 truncate w-full">
                                         {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
                                     </div>
-                                    <div className="text-sm text-muted-foreground mt-1 font-medium">Completed</div>
+                                    <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Completed</div>
                                     {(funnelData[funnelData.length - 1]?.totalUsers || 0) > 0 && (
-                                        <div className="mt-2 flex items-center gap-2 text-[10px] bg-emerald-100/50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                                            <Users className="h-3 w-3 text-emerald-500" />
-                                            <span className="text-emerald-700 dark:text-emerald-300 font-bold">{(funnelData[funnelData.length - 1]?.totalUsers || 0).toLocaleString()} events</span>
+                                        <div className="mt-1 sm:mt-2 flex items-center gap-1 sm:gap-2 text-[9px] sm:text-[10px] bg-emerald-100/50 dark:bg-emerald-500/10 px-1.5 sm:px-2 py-0.5 rounded-full">
+                                            <Users className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500" />
+                                            <span className="text-emerald-700 dark:text-emerald-300 font-bold truncate">{(funnelData[funnelData.length - 1]?.totalUsers || 0).toLocaleString()}</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <div className={cn("backdrop-blur-sm rounded-2xl p-4 border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
-                                <div className={cn("text-2xl md:text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent", themeClasses.buttonGradient)}>
+                            <div className={cn("backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40 overflow-hidden", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                                <div className={cn("text-base sm:text-2xl md:text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent truncate", themeClasses.buttonGradient)}>
                                     {Math.min(funnelData[funnelData.length - 1]?.percentage || 0, 100).toFixed(1)}%
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-1 font-medium">Conversion Rate</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Conversion Rate</div>
                             </div>
-                            <div className="bg-gradient-to-br from-orange-100/60 to-amber-100/60 dark:from-orange-900/30 dark:to-amber-900/30 backdrop-blur-sm rounded-2xl p-4 border-2 border-orange-300/50 dark:border-orange-500/40 shadow-md relative z-20">
+                            <div className="bg-gradient-to-br from-orange-100/60 to-amber-100/60 dark:from-orange-900/30 dark:to-amber-900/30 backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 border-orange-300/50 dark:border-orange-500/40 shadow-md relative z-20 overflow-hidden">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="w-full text-sm font-semibold bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800 relative z-30 cursor-pointer h-10"
+                                    className="w-full text-xs sm:text-sm font-semibold bg-white/80 hover:bg-white border-orange-300 text-orange-700 hover:text-orange-800 relative z-30 cursor-pointer h-8 sm:h-10"
                                     onClick={(e) => {
-                                        e.stopPropagation(); // Prevent card clicks
+                                        e.stopPropagation();
                                         if (onViewAsPercentage && stages.length > 0) {
-                                            // Use first stage as parent
                                             const parentEventId = stages[0].eventId;
-                                            // Combine ALL stages + multipleChildEvents for child selection
                                             const allChildEvents = [
-                                                ...stages.slice(1).map(s => s.eventId), // All stages except first (parent)
+                                                ...stages.slice(1).map(s => s.eventId),
                                                 ...multipleChildEvents
                                             ];
                                             onViewAsPercentage(parentEventId, allChildEvents);
                                         }
                                     }}
                                 >
-                                    <BarChart3 className="h-4 w-4 mr-1.5" />
+                                    <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
                                     View as %
                                 </Button>
-                                <div className="text-sm text-muted-foreground mt-1 font-medium">All Stages Analysis</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">All Stages</div>
                             </div>
                         </div>
 
