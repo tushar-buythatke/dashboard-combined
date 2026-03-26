@@ -90,7 +90,7 @@ export function MobileActionFab({
     ];
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 sm:hidden">
+        <div className="fixed right-6 z-50 sm:hidden" style={{ bottom: 'max(24px, calc(env(safe-area-inset-bottom, 0px) + 16px))' }}>
             {/* Action buttons - expand upward */}
             <div className={cn(
                 "absolute bottom-16 right-0 flex flex-col-reverse gap-3 transition-all duration-300 origin-bottom",

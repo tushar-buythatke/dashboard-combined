@@ -456,17 +456,17 @@ export const AdditionalPanelItem = React.memo(({
                 {/* Thematic gradient banner */}
                 <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
                 <CardHeader className="pb-4">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className={cn("h-12 w-12 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/20 dark:ring-white/10", themeClasses.buttonGradient)}>
+                    <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <div className={cn("h-9 w-9 sm:h-12 sm:w-12 rounded-lg sm:rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/20 dark:ring-white/10 shrink-0", themeClasses.buttonGradient)}>
                                 {panelGraphType === 'bar' ? (
-                                    <BarChart3 className="h-6 w-6 text-white" />
+                                    <BarChart3 className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                                 ) : (
-                                    <TrendingUp className="h-6 w-6 text-white" />
+                                    <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                                 )}
                             </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-foreground">{panel.panelName}</h2>
+                            <div className="min-w-0">
+                                <h2 className="text-base sm:text-2xl font-bold text-foreground truncate">{panel.panelName}</h2>
                                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                                     {panelConfig?.isApiEvent && (
                                         <>
@@ -678,7 +678,7 @@ export const AdditionalPanelItem = React.memo(({
                                             <button
                                                 onClick={() => setHourlyOverride('hourly')}
                                                 className={cn(
-                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                    "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                     pIsHourly
                                                         ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-300 shadow-sm"
                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -689,7 +689,7 @@ export const AdditionalPanelItem = React.memo(({
                                             <button
                                                 onClick={() => setHourlyOverride('daily')}
                                                 className={cn(
-                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                    "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                     !pIsHourly
                                                         ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-300 shadow-sm"
                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -977,27 +977,27 @@ export const AdditionalPanelItem = React.memo(({
                         panelConfig?.isApiEvent && panelApiSeries.length > 0 && (
                             <Card className={cn("relative border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl mb-6 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
                                 <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                <CardHeader className="pb-2">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
-                                        <div className="flex flex-wrap gap-2">
+                                <CardHeader className="pb-2 px-3 sm:px-6">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                        <CardTitle className="text-base md:text-lg shrink-0">API Performance</CardTitle>
+                                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
                                             {(['timing', 'timing-breakdown', 'timing-anomaly', 'bytes', 'bytes-in', 'count'] as const).map((tab) => (
                                                 <button
                                                     key={tab}
                                                     onClick={() => setPanelApiMetricView?.((prev: any) => ({ ...prev, [panel.panelId]: tab }))}
                                                     className={cn(
-                                                        "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                        "px-2 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-sm font-semibold rounded-lg transition-all",
                                                         panelMetricView === tab
                                                             ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
                                                             : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                                                     )}
                                                 >
-                                                    {tab === 'timing' && '⏱️ Time (Avg)'}
-                                                    {tab === 'timing-breakdown' && '🔀 Timing Breakdown'}
-                                                    {tab === 'timing-anomaly' && '⚠️ Anomalies'}
-                                                    {tab === 'bytes' && '📤 Bytes Out'}
-                                                    {tab === 'bytes-in' && '📥 Bytes In'}
-                                                    {tab === 'count' && '📈 Count'}
+                                                    {tab === 'timing' && 'Time'}
+                                                    {tab === 'timing-breakdown' && 'Breakdown'}
+                                                    {tab === 'timing-anomaly' && 'Anomalies'}
+                                                    {tab === 'bytes' && 'Bytes Out'}
+                                                    {tab === 'bytes-in' && 'Bytes In'}
+                                                    {tab === 'count' && 'Count'}
                                                 </button>
                                             ))}
                                         </div>

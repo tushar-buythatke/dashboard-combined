@@ -704,11 +704,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     </div>
                 </CardHeader>
                 {!filtersCollapsed && (
-                    <CardContent className="pb-6">
-                        <div className="flex justify-between items-center mb-4">
+                    <CardContent className="pb-6 overflow-x-hidden">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                             <div className="flex items-center gap-3">
                                 <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
-                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground">
                                     <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
                                         <Command className="h-3 w-3" />
                                         <span className="font-medium">L</span>
@@ -717,10 +717,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                 </div>
                             </div>
                             {/* Hourly/Daily Toggle in Filter Panel */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-muted-foreground">Data Resolution:</span>
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap">Resolution:</span>
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground font-medium">Showing:</span>
                                     <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
                                         {dataLoading && (
                                             <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
@@ -731,7 +730,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             onClick={() => setHourlyOverride?.(true)}
                                             disabled={dataLoading}
                                             className={cn(
-                                                "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                "px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                 isHourly
                                                     ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
@@ -744,7 +743,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             onClick={() => setHourlyOverride?.(false)}
                                             disabled={dataLoading}
                                             className={cn(
-                                                "px-4 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                "px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                 !isHourly
                                                     ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
                                                     : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
@@ -754,8 +753,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             Daily
                                         </button>
                                     </div>
-                                    {/* Shortcut hint */}
-                                    <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800/60 text-gray-800 dark:text-gray-200 font-bold rounded-md border border-gray-300 dark:border-gray-600" title="Press ⌘+Shift to toggle">⌘+Shift</span>
+                                    {/* Shortcut hint - hidden on mobile */}
+                                    <span className="hidden sm:inline px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800/60 text-gray-800 dark:text-gray-200 font-bold rounded-md border border-gray-300 dark:border-gray-600" title="Press ⌘+Shift to toggle">⌘+Shift</span>
                                 </div>
                             </div>
                         </div>
@@ -828,19 +827,19 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                     return (
                                         <div className="col-span-12 space-y-4">
-                                            <div className="flex items-center justify-between mb-2">
+                                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <Percent className="h-4 w-4 text-current" />
-                                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Percentage Graph - Event Selection</span>
+                                                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">Percentage Graph</span>
                                                 </div>
 
-                                                <div className="flex items-center gap-4">
+                                                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                                                     {/* Event Distribution Toggle */}
                                                     <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/20 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                                                         <input
                                                             type="checkbox"
                                                             id="percentage-show-events"
-                                                            className="h-4 w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400 cursor-pointer"
+                                                            className="h-5 w-5 sm:h-4 sm:w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400 cursor-pointer"
                                                             checked={currentFilters.showEventPieCharts ?? false}
                                                             onChange={(e) => handleFilterChange('showEventPieCharts', e.target.checked)}
                                                         />
@@ -854,24 +853,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         <button
                                                             onClick={() => handleFilterChange('activePercentageGroupChildEvents', true)}
                                                             className={cn(
-                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                                "px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all",
                                                                 isGrouped
                                                                     ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
                                                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
                                                             )}
                                                         >
-                                                            SINGLE GRAPH
+                                                            SINGLE
                                                         </button>
                                                         <button
                                                             onClick={() => handleFilterChange('activePercentageGroupChildEvents', false)}
                                                             className={cn(
-                                                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                                                "px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all",
                                                                 !isGrouped
                                                                     ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-md"
                                                                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-white/50"
                                                             )}
                                                         >
-                                                            SEPARATE GRAPHS
+                                                            SEPARATE
                                                         </button>
                                                     </div>
                                                 </div>

@@ -495,7 +495,7 @@ export function AnalyticsLayout() {
                     <GradientMeshBackground />
                 </div>
 
-                <header className="border-b border-border/50 px-3 lg:px-4 py-4 lg:py-5 flex justify-between items-center bg-card/95 backdrop-blur-md shadow-sm relative z-10">
+                <header className="fixed top-0 left-0 right-0 border-b border-border/50 px-3 lg:px-4 py-4 lg:py-5 flex justify-between items-center bg-card/95 backdrop-blur-md shadow-sm z-[100]" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
                     <div className="flex items-center gap-2 lg:gap-3">
                         <div className="h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl bg-white dark:bg-slate-800 p-1 lg:p-1.5 shadow-lg border border-gray-100 dark:border-gray-500/20 overflow-hidden">
                             <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
@@ -637,6 +637,8 @@ export function AnalyticsLayout() {
                         </Button>
                     </div>
                 </header>
+                {/* Spacer for fixed header */}
+                <div className="h-16 lg:h-20" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
                 <FeatureSelector key={featureSelectorKey} onSelectFeature={setSelectedFeatureId} />
 
                 {/* Premium Search Modal - Available on feature selector page */}
@@ -791,7 +793,7 @@ export function AnalyticsLayout() {
     return (
         <CustomEventLabelsProvider>
             <div className={cn("flex flex-col relative min-h-screen transition-colors duration-500", themeClasses.pageBg)}>
-                <header className={cn("sticky top-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] border-b shadow-lg transition-all duration-500", themeClasses.headerBg, themeClasses.borderAccent)}>
+                <header className={cn("fixed top-0 left-0 right-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] border-b shadow-lg transition-all duration-500", themeClasses.headerBg, themeClasses.borderAccent)} style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
                     <div className="flex items-center gap-2 lg:gap-4">
                         {/* Mobile Menu Button */}
                         <div className="md:hidden">
@@ -909,6 +911,8 @@ export function AnalyticsLayout() {
                         </Button>
                     </div>
                 </header>
+                {/* Spacer for fixed header */}
+                <div className="h-14 lg:h-16" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
 
                 <div className="flex min-h-[calc(100vh-3.5rem)] lg:min-h-[calc(100vh-4rem)]">
                     {/* Mobile Sidebar Overlay - No animation, just show/hide */}
@@ -918,7 +922,7 @@ export function AnalyticsLayout() {
                                 className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 md:hidden"
                                 onClick={() => setMobileSidebarOpen(false)}
                             />
-                            <div className="fixed left-0 top-14 bottom-0 w-[280px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-gray-700/60 z-50 md:hidden overflow-hidden shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50">
+                            <div className="fixed left-0 bottom-0 w-[280px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-gray-700/60 z-50 md:hidden overflow-hidden shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50" style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}>
                                 <div className="absolute top-2 right-2">
                                     <Button
                                         variant="ghost"
@@ -988,7 +992,7 @@ export function AnalyticsLayout() {
                             <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 bg-gray-100/20 dark:bg-gray-900/20" />
                         </div>
 
-                        <div className="relative pt-4 lg:pt-5 px-4 pb-4 lg:px-6 lg:pb-6">
+                        <div className="relative pt-3 lg:pt-5 px-2 sm:px-4 pb-4 lg:px-6 lg:pb-6" style={{ paddingBottom: 'max(16px, calc(env(safe-area-inset-bottom, 0px) + 16px))' }}>
 
                             {isCreatingProfile ? (
                                 <ProfileBuilder

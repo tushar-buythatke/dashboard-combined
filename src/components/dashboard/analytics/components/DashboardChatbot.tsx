@@ -440,55 +440,73 @@ export function DashboardChatbot({
             <div
                 className={cn(
                     "relative shadow-2xl overflow-hidden h-full flex flex-col",
-                    isMobile ? themeClasses.pageBg : cn(themeClasses.cardBg, "backdrop-blur-2xl"),
-                    "border border-white/20 dark:border-gray-700/30",
+                    isMobile ? "bg-white dark:bg-gray-900" : cn(themeClasses.cardBg, "backdrop-blur-2xl"),
+                    isMobile ? "border-0" : "border border-white/20 dark:border-gray-700/30",
                     "shadow-[0_20px_60px_rgba(0,0,0,0.3)]",
                     isMobile ? "rounded-none" : "rounded-3xl"
                 )}
             >
-                {/* Glassmorphic gradient overlay */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className={cn(
-                        "absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-30",
-                        "bg-gradient-to-br",
-                        themeClasses.buttonGradient
-                    )} />
-                    <div className={cn(
-                        "absolute -bottom-24 -left-24 w-72 h-72 rounded-full blur-3xl opacity-20",
-                        "bg-gradient-to-br",
-                        themeClasses.buttonGradient
-                    )} />
-                </div>
+                {/* Glassmorphic gradient overlay - hidden on mobile for solid background */}
+                {!isMobile && (
+                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                        <div className={cn(
+                            "absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-30",
+                            "bg-gradient-to-br",
+                            themeClasses.buttonGradient
+                        )} />
+                        <div className={cn(
+                            "absolute -bottom-24 -left-24 w-72 h-72 rounded-full blur-3xl opacity-20",
+                            "bg-gradient-to-br",
+                            themeClasses.buttonGradient
+                        )} />
+                    </div>
+                )}
+
+                {/* Mobile drag handle / close bar */}
+                {isMobile && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleClose();
+                        }}
+                        className="w-full flex flex-col items-center pt-3 pb-1 bg-white dark:bg-gray-900 active:bg-gray-100 dark:active:bg-gray-800 transition-colors cursor-pointer"
+                        style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 12px))' }}
+                    >
+                        <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">Tap to close</span>
+                    </button>
+                )}
 
                 {/* Header - Sticky */}
                 <div
                     className={cn(
                         "sticky top-0 z-20 border-b border-gray-200/50 dark:border-gray-700/50",
-                        isMobile ? "bg-white dark:bg-gray-800" : "bg-white/80 dark:bg-gray-800/80", // Solid header on mobile
-                        "backdrop-blur-xl",
-                        isMobile ? "p-4 pt-6" : "p-3" // Extra top padding on mobile for notch/status bar
+                        "bg-white dark:bg-gray-900",
+                        isMobile ? "px-4 pb-3 pt-2" : "p-3"
                     )}
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
                             <div className={cn(
-                                "h-10 w-10 rounded-xl flex items-center justify-center",
+                                "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
                                 "bg-gradient-to-br",
                                 themeClasses.buttonGradient,
                                 "shadow-lg"
                             )}>
                                 <Sparkles className="h-5 w-5 text-white" />
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                                     Dashboard Assistant
                                 </h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                     Ask me anything about your dashboard
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5 shrink-0">
                             {!isMobile && (
                                 <button
                                     type="button"
@@ -513,31 +531,39 @@ export function DashboardChatbot({
                                     e.stopPropagation();
                                     handleClose();
                                 }}
-                                className="h-8 w-8 rounded-lg hover:bg-gray-200/50 dark:hover:bg-gray-700/50 flex items-center justify-center transition-colors cursor-pointer"
+                                className={cn(
+                                    "rounded-lg flex items-center justify-center transition-colors cursor-pointer",
+                                    isMobile
+                                        ? "h-11 w-11 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 active:bg-red-200"
+                                        : "h-8 w-8 hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
+                                )}
                                 title="Close"
                             >
-                                <X className="h-4 w-4 pointer-events-none" />
+                                <X className={cn("pointer-events-none", isMobile ? "h-5 w-5" : "h-4 w-4")} />
                             </button>
                         </div>
                     </div>
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50">
-                            <Command className="h-2.5 w-2.5" />
-                            <span className="font-medium">L</span>
+                    {/* Keyboard shortcuts - hide on mobile */}
+                    {!isMobile && (
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50">
+                                <Command className="h-2.5 w-2.5" />
+                                <span className="font-medium">L</span>
+                            </div>
+                            <span>open</span>
+                            <span className="mx-0.5">•</span>
+                            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50">
+                                <span className="font-medium">⌘K</span>
+                            </div>
+                            <span>voice</span>
+                            <span className="mx-0.5">•</span>
+                            <span>Esc close</span>
                         </div>
-                        <span>open</span>
-                        <span className="mx-0.5">•</span>
-                        <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50">
-                            <span className="font-medium">⌘K</span>
-                        </div>
-                        <span>voice</span>
-                        <span className="mx-0.5">•</span>
-                        <span>Esc close</span>
-                    </div>
+                    )}
                 </div>
 
                 {/* Messages - Scrollable */}
-                <ScrollArea className="flex-1 relative z-10 scrollbar-hide overflow-y-auto" ref={scrollAreaRef}>
+                <ScrollArea className={cn("flex-1 relative z-10 scrollbar-hide overflow-y-auto", isMobile && "bg-gray-50 dark:bg-gray-950")} ref={scrollAreaRef}>
                     <div className="p-3 space-y-2.5">
                         {messages.length === 0 && (
                             <div className="text-center py-8">
@@ -671,12 +697,14 @@ export function DashboardChatbot({
                 </ScrollArea>
 
                 {/* Input Area */}
-                <div className={cn(
-                    "relative z-10 border-t border-gray-200/50 dark:border-gray-700/50",
-                    isMobile ? "bg-white dark:bg-gray-800" : "bg-white/60 dark:bg-gray-800/60", // Solid input area on mobile
-                    "backdrop-blur-xl",
-                    isMobile ? "p-4 pb-8" : "p-4" // Extra bottom padding on mobile for home indicator
-                )}>
+                <div
+                    className={cn(
+                        "relative z-10 border-t border-gray-200/50 dark:border-gray-700/50",
+                        "bg-white dark:bg-gray-900",
+                        "p-4"
+                    )}
+                    style={isMobile ? { paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' } : undefined}
+                >
                     <div className="flex items-end gap-2">
                         <div className="flex-1 relative">
                             <textarea

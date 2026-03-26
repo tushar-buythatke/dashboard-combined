@@ -953,31 +953,31 @@ export function PercentageGraph({
                 <CardContent className="p-4 md:p-6 bg-white/40 dark:bg-gray-900/40">
                     {/* Summary Stats - Parent on Left, Child on Right - Only show for count-based events */}
                     {chartData.length > 0 && !chartData[0].isAvgMetric && (
-                        <div className="grid grid-cols-3 gap-4 mb-6">
-                            <div className="text-center p-4 bg-blue-100/60 dark:bg-blue-900/30 backdrop-blur-sm rounded-2xl border-2 border-blue-300/50 dark:border-blue-500/40 shadow-md">
-                                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+                            <div className="text-center p-2 sm:p-4 bg-blue-100/60 dark:bg-blue-900/30 backdrop-blur-sm rounded-2xl border-2 border-blue-300/50 dark:border-blue-500/40 shadow-md overflow-hidden">
+                                <div className="text-sm sm:text-2xl font-bold text-blue-600 dark:text-blue-400 truncate">
                                     {overallStats.totalParent.toLocaleString()}
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-1 font-medium">Parent Events (Left)</div>
-                                <div className="text-sm text-muted-foreground truncate" title={getParentEventNames()}>
+                                <div className="text-[10px] sm:text-sm text-muted-foreground mt-1 font-medium">Parent Events</div>
+                                <div className="text-[10px] sm:text-sm text-muted-foreground truncate hidden sm:block" title={getParentEventNames()}>
                                     {getParentEventNames()}
                                 </div>
                             </div>
-                            <div className={cn("text-center p-4 backdrop-blur-sm rounded-2xl border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
-                                <div className={cn("text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent", themeClasses.buttonGradient)}>
+                            <div className={cn("text-center p-2 sm:p-4 backdrop-blur-sm rounded-2xl border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40 overflow-hidden", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
+                                <div className={cn("text-sm sm:text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent", themeClasses.buttonGradient)}>
                                     {overallStats.percentage.toFixed(2)}%
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-1 font-medium">Overall Ratio</div>
-                                <div className="text-sm text-muted-foreground">
-                                    Range: {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
+                                <div className="text-[10px] sm:text-sm text-muted-foreground mt-1 font-medium">Overall Ratio</div>
+                                <div className="text-[10px] sm:text-sm text-muted-foreground truncate">
+                                    {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
                                 </div>
                             </div>
-                            <div className="text-center p-4 bg-green-100/60 dark:bg-green-900/30 backdrop-blur-sm rounded-2xl border-2 border-green-300/50 dark:border-green-500/40 shadow-md">
-                                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                            <div className="text-center p-2 sm:p-4 bg-green-100/60 dark:bg-green-900/30 backdrop-blur-sm rounded-2xl border-2 border-green-300/50 dark:border-green-500/40 shadow-md overflow-hidden">
+                                <div className="text-sm sm:text-2xl font-bold text-green-600 dark:text-green-400 truncate">
                                     {overallStats.totalChild.toLocaleString()}
                                 </div>
-                                <div className="text-sm text-muted-foreground mt-1 font-medium">Child Events (Right)</div>
-                                <div className="text-sm text-muted-foreground truncate" title={getChildEventNames()}>
+                                <div className="text-[10px] sm:text-sm text-muted-foreground mt-1 font-medium">Child Events</div>
+                                <div className="text-[10px] sm:text-sm text-muted-foreground truncate hidden sm:block" title={getChildEventNames()}>
                                     {getChildEventNames()}
                                 </div>
                             </div>

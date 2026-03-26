@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { useIsMobile } from '@/components/ui/use-mobile';
 
 const getBrandLogoEndpoint = (brand: string) => {
     const base = import.meta.env.DEV ? '/brand-logo' : '/api/brand-logo';
@@ -63,6 +64,7 @@ export function MultiSelectDropdown<T extends string | number = string>({
     disabled = false
 }: MultiSelectDropdownProps<T>) {
     const { t: themeClasses } = useAccentTheme();
+    const isMobile = useIsMobile();
     const [open, setOpen] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState('');
 
@@ -159,14 +161,33 @@ export function MultiSelectDropdown<T extends string | number = string>({
                     <ChevronsUpDown className={cn("ml-2 h-4 w-4 shrink-0 opacity-50", themeClasses.textPrimary, themeClasses.textPrimaryDark)} />
                 </Button>
             </PopoverTrigger>
+            {/* Mobile backdrop overlay */}
+            {isMobile && open && (
+                <div
+                    className="fixed inset-0 bg-black/40 z-[99998] backdrop-blur-sm"
+                    onClick={() => setOpen(false)}
+                />
+            )}
             <PopoverContent
-                className="w-full min-w-[250px] max-w-[400px] p-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl dark:shadow-black/40"
+                className={cn(
+                    "p-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl dark:shadow-black/40",
+                    isMobile
+                        ? "w-full max-w-none"
+                        : "w-full min-w-[250px] max-w-[400px]"
+                )}
                 align="start"
                 side="bottom"
                 sideOffset={4}
                 avoidCollisions={true}
                 onOpenAutoFocus={(e) => e.preventDefault()}
             >
+                {/* Mobile drag handle */}
+                {isMobile && (
+                    <div className="flex justify-center pt-3 pb-1">
+                        <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                    </div>
+                )}
+
                 {/* Search Input */}
                 {searchable && (
                     <div className="p-2 border-b border-gray-200 dark:border-gray-700">
@@ -296,6 +317,18 @@ export function MultiSelectDropdown<T extends string | number = string>({
                                 </Badge>
                             )}
                         </div>
+                    </div>
+                )}
+
+                {/* Mobile Done button - easy way to close */}
+                {isMobile && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+                        <Button
+                            className="w-full h-11 font-semibold text-sm"
+                            onClick={() => setOpen(false)}
+                        >
+                            Done ({selected.length} selected)
+                        </Button>
                     </div>
                 )}
             </PopoverContent>

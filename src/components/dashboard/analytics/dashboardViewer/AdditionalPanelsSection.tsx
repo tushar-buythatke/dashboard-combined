@@ -455,17 +455,17 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
 
                         <Card className={cn("rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 border", themeClasses.featureCardBorder, themeClasses.featureCardBorderDark)}>
                             <CardHeader className="pb-4">
-                                <div className="flex items-center justify-between flex-wrap gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className={cn("h-12 w-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg", themeClasses.buttonGradient)}>
+                                <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+                                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                        <div className={cn("h-9 w-9 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg shrink-0", themeClasses.buttonGradient)}>
                                             {panelGraphType === 'bar' ? (
-                                                <BarChart3 className="h-6 w-6 text-white" />
+                                                <BarChart3 className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                                             ) : (
-                                                <TrendingUp className="h-6 w-6 text-white" />
+                                                <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                                             )}
                                         </div>
-                                        <div>
-                                            <h2 className="text-2xl font-bold text-foreground">{panel.panelName}</h2>
+                                        <div className="min-w-0">
+                                            <h2 className="text-base sm:text-2xl font-bold text-foreground truncate">{panel.panelName}</h2>
                                             <p className="text-sm text-muted-foreground flex items-center gap-2">
                                                 {panelConfig?.isApiEvent && (
                                                     <>
@@ -503,18 +503,18 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
-                                            <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
+                                            <span className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">
                                                 {isPanelLoading ? <Skeleton className="h-4 w-12" /> : formatNumber(pTotalCount)} total
                                             </span>
-                                            <InfoTooltip content="Sum of all events recorded for this panel and its filters." />
+                                            <span className="hidden sm:inline"><InfoTooltip content="Sum of all events recorded for this panel and its filters." /></span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
-                                            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                                                {isPanelLoading ? <Skeleton className="h-4 w-10" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}% success
+                                        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
+                                            <span className="text-xs sm:text-sm font-medium text-green-700 dark:text-green-300 whitespace-nowrap">
+                                                {isPanelLoading ? <Skeleton className="h-4 w-10" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}%
                                             </span>
-                                            <InfoTooltip content="Percentage of events that completed successfully in this panel." />
+                                            <span className="hidden sm:inline"><InfoTooltip content="Percentage of events that completed successfully in this panel." /></span>
                                         </div>
                                     </div>
                                 </div>
@@ -563,7 +563,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                     )}>
                                                         Panel Filters
                                                     </span>
-                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/50 dark:bg-black/20 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 uppercase tracking-wider">
+                                                    <span className="hidden sm:inline text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/50 dark:bg-black/20 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 uppercase tracking-wider">
                                                         Independent
                                                     </span>
                                                 </div>
@@ -747,7 +747,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             </div>
                                                         </PopoverContent>
                                                     </Popover>
-                                                    <span className={cn("text-sm font-bold px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase)}>⌘K</span>
+                                                    <span className={cn("hidden sm:inline text-sm font-bold px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase)}>⌘K</span>
                                                 </div>
                                             )}
                                             {/* Chatbot Button */}
@@ -763,15 +763,15 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         // Position will be set to right side in chatbot component
                                                     }}
                                                     className={cn(
-                                                        "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-white/60 dark:bg-slate-900/40 text-indigo-700 dark:text-indigo-300",
+                                                        "h-8 gap-1.5 sm:gap-2 px-2 sm:px-3 border-indigo-200 dark:border-indigo-800 bg-white/60 dark:bg-slate-900/40 text-indigo-700 dark:text-indigo-300",
                                                         "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:text-indigo-800 dark:hover:text-indigo-200",
                                                         "transition-all duration-300 shadow-sm relative overflow-hidden group/chat ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
                                                     )}
                                                 >
                                                     <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
-                                                    <span>AI Chat</span>
+                                                    <span className="hidden sm:inline">AI Chat</span>
                                                 </Button>
-                                                <span className={cn("text-xs font-bold px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase)}>⌘L</span>
+                                                <span className={cn("hidden sm:inline text-xs font-bold px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase)}>⌘L</span>
                                             </div>
                                             {/* Refresh Button - Updated to match Main Panel & Purple Flash */}
                                             <div className="flex flex-col items-center gap-0.5">
@@ -818,7 +818,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                             <div className="mb-4 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div className="text-xs font-medium text-muted-foreground">Filter Configuration</div>
-                                                    <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                                    <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground">
                                                         <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
                                                             <Command className="h-3 w-3" />
                                                             <span className="font-medium">L</span>
@@ -915,7 +915,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                         </Popover>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-muted-foreground font-medium">Showing:</span>
+                                                        <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Showing:</span>
                                                         <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
                                                             {isPanelLoading && (
                                                                 <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
@@ -926,7 +926,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, true)}
                                                                 disabled={isPanelLoading}
                                                                 className={cn(
-                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                                    "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     pIsHourly
                                                                         ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
                                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700",
@@ -939,7 +939,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 onClick={() => setPanelHourlyOverrideForId?.(panel.panelId, false)}
                                                                 disabled={isPanelLoading}
                                                                 className={cn(
-                                                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
+                                                                    "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                                     !pIsHourly
                                                                         ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
                                                                         : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700",
@@ -1666,42 +1666,42 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                         </Card>
 
                         {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-2">
                                 <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-blue-200/60 dark:border-blue-500/30 shadow-sm hover:shadow-md transition-all overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-400" />
-                                    <CardContent className="pt-4 pb-4">
-                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                    <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-6">
+                                        <div className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">
                                             <AnimatedNumber value={pTotalCount} />
                                         </div>
-                                        <div className="text-sm text-muted-foreground mt-1">Total</div>
+                                        <div className="text-xs sm:text-sm text-muted-foreground mt-1">Total</div>
                                     </CardContent>
                                 </Card>
                                 {/* Success/Fail cards hidden when totalCount == totalSuccess (no failures at all) */}
                                 {pTotalCount !== pTotalSuccess && <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-green-200/60 dark:border-green-500/30 shadow-sm hover:shadow-md transition-all overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-400" />
-                                    <CardContent className="pt-4 pb-4">
-                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                    <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-6">
+                                        <div className="text-lg sm:text-2xl font-bold text-green-600 dark:text-green-400">
                                             <AnimatedNumber value={pTotalSuccess} />
                                         </div>
-                                        <div className="text-sm text-muted-foreground mt-1">Success</div>
+                                        <div className="text-xs sm:text-sm text-muted-foreground mt-1">Success</div>
                                     </CardContent>
                                 </Card>}
                                 {pTotalCount !== pTotalSuccess && <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-red-200/60 dark:border-red-500/30 shadow-sm hover:shadow-md transition-all overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-amber-400" />
-                                    <CardContent className="pt-4 pb-4">
-                                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                                    <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-6">
+                                        <div className="text-lg sm:text-2xl font-bold text-red-600 dark:text-red-400">
                                             <AnimatedNumber value={pTotalFail} />
                                         </div>
-                                        <div className="text-sm text-muted-foreground mt-1">Failed</div>
+                                        <div className="text-xs sm:text-sm text-muted-foreground mt-1">Failed</div>
                                     </CardContent>
                                 </Card>}
                                 <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-xl border-gray-200/60 dark:border-gray-600/40 shadow-sm hover:shadow-md transition-all overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-400 via-slate-500 to-gray-600" />
-                                    <CardContent className="pt-4 pb-4">
-                                        <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">
+                                    <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4 px-3 sm:px-6">
+                                        <div className="text-lg sm:text-2xl font-bold text-gray-700 dark:text-gray-300">
                                             {pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0}%
                                         </div>
-                                        <div className="text-sm text-muted-foreground mt-1">Success Rate</div>
+                                        <div className="text-xs sm:text-sm text-muted-foreground mt-1">Success Rate</div>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -2442,12 +2442,12 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         <Card className="border border-cyan-200/60 dark:border-cyan-500/30 rounded-2xl shadow-premium hover:shadow-card-hover transition-all duration-300 bg-white dark:bg-slate-900">
                                             <CardHeader className="pb-4">
                                                 <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
-                                                            <Activity className="h-6 w-6 text-white" />
+                                                    <div className="flex items-center gap-2 sm:gap-3">
+                                                        <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shrink-0">
+                                                            <Activity className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                                                         </div>
                                                         <div>
-                                                            <CardTitle className="text-lg font-bold">User Flow Analysis</CardTitle>
+                                                            <CardTitle className="text-base sm:text-lg font-bold">User Flow Analysis</CardTitle>
                                                             <p className="text-sm text-muted-foreground mt-1">
                                                                 {panelConfig.userFlowConfig.stages?.length || 0} stages configured
                                                             </p>
