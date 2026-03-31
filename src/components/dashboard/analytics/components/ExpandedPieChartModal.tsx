@@ -276,7 +276,12 @@ export function ExpandedPieChartModal({ open, onClose, pieData, isAvgEventType =
     };
 
     return (
-        <Dialog open={open} onOpenChange={onClose}>
+        <Dialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+                if (!nextOpen) onClose();
+            }}
+        >
             <DialogContent
                 showCloseButton={false}
                 className="w-[100vw] md:w-[98vw] max-w-[1800px] h-[calc(100dvh-64px)] md:h-[92vh] max-h-[calc(100dvh-64px)] md:max-h-[calc(100vh-64px)] overflow-hidden p-0 bg-white dark:bg-slate-950 flex flex-col md:flex-row gap-0 shadow-2xl !top-[calc(50%+32px)] !left-[50%] !translate-x-[-50%] !translate-y-[-50%] rounded-none md:rounded-2xl"

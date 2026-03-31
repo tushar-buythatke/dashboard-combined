@@ -261,6 +261,7 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
 
     const isApiPanel = eventDataItems.some((item: any) => item.isStatus || item.isCache || item.isTimingEvent || item.isBytesEvent);
     const itemLabel = isApiPanel ? 'endpoint' : 'event';
+    const isPartialLatestDay = Boolean((data as any)?.isPartialLatestDay);
 
     return (
         <div
@@ -303,6 +304,11 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                         <div className="min-w-0 flex-1">
                             <div className="font-bold text-sm md:text-base text-foreground leading-tight truncate">{label}</div>
                             <div className="text-[10px] md:text-[11px] text-muted-foreground font-medium mt-0.5">{eventDataItems.length} {itemLabel}{eventDataItems.length !== 1 ? 's' : ''}</div>
+                            {isPartialLatestDay && (
+                                <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                                    Latest point not yet accumulated
+                                </div>
+                            )}
                         </div>
                     </div>
                     {/* Overall stats */}

@@ -720,8 +720,13 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                 date: dayKey,
                 dateObj: date,
                 total: 0,
-                count: 0
+                count: 0,
+                isPartialLatestDay: false
             };
+        }
+
+        if ((record as any)?.isPartialLatestDay) {
+            dailyData[dayKey].isPartialLatestDay = true;
         }
 
         // Match the graphData shape used elsewhere: `${eventKey}_count` first, then plain key
@@ -739,7 +744,8 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
         .map((day: any) => ({
             date: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             value: day.count > 0 ? day.total / day.count : 0,
-            timestamp: day.dateObj.getTime()
+            timestamp: day.dateObj.getTime(),
+            isPartialLatestDay: Boolean(day.isPartialLatestDay)
         }))
         .sort((a, b) => a.timestamp - b.timestamp);
 
@@ -858,12 +864,28 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                 />
                                 <YAxis tick={{ fontSize: 12 }} tickFormatter={formatNumber} />
                                 <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                        border: '1px solid #ddd',
-                                        borderRadius: '8px'
+                                    content={({ active, payload, label }: any) => {
+                                        if (!active || !payload || !payload.length) return null;
+
+                                        const entry = payload[0];
+                                        const point = entry?.payload || {};
+                                        const isPartialLatestDay = Boolean(point?.isPartialLatestDay);
+
+                                        return (
+                                            <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-3 shadow-xl rounded-xl min-w-[180px]">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Daily Value</span>
+                                                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">{formatNumber(Number(entry?.value))}</span>
+                                                </div>
+                                                {isPartialLatestDay && (
+                                                    <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                                                        Latest point not yet accumulated
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
                                     }}
-                                    formatter={(value: any) => formatNumber(Number(value))}
                                 />
                                 <Legend />
 
@@ -889,7 +911,13 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     stroke="#10b981"
                                     strokeWidth={3}
                                     fill="url(#dailyGradient)"
-                                    dot={{ r: 4, fill: '#10b981', strokeWidth: 2, stroke: '#fff' }}
+                                    dot={(dotProps: any) => {
+                                        const isPartial = Boolean(dotProps?.payload?.isPartialLatestDay);
+                                        if (isPartial) {
+                                            return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={5} fill="#f59e0b" stroke="#10b981" strokeWidth={2} />;
+                                        }
+                                        return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={4} fill="#10b981" stroke="#fff" strokeWidth={2} />;
+                                    }}
                                     activeDot={{ r: 6 }}
                                     isAnimationActive={false}
                                 />

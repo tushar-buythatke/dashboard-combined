@@ -2824,7 +2824,20 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                         strokeWidth={2.5}
                                                                                         fillOpacity={1}
                                                                                         fill={`url(#areaColor_${eventKey})`}
-                                                                                        dot={false}
+                                                                                        dot={(dotProps: any) => {
+                                                                                            const isPartial = !isHourly && Boolean(dotProps?.payload?.isPartialLatestDay);
+                                                                                            if (!isPartial) return false;
+                                                                                            return (
+                                                                                                <circle
+                                                                                                    cx={dotProps?.cx}
+                                                                                                    cy={dotProps?.cy}
+                                                                                                    r={5}
+                                                                                                    fill="#f59e0b"
+                                                                                                    stroke={color}
+                                                                                                    strokeWidth={2}
+                                                                                                />
+                                                                                            );
+                                                                                        }}
                                                                                         activeDot={{
                                                                                             r: 8,
                                                                                             fill: color,
@@ -2848,7 +2861,20 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 strokeWidth={2.5}
                                                                                 fillOpacity={0.3}
                                                                                 fill="#6366f1"
-                                                                                dot={false}
+                                                                                dot={(dotProps: any) => {
+                                                                                    const isPartial = !isHourly && Boolean(dotProps?.payload?.isPartialLatestDay);
+                                                                                    if (!isPartial) return false;
+                                                                                    return (
+                                                                                        <circle
+                                                                                            cx={dotProps?.cx}
+                                                                                            cy={dotProps?.cy}
+                                                                                            r={5}
+                                                                                            fill="#f59e0b"
+                                                                                            stroke="#6366f1"
+                                                                                            strokeWidth={2}
+                                                                                        />
+                                                                                    );
+                                                                                }}
                                                                                 activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
                                                                                 isAnimationActive={false} connectNulls={true}
                                                                                 animationDuration={0}

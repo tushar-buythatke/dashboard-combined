@@ -1997,11 +1997,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         failCount: 0,
                         totalUsers: 0,
                         newUsers: 0,
-                        uniqueUsers: 0
+                        uniqueUsers: 0,
+                        isPartialLatestDay: false
                     });
                 }
 
                 const existing = timeMap.get(dateKey)!;
+                if (record.isPartialLatestDay) {
+                    existing.isPartialLatestDay = true;
+                }
 
                 // Add overall totals
                 existing.count += record.count || 0;
@@ -2140,11 +2144,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                     newUsers: 0,
                     uniqueUsers: 0,
                     avgDelay: 0, // For avg events
+                    isPartialLatestDay: false,
                     // Per-event data will be added dynamically
                 });
             }
 
             const existing = timeMap.get(dateKey)!;
+            if (record.isPartialLatestDay) {
+                existing.isPartialLatestDay = true;
+            }
             const eventConfig = eventConfigMap.get(eventId);
             // Check for any isAvgEvent type (1=time, 2=rupees, 3=count)
             const isAvgEvent = (eventConfig?.isAvgEvent || 0) >= 1;
@@ -4325,6 +4333,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
             <ExpandedPieChartModal
                 open={pieModalOpen}
                 onClose={() => {
+                    setPieModalOpen(false);
                     setSearchParams(prev => {
                         const next = new URLSearchParams(prev as any);
                         next.delete('expandedPie');

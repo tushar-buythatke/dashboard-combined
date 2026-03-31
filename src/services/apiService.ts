@@ -1072,6 +1072,208 @@ export class APIService {
             isApi: isApiEvent ? 1 : 0 // Pass isApi flag for API events (converted to number)
         };
 
+        const sameLocalDay = (a: Date, b: Date) => (
+            a.getFullYear() === b.getFullYear()
+            && a.getMonth() === b.getMonth()
+            && a.getDate() === b.getDate()
+        );
+
+        const fetchGraphResult = async (body: GraphAPIRequest, forceV1: boolean): Promise<GraphAPIResponse> => {
+            // Try graphV2 first (unless forceV1 is set)
+            if (!forceV1) {
+                try {
+                    const responseV2 = await fetch(`${API_BASE_URL}/graphV2`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(body)
+                    });
+
+                    if (responseV2.ok) {
+                        const resultV2: GraphAPIResponse = await responseV2.json();
+                        if (resultV2.status === 1) {
+                            return resultV2;
+                        }
+                    }
+                } catch {
+                    // Fallback to graph v1 below.
+                }
+            }
+
+            const response = await fetch(`${API_BASE_URL}/graph`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.statusText}`);
+            }
+
+            const result: GraphAPIResponse = await response.json();
+            if (result.status !== 1) {
+                throw new Error(result.message || 'Failed to fetch graph data');
+            }
+
+            return result;
+        };
+
+        const aggregateHourlyToDailyRecords = (hourlyRecords: GraphAPIResponse['data']) => {
+            const aggregateMap = new Map<string, any>();
+
+            const numeric = (value: any) => {
+                const parsed = Number(value);
+                return Number.isFinite(parsed) ? parsed : 0;
+            };
+
+            hourlyRecords.forEach((record) => {
+                const key = [
+                    String(record.platform ?? ''),
+                    String(record.pos ?? ''),
+                    String(record.eventId ?? ''),
+                    String(record.source ?? ''),
+                    String(record.sourceStr ?? ''),
+                    String((record as any).status ?? ''),
+                    String((record as any).cacheStatus ?? '')
+                ].join('|');
+
+                if (!aggregateMap.has(key)) {
+                    aggregateMap.set(key, {
+                        platform: record.platform,
+                        pos: record.pos,
+                        eventId: record.eventId,
+                        source: record.source,
+                        sourceStr: record.sourceStr,
+                        status: (record as any).status,
+                        cacheStatus: (record as any).cacheStatus,
+                        timestamp: record.timestamp,
+                        count: 0,
+                        successCount: 0,
+                        failCount: 0,
+                        totalUsers: 0,
+                        newUsers: 0,
+                        uniqueUsers: 0,
+                        avgDelayWeighted: 0,
+                        medianDelayWeighted: 0,
+                        modeDelayWeighted: 0,
+                        avgBytesInWeighted: 0,
+                        avgBytesOutWeighted: 0,
+                        avgServerToUserWeighted: 0,
+                        avgServerToCloudWeighted: 0,
+                        avgCloudToUserWeighted: 0,
+                        weight: 0,
+                        pointCount: 0,
+                        isPartialLatestDay: true,
+                    });
+                }
+
+                const target = aggregateMap.get(key)!;
+                const recordCount = numeric(record.count);
+
+                target.count += recordCount;
+                target.successCount += numeric(record.successCount);
+                target.failCount += numeric(record.failCount);
+                target.totalUsers += numeric((record as any).totalUsers);
+                target.newUsers += numeric((record as any).newUsers);
+                target.uniqueUsers += numeric((record as any).uniqueUsers);
+
+                const metricWeight = recordCount > 0 ? recordCount : 1;
+                target.weight += metricWeight;
+                target.pointCount += 1;
+
+                target.avgDelayWeighted += numeric(record.avgDelay) * metricWeight;
+                target.medianDelayWeighted += numeric(record.medianDelay) * metricWeight;
+                target.modeDelayWeighted += numeric(record.modeDelay) * metricWeight;
+                target.avgBytesInWeighted += numeric((record as any).avgBytesIn) * metricWeight;
+                target.avgBytesOutWeighted += numeric((record as any).avgBytesOut) * metricWeight;
+                target.avgServerToUserWeighted += numeric((record as any).avgServerToUser) * metricWeight;
+                target.avgServerToCloudWeighted += numeric((record as any).avgServerToCloud) * metricWeight;
+                target.avgCloudToUserWeighted += numeric((record as any).avgCloudToUser) * metricWeight;
+
+                // Preserve the latest timestamp from the hourly series for display sorting.
+                if (new Date(record.timestamp).getTime() > new Date(target.timestamp).getTime()) {
+                    target.timestamp = record.timestamp;
+                }
+            });
+
+            return Array.from(aggregateMap.values()).map((record: any) => {
+                const denominator = record.weight > 0 ? record.weight : Math.max(record.pointCount, 1);
+
+                return {
+                    platform: record.platform,
+                    pos: record.pos,
+                    eventId: record.eventId,
+                    source: record.source,
+                    sourceStr: record.sourceStr,
+                    status: record.status,
+                    cacheStatus: record.cacheStatus,
+                    timestamp: record.timestamp,
+                    count: record.count,
+                    successCount: record.successCount,
+                    failCount: record.failCount,
+                    totalUsers: record.totalUsers,
+                    newUsers: record.newUsers,
+                    uniqueUsers: record.uniqueUsers,
+                    avgDelay: record.avgDelayWeighted / denominator,
+                    medianDelay: record.medianDelayWeighted / denominator,
+                    modeDelay: record.modeDelayWeighted / denominator,
+                    avgBytesIn: record.avgBytesInWeighted / denominator,
+                    avgBytesOut: record.avgBytesOutWeighted / denominator,
+                    avgServerToUser: record.avgServerToUserWeighted / denominator,
+                    avgServerToCloud: record.avgServerToCloudWeighted / denominator,
+                    avgCloudToUser: record.avgCloudToUserWeighted / denominator,
+                    isPartialLatestDay: true,
+                };
+            });
+        };
+
+        const mergeLatestDailyPartialPoint = async (dailyResult: GraphAPIResponse): Promise<GraphAPIResponse> => {
+            // Only needed in daily mode when the selected end date is today.
+            if (isHourly || !sameLocalDay(endDate, new Date())) {
+                return dailyResult;
+            }
+
+            const latestDayStart = new Date(endDate);
+            latestDayStart.setHours(0, 0, 0, 0);
+            const latestDayEnd = new Date(endDate);
+            latestDayEnd.setHours(23, 59, 59, 999);
+
+            const hourlyBody: GraphAPIRequest = {
+                ...requestBody,
+                startTime: this.formatDate(latestDayStart, false),
+                endTime: this.formatDate(latestDayEnd, true),
+                isHourly: true,
+            };
+
+            let hourlyResult: GraphAPIResponse;
+            try {
+                hourlyResult = await fetchGraphResult(hourlyBody, preferV1);
+            } catch {
+                return dailyResult;
+            }
+
+            if (!hourlyResult?.data?.length) {
+                return dailyResult;
+            }
+
+            const dayKey = latestDayStart.toDateString();
+            const withoutLatestDay = (dailyResult.data || []).filter((record) => {
+                const recordDay = new Date(record.timestamp).toDateString();
+                return recordDay !== dayKey;
+            });
+
+            const latestDayAggregated = aggregateHourlyToDailyRecords(hourlyResult.data);
+            return {
+                ...dailyResult,
+                data: [...withoutLatestDay, ...latestDayAggregated].sort(
+                    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+                )
+            };
+        };
+
         // Transform response data helper
         const transformResponse = (result: GraphAPIResponse): AnalyticsDataResponse => {
             const transformedData = result.data.map(record => ({
@@ -1087,6 +1289,7 @@ export class APIService {
                 avgDelay: record.avgDelay || 0,
                 medianDelay: record.medianDelay || 0,
                 modeDelay: record.modeDelay || 0,
+                isPartialLatestDay: Boolean((record as any).isPartialLatestDay),
                 // API event specific fields
                 status: (record as any).status,
                 cacheStatus: (record as any).cacheStatus,
@@ -1112,53 +1315,9 @@ export class APIService {
             };
         };
 
-        // Try graphV2 first (unless preferV1 is set)
-        if (!preferV1) {
-            try {
-                // console.log('📊 Trying graphV2 API (pre-aggregated)...');
-                const responseV2 = await fetch(`${API_BASE_URL}/graphV2`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(requestBody)
-                });
-
-                if (responseV2.ok) {
-                    const resultV2: GraphAPIResponse = await responseV2.json();
-                    if (resultV2.status === 1) {
-                        // console.log(`✅ Using graphV2 API - ${resultV2.data.length} records`);
-                        return transformResponse(resultV2);
-                    }
-                }
-                // console.log('⚠️ graphV2 returned non-success, falling back to graph...');
-            } catch (error) {
-                // console.log('⚠️ graphV2 failed, falling back to graph:', error);
-            }
-        }
-
-        // Fallback to original graph API
-        // console.log('📊 Using graph API (v1)...');
-        const response = await fetch(`${API_BASE_URL}/graph`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.statusText}`);
-        }
-
-        const result: GraphAPIResponse = await response.json();
-
-        if (result.status !== 1) {
-            throw new Error(result.message || 'Failed to fetch graph data');
-        }
-
-        console.log(`✅ Using graph API (v1) - ${result.data.length} records`);
-        return transformResponse(result);
+        const baseResult = await fetchGraphResult(requestBody, preferV1);
+        const mergedResult = await mergeLatestDailyPartialPoint(baseResult);
+        return transformResponse(mergedResult);
     }
 
     /**
