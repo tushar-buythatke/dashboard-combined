@@ -2826,7 +2826,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                         fill={`url(#areaColor_${eventKey})`}
                                                                                         dot={(dotProps: any) => {
                                                                                             const isPartial = !isHourly && Boolean(dotProps?.payload?.isPartialLatestDay);
-                                                                                            if (!isPartial) return false;
+                                                                                            if (!isPartial) {
+                                                                                                return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={0} fill="transparent" stroke="none" />;
+                                                                                            }
                                                                                             return (
                                                                                                 <circle
                                                                                                     cx={dotProps?.cx}
@@ -2863,7 +2865,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 fill="#6366f1"
                                                                                 dot={(dotProps: any) => {
                                                                                     const isPartial = !isHourly && Boolean(dotProps?.payload?.isPartialLatestDay);
-                                                                                    if (!isPartial) return false;
+                                                                                    if (!isPartial) {
+                                                                                        return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={0} fill="transparent" stroke="none" />;
+                                                                                    }
                                                                                     return (
                                                                                         <circle
                                                                                             cx={dotProps?.cx}
