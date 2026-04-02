@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { User } from '../types/analytics';
 import { mockService } from '../services/mockData';
 
-const SESSION_EXPIRY = 5 * 24 * 60 * 60 * 1000; // 5 days in milliseconds after 2FA validation
+const SESSION_EXPIRY = 10 * 24 * 60 * 60 * 1000; // 10 days in milliseconds after 2FA validation
 const DAY_EXTENSION = 1 * 24 * 60 * 60 * 1000; // 1 day extension for same IP
 const LOCAL_STORAGE_KEY = 'dashboard_combined_auth';
 

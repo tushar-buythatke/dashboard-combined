@@ -7,7 +7,7 @@ interface User {
   userName?: string
 }
 
-const SESSION_EXPIRY = 3 * 24 * 60 * 60 * 1000; // 3 days in milliseconds per user request
+const SESSION_EXPIRY = 10 * 24 * 60 * 60 * 1000; // 10 days in milliseconds
 const LOCAL_STORAGE_KEY = 'mock_auth_user';
 
 interface AuthContextType {
