@@ -2542,7 +2542,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             return null;
                         })()}
 
-                        {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && panelGraphType !== 'user_flow' && (() => {
+                        {panelGraphType !== 'percentage' && (() => {
                             const pAvgEventKeys = pEventKeys.filter((ek: any) => ek.isAvgEvent >= 1);
                             // FIXED: Added parentheses for correct operator precedence
                             const pErrorEventKeys = pEventKeys.filter((ek: any) => ek.isErrorEvent === 1 && (!ek.isAvgEvent || ek.isAvgEvent === 0));
@@ -3622,7 +3622,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             );
                         })()}
 
-                        {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && panel.visualizations?.pieCharts?.some((p: any) => p.enabled) && (() => {
+                        {panel.visualizations?.pieCharts?.some((p: any) => p.enabled) && (() => {
                             const processedPieConfigs = panel.visualizations.pieCharts.filter((p: any) => p.enabled).map((pieConfig: any) => {
                                 const pieType = pieConfig.type as 'platform' | 'pos' | 'source';
                                 const rawPieData = pPieData?.[pieType];
@@ -4698,7 +4698,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             );
                         })()}
 
-                        {isHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
+                        {isHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && (
                             <div>
                                 <HourlyStatsCard graphData={filteredGraphData} isHourly={isHourly} eventKeys={pEventKeys} events={events} />
                             </div>

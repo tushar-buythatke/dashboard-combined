@@ -826,7 +826,7 @@ export const AdditionalPanelItem = React.memo(({
                         )}
                     </div>
                     {/* Pie Charts */}
-                    {panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && panel.visualizations?.pieCharts?.some((p: any) => p.enabled) && (() => {
+                    {panel.visualizations?.pieCharts?.some((p: any) => p.enabled) && (() => {
                         const processedPieConfigs = panel.visualizations.pieCharts.filter((p: any) => p.enabled).map((pieConfig: any) => {
                             const pieType = pieConfig.type as 'platform' | 'pos' | 'source';
                             const rawPieData = pPieData?.[pieType];
@@ -1065,7 +1065,7 @@ export const AdditionalPanelItem = React.memo(({
 
                     {/* Hourly Stats */}
                     {
-                        pIsHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && panelGraphType !== 'percentage' && panelGraphType !== 'funnel' && (
+                        pIsHourly && filteredGraphData.length > 0 && panelConfig?.showHourlyStats !== false && (
                             <div>
                                 <HourlyStatsCard graphData={filteredGraphData} isHourly={pIsHourly} eventKeys={pEventKeys} events={events} />
                             </div>
