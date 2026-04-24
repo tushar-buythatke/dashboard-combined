@@ -67,10 +67,10 @@ function SelectContent({
   const isMobile = useIsMobile()
   return (
     <SelectPrimitive.Portal>
-      <SelectPrimitive.Content
-        data-slot="select-content"
-        className={cn(
-          'bg-popover text-popover-foreground relative z-50 overflow-x-hidden overflow-y-auto border shadow-md',
+        <SelectPrimitive.Content
+          data-slot="select-content"
+          className={cn(
+          'bg-popover text-popover-foreground relative z-[140] overflow-x-hidden overflow-y-auto border shadow-md',
           isMobile
             ? 'rounded-t-2xl border-t border-x max-h-[60vh] w-full shadow-[0_-10px_40px_rgba(0,0,0,0.15)]'
             : cn(

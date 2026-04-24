@@ -8,7 +8,7 @@ import { FeatureSelector } from './FeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { FeatureReportModal } from './FeatureReportModal';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle, FileText } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle, FileText, BellRing } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
@@ -40,6 +40,7 @@ import { AccentThemeSelector } from '@/components/ui/accent-theme-selector';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { PremiumSearch } from './components/PremiumSearch';
 import { MobileActionFab } from './MobileActionFab';
+import { AlertsO2Panel } from './components/AlertsO2Panel';
 
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers, refreshUser } = useAnalyticsAuth();
@@ -187,6 +188,7 @@ export function AnalyticsLayout() {
 
     // Feature Report Modal
     const [showReportModal, setShowReportModal] = useState(false);
+    const [showAlertsPanel, setShowAlertsPanel] = useState(false);
 
     const isAdmin = user?.role === 1;
 
@@ -887,6 +889,18 @@ export function AnalyticsLayout() {
                             </Button>
                         )}
 
+                        {selectedFeatureId && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowAlertsPanel(true)}
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-fuchsia-50 to-violet-50 dark:from-fuchsia-950/30 dark:to-violet-950/30 border-fuchsia-200 dark:border-fuchsia-700 hover:from-fuchsia-100 hover:to-violet-100 dark:hover:from-fuchsia-900/40 dark:hover:to-violet-900/40 text-fuchsia-700 dark:text-fuchsia-300 transition-all"
+                            >
+                                <BellRing className="h-3.5 w-3.5" />
+                                <span className="text-xs font-semibold hidden lg:inline">Alerts Panel</span>
+                            </Button>
+                        )}
+
                         {hasWriteAccess(selectedFeatureId) && (
                             <div className="hidden sm:block">
                                 <Button
@@ -1222,12 +1236,22 @@ export function AnalyticsLayout() {
                         organizationId={selectedOrganization?.id ?? 0}
                     />
                 )}
+                {selectedFeatureId && (
+                    <AlertsO2Panel
+                        open={showAlertsPanel}
+                        onOpenChange={setShowAlertsPanel}
+                        featureId={selectedFeatureId}
+                        featureName={getFeatureName(selectedFeatureId)}
+                        canEdit={hasWriteAccess(selectedFeatureId)}
+                    />
+                )}
                 {/* Mobile Action FAB */}
                 <MobileActionFab
                     isAdmin={isAdmin}
                     pendingUsersCount={pendingUsers.length}
                     hasPendingRequest={user?.pending_status === 1}
                     onGenerateReport={selectedFeatureId ? () => setShowReportModal(true) : undefined}
+                    onOpenAlerts={selectedFeatureId ? () => setShowAlertsPanel(true) : undefined}
                     onNewConfig={hasWriteAccess(selectedFeatureId || newConfigFeature) ? () => setShowNewConfigModal(true) : undefined}
                     onLogout={logout}
                     hasWriteAccess={hasWriteAccess(selectedFeatureId)}

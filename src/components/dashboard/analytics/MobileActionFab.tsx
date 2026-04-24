@@ -10,7 +10,8 @@ import {
     UserPlus,
     ShieldAlert,
     LogOut,
-    Settings
+    Settings,
+    BellRing
 } from 'lucide-react';
 
 interface MobileActionFabProps {
@@ -18,6 +19,7 @@ interface MobileActionFabProps {
     pendingUsersCount: number;
     hasPendingRequest: boolean;
     onGenerateReport?: () => void;
+    onOpenAlerts?: () => void;
     onNewConfig?: () => void;
     onLogout: () => void;
     hasWriteAccess: boolean;
@@ -29,6 +31,7 @@ export function MobileActionFab({
     pendingUsersCount,
     hasPendingRequest,
     onGenerateReport,
+    onOpenAlerts,
     onNewConfig,
     onLogout,
     hasWriteAccess,
@@ -45,6 +48,14 @@ export function MobileActionFab({
             label: 'Generate Report',
             onClick: () => { onGenerateReport(); setIsOpen(false); },
             className: 'bg-emerald-500 hover:bg-emerald-600 text-white'
+        }] : []),
+
+        ...(showReport && onOpenAlerts ? [{
+            id: 'alerts',
+            icon: BellRing,
+            label: 'Alerts Panel',
+            onClick: () => { onOpenAlerts(); setIsOpen(false); },
+            className: 'bg-fuchsia-500 hover:bg-fuchsia-600 text-white'
         }] : []),
 
         // New Config - only if write access
