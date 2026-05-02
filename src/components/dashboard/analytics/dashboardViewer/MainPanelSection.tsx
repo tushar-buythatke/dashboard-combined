@@ -48,6 +48,14 @@ import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger, TooltipProvider }
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PLATFORMS } from '@/services/apiService';
 import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
@@ -446,49 +454,46 @@ export const MainPanelSection = React.memo(function MainPanelSection({
             {/* ==================== MAIN DASHBOARD FILTERS (Panel 1+) ==================== */}
             <Card
                 className={cn(
-                    "rounded-3xl overflow-hidden group transition-all duration-300 relative mb-6 backdrop-blur-xl border-2 shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)]",
-                    themeClasses.cardBg,
-                    themeClasses.featureCardBorder, themeClasses.featureCardBorderDark,
-                    filtersFlash && cn("ring-4 shadow-2xl", themeClasses.ringAccent)
+                    "rounded-2xl overflow-hidden group transition-all duration-300 relative mb-6 glass-card-v2 hover-lift-premium",
+                    filtersFlash && "ring-2 shadow-2xl"
                 )}
+                style={filtersFlash ? { borderColor: 'var(--theme-primary-alpha)' } : undefined}
             >
                 {/* Flash Overlay */}
                 {filtersFlash && (
-                    <div className={cn("absolute inset-0 animate-pulse pointer-events-none z-20 opacity-20 bg-gradient-to-r", themeClasses.buttonGradient)} />
+                    <div className="absolute inset-0 animate-pulse pointer-events-none z-20 opacity-20" style={{ background: 'var(--theme-gradient)' }} />
                 )}
                 {/* Gradient Accent Bar - Theme aware */}
-                <div className={cn("absolute top-0 left-0 w-full h-1 bg-gradient-to-r", themeClasses.headerGradient)} />
+                <div className="absolute top-0 left-0 w-full h-[2px]" style={{ background: 'var(--theme-gradient)' }} />
 
-                <CardHeader className="pb-3 relative cursor-pointer hover:bg-gray-100/60 dark:hover:bg-white/[0.04] select-none transition-colors" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
+                <CardHeader className="pb-3 relative cursor-pointer select-none transition-colors command-bar rounded-xl m-2" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
                     <div className="flex items-center justify-between">
                         <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <div className={cn(
-                                "h-7 w-7 rounded-lg flex items-center justify-center transition-all",
-                                filtersCollapsed
-                                    ? "bg-gray-200 dark:bg-gray-700"
-                                    : cn("bg-gradient-to-br", themeClasses.buttonGradient)
-                            )}>
+                            <div 
+                                className="h-7 w-7 rounded-lg flex items-center justify-center transition-all"
+                                style={!filtersCollapsed ? { background: 'var(--theme-gradient)' } : undefined}
+                            >
                                 <Filter className={cn("h-4 w-4", filtersCollapsed ? "text-gray-500 dark:text-gray-300" : "text-white")} />
                             </div>
-                            <span className="font-bold text-lg text-gray-800 dark:text-gray-100">Filters</span>
+                            <span className="font-bold text-lg">Filters</span>
                             <span className={cn(
-                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border italic",
                                 filtersCollapsed
-                                    ? "text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800"
-                                    : cn(themeClasses.badgeText, themeClasses.badgeTextDark, themeClasses.badgeBg, themeClasses.badgeBgDark, themeClasses.borderAccent, themeClasses.borderAccentDark)
-                            )}>
+                                    ? "text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-800/50"
+                                    : "text-white border-white/20 bg-white/20 backdrop-blur-sm"
+                            )}
+                            style={!filtersCollapsed ? { background: 'var(--theme-gradient)', color: 'white', borderColor: 'transparent' } : undefined}
+                            >
                                 {filtersCollapsed ? "click to expand" : "expanded"}
                             </span>
                             {/* API Event Badge */}
                             {isMainPanelApi && (
-                                <span className={cn("px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)}>
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white shadow-md" style={{ background: 'var(--theme-gradient)' }}>
                                     API
                                 </span>
                             )}
                             {pendingRefresh && (
-                                <span
-                                    className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium"
-                                >
+                                <span className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium animate-pulse">
                                     Changed
                                 </span>
                             )}
@@ -665,7 +670,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <span className={cn("text-sm font-bold px-2 py-0.5 rounded-md border shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase, "border-slate-200/70 dark:border-slate-700/70")}>⌘K</span>
                                 </div>
                             )}
-                            {/* Chatbot Button */}
+                            {/* Chatbot Button - Ghost style with theme border */}
                             <div className="flex flex-col items-center gap-0.5">
                                 <Button
                                     variant="outline"
@@ -673,21 +678,18 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     onClick={() => {
                                         setLocalChatbotOpen(true);
                                     }}
-                                    className={cn(
-                                        "h-8 gap-2 px-3 border-indigo-200 dark:border-indigo-800 bg-white/60 dark:bg-slate-900/40 text-indigo-700 dark:text-indigo-300",
-                                        "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:text-indigo-800 dark:hover:text-indigo-200",
-                                        "transition-all duration-300 shadow-sm relative overflow-hidden group/chat ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
-                                    )}
+                                    className="h-8 gap-2 px-3 rounded-lg backdrop-blur-sm bg-white/30 dark:bg-transparent border hover:scale-[1.02] transition-all duration-200"
+                                    style={{ borderColor: 'var(--theme-primary-alpha)', color: 'var(--theme-primary)' }}
                                 >
-                                    <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
+                                    <Sparkles className="h-4 w-4 group-hover/chat:scale-110 transition-transform" style={{ color: 'var(--theme-primary)' }} />
                                     <span>AI Chat</span>
                                 </Button>
-                                <span className={cn("text-xs font-bold px-2 py-0.5 rounded-md border shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase, "border-slate-200/70 dark:border-slate-700/70")}>⌘L</span>
+                                <span className="text-xs font-bold px-2 py-0.5 rounded-md border shadow-sm backdrop-blur-sm bg-white/30 dark:bg-gray-800/50 border-white/30 dark:border-white/10">⌘L</span>
                             </div>
-                            {/* Quick Refresh Shortcut Hint */}
-                            <div className={cn("hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border shadow-sm", "bg-gradient-to-r", themeClasses.buttonGradient, "border-transparent")}>
-                                <span className="text-sm font-bold text-white drop-shadow-sm">⌘+Enter</span>
-                                <span className="text-xs font-medium text-white/90">Refresh</span>
+                            {/* Quick Refresh Shortcut Hint - Theme gradient */}
+                            <div className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg text-white shadow-lg" style={{ background: 'var(--theme-gradient)' }}>
+                                <span className="text-xs font-bold bg-white/20 rounded px-1">⌘</span>
+                                <span className="text-xs font-medium">+Enter Refresh</span>
                             </div>
                             <Button
                                 variant="ghost"
@@ -709,9 +711,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <div className="flex items-center gap-3">
                                 <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
                                 <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
-                                        <Command className="h-3 w-3" />
-                                        <span className="font-medium">L</span>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200 hover:shadow-[0_2px_4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)] hover:bg-white/90 dark:hover:bg-white/15">
+                                        <Command className="h-2.5 w-2.5 opacity-70" />
+                                        <span>L</span>
                                     </span>
                                     <span>for AI Chat</span>
                                 </div>
@@ -836,12 +838,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                                                     {/* Event Distribution Toggle */}
                                                     <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/20 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                                        <input
-                                                            type="checkbox"
+                                                        <Checkbox
                                                             id="percentage-show-events"
-                                                            className="h-5 w-5 sm:h-4 sm:w-4 rounded border-gray-300 text-gray-700 focus:ring-gray-400 cursor-pointer"
                                                             checked={currentFilters.showEventPieCharts ?? false}
-                                                            onChange={(e) => handleFilterChange('showEventPieCharts', e.target.checked)}
+                                                            onCheckedChange={(checked) => handleFilterChange('showEventPieCharts', checked === true)}
                                                         />
                                                         <label htmlFor="percentage-show-events" className="text-xs font-bold text-gray-800 dark:text-gray-200 cursor-pointer uppercase tracking-wider">
                                                             Events Analysis
@@ -1027,28 +1027,30 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         const selectedId = currentId || defaultStageIds[idx] || '';
                                                         return (
                                                             <div key={idx} className="flex items-center gap-2">
-                                                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white text-sm font-bold flex-shrink-0">
+                                                                <span className={cn("flex items-center justify-center w-8 h-8 rounded-full text-white text-sm font-bold flex-shrink-0", themeClasses.buttonGradient)}>
                                                                     e{idx + 1}
                                                                 </span>
-                                                                <select
-                                                                    className="flex-1 h-10 px-3 rounded-md border border-blue-200 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                                                    value={selectedId}
-                                                                    onChange={(e) => {
-                                                                        const newId = e.target.value;
+                                                                <Select
+                                                                    value={selectedId || ' '}
+                                                                    onValueChange={(newId) => {
                                                                         const base = (activeStageIds && activeStageIds.length > 0 ? [...activeStageIds] : [...defaultStageIds]);
-                                                                        base[idx] = newId;
+                                                                        base[idx] = newId === ' ' ? '' : newId;
                                                                         handleFilterChange('activeStages', base);
                                                                     }}
                                                                 >
-                                                                    <option value="">Select event</option>
-                                                                    {events
-                                                                        .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
-                                                                        .map(ev => (
-                                                                            <option key={ev.eventId} value={ev.eventId}>
-                                                                                {getEventDisplayName(ev)}
-                                                                            </option>
-                                                                        ))}
-                                                                </select>
+                                                                    <SelectTrigger className="flex-1 h-10 text-sm">
+                                                                        <SelectValue placeholder="Select event" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {events
+                                                                            .filter(ev => isMainPanelApi ? ev.isApiEvent === true : ev.isApiEvent !== true)
+                                                                            .map(ev => (
+                                                                                <SelectItem key={ev.eventId} value={ev.eventId}>
+                                                                                    {getEventDisplayName(ev)}
+                                                                                </SelectItem>
+                                                                            ))}
+                                                                    </SelectContent>
+                                                                </Select>
                                                                 <button
                                                                     type="button"
                                                                     className="text-[11px] text-red-500 hover:text-red-700 px-1 disabled:opacity-40"
@@ -1430,19 +1432,23 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center gap-2">
                                     <Label className="text-xs text-muted-foreground whitespace-nowrap">Auto-refresh:</Label>
-                                    <select
-                                        value={autoRefreshMinutes}
-                                        onChange={(e) => setAutoRefreshMinutes(Number(e.target.value))}
-                                        className="h-8 px-2 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                                    <Select
+                                        value={String(autoRefreshMinutes)}
+                                        onValueChange={(v) => setAutoRefreshMinutes(Number(v))}
                                     >
-                                        <option value={0}>Disabled</option>
-                                        <option value={1}>1 min</option>
-                                        <option value={2}>2 min</option>
-                                        <option value={5}>5 min</option>
-                                        <option value={10}>10 min</option>
-                                        <option value={15}>15 min</option>
-                                        <option value={30}>30 min</option>
-                                    </select>
+                                        <SelectTrigger className="h-8 text-xs w-[110px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="0">Disabled</SelectItem>
+                                            <SelectItem value="1">1 min</SelectItem>
+                                            <SelectItem value="2">2 min</SelectItem>
+                                            <SelectItem value="5">5 min</SelectItem>
+                                            <SelectItem value="10">10 min</SelectItem>
+                                            <SelectItem value="15">15 min</SelectItem>
+                                            <SelectItem value="30">30 min</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     {autoRefreshMinutes > 0 && (
                                         <span
                                             className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400"
@@ -2960,7 +2966,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                                                     {/* Footer hint */}
                                                     <div className="px-4 py-2.5 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-100 dark:border-gray-800 text-center">
-                                                        <span className="text-xs text-muted-foreground">Click outside or press <kbd className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-[10px] font-mono mx-1">ESC</kbd> to close</span>
+                                                        <span className="text-xs text-muted-foreground">Click outside or press <kbd className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200 mx-1">ESC</kbd> to close</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -3097,11 +3103,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             );
                                                         })}
                                                     </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--dash-border)" opacity={0.5} vertical={false} />
                                                     <XAxis
                                                         dataKey="date"
                                                         tick={<CustomXAxisTick isHourly={isHourly} />}
-                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                        axisLine={{ stroke: 'var(--dash-border)' }}
                                                         tickLine={false}
                                                         height={45}
                                                         interval={Math.floor(graphData.length / 8)}
@@ -3313,11 +3319,11 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             );
                                                         })}
                                                     </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--dash-border)" opacity={0.5} vertical={false} />
                                                     <XAxis
                                                         dataKey="date"
                                                         tick={<CustomXAxisTick isHourly={isHourly} />}
-                                                        axisLine={{ stroke: '#e5e7eb' }}
+                                                        axisLine={{ stroke: 'var(--dash-border)' }}
                                                         tickLine={false}
                                                         height={45}
                                                         interval={Math.max(0, Math.floor(((isMainPanelApi ? apiPerformanceSeries : graphData).length || 0) / 8))}

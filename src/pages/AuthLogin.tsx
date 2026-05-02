@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
-import { Eye, EyeOff, Lock, User, LogIn, UserPlus, Clock, QrCode, Smartphone, CheckCircle2, RefreshCw, ArrowRight, Copy, Loader2, ShieldCheck, ShieldAlert, Settings2, Building2 } from 'lucide-react'
+import { Eye, EyeOff, Lock, User, LogIn, UserPlus, Clock, QrCode, Smartphone, CheckCircle2, RefreshCw, ArrowRight, Copy, Loader2, ShieldCheck, ShieldAlert, Settings2, Building2, Sun, Moon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -13,6 +12,8 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext'
+import { useTheme } from '@/components/theme/theme-provider'
+import { useAccentTheme, THEME_INFO } from '@/contexts/AccentThemeContext'
 import type { User as AppUser } from '@/types/analytics'
 
 // Configuration - Use production featureTracking API
@@ -40,11 +41,23 @@ interface Organization {
     name: string
 }
 
+// Theme gradient map for dynamic styling
+const THEME_GRADIENTS: Record<string, { from: string; to: string }> = {
+    aurora: { from: '#8b5cf6', to: '#ec4899' },
+    indigo: { from: '#2563eb', to: '#06b6d4' },
+    sunset: { from: '#f97316', to: '#f59e0b' },
+    forest: { from: '#22c55e', to: '#10b981' },
+    midnight: { from: '#4c1d95', to: '#7c3aed' },
+    afterhours: { from: '#14532d', to: '#a3e635' },
+}
+
 export default function AuthLogin() {
     const navigate = useNavigate()
     const location = useLocation()
     const { loginUser } = useAnalyticsAuth()
-    
+    const { mode, toggleMode } = useTheme()
+    const { actualTheme } = useAccentTheme()
+
     // Ref to prevent double navigation
     const isNavigatingRef = useRef(false)
 
@@ -81,28 +94,27 @@ export default function AuthLogin() {
     const [resetLoading, setResetLoading] = useState(false)
     const [resetUserData, setResetUserData] = useState<{ userId: number; userName: string } | null>(null)
 
+    const themeGradient = THEME_GRADIENTS[actualTheme] || THEME_GRADIENTS.aurora
+    const isDark = mode === 'dark'
+
     // Redirect if already authenticated - only check on mount
     useEffect(() => {
-        // Prevent if already navigating from OTP verification
         if (isNavigatingRef.current) return
-        
         const stored = localStorage.getItem('dashboard_combined_auth')
         if (stored) {
             try {
                 const sessionData = JSON.parse(stored)
-                // Verify session is valid before redirecting
                 if (sessionData.expiry && Date.now() < sessionData.expiry && sessionData.user) {
                     isNavigatingRef.current = true
                     const from = (location.state as any)?.from?.pathname || '/analytics'
                     navigate(from, { replace: true })
                 }
             } catch (e) {
-                // Invalid session data, don't redirect
                 localStorage.removeItem('dashboard_combined_auth')
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []) // Only run on mount to prevent navigation loops
+    }, [])
 
     const FEATURE_TRACKING_DASHBOARD_API = 'https://ext1.buyhatke.com/feature-tracking/dashboard'
 
@@ -194,7 +206,6 @@ export default function AuthLogin() {
             const result = await response.json()
 
             if (result.status === 1) {
-                // Normalize user data - backend uses 'userId', frontend uses 'id'
                 const normalizedUser = {
                     ...result.user,
                     id: result.user.userId || result.user.id,
@@ -229,7 +240,6 @@ export default function AuthLogin() {
             return
         }
 
-        // Validate allowed email domains
         const emailRegex = /^[a-zA-Z0-9._%+-]+@(buyhatke\.com|0fiat\.com|bitbns\.com|onramp\.money)$/i
         if (!emailRegex.test(username.trim())) {
             setError('Only @buyhatke.com, @0fiat.com, @bitbns.com, or @onramp.money email addresses are allowed')
@@ -261,15 +271,12 @@ export default function AuthLogin() {
                 body: JSON.stringify({
                     username: username.trim(),
                     password: password.trim(),
-                    dashboard_id: 1, // Feature Tracking
-                    permissions: {
-                        features: selectedFeatures
-                    }
+                    dashboard_id: 1,
+                    permissions: { features: selectedFeatures }
                 })
             })
 
             const result = await response.json()
-
             if (result.status === 1) {
                 const user = {
                     id: result.data.userId || result.data.id,
@@ -324,10 +331,7 @@ export default function AuthLogin() {
             const response = await fetch(`${getAuthUrl()}/link`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userData.id,
-                    secret: secretData.tempSecret
-                })
+                body: JSON.stringify({ userId: userData.id, secret: secretData.tempSecret })
             })
 
             const result = await response.json()
@@ -374,11 +378,8 @@ export default function AuthLogin() {
             setError('Please enter a valid 6-digit code')
             return
         }
-        
-        // Prevent double navigation
-        if (isNavigatingRef.current) {
-            return
-        }
+
+        if (isNavigatingRef.current) return
 
         setLoading(true)
         setError(null)
@@ -387,15 +388,11 @@ export default function AuthLogin() {
             const response = await fetch(`${getAuthUrl()}/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userData.id,
-                    token: otpCode
-                })
+                body: JSON.stringify({ userId: userData.id, token: otpCode })
             })
 
             const result = await response.json()
             if (result.status === 1) {
-                // Normalize user data from backend to frontend format
                 const backendUser = result.user || userData
                 const normalizedUser: AppUser = {
                     id: backendUser.userId || backendUser.id,
@@ -406,17 +403,12 @@ export default function AuthLogin() {
                     pending_permissions: backendUser.pending_permissions,
                     pending_status: backendUser.pending_status
                 }
-                
-                // Mark as navigating to prevent double navigation
+
                 isNavigatingRef.current = true
-                
-                // Pass true for is2FAVerified to trigger IP whitelisting
                 await loginUser(normalizedUser, true)
                 toast.success('Login successful!')
-                
-                // Small delay to ensure state is persisted before navigation
+
                 await new Promise(resolve => setTimeout(resolve, 100))
-                
                 const from = (location.state as any)?.from?.pathname || '/analytics'
                 navigate(from, { replace: true })
             } else {
@@ -431,7 +423,6 @@ export default function AuthLogin() {
         }
     }
 
-    // Step 1: Check if user exists
     const handleForgotEmailSubmit = async (e: FormEvent) => {
         e.preventDefault()
         if (!resetEmail.trim()) {
@@ -446,17 +437,12 @@ export default function AuthLogin() {
             const response = await fetch(`${getAuthUrl()}/forgot/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userName: resetEmail.trim()
-                })
+                body: JSON.stringify({ userName: resetEmail.trim() })
             })
 
             const result = await response.json()
             if (result.status === 1) {
-                setResetUserData({
-                    userId: result.data.userId,
-                    userName: result.data.userName
-                })
+                setResetUserData({ userId: result.data.userId, userName: result.data.userName })
                 setForgotStep('otp')
                 toast.success('Account found! Please enter your authenticator OTP.')
             } else {
@@ -469,7 +455,6 @@ export default function AuthLogin() {
         }
     }
 
-    // Step 2: Verify OTP
     const handleForgotOtpSubmit = async (e: FormEvent) => {
         e.preventDefault()
         if (!resetOtp.trim() || resetOtp.length !== 6) {
@@ -484,10 +469,7 @@ export default function AuthLogin() {
             const response = await fetch(`${getAuthUrl()}/forgot/verifyOtp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userName: resetEmail.trim(),
-                    otp: resetOtp.trim()
-                })
+                body: JSON.stringify({ userName: resetEmail.trim(), otp: resetOtp.trim() })
             })
 
             const result = await response.json()
@@ -505,7 +487,6 @@ export default function AuthLogin() {
         }
     }
 
-    // Step 3: Reset password
     const handleForgotPasswordSubmit = async (e: FormEvent) => {
         e.preventDefault()
 
@@ -531,10 +512,7 @@ export default function AuthLogin() {
             const response = await fetch(`${getAuthUrl()}/forgotPassword`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userName: resetEmail.trim(),
-                    newPassword: resetPassword.trim()
-                })
+                body: JSON.stringify({ userName: resetEmail.trim(), newPassword: resetPassword.trim() })
             })
 
             const result = await response.json()
@@ -584,26 +562,6 @@ export default function AuthLogin() {
         setFeatureSearch('')
     }
 
-    // Render functions
-    const renderTabs = () => (
-        <div className="flex rounded-xl bg-muted p-1 mb-6">
-            <button
-                onClick={() => { setFlowState('login'); setUsername(''); setPassword(''); setError(null) }}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${flowState === 'login' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-            >
-                <LogIn className="w-4 h-4" />Sign In
-            </button>
-            <button
-                onClick={() => { setFlowState('signup'); setUsername(''); setPassword(''); setError(null) }}
-                className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${flowState === 'signup' ? 'bg-background text-emerald-600 shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-            >
-                <UserPlus className="w-4 h-4" />Sign Up
-            </button>
-        </div>
-    )
-
     const openForgotPassword = () => {
         setResetEmail(username.trim())
         setResetOtp('')
@@ -615,29 +573,85 @@ export default function AuthLogin() {
         setFlowState('forgot')
     }
 
+    // ========== CINEMATIC UI RENDER FUNCTIONS ==========
+
+    const gradientTextStyle = {
+        background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`,
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
+        backgroundClip: 'text',
+    } as React.CSSProperties
+
+    const gradientBgStyle = {
+        background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`,
+    } as React.CSSProperties
+
+    const glowRingStyle = {
+        boxShadow: `0 0 30px ${themeGradient.from}4D`,
+    } as React.CSSProperties
+
+    const renderTabs = () => (
+        <div className={`flex rounded-full p-1 mb-6 relative ${isDark ? 'bg-black/20 backdrop-blur-sm' : 'bg-slate-200/50'}`}>
+            {flowState !== 'forgot' && (
+                <>
+                    <motion.div
+                        layoutId="activeTab"
+                        className="absolute inset-y-1 rounded-full"
+                        style={{
+                            left: flowState === 'login' ? '4px' : 'calc(50% + 4px)',
+                            width: 'calc(50% - 8px)',
+                            background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`,
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        }}
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                    />
+                    <button
+                        onClick={() => { setFlowState('login'); setUsername(''); setPassword(''); setError(null) }}
+                        className={`relative z-10 flex-1 py-3 px-4 rounded-full font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
+                            flowState === 'login' ? 'text-white' : isDark ? 'text-white/50 hover:text-white/80' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <LogIn className="w-4 h-4" />Sign In
+                    </button>
+                    <button
+                        onClick={() => { setFlowState('signup'); setUsername(''); setPassword(''); setError(null) }}
+                        className={`relative z-10 flex-1 py-3 px-4 rounded-full font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
+                            flowState === 'signup' ? 'text-white' : isDark ? 'text-white/50 hover:text-white/80' : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <UserPlus className="w-4 h-4" />Sign Up
+                    </button>
+                </>
+            )}
+        </div>
+    )
+
     const renderLoginForm = () => (
         <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-                <Label htmlFor="username" className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-primary" />Username
+                <Label htmlFor="username" className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}>
+                    <User className="h-4 w-4" style={{ color: themeGradient.from }} />Username
                 </Label>
-                <Input
-                    id="username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="yourname@buyhatke.com"
-                    disabled={loading}
-                    className="h-12"
-                />
+                <div className="relative">
+                    <Input
+                        id="username"
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="yourname@buyhatke.com"
+                        disabled={loading}
+                        className={`h-12 pl-10 ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`}
+                    />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" style={{ color: themeGradient.from }} />
+                </div>
             </div>
-            <p className="mt-2 text-[10px] text-muted-foreground ml-1 italic">
+            <p className={`text-[10px] italic ml-1 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
                 Use your official email (@buyhatke.com, @0fiat.com, @bitbns.com, @onramp.money)
             </p>
 
             <div className="space-y-2">
-                <Label htmlFor="password" className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-primary" />Password
+                <Label htmlFor="password" className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}>
+                    <Lock className="h-4 w-4" style={{ color: themeGradient.from }} />Password
                 </Label>
                 <div className="relative">
                     <Input
@@ -647,27 +661,48 @@ export default function AuthLogin() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
                         disabled={loading}
-                        className="h-12 pr-12"
+                        className={`h-12 pr-12 pl-10 ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`}
                     />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 opacity-50" style={{ color: themeGradient.from }} />
                     <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 transition-opacity ${isDark ? 'text-white/50 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}
                     >
                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                 </div>
             </div>
 
-            <Button type="submit" className="w-full h-12" disabled={loading}>
-                {loading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Signing In...</> : <>Sign In</>}
-            </Button>
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 rounded-xl font-semibold text-white relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-70 disabled:hover:translate-y-0"
+                style={{
+                    background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`,
+                    backgroundSize: '200% 200%',
+                    boxShadow: `0 8px 24px ${themeGradient.from}40`,
+                }}
+            >
+                <span className="absolute inset-0 overflow-hidden">
+                    <span className="absolute inset-0 -translate-x-full animate-[shimmer-sweep_2.5s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-15deg]" />
+                </span>
+                {loading ? (
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Signing In...
+                    </span>
+                ) : (
+                    <span className="relative z-10">Sign In</span>
+                )}
+            </button>
 
-            <div className="text-center">
+            <div className="text-center pt-1">
                 <button
                     type="button"
                     onClick={openForgotPassword}
-                    className="text-sm text-primary hover:underline font-medium"
+                    className="text-sm font-medium transition-all hover:underline"
+                    style={{ color: themeGradient.from }}
                     disabled={loading}
                 >
                     Forgot your password?
@@ -677,67 +712,68 @@ export default function AuthLogin() {
     )
 
     const renderForgotPassword = () => {
-        // Step 1: Enter Email
         if (forgotStep === 'email') {
             return (
                 <form onSubmit={handleForgotEmailSubmit} className="space-y-5">
                     <div className="text-center space-y-2">
-                        <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-                            <User className="h-8 w-8 text-primary" />
+                        <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeGradient.from}20, ${themeGradient.to}20)` }}>
+                            <User className="h-8 w-8" style={{ color: themeGradient.from }} />
                         </div>
-                        <h3 className="text-2xl font-bold">Reset Password</h3>
-                        <p className="text-sm text-muted-foreground">Enter your username or email to verify your account</p>
+                        <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Reset Password</h3>
+                        <p className={`text-sm ${isDark ? 'text-white/50' : 'text-slate-500'}`}>Enter your username or email to verify your account</p>
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><User className="h-4 w-4 text-primary" />Username or Email</Label>
+                        <Label className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}><User className="h-4 w-4" style={{ color: themeGradient.from }} />Username or Email</Label>
                         <Input
                             type="text"
                             value={resetEmail}
                             onChange={(e) => setResetEmail(e.target.value)}
                             placeholder="Enter username or email"
                             disabled={resetLoading}
-                            className="h-12"
+                            className={`h-12 ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`}
                             autoFocus
                         />
                     </div>
 
-                    <Button type="submit" className="w-full h-12" disabled={resetLoading}>
-                        {resetLoading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Checking...</> : <>Continue</>}
-                    </Button>
+                    <button
+                        type="submit"
+                        disabled={resetLoading}
+                        className="w-full h-12 rounded-xl font-semibold text-white relative overflow-hidden"
+                        style={{ background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`, boxShadow: `0 8px 24px ${themeGradient.from}40` }}
+                    >
+                        {resetLoading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Checking...</span> : 'Continue'}
+                    </button>
 
                     <div className="text-center">
-                        <button type="button" onClick={resetToLogin} className="text-sm text-muted-foreground hover:text-foreground">
-                            ← Back to login
+                        <button type="button" onClick={resetToLogin} className={`text-sm ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>
+                            Back to login
                         </button>
                     </div>
                 </form>
             )
         }
 
-        // Step 2: Enter OTP
         if (forgotStep === 'otp') {
             return (
                 <form onSubmit={handleForgotOtpSubmit} className="space-y-5">
                     <div className="text-center space-y-2">
-                        <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-                            <Smartphone className="h-8 w-8 text-primary" />
+                        <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeGradient.from}20, ${themeGradient.to}20)` }}>
+                            <Smartphone className="h-8 w-8" style={{ color: themeGradient.from }} />
                         </div>
-                        <h3 className="text-2xl font-bold">Enter OTP</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Enter the 6-digit code from your authenticator app
-                        </p>
+                        <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Enter OTP</h3>
+                        <p className={`text-sm ${isDark ? 'text-white/50' : 'text-slate-500'}`}>Enter the 6-digit code from your authenticator app</p>
                         {resetUserData && (
-                            <div className="bg-muted p-2 rounded-lg mt-2">
-                                <p className="text-xs text-muted-foreground">
-                                    Account: <span className="font-semibold text-foreground">{resetUserData.userName}</span>
+                            <div className={`p-2 rounded-lg mt-2 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                                <p className={`text-xs ${isDark ? 'text-white/40' : 'text-slate-500'}`}>
+                                    Account: <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{resetUserData.userName}</span>
                                 </p>
                             </div>
                         )}
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><Smartphone className="h-4 w-4 text-primary" />Authenticator OTP</Label>
+                        <Label className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}><Smartphone className="h-4 w-4" style={{ color: themeGradient.from }} />Authenticator OTP</Label>
                         <Input
                             type="text"
                             value={resetOtp}
@@ -745,91 +781,63 @@ export default function AuthLogin() {
                             placeholder="000000"
                             maxLength={6}
                             disabled={resetLoading}
-                            className="h-12 text-center text-2xl tracking-widest font-mono"
+                            className={`h-12 text-center text-2xl tracking-widest font-mono ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`}
                             autoFocus
                         />
                     </div>
 
-                    <Button type="submit" className="w-full h-12" disabled={resetLoading || resetOtp.length !== 6}>
-                        {resetLoading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Verifying...</> : <>Verify OTP</>}
-                    </Button>
+                    <button
+                        type="submit"
+                        disabled={resetLoading || resetOtp.length !== 6}
+                        className="w-full h-12 rounded-xl font-semibold text-white relative overflow-hidden disabled:opacity-50"
+                        style={{ background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`, boxShadow: `0 8px 24px ${themeGradient.from}40` }}
+                    >
+                        {resetLoading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Verifying...</span> : 'Verify OTP'}
+                    </button>
 
                     <div className="text-center space-y-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setForgotStep('email')
-                                setResetOtp('')
-                                setError(null)
-                            }}
-                            className="text-sm text-muted-foreground hover:text-foreground"
-                        >
-                            ← Back to email
+                        <button type="button" onClick={() => { setForgotStep('email'); setResetOtp(''); setError(null) }} className={`text-sm ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>
+                            Back to email
                         </button>
                     </div>
                 </form>
             )
         }
 
-        // Step 3: Set New Password
         return (
             <form onSubmit={handleForgotPasswordSubmit} className="space-y-5">
                 <div className="text-center space-y-2">
-                    <div className="w-16 h-16 mx-auto bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                    <div className="w-16 h-16 mx-auto rounded-full flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/30">
                         <ShieldCheck className="h-8 w-8 text-emerald-600" />
                     </div>
-                    <h3 className="text-2xl font-bold">Set New Password</h3>
-                    <p className="text-sm text-muted-foreground">Create a new password for your account</p>
+                    <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Set New Password</h3>
+                    <p className={`text-sm ${isDark ? 'text-white/50' : 'text-slate-500'}`}>Create a new password for your account</p>
                     {resetUserData && (
-                        <div className="bg-muted p-2 rounded-lg mt-2">
-                            <p className="text-xs text-muted-foreground">
-                                Account: <span className="font-semibold text-foreground">{resetUserData.userName}</span>
+                        <div className={`p-2 rounded-lg mt-2 ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                            <p className={`text-xs ${isDark ? 'text-white/40' : 'text-slate-500'}`}>
+                                Account: <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{resetUserData.userName}</span>
                             </p>
                         </div>
                     )}
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><Lock className="h-4 w-4 text-primary" />New Password</Label>
-                    <Input
-                        type="password"
-                        value={resetPassword}
-                        onChange={(e) => setResetPassword(e.target.value)}
-                        placeholder="Minimum 6 characters"
-                        disabled={resetLoading}
-                        className="h-12"
-                        autoFocus
-                    />
+                    <Label className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}><Lock className="h-4 w-4" style={{ color: themeGradient.from }} />New Password</Label>
+                    <Input type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} placeholder="Minimum 6 characters" disabled={resetLoading} className={`h-12 ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`} autoFocus />
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><Lock className="h-4 w-4 text-primary" />Confirm Password</Label>
-                    <Input
-                        type="password"
-                        value={resetConfirmPassword}
-                        onChange={(e) => setResetConfirmPassword(e.target.value)}
-                        placeholder="Re-enter password"
-                        disabled={resetLoading}
-                        className="h-12"
-                    />
+                    <Label className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}><Lock className="h-4 w-4" style={{ color: themeGradient.from }} />Confirm Password</Label>
+                    <Input type="password" value={resetConfirmPassword} onChange={(e) => setResetConfirmPassword(e.target.value)} placeholder="Re-enter password" disabled={resetLoading} className={`h-12 ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`} />
                 </div>
 
-                <Button type="submit" className="w-full h-12 bg-emerald-600 hover:bg-emerald-700" disabled={resetLoading || !resetPassword || !resetConfirmPassword}>
-                    {resetLoading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Updating...</> : <>Reset Password</>}
-                </Button>
+                <button type="submit" disabled={resetLoading || !resetPassword || !resetConfirmPassword} className="w-full h-12 rounded-xl font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                    {resetLoading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Updating...</span> : 'Reset Password'}
+                </button>
 
                 <div className="text-center">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setForgotStep('otp')
-                            setResetPassword('')
-                            setResetConfirmPassword('')
-                            setError(null)
-                        }}
-                        className="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                        ← Back to OTP
+                    <button type="button" onClick={() => { setForgotStep('otp'); setResetPassword(''); setResetConfirmPassword(''); setError(null) }} className={`text-sm ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>
+                        Back to OTP
                     </button>
                 </div>
             </form>
@@ -838,13 +846,12 @@ export default function AuthLogin() {
 
     const renderSignupForm = () => (
         <form onSubmit={handleSignup} className="space-y-6">
-            {/* Step 1: Select Organization */}
             <div className="space-y-3">
-                <Label className="flex items-center gap-2 text-base font-bold text-emerald-700 dark:text-emerald-400">
-                    <Building2 className="w-4 h-4" />Select Organization
+                <Label className={`flex items-center gap-2 text-sm font-bold ${isDark ? 'text-white/80' : 'text-slate-700'}`}>
+                    <Building2 className="w-4 h-4" style={{ color: themeGradient.from }} />Select Organization
                 </Label>
                 {organizations.length === 0 ? (
-                    <div className="text-xs text-muted-foreground animate-pulse">Loading organizations...</div>
+                    <div className={`text-xs animate-pulse ${isDark ? 'text-white/30' : 'text-slate-400'}`}>Loading organizations...</div>
                 ) : (
                     <div className="flex flex-wrap gap-2">
                         {organizations.map(org => (
@@ -852,11 +859,12 @@ export default function AuthLogin() {
                                 key={org.id}
                                 type="button"
                                 onClick={() => handleOrgSelect(org.id)}
-                                className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
+                                className={`px-3 py-1.5 rounded-xl border text-sm font-medium transition-all ${
                                     selectedOrgId === org.id
-                                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-400'
+                                        ? 'text-white border-transparent shadow-sm'
+                                        : isDark ? 'bg-white/5 border-white/10 text-white/70 hover:border-white/30' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                                 }`}
+                                style={selectedOrgId === org.id ? { background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})` } : {}}
                             >
                                 {org.name}
                             </button>
@@ -867,36 +875,18 @@ export default function AuthLogin() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><User className="w-4 h-4 text-emerald-600" />Username</Label>
-                    <Input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="yourname@buyhatke.com"
-                        disabled={loading}
-                        className="h-11"
-                    />
+                    <Label className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}><User className="w-4 h-4" style={{ color: themeGradient.from }} />Username</Label>
+                    <Input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="yourname@buyhatke.com" disabled={loading} className={`h-11 ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`} />
                 </div>
-                <p className="mt-2 text-[10px] text-muted-foreground ml-1 italic">
+                <p className={`text-[10px] italic ml-1 ${isDark ? 'text-white/30' : 'text-slate-400'}`}>
                     Allowed: @buyhatke.com, @0fiat.com, @bitbns.com, @onramp.money
                 </p>
 
                 <div className="space-y-2">
-                    <Label className="flex items-center gap-2"><Lock className="w-4 h-4 text-emerald-600" />Password</Label>
+                    <Label className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-white/70' : 'text-slate-600'}`}><Lock className="w-4 h-4" style={{ color: themeGradient.from }} />Password</Label>
                     <div className="relative">
-                        <Input
-                            type={showSignupPassword ? 'text' : 'password'}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Min. 6 characters"
-                            disabled={loading}
-                            className="h-11 pr-10"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowSignupPassword(!showSignupPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
+                        <Input type={showSignupPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min. 6 characters" disabled={loading} className={`h-11 pr-10 ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`} />
+                        <button type="button" onClick={() => setShowSignupPassword(!showSignupPassword)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-white/50 hover:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
                             {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                     </div>
@@ -906,155 +896,119 @@ export default function AuthLogin() {
             <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
                     <div className="flex items-center gap-2">
-                        <Settings2 className="w-5 h-5 text-emerald-600" />
-                        <Label className="text-base font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                        <Settings2 className="w-5 h-5" style={{ color: themeGradient.from }} />
+                        <Label className="text-sm font-bold" style={gradientTextStyle}>
                             Feature Access Permissions
                         </Label>
                     </div>
                     {selectedOrgId === null && (
-                        <span className="text-xs text-amber-600 dark:text-amber-400 italic">Select an organization above to load features</span>
+                        <span className={`text-xs italic ${isDark ? 'text-amber-400/80' : 'text-amber-600'}`}>Select an organization above to load features</span>
                     )}
                 </div>
 
                 {selectedOrgId !== null && (
-                <div className="flex items-center gap-2 bg-white/50 dark:bg-slate-900/50 p-2 rounded-xl border border-emerald-100 shadow-sm">
-                    <Input
-                        type="text"
-                        placeholder="Search features (e.g. 'Price', 'Calcul') ..."
-                        value={featureSearch}
-                        onChange={(e) => setFeatureSearch(e.target.value)}
-                        className="h-9 border-none bg-transparent shadow-none focus-visible:ring-0"
-                    />
-                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-100 shrink-0">
-                        {availableFeatures.filter(f => f.name.toLowerCase().includes(featureSearch.toLowerCase())).length} Available
-                    </Badge>
-                </div>
+                    <div className={`flex items-center gap-2 p-2 rounded-xl border shadow-sm ${isDark ? 'bg-white/5 border-white/10' : 'bg-white/60 border-slate-200/80 backdrop-blur-sm'}`}>
+                        <Input type="text" placeholder="Search features..." value={featureSearch} onChange={(e) => setFeatureSearch(e.target.value)} className="h-9 border-none bg-transparent shadow-none focus-visible:ring-0" />
+                        <Badge variant="secondary" className="shrink-0 text-xs" style={{ background: `${themeGradient.from}15`, color: themeGradient.from, border: `1px solid ${themeGradient.from}30` }}>
+                            {availableFeatures.filter(f => f.name.toLowerCase().includes(featureSearch.toLowerCase())).length} Available
+                        </Badge>
+                    </div>
                 )}
 
-                <div className="rounded-2xl border bg-muted/30 overflow-hidden shadow-inner">
+                <div className={`rounded-2xl border overflow-hidden shadow-inner ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50/50 border-slate-200'}`}>
                     {featuresLoading ? (
-                        <div className="h-[200px] flex items-center justify-center">
-                            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-                            <span className="ml-2 text-sm text-muted-foreground">Loading features...</span>
+                        <div className="h-[200px] flex items-center justify-center gap-2">
+                            <Loader2 className="w-6 h-6 animate-spin" style={{ color: themeGradient.from }} />
+                            <span className={`text-sm ${isDark ? 'text-white/40' : 'text-slate-400'}`}>Loading features...</span>
                         </div>
                     ) : selectedOrgId === null ? (
-                        <div className="h-[120px] flex items-center justify-center text-sm text-muted-foreground">
-                            Select an organization to see available features
-                        </div>
+                        <div className={`h-[120px] flex items-center justify-center text-sm ${isDark ? 'text-white/30' : 'text-slate-400'}`}>Select an organization to see available features</div>
                     ) : availableFeatures.length === 0 ? (
-                        <div className="h-[120px] flex items-center justify-center text-sm text-muted-foreground">
-                            No features found for this organization
-                        </div>
+                        <div className={`h-[120px] flex items-center justify-center text-sm ${isDark ? 'text-white/30' : 'text-slate-400'}`}>No features found for this organization</div>
                     ) : (
-                    <ScrollArea className="h-[280px] px-4 py-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {availableFeatures
-                                .filter(f => f.name.toLowerCase().includes(featureSearch.toLowerCase()))
-                                .map(feature => {
-                                    const isSelected = !!selectedFeatures[String(feature.id)];
-                                    const access = selectedFeatures[String(feature.id)] || 'read';
-
-                                    return (
-                                        <div
-                                            key={feature.id}
-                                            className={`group relative flex flex-col p-3 rounded-xl border transition-all duration-300 ${isSelected
-                                                ? 'bg-white dark:bg-slate-800 border-emerald-200 shadow-sm ring-1 ring-emerald-100'
-                                                : 'bg-white/50 dark:bg-slate-900/50 border-transparent hover:border-slate-200'
-                                                }`}
-                                        >
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <Checkbox
-                                                        id={`f-${feature.id}`}
-                                                        checked={isSelected}
-                                                        onCheckedChange={() => toggleFeature(feature.id)}
-                                                        className="data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600"
-                                                    />
-                                                    <Label
-                                                        htmlFor={`f-${feature.id}`}
-                                                        className={`text-sm font-semibold truncate cursor-pointer transition-colors ${isSelected ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'
-                                                            }`}
-                                                    >
-                                                        {feature.name}
-                                                    </Label>
+                        <ScrollArea className="h-[280px] px-4 py-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {availableFeatures
+                                    .filter(f => f.name.toLowerCase().includes(featureSearch.toLowerCase()))
+                                    .map(feature => {
+                                        const isSelected = !!selectedFeatures[String(feature.id)];
+                                        const access = selectedFeatures[String(feature.id)] || 'read';
+                                        return (
+                                            <div key={feature.id} className={`group relative flex flex-col p-3 rounded-xl border transition-all duration-300 ${isSelected
+                                                ? (isDark ? 'bg-white/10 border-white/20 shadow-sm' : 'bg-white border-slate-200 shadow-sm')
+                                                : (isDark ? 'bg-white/5 border-transparent hover:border-white/10' : 'bg-white/50 border-transparent hover:border-slate-200')
+                                                }`}>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <Checkbox id={`f-${feature.id}`} checked={isSelected} onCheckedChange={() => toggleFeature(feature.id)} className="data-[state=checked]:border-transparent" style={{ backgroundColor: isSelected ? themeGradient.from : undefined, borderColor: isSelected ? themeGradient.from : undefined }} />
+                                                        <Label htmlFor={`f-${feature.id}`} className={`text-sm font-semibold truncate cursor-pointer transition-colors ${isSelected ? (isDark ? 'text-white' : 'text-slate-800') : (isDark ? 'text-white/60' : 'text-slate-500')}`}>
+                                                            {feature.name}
+                                                        </Label>
+                                                    </div>
+                                                    {isSelected && (
+                                                        <Badge className="text-[10px]" style={{ background: access === 'write' ? themeGradient.from : '#94a3b8', color: 'white' }}>
+                                                            {access.toUpperCase()}
+                                                        </Badge>
+                                                    )}
                                                 </div>
-
-                                                {isSelected && (
-                                                    <Badge className={access === 'write' ? 'bg-teal-500' : 'bg-slate-400'}>
-                                                        {access.toUpperCase()}
-                                                    </Badge>
-                                                )}
+                                                <AnimatePresence>
+                                                    {isSelected && (
+                                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                                            <div className={`flex items-center justify-between p-1.5 rounded-lg mt-1 border ${isDark ? 'bg-white/5 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${access === 'read' ? (isDark ? 'bg-white/10 text-white' : 'bg-white text-slate-700 shadow-sm') : (isDark ? 'text-white/40' : 'text-slate-400')}`}>READ</span>
+                                                                <Switch checked={access === 'write'} onCheckedChange={() => toggleAccessLevel(feature.id)} className="h-5 w-9" style={{ backgroundColor: access === 'write' ? themeGradient.from : undefined }} />
+                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${access === 'write' ? (isDark ? 'bg-white/10 text-white' : 'bg-white text-slate-700 shadow-sm') : (isDark ? 'text-white/40' : 'text-slate-400')}`}>WRITE</span>
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
+                                                </AnimatePresence>
                                             </div>
-
-                                            <AnimatePresence>
-                                                {isSelected && (
-                                                    <motion.div
-                                                        initial={{ height: 0, opacity: 0 }}
-                                                        animate={{ height: 'auto', opacity: 1 }}
-                                                        exit={{ height: 0, opacity: 0 }}
-                                                        className="overflow-hidden"
-                                                    >
-                                                        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-lg mt-1 border border-slate-100 dark:border-slate-800">
-                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${access === 'read' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>READ</span>
-                                                            <Switch
-                                                                checked={access === 'write'}
-                                                                onCheckedChange={() => toggleAccessLevel(feature.id)}
-                                                                className="h-5 w-9 data-[state=checked]:bg-emerald-500"
-                                                            />
-                                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${access === 'write' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>WRITE</span>
-                                                        </div>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-                                    );
-                                })}
-                        </div>
-                    </ScrollArea>
+                                        );
+                                    })}
+                            </div>
+                        </ScrollArea>
                     )}
                 </div>
             </div>
 
-            <Button type="submit" className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 dark:shadow-none" disabled={loading}>
-                {loading ? <><Loader2 className="w-5 h-5 animate-spin mr-2" />Processing...</> : <><ShieldCheck className="w-5 h-5 mr-2" />Create Protected Account</>}
-            </Button>
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 rounded-xl font-semibold text-white relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl disabled:opacity-70"
+                style={{ background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`, boxShadow: `0 8px 24px ${themeGradient.from}40` }}
+            >
+                {loading ? <span className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" />Processing...</span> : <span className="flex items-center justify-center gap-2"><ShieldCheck className="w-5 h-5" />Create Protected Account</span>}
+            </button>
         </form>
     )
 
     const render2FASetup = () => (
         <div className="space-y-6 text-center">
-            <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-                <QrCode className="w-10 h-10 text-primary" />
+            <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeGradient.from}20, ${themeGradient.to}20)` }}>
+                <QrCode className="w-10 h-10" style={{ color: themeGradient.from }} />
             </div>
             <div>
-                <h3 className="text-2xl font-bold">Link Authenticator App</h3>
-
-                <div className="bg-muted p-3 rounded-xl inline-block mx-auto mt-2 mb-2 border">
-                    <p className="text-sm text-muted-foreground">
-                        Account: <span className="font-semibold text-foreground">{userData?.username}</span>
-                    </p>
+                <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Link Authenticator App</h3>
+                <div className={`p-3 rounded-xl inline-block mx-auto mt-2 mb-2 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                    <p className={`text-sm ${isDark ? 'text-white/50' : 'text-slate-500'}`}>Account: <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{userData?.username}</span></p>
                 </div>
-
-                <p className="text-muted-foreground text-sm mt-2">Scan with Google Authenticator or Authy</p>
+                <p className={`text-sm mt-2 ${isDark ? 'text-white/40' : 'text-slate-400'}`}>Scan with Google Authenticator or Authy</p>
             </div>
 
             {secretData && (
                 <>
-                    <div className="bg-white p-4 rounded-xl border mx-auto w-fit">
+                    <div className={`p-4 rounded-xl border mx-auto w-fit ${isDark ? 'bg-white/10 border-white/10' : 'bg-white border-slate-200'}`}>
                         <img src={secretData.qrCode} alt="2FA QR Code" className="w-48 h-48" />
                     </div>
-
-                    <div className="bg-muted p-4 rounded-lg flex items-center justify-between">
-                        <span className="text-xs font-mono">Key: {secretData.tempSecret}</span>
-                        <button onClick={copySecret} className="p-2 hover:bg-background rounded-lg">
-                            <Copy className="w-4 h-4" />
+                    <div className={`p-4 rounded-lg flex items-center justify-between ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                        <span className={`text-xs font-mono ${isDark ? 'text-white/60' : 'text-slate-600'}`}>Key: {secretData.tempSecret}</span>
+                        <button onClick={copySecret} className={`p-2 rounded-lg transition-colors ${isDark ? 'hover:bg-white/10' : 'hover:bg-white'}`}>
+                            <Copy className="w-4 h-4" style={{ color: themeGradient.from }} />
                         </button>
                     </div>
-
-                    <Button onClick={linkAuthenticator} className="w-full h-12" disabled={loading}>
-                        {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-                        I've Scanned the QR Code
-                    </Button>
+                    <button onClick={linkAuthenticator} className="w-full h-12 rounded-xl font-semibold text-white relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`, boxShadow: `0 8px 24px ${themeGradient.from}40` }} disabled={loading}>
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <span className="flex items-center justify-center gap-2"><CheckCircle2 className="w-5 h-5" />I've Scanned the QR Code</span>}
+                    </button>
                 </>
             )}
         </div>
@@ -1063,130 +1017,168 @@ export default function AuthLogin() {
     const renderWaitingApproval = () => (
         <div className="text-center space-y-6">
             <motion.div
-                className="w-24 h-24 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center"
+                className="w-24 h-24 mx-auto rounded-full flex items-center justify-center"
+                style={{ background: `linear-gradient(135deg, ${themeGradient.from}20, ${themeGradient.to}20)` }}
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 2, repeat: Infinity }}
             >
-                <Clock className="w-12 h-12 text-amber-600" />
+                <Clock className="w-12 h-12" style={{ color: themeGradient.from }} />
             </motion.div>
-
             <div>
-                <h3 className="text-2xl font-bold">Waiting for Approval</h3>
-                <p className="text-muted-foreground">Your account is pending admin approval.</p>
+                <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Waiting for Approval</h3>
+                <p className={isDark ? 'text-white/50' : 'text-slate-500'}>Your account is pending admin approval.</p>
             </div>
-
-            <div className="bg-muted p-4 rounded-xl">
-                <p className="text-sm">Username: <span className="font-semibold">{userData?.username}</span></p>
-                <p className="text-xs text-emerald-600 flex items-center justify-center gap-1 mt-2">
+            <div className={`p-4 rounded-xl ${isDark ? 'bg-white/5' : 'bg-slate-100'}`}>
+                <p className={`text-sm ${isDark ? 'text-white/60' : 'text-slate-600'}`}>Username: <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{userData?.username}</span></p>
+                <p className="text-xs flex items-center justify-center gap-1 mt-2" style={{ color: themeGradient.from }}>
                     <CheckCircle2 className="w-4 h-4" /> Authenticator linked
                 </p>
             </div>
-
-            <Button onClick={checkApprovalStatus} className="w-full h-12" disabled={loading}>
-                {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <RefreshCw className="w-5 h-5 mr-2" />}
-                Check Approval Status
-            </Button>
-
-            <button onClick={resetToLogin} className="text-sm text-muted-foreground hover:text-foreground">
-                ← Back to Login
+            <button onClick={checkApprovalStatus} className="w-full h-12 rounded-xl font-semibold text-white relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`, boxShadow: `0 8px 24px ${themeGradient.from}40` }} disabled={loading}>
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <span className="flex items-center justify-center gap-2"><RefreshCw className="w-5 h-5" />Check Approval Status</span>}
             </button>
+            <button onClick={resetToLogin} className={`text-sm ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>Back to Login</button>
         </div>
     )
 
     const renderOTPVerification = () => (
         <div className="space-y-6 text-center">
-            <div className="w-20 h-20 mx-auto bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-                <Smartphone className="w-10 h-10 text-emerald-600" />
+            <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${themeGradient.from}20, ${themeGradient.to}20)` }}>
+                <Smartphone className="w-10 h-10" style={{ color: themeGradient.from }} />
             </div>
-
             <div>
-                <h3 className="text-2xl font-bold">Enter Verification Code</h3>
-
-                <div className="bg-muted p-3 rounded-xl inline-block mx-auto mt-2 mb-2 border">
-                    <p className="text-sm text-muted-foreground">
-                        Verifying: <span className="font-semibold text-foreground">{userData?.username}</span>
-                    </p>
+                <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Enter Verification Code</h3>
+                <div className={`p-3 rounded-xl inline-block mx-auto mt-2 mb-2 border ${isDark ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                    <p className={`text-sm ${isDark ? 'text-white/50' : 'text-slate-500'}`}>Verifying: <span className={`font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>{userData?.username}</span></p>
                 </div>
-
-                <p className="text-muted-foreground">Enter the 6-digit code from your authenticator</p>
+                <p className={isDark ? 'text-white/40' : 'text-slate-400'}>Enter the 6-digit code from your authenticator</p>
             </div>
-
-            <Input
-                type="text"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-                className="h-16 text-center text-3xl tracking-[0.5em] font-mono"
-                placeholder="000000"
-                maxLength={6}
-                autoFocus
-                disabled={loading}
-            />
-
-            <Button onClick={verifyOTPAndLogin} className="w-full h-12 bg-emerald-600 hover:bg-emerald-700" disabled={loading || otpCode.length !== 6}>
-                {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <ArrowRight className="w-5 h-5 mr-2" />}
-                Verify & Login
-            </Button>
-
-            <button onClick={resetToLogin} className="text-sm text-muted-foreground hover:text-foreground">
-                ← Back to Login
+            <Input type="text" value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} className={`h-16 text-center text-3xl tracking-[0.5em] font-mono ${isDark ? 'login-input-dark rounded-xl' : 'login-input-light rounded-xl'}`} placeholder="000000" maxLength={6} autoFocus disabled={loading} />
+            <button onClick={verifyOTPAndLogin} disabled={loading || otpCode.length !== 6} className="w-full h-12 rounded-xl font-semibold text-white relative overflow-hidden disabled:opacity-50" style={{ background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`, boxShadow: `0 8px 24px ${themeGradient.from}40` }}>
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <span className="flex items-center justify-center gap-2"><ArrowRight className="w-5 h-5" />Verify & Login</span>}
             </button>
+            <button onClick={resetToLogin} className={`text-sm ${isDark ? 'text-white/40 hover:text-white/70' : 'text-slate-400 hover:text-slate-600'}`}>Back to Login</button>
         </div>
     )
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
+        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: isDark ? '#020617' : '#f8fafc' }}>
+            {/* Animated Mesh Gradient Background */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="mesh-blob mesh-blob-1 w-[500px] h-[500px] -top-32 -left-32" />
+                <div className="mesh-blob mesh-blob-2 w-[600px] h-[600px] top-1/3 -right-48" />
+                <div className="mesh-blob mesh-blob-3 w-[450px] h-[450px] -bottom-32 left-1/4" />
+                <div className="mesh-blob mesh-blob-4 w-[400px] h-[400px] top-1/4 left-1/2" />
+            </div>
+
+            {/* Floating Glass Orbs */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="glass-orb glass-orb-1 w-96 h-96 top-[10%] left-[5%] opacity-30" />
+                <div className="glass-orb glass-orb-2 w-80 h-80 top-[60%] right-[8%] opacity-20" />
+                <div className="glass-orb glass-orb-3 w-72 h-72 bottom-[15%] left-[20%] opacity-25" />
+            </div>
+
+            {/* Noise Texture Overlay */}
+            <div className="noise-overlay" />
+
+            {/* Theme Toggle - Top Right */}
+            <button
+                onClick={toggleMode}
+                className={`fixed top-4 right-4 z-50 h-10 w-10 rounded-full flex items-center justify-center transition-all hover:scale-110 ${isDark ? 'bg-white/10 backdrop-blur-md border border-white/20' : 'bg-white/60 backdrop-blur-md border border-white/40'}`}
+                aria-label="Toggle theme"
+            >
+                {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
+            </button>
+
             <motion.div
-                className={`w-full transition-all duration-500 ${flowState === 'signup' ? 'max-w-xl' : 'max-w-md'}`}
+                className={`w-full transition-all duration-500 relative z-10 ${flowState === 'signup' ? 'max-w-xl' : 'max-w-[420px]'}`}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
             >
-                <Card className="border shadow-2xl relative overflow-hidden">
-                    {/* Decorative element */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+                {/* Glassmorphism Card */}
+                <div className={`relative overflow-hidden rounded-[28px] p-8 ${isDark ? 'glass-v3-dark' : 'glass-v3-light'}`}>
+                    {/* Subtle inner glow */}
+                    <div className="absolute inset-0 rounded-[28px] pointer-events-none" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1)' }} />
 
-                    <CardHeader className="text-center pb-4 pt-8 shrink-0">
-                        <div className="h-20 w-20 rounded-2xl bg-white dark:bg-slate-800 p-2 shadow-lg mx-auto mb-4 border border-slate-50 relative z-10">
+                    {/* Logo Area */}
+                    <motion.div
+                        className="flex flex-col items-center mb-6"
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1, type: 'spring', bounce: 0.4 }}
+                    >
+                        <div
+                            className="h-[72px] w-[72px] rounded-2xl p-2 shadow-lg mb-4 relative z-10 flex items-center justify-center"
+                            style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.8)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)'}`, ...glowRingStyle }}
+                        >
                             <img src="/assets/logo_512x512.png" alt="Logo" className="w-full h-full object-contain" />
                         </div>
-                        <CardTitle className="text-3xl font-black bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+
+                        {/* Title with gradient and shimmer */}
+                        <h1
+                            className="text-3xl font-bold tracking-tight text-center text-shimmer"
+                            style={{
+                                ...gradientTextStyle,
+                                backgroundSize: '200% auto',
+                            }}
+                        >
                             Feature Tracking Dashboard
-                        </CardTitle>
-                        <CardDescription className="mt-2">Sign in to access analytics & insights</CardDescription>
-                    </CardHeader>
+                        </h1>
 
-                    <CardContent className="space-y-4">
-                        <AnimatePresence shrink-0>
-                            {error && (
-                                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                                    <Alert variant="destructive" className="py-2">
-                                        <AlertDescription>{error}</AlertDescription>
-                                    </Alert>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                        {/* Subtitle */}
+                        <motion.p
+                            className={`mt-2 text-sm text-center ${isDark ? 'text-white/50' : 'text-slate-500'}`}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.3 }}
+                        >
+                            Sign in to access analytics & insights
+                        </motion.p>
+                    </motion.div>
 
-                        <AnimatePresence mode="wait">
-                            <motion.div key={flowState} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                                {(flowState === 'login' || flowState === 'signup') && renderTabs()}
-                                {flowState === 'login' && renderLoginForm()}
-                                {flowState === 'forgot' && renderForgotPassword()}
-                                {flowState === 'signup' && renderSignupForm()}
-                                {flowState === 'setup2fa' && render2FASetup()}
-                                {flowState === 'waiting' && renderWaitingApproval()}
-                                {flowState === 'verifyotp' && renderOTPVerification()}
+                    {/* Error Alert */}
+                    <AnimatePresence>
+                        {error && (
+                            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-4">
+                                <Alert variant="destructive" className="py-2 rounded-xl border-red-500/30 bg-red-500/10">
+                                    <AlertDescription className="text-red-400">{error}</AlertDescription>
+                                </Alert>
                             </motion.div>
-                        </AnimatePresence>
+                        )}
+                    </AnimatePresence>
 
-                        <div className="text-center pt-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-50">
-                                Protected by Buyhatke Guard
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                    {/* Form Content */}
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            key={flowState}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            {(flowState === 'login' || flowState === 'signup') && renderTabs()}
+                            {flowState === 'login' && renderLoginForm()}
+                            {flowState === 'forgot' && renderForgotPassword()}
+                            {flowState === 'signup' && renderSignupForm()}
+                            {flowState === 'setup2fa' && render2FASetup()}
+                            {flowState === 'waiting' && renderWaitingApproval()}
+                            {flowState === 'verifyotp' && renderOTPVerification()}
+                        </motion.div>
+                    </AnimatePresence>
 
-                <div className="mt-6 text-center text-xs text-muted-foreground">
-                    <p>© 2025 Buyhatke Technologies Pvt. Ltd.</p>
+                    {/* Protected by Buyhatke Guard */}
+                    <div className="text-center pt-6 mt-4 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(148,163,184,0.15)' }}>
+                        <p className={`text-[10px] uppercase tracking-widest font-bold flex items-center justify-center gap-1.5 ${isDark ? 'text-white/20' : 'text-slate-400'}`}>
+                            <ShieldCheck className="w-3 h-3 animate-pulse" style={{ color: themeGradient.from }} />
+                            Protected by Buyhatke Guard
+                        </p>
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className={`mt-6 text-center text-xs ${isDark ? 'text-white/15' : 'text-slate-400'}`}>
+                    <p> 2026 Buyhatke Technologies Pvt. Ltd.</p>
                 </div>
             </motion.div>
         </div>

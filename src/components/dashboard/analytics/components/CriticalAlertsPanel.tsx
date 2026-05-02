@@ -141,26 +141,26 @@ export function CriticalAlertsPanel({
     return (
         <div className="relative">
             <Card className={cn(
-                "rounded-2xl overflow-hidden transition-all duration-500 group relative backdrop-blur-xl",
+                "rounded-2xl overflow-hidden transition-all duration-500 group relative",
+                "glass-card-v2 theme-border-top",
                 isAutosnipe
                     ? "border-2 border-green-500/30 bg-gradient-to-br from-gray-950/80 via-gray-900/50 to-emerald-950/20 shadow-[0_8px_30px_rgba(16,185,129,0.15)]"
-                    : alertsPanelCollapsed
-                        ? criticalAlerts.length > 0
-                            ? cn("border border-red-200/60 dark:border-red-500/30 shadow-[0_8px_30px_rgba(239,68,68,0.12)]", themeClasses.cardBg)
-                            : cn("border shadow-lg", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)
-                        : criticalAlerts.length > 0
-                            ? "border-2 border-red-300/60 dark:border-red-500/40 shadow-[0_20px_50px_rgba(239,68,68,0.25)] bg-white/80 dark:bg-slate-900/80"
-                            : cn("border-2 shadow-2xl bg-white/80 dark:bg-slate-800/80", themeClasses.borderAccent, themeClasses.borderAccentDark)
+                    : criticalAlerts.length > 0
+                        ? "border border-red-200/60 dark:border-red-500/30 shadow-[0_8px_30px_rgba(239,68,68,0.12)]"
+                        : ""
             )}>
-                {/* Animated top border accent */}
-                <div className={cn(
-                    "absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r transition-all duration-500 z-30",
-                    isAutosnipe
-                        ? "from-green-500 via-emerald-400 to-green-500"
-                        : criticalAlerts.length > 0
-                            ? "from-red-600 via-orange-500 to-red-600 animate-pulse"
-                            : themeClasses.headerGradient
-                )} />
+                {/* Theme gradient top border accent - always present */}
+                <div 
+                    className={cn(
+                        "absolute top-0 left-0 w-full h-[3px] z-30",
+                        isAutosnipe
+                            ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-500"
+                            : criticalAlerts.length > 0
+                                ? "bg-gradient-to-r from-red-600 via-orange-500 to-red-600 animate-pulse"
+                                : ""
+                    )}
+                    style={!isAutosnipe && criticalAlerts.length === 0 ? { background: 'var(--theme-gradient)' } : undefined}
+                />
 
                 {/* Collapsed Header Bar */}
                 <div
@@ -181,13 +181,14 @@ export function CriticalAlertsPanel({
                     <div className="flex items-center gap-4 relative z-10">
                         <div
                             className={cn(
-                                "h-11 w-11 rounded-full flex items-center justify-center shadow-lg bg-gradient-to-br ring-2 ring-white/20 dark:ring-white/10 transition-transform duration-300 group-hover:scale-110",
+                                "h-11 w-11 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white/20 dark:ring-white/10 transition-transform duration-300 group-hover:scale-110",
                                 criticalAlerts.length > 0
-                                    ? "from-rose-500 to-orange-600 shadow-rose-500/30"
+                                    ? "bg-gradient-to-br from-rose-500 to-orange-600 shadow-rose-500/30"
                                     : isAutosnipe
-                                        ? "from-emerald-500 to-teal-600 shadow-emerald-500/30"
-                                        : themeClasses.buttonGradient
+                                        ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/30"
+                                        : "text-white"
                             )}
+                            style={!isAutosnipe && criticalAlerts.length === 0 ? { background: 'var(--theme-gradient)' } : undefined}
                         >
                             {criticalAlerts.length > 0 ? (
                                 <Bell className="h-5 w-5 text-white animate-bounce-slow" />
@@ -208,11 +209,12 @@ export function CriticalAlertsPanel({
                                     Critical Alerts Monitor
                                 </span>
                                 <span className={cn(
-                                    "text-[10px] uppercase font-black px-2 py-0.5 rounded-lg tracking-tighter shadow-sm",
+                                    "text-[10px] uppercase font-black px-2 py-0.5 rounded-full tracking-tighter shadow-sm flex items-center gap-1.5",
                                     isAutosnipe
                                         ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                                        : "bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10"
+                                        : "bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500/30"
                                 )}>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 live-dot" />
                                     LIVE
                                 </span>
                             </h2>
@@ -229,7 +231,7 @@ export function CriticalAlertsPanel({
                                     </span>
                                 ) : (
                                     <span className={cn("flex items-center gap-1.5", isAutosnipe ? "text-emerald-400 font-bold" : "text-slate-500 dark:text-slate-400")}>
-                                        <CheckCircle2 className="w-3.5 h-3.5" /> All systems operating at peak performance
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> All systems operating at peak performance
                                     </span>
                                 )}
                             </p>
@@ -246,9 +248,12 @@ export function CriticalAlertsPanel({
                                 {criticalAlerts.length}
                             </div>
                         )}
-                        <div className={cn(alertsPanelCollapsed ? "" : "rotate-180", "transition-all duration-500 p-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm")}>
+                        <div className={cn(
+                            "chevron-rotate p-1.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 shadow-sm",
+                            !alertsPanelCollapsed && "expanded"
+                        )}>
                             <ChevronDown className={cn(
-                                "h-5 w-5",
+                                "h-5 w-5 transition-transform duration-300",
                                 isAutosnipe ? "text-emerald-400" : "text-slate-600 dark:text-slate-400"
                             )} />
                         </div>

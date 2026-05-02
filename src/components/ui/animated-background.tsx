@@ -69,7 +69,7 @@ export const CursorRipple = () => null;
 export const CursorGlow = () => null;
 
 // REMOVED ParticleBurst - causes performance issues
-export const ParticleBurst = (_: { x: number; y: number; color?: string }) => null;
+export const ParticleBurst = (_props: { x: number; y: number; color?: string }) => null;
 
 // Static gradient mesh - NO animations, just static gradients
 // Optimized with reduced blurs and will-change for performance
@@ -88,5 +88,75 @@ export const GradientMeshBackground = ({ className = "" }: { className?: string 
             `,
             backgroundSize: '80px 80px'
         }} />
+    </div>
+);
+
+/* ========================================================================
+   AURORA MESH BACKGROUND — Living gradient canvas for modern dashboard
+   Supports both light & dark modes
+   ======================================================================== */
+export const AuroraMeshBackground = ({ className = "" }: { className?: string }) => (
+    <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`}>
+        {/* Light mode blobs — soft peach, sky blue, lavender */}
+        <div
+            className="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full opacity-30 dark:opacity-0"
+            style={{
+                background: 'radial-gradient(circle, rgba(251,146,60,0.14) 0%, rgba(56,189,248,0.08) 50%, transparent 70%)',
+                filter: 'blur(80px)',
+                animation: 'aurora-drift-1 18s ease-in-out infinite',
+            }}
+        />
+        <div
+            className="absolute top-[30%] -right-[10%] w-[60vw] h-[60vw] rounded-full opacity-20 dark:opacity-0"
+            style={{
+                background: 'radial-gradient(circle, rgba(168,85,247,0.10) 0%, rgba(99,102,241,0.06) 50%, transparent 70%)',
+                filter: 'blur(90px)',
+                animation: 'aurora-drift-2 22s ease-in-out infinite',
+            }}
+        />
+        <div
+            className="absolute -bottom-[20%] left-[20%] w-[65vw] h-[65vw] rounded-full opacity-15 dark:opacity-0"
+            style={{
+                background: 'radial-gradient(circle, rgba(244,114,182,0.10) 0%, rgba(34,211,238,0.05) 50%, transparent 70%)',
+                filter: 'blur(100px)',
+                animation: 'aurora-drift-3 26s ease-in-out infinite',
+            }}
+        />
+
+        {/* Dark mode blobs — teal, purple, pink */}
+        <div
+            className="absolute -top-[20%] -left-[10%] w-[70vw] h-[70vw] rounded-full opacity-0 dark:opacity-40"
+            style={{
+                background: 'radial-gradient(circle, rgba(20,184,166,0.18) 0%, rgba(139,92,246,0.08) 50%, transparent 70%)',
+                filter: 'blur(80px)',
+                animation: 'aurora-drift-1 18s ease-in-out infinite',
+            }}
+        />
+        <div
+            className="absolute top-[30%] -right-[10%] w-[60vw] h-[60vw] rounded-full opacity-0 dark:opacity-30"
+            style={{
+                background: 'radial-gradient(circle, rgba(59,130,246,0.15) 0%, rgba(147,51,234,0.06) 50%, transparent 70%)',
+                filter: 'blur(90px)',
+                animation: 'aurora-drift-2 22s ease-in-out infinite',
+            }}
+        />
+        <div
+            className="absolute -bottom-[20%] left-[20%] w-[65vw] h-[65vw] rounded-full opacity-0 dark:opacity-25"
+            style={{
+                background: 'radial-gradient(circle, rgba(236,72,153,0.12) 0%, rgba(6,182,212,0.06) 50%, transparent 70%)',
+                filter: 'blur(100px)',
+                animation: 'aurora-drift-3 26s ease-in-out infinite',
+            }}
+        />
+
+        {/* Subtle noise texture overlay */}
+        <div
+            className="absolute inset-0 opacity-[0.015]"
+            style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'repeat',
+                backgroundSize: '128px 128px',
+            }}
+        />
     </div>
 );

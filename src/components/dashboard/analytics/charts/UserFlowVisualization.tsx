@@ -525,7 +525,7 @@ export function UserFlowVisualization({
                 {/* Overlay Hint */}
                 <div className="absolute bottom-4 left-6 z-20 text-[10px] text-slate-500 dark:text-indigo-400/60 font-bold uppercase tracking-widest pointer-events-none flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
-                        <kbd className="px-1.5 py-0.5 rounded-md bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-indigo-500/20 shadow-sm transition-all group-hover:bg-white dark:group-hover:bg-slate-800">Ctrl</kbd>
+                        <kbd className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200 group-hover:bg-white/90 dark:group-hover:bg-white/15">Ctrl</kbd>
                         <span>+ Scroll to zoom</span>
                     </div>
                     <span>•</span>

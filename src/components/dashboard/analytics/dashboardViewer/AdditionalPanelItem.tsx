@@ -434,15 +434,19 @@ export const AdditionalPanelItem = React.memo(({
             className="space-y-6 scroll-mt-20"
         >
             <div className="relative py-8">
+                {/* Elegant gradient divider line */}
                 <div className="absolute inset-0 flex items-center">
-                    <div className={cn("w-full border-t-4 border-dashed", themeClasses.borderAccent, themeClasses.borderAccentDark)} />
+                    <div className="w-full panel-divider-line panel-divider-animated" />
                 </div>
                 <div className="relative flex justify-center">
-                    <div className={cn("px-6 py-2 bg-gradient-to-r rounded-full shadow-lg", themeClasses.buttonGradient)}>
-                        <span className="text-white font-bold text-sm flex items-center gap-2">
-                            <Layers className="w-5 h-5" />
+                    <div className={cn(
+                        "px-4 py-1.5 rounded-full backdrop-blur-sm border flex items-center gap-2",
+                        "bg-white/70 dark:bg-slate-900/70 border-white/40 dark:border-white/10 shadow-lg"
+                    )}>
+                        <Layers className="w-4 h-4" style={{ color: 'var(--theme-primary)' }} />
+                        <span className="font-semibold text-sm flex items-center gap-2" style={{ color: 'var(--theme-primary)' }}>
                             {panelConfig?.isApiEvent && (
-                                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white/30 backdrop-blur-sm border border-white/50">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/30 backdrop-blur-sm border border-white/20">
                                     API
                                 </span>
                             )}
@@ -452,13 +456,13 @@ export const AdditionalPanelItem = React.memo(({
                 </div>
             </div>
 
-            <Card className={cn("relative rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] hover:shadow-card-hover transition-all duration-500 border border-slate-200/60 dark:border-indigo-500/20 backdrop-blur-xl mb-6 overflow-hidden", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
+            <Card className="relative rounded-2xl glass-card-v2 hover-lift-premium mb-6 overflow-hidden">
                 {/* Thematic gradient banner */}
-                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
+                <div className="absolute top-0 left-0 right-0 h-[2px] transition-all duration-500 z-30" style={{ background: 'var(--theme-gradient)' }} />
                 <CardHeader className="pb-4">
                     <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                            <div className={cn("h-9 w-9 sm:h-12 sm:w-12 rounded-lg sm:rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/20 dark:ring-white/10 shrink-0", themeClasses.buttonGradient)}>
+                            <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white/20 dark:ring-white/10 shrink-0" style={{ background: 'var(--theme-gradient)' }}>
                                 {panelGraphType === 'bar' ? (
                                     <BarChart3 className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                                 ) : (

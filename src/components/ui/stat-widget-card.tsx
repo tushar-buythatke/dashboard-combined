@@ -15,6 +15,7 @@ interface StatWidgetCardProps {
     variant?: 'default' | 'success' | 'warning' | 'info' | 'purple';
     size?: 'sm' | 'md' | 'lg';
     className?: string;
+    sublabel?: string;
 }
 
 // Fallback variants for non-default themes
@@ -24,16 +25,6 @@ const ICON_GRADIENTS_STATIC = {
     info: 'from-blue-500 to-cyan-600 shadow-blue-500/20',
     purple: 'from-violet-500 to-purple-600 shadow-violet-500/20',
 };
-
-const BORDER_HOVER_STATIC = {
-    success: 'hover:border-emerald-200 dark:hover:border-emerald-600/40',
-    warning: 'hover:border-amber-200 dark:hover:border-amber-600/40',
-    info: 'hover:border-blue-200 dark:hover:border-blue-600/40',
-    purple: 'hover:border-violet-200 dark:hover:border-violet-600/40',
-};
-console.log("CHECKING the jules review, long shot man loll !");
-console.log("OK lets try againwewwewewewe !@#!@#");
-console.log("reviewing the wokring of the jules");
 
 const SPARKLINE_COLORS_STATIC = {
     success: '#10B981',
@@ -105,6 +96,7 @@ export function StatWidgetCard({
     variant = 'default',
     size = 'md',
     className,
+    sublabel,
 }: StatWidgetCardProps) {
     const { t, accentTheme } = useAccentTheme();
     const isPositiveTrend = trend && trend.value > 0;
@@ -130,13 +122,6 @@ export function StatWidgetCard({
         return ICON_GRADIENTS_STATIC[variant];
     };
 
-    const getBorderHover = () => {
-        if (variant === 'default') {
-            return cn(t.cardHoverBorder, t.cardHoverBorderDark);
-        }
-        return BORDER_HOVER_STATIC[variant];
-    };
-
     const getSparklineColor = () => {
         if (variant === 'default') {
             return ACCENT_SPARKLINE_COLORS[accentTheme] || '#6366F1';
@@ -147,12 +132,7 @@ export function StatWidgetCard({
     return (
         <div
             className={cn(
-                'bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl',
-                'border border-gray-200/60 dark:border-gray-700/50',
-                'rounded-2xl',
-                'shadow-lg shadow-gray-200/50 dark:shadow-gray-900/30',
-                'transition-all duration-300 hover:shadow-xl',
-                getBorderHover(),
+                'glass-card-v2 hover-lift-premium',
                 sizeClasses[size],
                 className
             )}
@@ -160,9 +140,14 @@ export function StatWidgetCard({
             {/* Header with icon */}
             <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-semibold truncate">
+                    <p className="text-[10px] md:text-xs uppercase tracking-wider font-semibold truncate" style={{ color: 'var(--dash-text-muted)' }}>
                         {label}
                     </p>
+                    {sublabel && (
+                        <p className="text-[9px] font-mono mt-0.5 opacity-50 truncate">
+                            {sublabel}
+                        </p>
+                    )}
                 </div>
                 {icon && (
                     <div
@@ -172,7 +157,7 @@ export function StatWidgetCard({
                             getIconGradient()
                         )}
                     >
-                        {icon}
+                        <span className="text-white">{icon}</span>
                     </div>
                 )}
             </div>
@@ -182,7 +167,7 @@ export function StatWidgetCard({
                 <div className="flex-1 min-w-0">
                     <p
                         className={cn(
-                            'font-bold text-gray-800 dark:text-gray-100 truncate',
+                            'font-bold truncate stat-gradient-text',
                             valueSizes[size]
                         )}
                     >

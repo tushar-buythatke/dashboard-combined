@@ -552,6 +552,16 @@ export function AccentThemeProvider({ children }: { children: ReactNode }) {
         }
     }, [displayedTheme, mode, setMode]);
 
+    // Theme color definitions for CSS variables
+    const THEME_COLORS: Record<Exclude<AccentTheme, 'auto'>, { primary: string; secondary: string; tertiary: string }> = {
+        indigo: { primary: '#1e40af', secondary: '#0891b2', tertiary: '#06b6d4' },
+        aurora: { primary: '#8b5cf6', secondary: '#ec4899', tertiary: '#3b82f6' },
+        sunset: { primary: '#ea580c', secondary: '#f59e0b', tertiary: '#f43f5e' },
+        forest: { primary: '#15803d', secondary: '#10b981', tertiary: '#14b8a6' },
+        midnight: { primary: '#1e1b4b', secondary: '#4c1d95', tertiary: '#7c3aed' },
+        afterhours: { primary: '#14532d', secondary: '#a3e635', tertiary: '#22c55e' },
+    };
+
     useEffect(() => {
         // Save state
         localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify({
@@ -562,6 +572,25 @@ export function AccentThemeProvider({ children }: { children: ReactNode }) {
         }));
         localStorage.setItem(STORAGE_KEY, displayedTheme);
         document.documentElement.setAttribute('data-accent-theme', displayedTheme);
+
+        // Update dynamic CSS variables for theme integration
+        const colors = THEME_COLORS[displayedTheme];
+        if (colors) {
+            const root = document.documentElement;
+            root.style.setProperty('--theme-primary', colors.primary);
+            root.style.setProperty('--theme-secondary', colors.secondary);
+            root.style.setProperty('--theme-tertiary', colors.tertiary);
+            root.style.setProperty('--theme-gradient', `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`);
+            // Alpha variants for shadows/borders
+            const hexToRgba = (hex: string, alpha: number) => {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return `rgba(${r},${g},${b},${alpha})`;
+            };
+            root.style.setProperty('--theme-primary-alpha', hexToRgba(colors.primary, 0.3));
+            root.style.setProperty('--theme-secondary-alpha', hexToRgba(colors.secondary, 0.3));
+        }
     }, [displayedTheme, isAutoRotate]);
 
     const setAccentTheme = (theme: AccentTheme) => {

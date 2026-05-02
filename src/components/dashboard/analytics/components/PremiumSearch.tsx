@@ -456,11 +456,11 @@ export function PremiumSearch({
                             {/* Keyboard Hints - Compact like Spotlight */}
                             <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400 dark:text-gray-500">
                                 <div className="flex items-center gap-1">
-                                    <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-medium">↑↓</kbd>
+                                    <kbd className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200">↑↓</kbd>
                                     <span>navigate</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <kbd className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-medium">↵</kbd>
+                                    <kbd className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200">↵</kbd>
                                     <span>select</span>
                                 </div>
                             </div>

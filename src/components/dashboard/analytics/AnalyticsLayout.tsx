@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { DashboardProfile, Feature } from '@/types/analytics';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { FeatureSelector } from './FeatureSelector';
+import { ModernFeatureSelector } from './ModernFeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { FeatureReportModal } from './FeatureReportModal';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,8 @@ import { mockService } from '@/services/mockData';
 import { firebaseConfigService } from '@/services/firebaseConfigService';
 import { apiService, getFeatureName, getFeatureShortName } from '@/services/apiService';
 import { useTheme } from '@/components/theme/theme-provider';
-import { GradientMeshBackground } from '@/components/ui/animated-background';
+import { GradientMeshBackground, AuroraMeshBackground } from '@/components/ui/animated-background';
+import { useScrolled } from '@/hooks/useScrolled';
 import { CustomEventLabelsProvider } from '@/contexts/CustomEventLabelsContext';
 import { AccentThemeSelector } from '@/components/ui/accent-theme-selector';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
@@ -45,6 +46,7 @@ import { AlertsO2Panel } from './components/AlertsO2Panel';
 export function AnalyticsLayout() {
     const { user, logout, isAuthenticated, isLoading, requestAccess, adminAction, getPendingUsers, refreshUser } = useAnalyticsAuth();
     const navigate = useNavigate();
+    const innerScrolled = useScrolled(30);
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -489,159 +491,177 @@ export function AnalyticsLayout() {
         );
     }
 
+    const headerScrolled = useScrolled(30);
+
     if (!selectedFeatureId) {
         return (
-            <div className={cn("min-h-screen flex flex-col relative overflow-hidden transition-colors duration-500", themeClasses.pageBg)}>
-                {/* Background effects */}
+            <div className="min-h-screen flex flex-col relative overflow-hidden theme-transition" style={{ background: 'var(--dash-bg)' }}>
+                {/* Aurora mesh background */}
                 <div className="pointer-events-none">
-                    <GradientMeshBackground />
+                    <AuroraMeshBackground />
                 </div>
 
-                <header className="fixed top-0 left-0 right-0 border-b border-border/50 px-3 lg:px-4 py-4 lg:py-5 flex justify-between items-center bg-card/95 backdrop-blur-md shadow-sm z-[100]" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 16px))' }}>
-                    <div className="flex items-center gap-2 lg:gap-3">
-                        <div className="h-8 w-8 lg:h-10 lg:w-10 rounded-lg lg:rounded-xl bg-white dark:bg-slate-800 p-1 lg:p-1.5 shadow-lg border border-gray-100 dark:border-gray-500/20 overflow-hidden">
-                            <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
+                <header className="fixed top-0 left-0 right-0 z-[100] transition-all duration-300" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 12px))' }}>
+                    <div
+                        className={cn(
+                            "mx-3 lg:mx-6 px-3 lg:px-5 flex justify-between items-center rounded-2xl transition-all duration-300",
+                            headerScrolled
+                                ? "py-2 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
+                                : "py-2.5 lg:py-3 backdrop-blur-md shadow-none"
+                        )}
+                        style={{
+                            background: headerScrolled ? 'var(--dash-header-bg)' : 'transparent',
+                            border: headerScrolled ? '1px solid var(--dash-header-border)' : '1px solid transparent',
+                        }}
+                    >
+                        <div className="flex items-center gap-2 lg:gap-3">
+                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl p-1 overflow-hidden flex items-center justify-center" style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)' }}>
+                                <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
+                            </div>
+                            <div className="flex flex-col">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className="flex items-center gap-1.5 font-bold text-sm lg:text-base leading-tight transition-colors outline-none focus:outline-none" style={{ color: 'var(--dash-text-primary)' }}>
+                                            <Building2 className="h-3.5 w-3.5" style={{ color: 'var(--dash-text-muted)' }} />
+                                            {selectedOrganization?.name || 'Select Organization'}
+                                            <ChevronDown className="h-3 w-3" style={{ color: 'var(--dash-text-muted)' }} />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-56 backdrop-blur-xl z-[200]" style={{ background: 'var(--dash-card-bg)', border: '1px solid var(--dash-border)' }}>
+                                        {organizations.map((org) => (
+                                            <DropdownMenuItem
+                                                key={org.id}
+                                                onClick={() => setSelectedOrganization(org)}
+                                                className="flex items-center justify-between cursor-pointer transition-colors"
+                                                style={{ color: 'var(--dash-text-primary)' }}
+                                            >
+                                                <span>{org.name}</span>
+                                                {selectedOrganization?.id === org.id && (
+                                                    <Check className="h-4 w-4 text-emerald-500" />
+                                                )}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <span className="text-[10px] font-medium hidden sm:block" style={{ color: 'var(--dash-text-muted)' }}>
+                                    Analytics Dashboard
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex flex-col">
-                            {/* Organization Selector Dropdown */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="flex items-center gap-1.5 font-bold text-sm lg:text-lg text-foreground leading-tight hover:text-gray-800 dark:hover:text-gray-200 transition-colors outline-none focus:outline-none">
-                                        <Building2 className="h-4 w-4 text-gray-500" />
-                                        {selectedOrganization?.name || 'Select Organization'}
-                                        <ChevronDown className="h-3 w-3 opacity-50" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                    align="start"
-                                    className="w-56"
-                                    onCloseAutoFocus={(e) => e.preventDefault()}
+                        <div className="flex items-center gap-2 lg:gap-3">
+                            {/* Request Access (Non-Admins) */}
+                            {!isAdmin && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (user?.pending_status === 1) {
+                                            refreshUser?.();
+                                            navigate('/request-access');
+                                        } else {
+                                            navigate('/request-access');
+                                        }
+                                    }}
+                                    className={cn("hidden sm:flex gap-2 h-8 rounded-lg text-xs transition-all", user?.pending_status === 1 ? 'text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-500/30' : '')}
+                                    style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)' }}
                                 >
-                                    {organizations.map((org) => (
-                                        <DropdownMenuItem
-                                            key={org.id}
-                                            onClick={() => setSelectedOrganization(org)}
-                                            className="flex items-center justify-between cursor-pointer"
-                                        >
-                                            <span>{org.name}</span>
-                                            {selectedOrganization?.id === org.id && (
-                                                <Check className="h-4 w-4 text-gray-600" />
-                                            )}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            <span className="text-[10px] lg:text-xs text-gray-600 dark:text-gray-400 font-medium hidden sm:block">
-                                Analytics Dashboard
-                            </span>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 lg:gap-3">
-                        {/* Request Access Button (Non-Admins) */}
-                        {!isAdmin && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    if (user?.pending_status === 1) {
-                                        // Trigger manual refresh to check approval status
-                                        refreshUser?.();
-                                        navigate('/request-access');
-                                    } else {
-                                        navigate('/request-access');
-                                    }
-                                }}
-                                className={`hidden sm:flex gap-2 h-8 ${user?.pending_status === 1 ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-600/20' : ''}`}
-                            >
-                                {user?.pending_status === 1 ? (
-                                    <>
-                                        <Clock className="h-3.5 w-3.5 animate-pulse" />
-                                        <span>Check Status</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <UserPlus className="h-3.5 w-3.5" />
-                                        <span>Request Access</span>
-                                    </>
-                                )}
-                            </Button>
-                        )}
+                                    {user?.pending_status === 1 ? (
+                                        <>
+                                            <Clock className="h-3.5 w-3.5 animate-pulse" />
+                                            <span>Check Status</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UserPlus className="h-3.5 w-3.5" />
+                                            <span>Request Access</span>
+                                        </>
+                                    )}
+                                </Button>
+                            )}
 
-                        {/* Admin Access Panel Button */}
-                        {isAdmin && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => navigate('/admin')}
-                                className={cn(
-                                    "flex items-center gap-1.5 h-8 px-3 transition-all duration-300",
-                                    pendingUsers.length > 0
-                                        ? "bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-500/50 text-red-700 dark:text-red-300 animate-pulse hover:bg-red-100 dark:hover:bg-red-900/50 shadow-[0_0_8px_rgba(220,38,38,0.3)]"
-                                        : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300"
-                                )}
-                            >
-                                <ShieldAlert className={cn(
-                                    "h-3.5 w-3.5",
-                                    pendingUsers.length > 0 ? "text-red-500" : "text-amber-600 dark:text-amber-400"
-                                )} />
-                                <span className="text-xs font-bold">Admin Access Panel</span>
-                                {pendingUsers.length > 0 && (
-                                    <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-red-600 text-white font-bold shadow-sm">
-                                        {pendingUsers.length}
+                            {/* Admin Panel */}
+                            {isAdmin && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate('/admin')}
+                                    className={cn("hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg transition-all duration-300 text-xs", pendingUsers.length > 0 && "animate-pulse")}
+                                    style={{ background: 'var(--dash-surface)', border: `1px solid ${pendingUsers.length > 0 ? 'rgba(244,63,94,0.3)' : 'var(--dash-border)'}`, color: pendingUsers.length > 0 ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-text)' }}
+                                >
+                                    <ShieldAlert className="h-3.5 w-3.5" />
+                                    <span className="font-semibold">Admin Panel</span>
+                                    {pendingUsers.length > 0 && (
+                                        <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-red-500 text-white font-bold">
+                                            {pendingUsers.length}
+                                        </span>
+                                    )}
+                                </Button>
+                            )}
+
+                            {/* Live Clock */}
+                            <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-lg" style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)' }}>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-sm font-bold font-mono tabular-nums tracking-tight" style={{ color: 'var(--dash-text-primary)' }}>
+                                        {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                     </span>
-                                )}
-                            </Button>
-                        )}
-
-                        {/* Live Clock */}
-                        <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-lg bg-gradient-to-r from-gray-50/50 to-slate-50/50 dark:from-gray-800/20 dark:to-slate-800/20 border border-gray-200/50 dark:border-gray-500/30">
-                            <div className="flex items-center gap-1.5">
-                                <div className="text-sm font-bold text-foreground font-mono tabular-nums">
-                                    {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                    <span className="text-xs font-mono tabular-nums animate-pulse" style={{ color: 'var(--dash-text-muted)' }}>
+                                        :{currentTime.getSeconds().toString().padStart(2, '0')}
+                                    </span>
                                 </div>
-                                <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 font-mono">
-                                    :{currentTime.getSeconds().toString().padStart(2, '0')}
-                                </div>
+                                <span className="text-[9px] font-medium" style={{ color: 'var(--dash-text-muted)' }}>
+                                    {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
                             </div>
-                            <div className="text-[9px] text-muted-foreground font-medium">
-                                {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </div>
-                        </div>
-                        {/* Theme Toggle */}
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={toggleMode}
-                            className="rounded-full border-gray-200 dark:border-gray-500/30 hover:bg-gray-50 dark:hover:bg-gray-500/10 h-8 w-8"
-                        >
-                            {mode === 'dark' ? <Sun className="h-4 w-4 text-yellow-500" /> : <Moon className="h-4 w-4 text-gray-600" />}
-                        </Button>
 
-                        {hasWriteAccess(selectedFeatureId || newConfigFeature) && (
+                            {/* Theme Toggle */}
                             <Button
-                                onClick={() => setShowNewConfigModal(true)}
-                                size="sm"
-                                className={cn(
-                                    "gap-2 bg-gradient-to-r shadow-lg h-8 rounded-xl",
-                                    themeClasses.buttonGradient,
-                                    themeClasses.buttonHover
-                                )}
+                                variant="outline"
+                                size="icon"
+                                onClick={toggleMode}
+                                className="rounded-lg h-8 w-8 transition-colors"
+                                style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-muted)' }}
                             >
-                                <Plus className="h-4 w-4" />
-                                <span className="hidden lg:inline">New Config</span>
+                                {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-slate-500" />}
                             </Button>
-                        )}
-                        <span className="text-muted-foreground text-xs lg:text-sm hidden md:inline">
-                            Welcome, <span className="text-foreground font-medium">{user?.username}</span>
-                        </span>
-                        <Button variant="ghost" size="icon" onClick={logout} className="hidden md:flex text-muted-foreground hover:text-foreground hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 h-8 w-8">
-                            <LogOut className="h-4 w-4" />
-                        </Button>
+
+                            {/* New Config — gradient + shimmer */}
+                            {hasWriteAccess(selectedFeatureId || newConfigFeature) && (
+                                <Button
+                                    onClick={() => setShowNewConfigModal(true)}
+                                    size="sm"
+                                    className="relative overflow-hidden gap-2 h-8 rounded-lg text-white shadow-lg hover:brightness-110 transition-all"
+                                    style={{ background: 'var(--dash-btn-gradient)', boxShadow: '0 4px 20px var(--dash-glow-primary)' }}
+                                >
+                                    <span className="absolute inset-0 overflow-hidden">
+                                        <span className="absolute inset-0 -translate-x-full animate-[shimmer-sweep_2.5s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-15deg]" />
+                                    </span>
+                                    <Plus className="h-4 w-4 relative z-10" />
+                                    <span className="hidden lg:inline relative z-10 text-xs font-semibold">New Config</span>
+                                </Button>
+                            )}
+
+                            {/* User Profile */}
+                            <div className="hidden md:flex items-center gap-2 pl-2" style={{ borderLeft: '1px solid var(--dash-border)' }}>
+                                <div className="relative">
+                                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-[10px] font-bold text-white">
+                                        {user?.username?.charAt(0)?.toUpperCase() || 'U'}
+                                    </div>
+                                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2" style={{ borderColor: 'var(--dash-bg)' }} />
+                                </div>
+                                <span className="text-xs hidden lg:inline max-w-[140px] truncate" style={{ color: 'var(--dash-text-secondary)' }}>
+                                    {user?.username}
+                                </span>
+                            </div>
+
+                            <Button variant="ghost" size="icon" onClick={logout} className="hidden md:flex h-8 w-8 rounded-lg transition-colors hover:text-red-500" style={{ color: 'var(--dash-text-muted)' }}>
+                                <LogOut className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                 </header>
-                {/* Spacer for fixed header */}
-                <div className="h-16 lg:h-20" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
-                <FeatureSelector key={featureSelectorKey} onSelectFeature={setSelectedFeatureId} />
+                {/* Spacer for floating header */}
+                <div className="h-20 lg:h-24" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
+                <ModernFeatureSelector key={featureSelectorKey} onSelectFeature={setSelectedFeatureId} />
 
                 {/* Premium Search Modal - Available on feature selector page */}
                 <PremiumSearch
@@ -794,8 +814,20 @@ export function AnalyticsLayout() {
 
     return (
         <CustomEventLabelsProvider>
-            <div className={cn("flex flex-col relative min-h-screen transition-colors duration-500", themeClasses.pageBg)}>
-                <header className={cn("fixed top-0 left-0 right-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] border-b shadow-lg transition-all duration-500", themeClasses.headerBg, themeClasses.borderAccent)} style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+            <div className="flex flex-col relative min-h-screen theme-transition" style={{ background: 'var(--dash-bg)' }}>
+                <header 
+                    className={cn(
+                        "fixed top-0 left-0 right-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] transition-all duration-300",
+                        innerScrolled && "header-glass-scrolled"
+                    )}
+                    style={{ 
+                        paddingTop: 'env(safe-area-inset-top, 0px)', 
+                        background: innerScrolled ? undefined : 'transparent', 
+                        borderBottom: innerScrolled ? undefined : '1px solid transparent',
+                        backdropFilter: innerScrolled ? undefined : 'none',
+                        boxShadow: innerScrolled ? undefined : 'none'
+                    }}
+                >
                     <div className="flex items-center gap-2 lg:gap-4">
                         {/* Mobile Menu Button */}
                         <div className="md:hidden">
@@ -803,7 +835,8 @@ export function AnalyticsLayout() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => setMobileSidebarOpen(true)}
-                                className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 text-gray-600 dark:text-gray-300"
+                                className="h-8 w-8"
+                                style={{ color: 'var(--dash-text-muted)' }}
                             >
                                 <Menu className="h-4 w-4" />
                             </Button>
@@ -815,22 +848,22 @@ export function AnalyticsLayout() {
                                 setSelectedFeatureId(null);
                                 setSelectedProfileId(null);
                                 setIsCreatingProfile(false);
-                                // Force fresh remount of FeatureSelector to avoid stale loading state
                                 setFeatureSelectorKey(prev => prev + 1);
                             }}
-                            className="hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 lg:h-9 lg:w-9 text-gray-600 dark:text-gray-300"
+                            className="h-8 w-8 lg:h-9 lg:w-9 hover:scale-110 transition-transform"
+                            style={{ color: 'var(--dash-text-muted)' }}
                         >
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                         <div className="flex items-center gap-2 lg:gap-3">
-                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl bg-white dark:bg-gray-800 p-1 shadow-md shadow-indigo-100/50 dark:shadow-gray-900/50 border border-gray-200/80 dark:border-gray-700/50">
+                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl p-1 shadow-md" style={{ background: 'var(--dash-bg-elevated)', border: '1px solid var(--dash-border)' }}>
                                 <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                             </div>
                             <div className="flex items-center gap-1.5 lg:gap-2">
-                                <span className="font-semibold text-gray-800 dark:text-gray-100 text-sm lg:text-base">
+                                <span className="font-semibold text-sm lg:text-base stat-gradient-text">
                                     {selectedFeatureId ? getFeatureName(selectedFeatureId) : 'Analytics'}
                                 </span>
-                                <span className="text-xs text-gray-400 dark:text-gray-500 hidden md:inline font-medium">
+                                <span className="text-xs hidden md:inline font-medium" style={{ color: 'var(--dash-text-muted)' }}>
                                     — {selectedOrganization?.name || 'Organization'}
                                 </span>
                             </div>
@@ -840,12 +873,12 @@ export function AnalyticsLayout() {
                         {/* Accent Theme Selector */}
                         <AccentThemeSelector />
 
-                        {/* Theme Toggle */}
+                        {/* Theme Toggle - Glassmorphic pill */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={toggleMode}
-                            className="rounded-full border-gray-200 dark:border-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 h-8 w-8 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm"
+                            className="rounded-full h-8 w-8 backdrop-blur-md bg-white/40 dark:bg-white/10 border border-white/30 dark:border-white/10 hover:scale-105 transition-transform"
                         >
                             {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-600" />}
                         </Button>
@@ -876,25 +909,26 @@ export function AnalyticsLayout() {
                             </Button>
                         )}
 
-                        {/* Feature Report Button */}
+                        {/* Feature Report Button - Ghost green */}
                         {selectedFeatureId && (
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowReportModal(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-emerald-200 dark:border-emerald-700 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/40 dark:hover:to-teal-900/40 text-emerald-700 dark:text-emerald-400 transition-all"
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:scale-[1.02] transition-all backdrop-blur-sm bg-white/30 dark:bg-transparent"
                             >
                                 <FileText className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold hidden lg:inline">Generate Report</span>
                             </Button>
                         )}
 
+                        {/* Alerts Panel Button - Ghost pink/purple */}
                         {selectedFeatureId && (
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowAlertsPanel(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-fuchsia-50 to-violet-50 dark:from-fuchsia-950/30 dark:to-violet-950/30 border-fuchsia-200 dark:border-fuchsia-700 hover:from-fuchsia-100 hover:to-violet-100 dark:hover:from-fuchsia-900/40 dark:hover:to-violet-900/40 text-fuchsia-700 dark:text-fuchsia-300 transition-all"
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl border-fuchsia-300 dark:border-fuchsia-500/30 text-fuchsia-700 dark:text-fuchsia-300 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-500/10 hover:scale-[1.02] transition-all backdrop-blur-sm bg-white/30 dark:bg-transparent"
                             >
                                 <BellRing className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold hidden lg:inline">Alerts Panel</span>
@@ -906,21 +940,21 @@ export function AnalyticsLayout() {
                                 <Button
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
-                                    className={cn(
-                                        "gap-2 bg-gradient-to-r shadow-lg h-8 rounded-xl",
-                                        themeClasses.buttonGradient,
-                                        themeClasses.buttonHover
-                                    )}
+                                    className="relative overflow-hidden gap-2 h-8 rounded-xl text-white shadow-lg btn-theme-gradient"
                                 >
-                                    <Plus className="h-4 w-4" />
-                                    <span className="hidden lg:inline font-semibold">New Config</span>
+                                    {/* Shimmer overlay */}
+                                    <span className="absolute inset-0 overflow-hidden pointer-events-none">
+                                        <span className="absolute inset-0 -translate-x-full animate-[shimmer-sweep_2.5s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-15deg]" />
+                                    </span>
+                                    <Plus className="h-4 w-4 relative z-10" />
+                                    <span className="hidden lg:inline font-semibold relative z-10">New Config</span>
                                 </Button>
                             </div>
                         )}
-                        <span className="text-xs lg:text-sm px-3 lg:px-4 py-1.5 rounded-xl font-bold hidden sm:inline-flex border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 shadow-sm">
+                        <span className="text-xs lg:text-sm px-3 lg:px-4 py-1.5 rounded-xl font-bold hidden sm:inline-flex border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm text-gray-800 dark:text-gray-100 shadow-sm">
                             {isAdmin ? 'Super Admin' : (hasWriteAccess(selectedFeatureId) ? 'Editor' : 'Viewer')}
                         </span>
-                        <Button variant="ghost" size="icon" onClick={logout} className="hidden md:flex hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 h-8 w-8 text-gray-500 dark:text-gray-400">
+                        <Button variant="ghost" size="icon" onClick={logout} className="hidden md:flex hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 h-8 w-8 text-gray-500 dark:text-gray-400 hover:scale-105 transition-transform">
                             <LogOut className="h-4 w-4" />
                         </Button>
                     </div>
@@ -975,7 +1009,7 @@ export function AnalyticsLayout() {
                     {/* Desktop Sidebar - instant width change, no animation */}
                     <div className="hidden md:block flex-shrink-0">
                         <div
-                            className="border-r border-white/30 dark:border-white/10 bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl backdrop-saturate-150 flex flex-col sticky top-14 lg:top-16 shadow-[inset_-1px_0_0_rgba(255,255,255,0.3)] dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)]"
+                            className="sidebar-glass flex flex-col sticky top-14 lg:top-16"
                             style={{ width: sidebarCollapsed ? 60 : 280 }}
                         >
                             <ProfileSidebar

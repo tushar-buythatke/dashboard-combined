@@ -546,14 +546,14 @@ export function DashboardChatbot({
                     {/* Keyboard shortcuts - hide on mobile */}
                     {!isMobile && (
                         <div className="mt-1.5 flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
-                            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50">
-                                <Command className="h-2.5 w-2.5" />
-                                <span className="font-medium">L</span>
+                            <div className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200">
+                                <Command className="h-2.5 w-2.5 opacity-70" />
+                                <span>L</span>
                             </div>
                             <span>open</span>
                             <span className="mx-0.5">•</span>
-                            <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-gray-100/50 dark:bg-gray-800/50">
-                                <span className="font-medium">⌘K</span>
+                            <div className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200">
+                                <span>⌘K</span>
                             </div>
                             <span>voice</span>
                             <span className="mx-0.5">•</span>

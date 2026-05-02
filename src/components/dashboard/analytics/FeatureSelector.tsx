@@ -201,7 +201,7 @@ export function FeatureSelector({ onSelectFeature }: FeatureSelectorProps) {
                         Choose a feature to explore detailed analytics and insights
                     </p>
                     <div className={cn("flex items-center justify-center gap-2 text-xs", t.textMuted)}>
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-700/50">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200">
                             <span className="font-semibold">⌘F</span>
                             <span>for faster search</span>
                         </span>

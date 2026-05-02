@@ -10,6 +10,7 @@ import { mockService } from '@/services/mockData';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAccentTheme, THEME_INFO } from '@/contexts/AccentThemeContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { SiteDetail } from '@/services/apiService';
 import { MultiSelectDropdown } from '@/components/ui/multi-select-dropdown';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,8 @@ import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { MobileDatePicker } from '@/components/ui/mobile-date-picker';
+import type { DateRange } from 'react-day-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EnhancedCard, CardHeader as EnhancedCardHeader } from '@/components/ui/enhanced-card';
 import { InteractiveButton, IconButton } from '@/components/ui/interactive-button';
@@ -298,6 +301,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
     const { triggerRefresh, refreshTrigger } = useCustomEventLabels();
     const { getEventDisplayName } = useEventName();
     const { t: themeClasses } = useAccentTheme();
+    const isMobile = useIsMobile();
 
     const [profile, setProfile] = useState<DashboardProfile | null>(null);
     const [customLabelsModalOpen, setCustomLabelsModalOpen] = useState(false);
@@ -3961,8 +3965,44 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                     </Button>
                                 </>
                             )}
-                            <Popover>
-                                <PopoverTrigger asChild>
+                            <MobileDatePicker
+                                mode="range"
+                                selected={{ from: dateRange.from, to: dateRange.to }}
+                                onSelect={(range: DateRange | undefined) => {
+                                    if (range?.from) {
+                                        const newDateRange = {
+                                            from: range.from,
+                                            to: range.to || range.from
+                                        };
+                                        setDateRange(newDateRange);
+
+                                        // Sync ALL panel date ranges with the main date range
+                                        if (profile?.panels) {
+                                            const updatedPanelRanges: Record<string, DateRangeState> = {};
+                                            const updatedFilterChanges: Record<string, boolean> = {};
+
+                                            profile.panels.forEach(panel => {
+                                                updatedPanelRanges[panel.panelId] = newDateRange;
+                                                updatedFilterChanges[panel.panelId] = true;
+                                            });
+
+                                            setPanelDateRanges(prev => ({
+                                                ...prev,
+                                                ...updatedPanelRanges
+                                            }));
+
+                                            setPanelFilterChanges(prev => ({
+                                                ...prev,
+                                                ...updatedFilterChanges
+                                            }));
+                                        }
+
+                                        setPendingRefresh(true);
+                                    }
+                                }}
+                                numberOfMonths={isMobile ? 1 : 2}
+                                align="end"
+                                trigger={
                                     <Button
                                         variant="secondary"
                                         size="sm"
@@ -3973,48 +4013,8 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                             {`${dateRange.from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${dateRange.to.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                                         </span>
                                     </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="end">
-                                    <Calendar
-                                        mode="range"
-                                        selected={{ from: dateRange.from, to: dateRange.to }}
-                                        onSelect={(range) => {
-                                            if (range?.from) {
-                                                const newDateRange = {
-                                                    from: range.from,
-                                                    to: range.to || range.from
-                                                };
-                                                setDateRange(newDateRange);
-
-                                                // Sync ALL panel date ranges with the main date range
-                                                if (profile?.panels) {
-                                                    const updatedPanelRanges: Record<string, DateRangeState> = {};
-                                                    const updatedFilterChanges: Record<string, boolean> = {};
-
-                                                    profile.panels.forEach(panel => {
-                                                        updatedPanelRanges[panel.panelId] = newDateRange;
-                                                        updatedFilterChanges[panel.panelId] = true;
-                                                    });
-
-                                                    setPanelDateRanges(prev => ({
-                                                        ...prev,
-                                                        ...updatedPanelRanges
-                                                    }));
-
-                                                    setPanelFilterChanges(prev => ({
-                                                        ...prev,
-                                                        ...updatedFilterChanges
-                                                    }));
-                                                }
-
-                                                setPendingRefresh(true);
-                                            }
-                                        }}
-                                        numberOfMonths={2}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                                }
+                            />
                             <Button
                                 variant={pendingRefresh ? "default" : "secondary"}
                                 size="sm"
@@ -4056,9 +4056,15 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         </>
                     ) : (
                         <>
-                            {/* Clean subtle background - neutral colors only */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-gray-200/15 dark:bg-gray-800/20" />
-                            <div className="absolute -top-20 right-0 w-80 h-80 rounded-full blur-3xl bg-gray-100/15 dark:bg-gray-900/15" />
+                            {/* Theme-colored ambient orbs */}
+                            <div className="theme-orb-1 -top-40 -left-40 w-96 h-96" />
+                            <div className="theme-orb-2 -top-20 right-0 w-80 h-80" />
+                            {/* Subtle page tint */}
+                            <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                                style={{
+                                    background: `radial-gradient(ellipse at top center, ${themePalette?.primary || '#8b5cf6'}, transparent 70%)`
+                                }}
+                            />
                         </>
                     )}
                 </div>
@@ -4154,9 +4160,9 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                         </>
                     ) : (
                         <>
-                            {/* Clean subtle background - neutral colors only */}
-                            <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-gray-200/15 dark:bg-gray-800/20" />
-                            <div className="absolute -top-20 right-0 w-80 h-80 rounded-full blur-3xl bg-gray-100/15 dark:bg-gray-900/15" />
+                            {/* Theme-colored ambient orbs */}
+                            <div className="theme-orb-1 -top-40 -left-40 w-96 h-96" />
+                            <div className="theme-orb-2 -top-20 right-0 w-80 h-80" />
                         </>
                     )}
                 </div>
