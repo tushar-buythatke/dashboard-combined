@@ -84,6 +84,8 @@ export default {
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+        // Display font — page titles, hero & major headings ONLY (not body/cards/tables)
+        display: ["Clash Display", "Inter Variable", "Inter", "system-ui", "sans-serif"],
       },
       keyframes: {
         "accordion-down": {

@@ -347,6 +347,46 @@ html, body, .theme-transition {
   --glow-warning: 0 0 30px rgba(251, 191, 36, 0.2);
   --glow-danger: 0 0 30px rgba(239, 68, 68, 0.2);
   --glow-info: 0 0 30px rgba(59, 130, 246, 0.2);
+
+  /* ========================================================================
+     PREMIUM UI UPGRADE — Foundation tokens (v3)
+     Purple is the default identity; all 6 accent themes override --accent-*.
+     glow/surface derive from --accent-primary so they follow the active theme.
+     ======================================================================== */
+  /* Default accent = purple → violet → pink (#6c47ff / #a855f7 / #ec4899) */
+  --accent-primary: 252 100% 64%;
+  --accent-secondary: 271 91% 65%;
+  --accent-tertiary: 330 81% 60%;
+  /* Derived — re-resolve against whichever --accent-primary is in scope */
+  --accent-glow: hsl(var(--accent-primary) / 0.20);
+  --accent-surface: hsl(var(--accent-primary) / 0.06);
+  --accent-gradient: linear-gradient(135deg, hsl(var(--accent-primary)) 0%, hsl(var(--accent-secondary)) 50%, hsl(var(--accent-tertiary)) 100%);
+
+  /* Ordered multi-series chart palette (vivid, never muddy) */
+  --chart-color-1: #6c47ff;
+  --chart-color-2: #10b981;
+  --chart-color-3: #f59e0b;
+  --chart-color-4: #ef4444;
+  --chart-color-5: #06b6d4;
+  --chart-color-6: #a855f7;
+  --chart-color-7: #f97316;
+  --chart-color-8: #84cc16;
+  --chart-color-9: #ec4899;
+  --chart-color-10: #3b82f6;
+  /* Semantic chart helpers */
+  --chart-avg: #f59e0b;     /* amber average line */
+  --chart-grid: rgba(0, 0, 0, 0.06);
+  --chart-axis: rgba(0, 0, 0, 0.42);
+
+  /* Display font (Clash Display) — headings/hero only */
+  --font-display: 'Clash Display', 'Inter Variable', Inter, system-ui, sans-serif;
+
+  /* Premium easings */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 400ms;
 }
 
 /* Dark mode */
@@ -384,6 +424,10 @@ html, body, .theme-transition {
   --glow-warning: 0 0 20px rgba(251, 191, 36, 0.4);
   --glow-danger: 0 0 20px rgba(239, 68, 68, 0.4);
   --glow-info: 0 0 20px rgba(59, 130, 246, 0.4);
+
+  /* Premium foundation — dark variants (accent-* inherit purple from :root) */
+  --chart-grid: rgba(255, 255, 255, 0.07);
+  --chart-axis: rgba(255, 255, 255, 0.45);
 }
 
 /* THEME: EMERALD - Clean green */
@@ -1101,10 +1145,10 @@ html, body, .theme-transition {
   --accent-tertiary: 188 94% 43%;
 }
 
-/* Accent Theme: Aurora (Purple/Pink) */
+/* Accent Theme: Aurora (Purple/Pink) — the premium default identity */
 [data-accent-theme="aurora"] {
-  --accent-primary: 271 81% 55%;
-  --accent-secondary: 292 91% 73%;
+  --accent-primary: 252 100% 64%;
+  --accent-secondary: 271 91% 65%;
   --accent-tertiary: 330 81% 60%;
 }
 

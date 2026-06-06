@@ -496,7 +496,7 @@ export function AccentThemeProvider({ children }: { children: ReactNode }) {
                 try {
                     const { theme, lastRotated, isAutoRotate: storedAuto } = JSON.parse(storedData);
                     const elapsed = Date.now() - lastRotated;
-                    const actualTheme = theme === 'auto' ? 'indigo' : theme;
+                    const actualTheme = theme === 'auto' ? 'aurora' : theme;
 
                     // Only auto-rotate if isAutoRotate is true
                     if (storedAuto !== false && elapsed >= ROTATION_INTERVAL_MS) {
@@ -528,16 +528,16 @@ export function AccentThemeProvider({ children }: { children: ReactNode }) {
                 return stored as Exclude<AccentTheme, 'auto'>;
             }
         }
-        // Default - auto rotate with indigo
+        // Default - auto rotate starting on Aurora (the premium purple identity)
         if (typeof window !== 'undefined') {
             localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify({
                 theme: 'auto',
-                displayedTheme: 'indigo',
+                displayedTheme: 'aurora',
                 lastRotated: Date.now(),
                 isAutoRotate: true
             }));
         }
-        return 'indigo';
+        return 'aurora';
     });
 
 
