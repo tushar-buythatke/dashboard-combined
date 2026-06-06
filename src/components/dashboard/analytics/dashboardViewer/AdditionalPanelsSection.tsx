@@ -466,41 +466,52 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             </div>
                         </div>
 
-                        <Card className="rounded-2xl glass-card-v2 hover-lift-premium">
-                            <CardHeader className="pb-4">
-                                <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+                        <Card className="rounded-2xl glass-card-v2 hover-lift-premium overflow-hidden">
+                            {/* ── Panel Banner ── Premium S3 treatment */}
+                            <CardHeader
+                                className="pb-4 pt-5 px-4 sm:px-6 relative overflow-hidden min-h-[80px] flex flex-col justify-center"
+                                style={{ background: 'var(--accent-gradient)' }}
+                            >
+                                {/* Subtle floating orbs — honours prefers-reduced-motion via global CSS */}
+                                <div
+                                    className="glass-orb glass-orb-1 pointer-events-none"
+                                    style={{ width: 120, height: 120, top: -40, right: '15%', opacity: 0.18, background: 'rgba(255,255,255,0.22)' }}
+                                />
+                                <div
+                                    className="glass-orb glass-orb-2 pointer-events-none"
+                                    style={{ width: 80, height: 80, bottom: -20, left: '8%', opacity: 0.13, background: 'rgba(255,255,255,0.18)' }}
+                                />
+
+                                <div className="relative z-10 flex items-center justify-between flex-wrap gap-3 sm:gap-4">
                                     <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                        <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg shrink-0" style={{ background: 'var(--theme-gradient)' }}>
+                                        <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-lg shrink-0 bg-white/20 backdrop-blur-sm border border-white/30">
                                             {panelGraphType === 'bar' ? (
-                                                <BarChart3 className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                                             ) : (
-                                                <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                                                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                                             )}
                                         </div>
                                         <div className="min-w-0">
-                                            <h2 className="text-base sm:text-2xl font-bold text-foreground truncate">{panel.panelName}</h2>
-                                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                            <h2
+                                                className="font-display font-semibold text-white truncate"
+                                                style={{ fontSize: '22px', textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}
+                                            >
+                                                {panel.panelName}
+                                            </h2>
+                                            <p className="flex items-center gap-2 mt-0.5 flex-wrap">
                                                 {panelConfig?.isApiEvent && (
                                                     <>
-                                                        <span className={cn("px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)}>
+                                                        {/* frosted-glass API badge */}
+                                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white backdrop-blur-[8px] border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                                             API
                                                         </span>
-                                                        <span className="text-muted-foreground">•</span>
+                                                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>•</span>
                                                     </>
                                                 )}
+                                                {/* frosted-glass chart-type badge */}
                                                 <span
-                                                    className={cn(
-                                                        "px-2 py-0.5 rounded-full text-xs font-medium",
-                                                        panelGraphType === 'bar'
-                                                            ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
-                                                            : panelGraphType === 'percentage'
-                                                                ? "bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-200"
-                                                                : panelGraphType === 'funnel'
-                                                                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-                                                                    : panelGraphType === 'user_flow'
-                                                                        ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300"
-                                                                        : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
-                                                    )}
+                                                    className="px-2 py-0.5 rounded-full text-xs font-medium text-white backdrop-blur-[8px] border"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                 >
                                                     {panelGraphType === 'bar'
                                                         ? 'Bar Chart'
@@ -516,16 +527,23 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         </div>
                                     </div>
 
+                                    {/* frosted-glass stat pills */}
                                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                                        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
-                                            <span className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">
-                                                {isPanelLoading ? <Skeleton className="h-4 w-12" /> : formatNumber(pTotalCount)} total
+                                        <div
+                                            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-[8px] border min-h-[44px]"
+                                            style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
+                                        >
+                                            <span className="text-xs sm:text-sm font-medium text-white whitespace-nowrap">
+                                                {isPanelLoading ? <Skeleton className="h-4 w-12 bg-white/30" /> : formatNumber(pTotalCount)} total
                                             </span>
                                             <span className="hidden sm:inline"><InfoTooltip content="Sum of all events recorded for this panel and its filters." /></span>
                                         </div>
-                                        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
-                                            <span className="text-xs sm:text-sm font-medium text-green-700 dark:text-green-300 whitespace-nowrap">
-                                                {isPanelLoading ? <Skeleton className="h-4 w-10" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}%
+                                        <div
+                                            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-[8px] border min-h-[44px]"
+                                            style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
+                                        >
+                                            <span className="text-xs sm:text-sm font-medium text-white whitespace-nowrap">
+                                                {isPanelLoading ? <Skeleton className="h-4 w-10 bg-white/30" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}%
                                             </span>
                                             <span className="hidden sm:inline"><InfoTooltip content="Percentage of events that completed successfully in this panel." /></span>
                                         </div>

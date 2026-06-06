@@ -1990,19 +1990,23 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         // Merge filter state with config
                         return (
                             <Card className={cn("relative border border-slate-200/60 dark:border-indigo-500/20 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl mt-4", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                <CardHeader className="pb-2 bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/30 dark:to-slate-800/20 border-b border-gray-200/40 dark:border-gray-500/20">
-                                    <div className="flex items-center justify-between">
+                                {/* ── Panel Banner S3 ── */}
+                                <CardHeader
+                                    className="pb-3 pt-4 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                    style={{ background: 'var(--accent-gradient)' }}
+                                >
+                                    <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 100, height: 100, top: -35, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.2)' }} />
+                                    <div className="relative z-10 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg shadow-gray-500/20">
-                                                <GitBranch className="h-6 w-6 text-white" />
+                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 bg-white/20 backdrop-blur-sm border border-white/30">
+                                                <GitBranch className="h-5 w-5 text-white" />
                                             </div>
                                             <div>
-                                                <CardTitle className="text-base md:text-lg">User Flow Visualization</CardTitle>
-                                                <p className="text-xs text-muted-foreground mt-0.5">Track user journey through defined stages</p>
+                                                <CardTitle className="font-display font-semibold text-white" style={{ fontSize: '20px', textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>User Flow Visualization</CardTitle>
+                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>Track user journey through defined stages</p>
                                             </div>
                                         </div>
-                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-300">Flow Analysis</span>
+                                        <span className="text-xs font-semibold px-2.5 py-1.5 min-h-[36px] flex items-center rounded-lg backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>Flow Analysis</span>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-6">
@@ -2169,19 +2173,26 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                             return (
                                 <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                    <CardHeader className="pb-2 px-3 md:px-6">
-                                        <div className="flex items-center justify-between">
+                                    {/* ── Panel Banner S3 ── */}
+                                    <CardHeader
+                                        className="pb-3 pt-4 px-3 md:px-6 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                        style={{ background: 'var(--accent-gradient)' }}
+                                    >
+                                        <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 90, height: 90, top: -30, right: '12%', opacity: 0.14, background: 'rgba(255,255,255,0.2)' }} />
+                                        <div className="relative z-10 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
-                                                <CardTitle className="text-sm sm:text-base md:text-lg">8-Day Hourly</CardTitle>
-                                                <span className="hidden sm:inline px-2 py-0.5 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold rounded-md border border-indigo-300 dark:border-indigo-600" title="Press ⌘+Shift to toggle Hourly/Daily">⌘+Shift</span>
+                                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                                                </div>
+                                                <CardTitle className="font-display font-semibold text-white text-sm sm:text-base md:text-lg" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>8-Day Hourly</CardTitle>
+                                                <span className="hidden sm:inline px-2 py-0.5 text-xs font-bold rounded-md backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }} title="Press ⌘+Shift to toggle Hourly/Daily">⌘+Shift</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                    className="h-8 text-xs text-white backdrop-blur-[8px] border min-h-[36px] hover:bg-white/25"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                     onClick={() => {
                                                         setPanelChartType(prev => {
                                                             const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2198,7 +2209,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
+                                                    className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                                     onClick={() => setExpandedChart({
                                                         type: 'hourly_overlay',
                                                         title: '8-Day Hourly Comparison'
@@ -2238,18 +2249,25 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                             return (
                                 <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                    <CardHeader className="pb-2 px-3 md:px-6">
-                                        <div className="flex items-center justify-between">
+                                    {/* ── Panel Banner S3 ── */}
+                                    <CardHeader
+                                        className="pb-3 pt-4 px-3 md:px-6 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                        style={{ background: 'var(--accent-gradient)' }}
+                                    >
+                                        <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 90, height: 90, top: -30, right: '8%', opacity: 0.15, background: 'rgba(255,255,255,0.2)' }} />
+                                        <div className="relative z-10 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
-                                                <CardTitle className="text-sm sm:text-base md:text-lg">Daily Overlay</CardTitle>
+                                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                                                </div>
+                                                <CardTitle className="font-display font-semibold text-white text-sm sm:text-base md:text-lg" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>Daily Overlay</CardTitle>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                    className="h-8 text-xs text-white backdrop-blur-[8px] border min-h-[36px] hover:bg-white/25"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                     onClick={() => {
                                                         setPanelChartType(prev => {
                                                             const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2268,7 +2286,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
+                                                            className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                                             onClick={() => setExpandedChart({
                                                                 type: 'daily_overlay',
                                                                 title: 'Daily Overlay Comparison'
@@ -2322,19 +2340,26 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                             return (
                                 <Card className={cn("relative border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                    <CardHeader className="pb-2 px-3 md:px-6">
-                                        <div className="flex items-center justify-between">
+                                    {/* ── Panel Banner S3 ── */}
+                                    <CardHeader
+                                        className="pb-3 pt-4 px-3 md:px-6 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                        style={{ background: 'var(--accent-gradient)' }}
+                                    >
+                                        <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 80, height: 80, top: -25, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.2)' }} />
+                                        <div className="relative z-10 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <TrendingUp className="h-5 w-5 text-emerald-600" />
-                                                <CardTitle className="text-base md:text-lg">Daily Trends with Average Line</CardTitle>
-                                                <span className="text-xs text-muted-foreground">({daysDiff} days)</span>
+                                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                                                </div>
+                                                <CardTitle className="font-display font-semibold text-white text-base md:text-lg" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>Daily Trends with Average Line</CardTitle>
+                                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>({daysDiff} days)</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                                    className="h-8 text-xs text-white backdrop-blur-[8px] border min-h-[36px] hover:bg-white/25"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                     onClick={() => {
                                                         setPanelChartType(prev => {
                                                             const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2372,20 +2397,23 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     return (
                         <div>
                             <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                <CardHeader className="pb-2 px-3 md:px-6">
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                                {/* ── Panel Banner S3 ── */}
+                                <CardHeader
+                                    className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                    style={{ background: 'var(--accent-gradient)' }}
+                                >
+                                    <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 140, height: 140, top: -50, right: '8%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                    <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 80, height: 80, bottom: -25, left: '5%', opacity: 0.12, background: 'rgba(255,255,255,0.18)' }} />
+                                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
-                                            <div
-                                                className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20"
-                                            >
+                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
                                                 <BarChart3 className="h-5 w-5 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <CardTitle className="text-base md:text-lg flex items-center gap-2">
-                                                    {/* API Event Indicator Badge */}
+                                                <CardTitle className="font-display font-semibold text-white text-base md:text-[22px] flex items-center gap-2" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>
+                                                    {/* API Event frosted badge */}
                                                     {profile?.panels?.[0]?.filterConfig?.isApiEvent === true && (
-                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-md">
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white backdrop-blur-[8px] border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                                             API
                                                         </span>
                                                     )}
@@ -2404,7 +2432,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         return 'Daily Event Trends with Average';
                                                     })()}
                                                 </CardTitle>
-                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                     {isHourly ? (
                                                         <span className="hidden md:inline">
                                                             {(() => {
@@ -2422,7 +2450,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {/* AI Insights Button - Admin Only */}
                                             {isAdmin && (
                                                 <AiInsightsBadge
@@ -2435,10 +2463,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 />
                                             )}
 
+                                            {/* frosted glass overlay toggle */}
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-9 text-sm font-semibold bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-4"
+                                                className="h-9 text-sm font-semibold text-white backdrop-blur-[8px] border min-h-[44px] px-4 hover:bg-white/25"
+                                                style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                 onClick={() => {
                                                     setPanelChartType(prev => {
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2460,15 +2490,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     return mainChartType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
                                                 })()}
                                             </Button>
-                                            {/* Hourly/Daily Toggle */}
-                                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                            {/* frosted-glass Hourly/Daily Toggle */}
+                                            <div className="flex items-center rounded-xl p-1 border backdrop-blur-[8px]" style={{ background: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                                 <button
                                                     onClick={() => setHourlyOverride?.(true)}
                                                     className={cn(
-                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
+                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-h-[36px]",
                                                         isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
-                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
+                                                            ? "bg-white/30 text-white shadow-md"
+                                                            : "text-white/70 hover:text-white hover:bg-white/15"
                                                     )}
                                                 >
                                                     Hourly
@@ -2476,10 +2506,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <button
                                                     onClick={() => setHourlyOverride?.(false)}
                                                     className={cn(
-                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
+                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-h-[36px]",
                                                         !isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
-                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
+                                                            ? "bg-white/30 text-white shadow-md"
+                                                            : "text-white/70 hover:text-white hover:bg-white/15"
                                                     )}
                                                 >
                                                     Daily
@@ -2488,7 +2518,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-7 w-7 text-gray-500 hover:text-indigo-600"
+                                                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                                 onClick={() => {
                                                     // Determine current chart type and render correct expanded view
                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2985,19 +3015,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
                         <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                            <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                            <CardHeader className="pb-2 px-3 md:px-6">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                            {/* ── Panel Banner S3 ── */}
+                            <CardHeader
+                                className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                style={{ background: 'var(--accent-gradient)' }}
+                            >
+                                <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 120, height: 120, top: -40, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 70, height: 70, bottom: -20, left: '6%', opacity: 0.12, background: 'rgba(255,255,255,0.18)' }} />
+                                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                        <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
                                             {(() => {
                                                 const firstAvgEvent = avgEventKeys[0];
                                                 const avgEventType = firstAvgEvent?.isAvgEvent || 0;
-                                                return avgEventType === 2 ? <DollarSign className="h-6 w-6 text-white" /> : <Clock className="h-6 w-6 text-white" />;
+                                                return avgEventType === 2 ? <DollarSign className="h-5 w-5 text-white" /> : <Clock className="h-5 w-5 text-white" />;
                                             })()}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg">
+                                            <CardTitle className="font-display font-semibold text-white text-base md:text-[22px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>
                                                 {(() => {
                                                     const firstAvgEvent = avgEventKeys[0];
                                                     const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3006,7 +3041,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     return 'Time Delay Trends';
                                                 })()}
                                             </CardTitle>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                 {(() => {
                                                     const firstAvgEvent = avgEventKeys[0];
                                                     const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3023,7 +3058,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                                        <span className="text-xs font-semibold px-2.5 py-1.5 min-h-[36px] flex items-center rounded-lg backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                             {(() => {
                                                 const firstAvgEvent = avgEventKeys[0];
                                                 const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3034,7 +3069,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-7 w-7 ml-1 text-gray-500 hover:text-indigo-600"
+                                            className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                             onClick={() => {
                                                 const firstAvgEvent = avgEventKeys[0];
                                                 const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3226,23 +3261,28 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     return (
                         <div>
                             <Card className={cn("relative border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                <CardHeader className="pb-2 px-3 md:px-6">
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                                {/* ── Panel Banner S3 ── */}
+                                <CardHeader
+                                    className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                    style={{ background: 'var(--accent-gradient)' }}
+                                >
+                                    <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 120, height: 120, top: -40, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                    <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 70, height: 70, bottom: -20, left: '5%', opacity: 0.12, background: 'rgba(255,255,255,0.18)' }} />
+                                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                                <Activity className="h-6 w-6 text-white" />
+                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                <Activity className="h-5 w-5 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
-                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                <CardTitle className="font-display font-semibold text-white text-base md:text-[22px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>API Performance Metrics</CardTitle>
+                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                     <span className="hidden md:inline">Response times, data transfer, and status code distribution</span>
                                                     <span className="md:hidden">API timing and status metrics</span>
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-semibold px-2.5 py-1 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">API Events</span>
+                                            <span className="text-xs font-semibold px-2.5 py-1.5 min-h-[36px] flex items-center rounded-lg backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>API Events</span>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -3491,31 +3531,35 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
                         <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                            <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                            <CardHeader className="pb-2 px-3 md:px-6">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                            {/* ── Panel Banner S3 ── */}
+                            <CardHeader
+                                className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                style={{ background: 'var(--accent-gradient)' }}
+                            >
+                                <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 110, height: 110, top: -35, right: '12%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                        <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
                                             <AlertTriangle className="h-5 w-5 text-white" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg">Error Event Tracking</CardTitle>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                            <CardTitle className="font-display font-semibold text-white text-base md:text-[22px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>Error Event Tracking</CardTitle>
+                                            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                 <span className="hidden md:inline">Failed event counts over time • Red line = Failed Count</span>
                                                 <span className="md:hidden">Failed count tracking for isError events</span>
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {/* Hourly/Daily Toggle */}
-                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                        {/* frosted-glass Hourly/Daily Toggle */}
+                                        <div className="flex items-center rounded-lg p-0.5 border backdrop-blur-[8px]" style={{ background: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                             <button
                                                 onClick={() => setHourlyOverride?.(true)}
                                                 className={cn(
-                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 min-h-[36px]",
                                                     isHourly
-                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
-                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                        ? "bg-white/30 text-white shadow-sm"
+                                                        : "text-white/70 hover:text-white hover:bg-white/15"
                                                 )}
                                             >
                                                 Hourly
@@ -3523,16 +3567,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <button
                                                 onClick={() => setHourlyOverride?.(false)}
                                                 className={cn(
-                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 min-h-[36px]",
                                                     !isHourly
-                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
-                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                        ? "bg-white/30 text-white shadow-sm"
+                                                        : "text-white/70 hover:text-white hover:bg-white/15"
                                                 )}
                                             >
                                                 Daily
                                             </button>
                                         </div>
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isError Events</span>
+                                        <span className="text-[10px] font-bold px-2 py-1 rounded backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>isError Events</span>
                                     </div>
                                 </div>
                             </CardHeader>
