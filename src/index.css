@@ -1140,46 +1140,49 @@ html, body, .theme-transition {
    Each drives --accent-gradient / glow / surface / charts cohesively.
    ==================================================================== */
 
-/* Ocean — blue → cyan → mint */
+/* Soft, harmonious pastel meshes — tight hue families, gentle & luminous.
+   Primary stays deep enough for white text on CTAs; secondary/tertiary soften. */
+
+/* Ocean — soft sky → azure → teal-mint */
 [data-accent-theme="indigo"] {
-  --accent-primary: 221 92% 60%;
-  --accent-secondary: 190 95% 47%;
-  --accent-tertiary: 168 80% 52%;
+  --accent-primary: 214 90% 62%;
+  --accent-secondary: 196 86% 62%;
+  --accent-tertiary: 172 66% 60%;
 }
 
-/* Aurora — lavender → violet → pink (premium default identity) */
+/* Aurora — soft lavender → violet → blush pink (premium default) */
 [data-accent-theme="aurora"] {
-  --accent-primary: 252 100% 67%;
-  --accent-secondary: 273 90% 66%;
-  --accent-tertiary: 330 85% 64%;
+  --accent-primary: 256 90% 68%;
+  --accent-secondary: 280 82% 72%;
+  --accent-tertiary: 322 84% 75%;
 }
 
-/* Sunset — amber-orange → coral → pink */
+/* Sunset — soft coral → rose-pink → peach */
 [data-accent-theme="sunset"] {
-  --accent-primary: 24 96% 56%;
-  --accent-secondary: 351 95% 68%;
-  --accent-tertiary: 330 84% 64%;
+  --accent-primary: 8 90% 68%;
+  --accent-secondary: 344 90% 74%;
+  --accent-tertiary: 26 94% 72%;
 }
 
-/* Forest — emerald → teal → cyan-mint */
+/* Forest — soft emerald → teal → mint */
 [data-accent-theme="forest"] {
-  --accent-primary: 158 82% 42%;
-  --accent-secondary: 172 80% 43%;
-  --accent-tertiary: 187 88% 48%;
+  --accent-primary: 158 64% 48%;
+  --accent-secondary: 170 60% 54%;
+  --accent-tertiary: 184 62% 60%;
 }
 
-/* Midnight — indigo → violet → purple (premium dark) */
+/* Midnight — soft indigo → violet → purple (premium dark) */
 [data-accent-theme="midnight"] {
-  --accent-primary: 243 78% 64%;
-  --accent-secondary: 263 84% 66%;
-  --accent-tertiary: 283 82% 68%;
+  --accent-primary: 246 82% 68%;
+  --accent-secondary: 266 80% 71%;
+  --accent-tertiary: 286 78% 74%;
 }
 
-/* Cyber / After Hours — lime → emerald → cyan (premium dark) */
+/* Cyber / After Hours — soft lime → emerald → aqua (premium dark) */
 [data-accent-theme="afterhours"] {
-  --accent-primary: 84 76% 52%;
-  --accent-secondary: 158 72% 48%;
-  --accent-tertiary: 188 90% 50%;
+  --accent-primary: 96 58% 55%;
+  --accent-secondary: 158 58% 53%;
+  --accent-tertiary: 182 70% 55%;
 }
 
 /* Modern scrollbar - uses accent theme */

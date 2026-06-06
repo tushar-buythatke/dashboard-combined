@@ -88,7 +88,7 @@ interface ThemeClasses {
 const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
     // Clean professional blue/indigo
     indigo: {
-        buttonGradient: 'from-[#3b82f6] via-[#06b6d4] to-[#2dd4bf]',
+        buttonGradient: 'from-[#4d94f6] via-[#46c1ef] to-[#51d8c6]',
         buttonHover: 'hover:from-indigo-600 hover:via-blue-600 hover:to-cyan-500',
         headerGradient: 'from-indigo-600 via-blue-500 to-cyan-400',
         headerGradientVia: 'via-blue-500',
@@ -145,7 +145,7 @@ const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
 
     // Vibrant purple-pink aurora (the sexy one!)
     aurora: {
-        buttonGradient: 'from-[#6c47ff] via-[#a855f7] to-[#ec4899]',
+        buttonGradient: 'from-[#8b6ff8] via-[#bd86f0] to-[#f08ad1]',
         buttonHover: 'hover:from-purple-600 hover:via-fuchsia-600 hover:to-pink-600',
         headerGradient: 'from-purple-600 via-fuchsia-500 to-pink-500',
         headerGradientVia: 'via-fuchsia-500',
@@ -202,7 +202,7 @@ const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
 
     // Warm sunset orange/amber
     sunset: {
-        buttonGradient: 'from-[#f97316] via-[#fb7185] to-[#ec4899]',
+        buttonGradient: 'from-[#f87a63] via-[#f888a8] to-[#fbb277]',
         buttonHover: 'hover:from-orange-600 hover:via-amber-600 hover:to-yellow-500',
         headerGradient: 'from-orange-500 via-amber-500 to-yellow-400',
         headerGradientVia: 'via-amber-500',
@@ -259,7 +259,7 @@ const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
 
     // Soft parrot green/lime
     forest: {
-        buttonGradient: 'from-[#10b981] via-[#14b8a6] to-[#22d3ee]',
+        buttonGradient: 'from-[#2cc78f] via-[#44cdbf] to-[#5cd4dd]',
         buttonHover: 'hover:from-lime-600 hover:via-green-600 hover:to-emerald-500',
         headerGradient: 'from-lime-500 via-green-500 to-emerald-400',
         headerGradientVia: 'via-green-500',
@@ -316,7 +316,7 @@ const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
 
     // Midnight Velvet - Deep Royal Purple & Navy (AMOLED friendly)
     midnight: {
-        buttonGradient: 'from-[#6366f1] via-[#7c3aed] to-[#a855f7]',
+        buttonGradient: 'from-[#7d6ef4] via-[#a87bf0] to-[#cd84ee]',
         buttonHover: 'hover:from-indigo-700 hover:via-indigo-900 hover:to-midnight-lavender',
         headerGradient: 'from-midnight-navy via-indigo-950 to-midnight-deep', // Reverted to dark for banner
         headerGradientVia: 'via-indigo-950',
@@ -373,7 +373,7 @@ const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
 
     // After Hours - Cyber Lime & Charcoal
     afterhours: {
-        buttonGradient: 'from-[#84cc16] via-[#10b981] to-[#06b6d4]',
+        buttonGradient: 'from-[#84c452] via-[#37c794] to-[#38cfd6]',
         buttonHover: 'hover:from-afterhours-lime hover:via-afterhours-charcoal hover:to-black',
         headerGradient: 'from-afterhours-charcoal via-afterhours-slate to-black', // Reverted to dark for banner
         headerGradientVia: 'via-afterhours-slate',
@@ -431,12 +431,12 @@ const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
 
 // Theme display info for the selector
 export const THEME_INFO: Record<Exclude<AccentTheme, 'auto'>, { name: string; colors: [string, string, string] }> = {
-    indigo: { name: 'Ocean', colors: ['#3b82f6', '#06b6d4', '#2dd4bf'] },
-    aurora: { name: 'Aurora', colors: ['#6c47ff', '#a855f7', '#ec4899'] },
-    sunset: { name: 'Sunset', colors: ['#f97316', '#fb7185', '#ec4899'] },
-    forest: { name: 'Forest', colors: ['#10b981', '#14b8a6', '#22d3ee'] },
-    midnight: { name: 'Midnight', colors: ['#6366f1', '#7c3aed', '#a855f7'] },
-    afterhours: { name: 'Cyber', colors: ['#84cc16', '#10b981', '#06b6d4'] },
+    indigo: { name: 'Ocean', colors: ['#4d94f6', '#46c1ef', '#51d8c6'] },
+    aurora: { name: 'Aurora', colors: ['#8b6ff8', '#bd86f0', '#f08ad1'] },
+    sunset: { name: 'Sunset', colors: ['#f87a63', '#f888a8', '#fbb277'] },
+    forest: { name: 'Forest', colors: ['#2cc78f', '#44cdbf', '#5cd4dd'] },
+    midnight: { name: 'Midnight', colors: ['#7d6ef4', '#a87bf0', '#cd84ee'] },
+    afterhours: { name: 'Cyber', colors: ['#84c452', '#37c794', '#38cfd6'] },
 };
 
 export const CLASSIC_THEMES: Array<Exclude<AccentTheme, 'auto'>> = ['indigo', 'aurora', 'sunset', 'forest'];
@@ -554,12 +554,12 @@ export function AccentThemeProvider({ children }: { children: ReactNode }) {
 
     // Theme color definitions for CSS variables
     const THEME_COLORS: Record<Exclude<AccentTheme, 'auto'>, { primary: string; secondary: string; tertiary: string }> = {
-        indigo: { primary: '#3b82f6', secondary: '#06b6d4', tertiary: '#2dd4bf' },
-        aurora: { primary: '#6c47ff', secondary: '#a855f7', tertiary: '#ec4899' },
-        sunset: { primary: '#f97316', secondary: '#fb7185', tertiary: '#ec4899' },
-        forest: { primary: '#10b981', secondary: '#14b8a6', tertiary: '#22d3ee' },
-        midnight: { primary: '#6366f1', secondary: '#7c3aed', tertiary: '#a855f7' },
-        afterhours: { primary: '#84cc16', secondary: '#10b981', tertiary: '#06b6d4' },
+        indigo: { primary: '#4d94f6', secondary: '#46c1ef', tertiary: '#51d8c6' },
+        aurora: { primary: '#8b6ff8', secondary: '#bd86f0', tertiary: '#f08ad1' },
+        sunset: { primary: '#f87a63', secondary: '#f888a8', tertiary: '#fbb277' },
+        forest: { primary: '#2cc78f', secondary: '#44cdbf', tertiary: '#5cd4dd' },
+        midnight: { primary: '#7d6ef4', secondary: '#a87bf0', tertiary: '#cd84ee' },
+        afterhours: { primary: '#84c452', secondary: '#37c794', tertiary: '#38cfd6' },
     };
 
     useEffect(() => {
