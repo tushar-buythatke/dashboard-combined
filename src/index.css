@@ -599,23 +599,20 @@ html, body, .theme-transition {
     min-height: 100vh;
   }
 
-  /* Global text selection styling - visible purple highlight */
+  /* Global text selection styling — follows the active accent theme */
   ::selection {
-    background-color: #a855f7;
-    /* purple-500 */
+    background-color: hsl(var(--accent-primary));
     color: white;
   }
 
   ::-moz-selection {
-    background-color: #a855f7;
-    /* purple-500 */
+    background-color: hsl(var(--accent-primary));
     color: white;
   }
 
   input::selection,
   textarea::selection {
-    background-color: #a855f7 !important;
-    /* purple-500 */
+    background-color: hsl(var(--accent-primary)) !important;
     color: white !important;
   }
 }
@@ -1193,18 +1190,16 @@ html, body, .theme-transition {
   background: hsl(var(--muted) / 0.2);
 }
 
-/* Enhanced Selection */
+/* Enhanced Selection — accent-reactive */
 ::selection {
-  background: linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(var(--accent) / 0.4));
-  color: hsl(var(--foreground));
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  background: hsl(var(--accent-primary) / 0.85);
+  color: white;
 }
 
-/* Focus ring enhancement */
+/* Focus ring — subtle, accent-reactive, no heavy glow tint */
 *:focus-visible {
-  outline: 2px solid hsl(var(--primary));
+  outline: 2px solid hsl(var(--accent-primary) / 0.7);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
 }
 
 /* Mobile optimizations */
@@ -1233,7 +1228,7 @@ html, body, .theme-transition {
 
 /* Better focus states for accessibility */
 *:focus-visible {
-  outline: 2px solid hsl(var(--primary));
+  outline: 2px solid hsl(var(--accent-primary) / 0.7);
   outline-offset: 2px;
 }
 

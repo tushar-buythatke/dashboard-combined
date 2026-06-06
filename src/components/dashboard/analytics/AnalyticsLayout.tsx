@@ -627,7 +627,7 @@ export function AnalyticsLayout() {
                                 <Button
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
-                                    className="group relative overflow-hidden gap-2 h-8 min-w-[44px] rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
+                                    className="group relative overflow-hidden gap-2 h-8 px-3 rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
                                     style={{ background: 'var(--accent-gradient)', boxShadow: '0 2px 12px var(--theme-primary-alpha,rgba(99,102,241,0.2))' }}
                                 >
                                     {/* Shimmer sweep — only plays on hover via group-hover */}
@@ -918,7 +918,7 @@ export function AnalyticsLayout() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowReportModal(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 min-h-[44px] px-3 rounded-xl text-emerald-700 dark:text-emerald-400 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_rgba(16,185,129,0.3)] group"
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-emerald-700 dark:text-emerald-400 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_rgba(16,185,129,0.3)] group"
                                 style={{
                                     border: '1px solid rgba(16,185,129,0.4)',
                                 }}
@@ -936,7 +936,7 @@ export function AnalyticsLayout() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowAlertsPanel(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 min-h-[44px] px-3 rounded-xl text-fuchsia-700 dark:text-fuchsia-300 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_hsl(var(--accent-primary)/0.3)] group"
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-fuchsia-700 dark:text-fuchsia-300 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_hsl(var(--accent-primary)/0.3)] group"
                                 style={{
                                     border: '1px solid hsl(var(--accent-primary) / 0.35)',
                                 }}
@@ -953,7 +953,7 @@ export function AnalyticsLayout() {
                                 <Button
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
-                                    className="group relative overflow-hidden gap-2 h-8 min-h-[44px] rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
+                                    className="group relative overflow-hidden gap-2 h-8 rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
                                     style={{ background: 'var(--accent-gradient)', boxShadow: '0 2px 12px var(--theme-primary-alpha,rgba(99,102,241,0.2))' }}
                                 >
                                     {/* Shimmer — hover only, single sweep */}

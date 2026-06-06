@@ -270,6 +270,48 @@ typecheck verified after each wave; commit at each checkpoint.
   ambient motion; never trade density for decoration; ≤3 effects per component.
 - Mobile: preserve responsive/visualViewport logic; verify glass + bento collapse.
 
+## 9B. Visual DNA (locked reference — from the 5 inspiration images)
+
+The aesthetic target distilled, to guide every remaining sub-phase:
+
+- **Color & gradients:** soft mesh gradients — coral→pink→orange, blue→teal→mint,
+  lavender→purple→violet. Frosted-glass / translucent layering. Dark panels can
+  contrast against light backgrounds (e.g. Zentra's black insight card). Accents
+  punch hard (Zentra red, Jasmine purple, Moveon green).
+- **Layout & cards:** bento-grid asymmetry (varied sizes, no rigid uniformity);
+  generous padding; large radius (16–24px); subtle drop shadows — elevation feels
+  *floated*, not stamped. High data density with breathing room.
+- **Charts:** smooth bezier lines (never jagged); soft gradient area fills fading
+  to transparent; floating pill/card tooltips on hover; bar charts mix active
+  (colored) vs inactive (grey).
+- **Motion & feel:** flowing ribbon / aurora-wave background texture (Elara);
+  weightless — cards float, lines animate fluidly. (Still bound by §2A: expressive
+  on hero/landing/banners, restrained elsewhere.)
+- **Typography:** large bold display numbers (83%, $2.4M, 2,850); light/regular
+  labels beneath; high-contrast hierarchy.
+
+### Theme revamp (folded into S10)
+The 6 accent themes must be re-tuned into *gorgeous* mesh palettes matching the
+DNA above (not flat single hues): e.g. Aurora = lavender→purple→violet, a
+coral→pink→orange "Sunset", a blue→teal→mint "Tide", etc. Each theme drives
+`--accent-primary/secondary/tertiary` (and thus `--accent-gradient`, glow,
+surface, charts) so the whole UI re-skins cohesively. Swatches in the theme
+switcher preview the actual mesh gradient.
+
+## 9C. Post-checkpoint fixes (applied)
+
+Live-review corrections made after Checkpoint C:
+- Global `*:focus-visible` + `::selection` were fixed shadcn purple regardless of
+  theme → now accent-reactive (`--accent-primary`) and subtler (removed the heavy
+  4px glow). Kills the "everything turns purple on click" issue.
+- Sidebar: removed broken tree-line/branch connectors, the protruding active dot,
+  and the heavy clipped left border + detached indicator bar. Active = clean soft
+  filled pill + subtle accent border + gradient icon + bolder text.
+- Landing cards: replaced the fragile `mask-composite` gradient border (which left
+  an orange line below on hover, because it didn't lift with the card) with a clean
+  accent box-shadow ring that transforms together with the card. Toned down icon
+  glow (~45% opacity, tighter blur).
+
 ## 10. Out of scope
 
 Backend/API, new features/data, auth, routing, the AI chatbot (already upgraded),

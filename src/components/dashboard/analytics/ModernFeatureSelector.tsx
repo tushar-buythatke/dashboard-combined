@@ -279,31 +279,15 @@ function BentoCard({
         aria-label={`Open ${feature.name}${hasAlerts ? `, ${alertCount} active alerts` : ''}`}
         style={{ minHeight: 44 }}
       >
-        {/* ── Gradient border shell (1.5px, appears on hover via opacity) ── */}
-        <div
-          className="absolute inset-0 rounded-2xl pointer-events-none"
-          style={{
-            padding: '1.5px',
-            background: 'var(--accent-gradient)',
-            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-            WebkitMaskComposite: 'xor',
-            maskComposite: 'exclude',
-            opacity: 0,
-            transition: 'opacity 280ms var(--ease-spring)',
-          }}
-          // We drive this via CSS group-hover via inline approach below
-          aria-hidden="true"
-        />
-
-        {/* ── Outer shell with hover state driven by CSS ── */}
+        {/* ── Hover behavior driven by CSS — accent ring + lift move together (no detached border line) ── */}
         <style>{`
-          .bento-card-${feature.id}:hover .bento-border-${feature.id} { opacity: 1 !important; }
           .bento-card-${feature.id}:hover .bento-inner-${feature.id} {
             transform: translateY(-4px) scale(1.01) !important;
-            box-shadow: 0 16px 40px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.06) !important;
+            border-color: hsl(var(--accent-primary) / 0.35) !important;
+            box-shadow: 0 0 0 1.5px hsl(var(--accent-primary) / 0.40), 0 16px 40px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.06) !important;
           }
           .dark .bento-card-${feature.id}:hover .bento-inner-${feature.id} {
-            box-shadow: 0 16px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.25) !important;
+            box-shadow: 0 0 0 1.5px hsl(var(--accent-primary) / 0.5), 0 16px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.25) !important;
           }
           .bento-card-${feature.id}:hover .bento-view-arrow-${feature.id} {
             transform: translateX(4px) !important;
@@ -314,24 +298,9 @@ function BentoCard({
         `}</style>
 
         <div className={`bento-card-${feature.id} relative w-full`}>
-          {/* Gradient border (1.5px inset via mask trick) */}
-          <div
-            className={`bento-border-${feature.id} absolute inset-0 rounded-2xl pointer-events-none`}
-            style={{
-              padding: '1.5px',
-              background: 'var(--accent-gradient)',
-              WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-              WebkitMaskComposite: 'xor',
-              maskComposite: 'exclude',
-              opacity: 0,
-              transition: 'opacity 280ms var(--ease-spring)',
-            }}
-            aria-hidden="true"
-          />
-
           {/* ── Inner card surface ── */}
           <div
-            className={`bento-inner-${feature.id} relative rounded-[15px] overflow-hidden`}
+            className={`bento-inner-${feature.id} relative rounded-2xl overflow-hidden`}
             style={{
               background: `var(--dash-card-bg)`,
               backgroundImage: `radial-gradient(ellipse at 30% 20%, ${CARD_WASHES[washIndex].light} 0%, transparent 60%)`,
@@ -362,12 +331,13 @@ function BentoCard({
                   className="relative shrink-0 transition-transform duration-300 group-hover:scale-105"
                   style={{ width: 52, height: 52 }}
                 >
-                  {/* Glow behind icon */}
+                  {/* Glow behind icon — kept subtle */}
                   <div
                     className="absolute inset-0 rounded-full blur-md pointer-events-none"
                     style={{
                       background: meta.iconGlow,
-                      transform: 'scale(1.3)',
+                      transform: 'scale(1.12)',
+                      opacity: 0.45,
                     }}
                     aria-hidden="true"
                   />
@@ -375,9 +345,9 @@ function BentoCard({
                   <div
                     className="relative w-full h-full rounded-full flex items-center justify-center"
                     style={{
-                      background: `linear-gradient(135deg, ${meta.iconGradient[0]}22 0%, ${meta.iconGradient[1]}33 100%)`,
-                      border: `1px solid ${meta.iconGradient[0]}30`,
-                      boxShadow: `0 2px 8px ${meta.iconGlow}, inset 0 1px 0 rgba(255,255,255,0.15)`,
+                      background: `linear-gradient(135deg, ${meta.iconGradient[0]}1f 0%, ${meta.iconGradient[1]}2b 100%)`,
+                      border: `1px solid ${meta.iconGradient[0]}26`,
+                      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.15)`,
                     }}
                   >
                     <Icon
