@@ -1135,32 +1135,51 @@ html, body, .theme-transition {
 
 /* ========== ACCENT THEME SCROLLBAR & COLORS ========== */
 
-/* Accent Theme: Ocean (Indigo) */
+/* ====================================================================
+   ACCENT THEMES — gorgeous mesh palettes (primary → secondary → tertiary)
+   Each drives --accent-gradient / glow / surface / charts cohesively.
+   ==================================================================== */
+
+/* Ocean — blue → cyan → mint */
 [data-accent-theme="indigo"] {
-  --accent-primary: 239 84% 67%;
-  --accent-secondary: 217 91% 60%;
-  --accent-tertiary: 188 94% 43%;
+  --accent-primary: 221 92% 60%;
+  --accent-secondary: 190 95% 47%;
+  --accent-tertiary: 168 80% 52%;
 }
 
-/* Accent Theme: Aurora (Purple/Pink) — the premium default identity */
+/* Aurora — lavender → violet → pink (premium default identity) */
 [data-accent-theme="aurora"] {
-  --accent-primary: 252 100% 64%;
-  --accent-secondary: 271 91% 65%;
-  --accent-tertiary: 330 81% 60%;
+  --accent-primary: 252 100% 67%;
+  --accent-secondary: 273 90% 66%;
+  --accent-tertiary: 330 85% 64%;
 }
 
-/* Accent Theme: Sunset (Orange/Amber) */
+/* Sunset — amber-orange → coral → pink */
 [data-accent-theme="sunset"] {
-  --accent-primary: 24 95% 53%;
-  --accent-secondary: 38 92% 50%;
-  --accent-tertiary: 45 93% 47%;
+  --accent-primary: 24 96% 56%;
+  --accent-secondary: 351 95% 68%;
+  --accent-tertiary: 330 84% 64%;
 }
 
-/* Accent Theme: Forest (Emerald/Teal) */
+/* Forest — emerald → teal → cyan-mint */
 [data-accent-theme="forest"] {
-  --accent-primary: 160 84% 39%;
-  --accent-secondary: 174 84% 39%;
-  --accent-tertiary: 188 94% 43%;
+  --accent-primary: 158 82% 42%;
+  --accent-secondary: 172 80% 43%;
+  --accent-tertiary: 187 88% 48%;
+}
+
+/* Midnight — indigo → violet → purple (premium dark) */
+[data-accent-theme="midnight"] {
+  --accent-primary: 243 78% 64%;
+  --accent-secondary: 263 84% 66%;
+  --accent-tertiary: 283 82% 68%;
+}
+
+/* Cyber / After Hours — lime → emerald → cyan (premium dark) */
+[data-accent-theme="afterhours"] {
+  --accent-primary: 84 76% 52%;
+  --accent-secondary: 158 72% 48%;
+  --accent-tertiary: 188 90% 50%;
 }
 
 /* Modern scrollbar - uses accent theme */
