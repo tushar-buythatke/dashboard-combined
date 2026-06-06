@@ -605,240 +605,64 @@ function Footer() {
    ======================================================================== */
 function AuroraBackground() {
   const shouldReduceMotion = useReducedMotion();
-  const heroRef = useRef<HTMLDivElement>(null);
-  const ribbon1Ref = useRef<HTMLDivElement>(null);
-  const ribbon2Ref = useRef<HTMLDivElement>(null);
-  const ribbon3Ref = useRef<HTMLDivElement>(null);
-  const ribbon4Ref = useRef<HTMLDivElement>(null);
-
-  // Lerped parallax state
-  const parallaxState = useRef({ x: 0, y: 0, tx: 0, ty: 0, raf: 0 });
-
-  useEffect(() => {
-    if (shouldReduceMotion) return;
-    const isTouch = window.matchMedia('(hover: none)').matches;
-    if (isTouch) return;
-    const motionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (motionMq.matches) return;
-
-    const hero = heroRef.current;
-    if (!hero) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = hero.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      parallaxState.current.tx = ((e.clientX - cx) / (rect.width / 2)) * 10;
-      parallaxState.current.ty = ((e.clientY - cy) / (rect.height / 2)) * 10;
-    };
-
-    const animate = () => {
-      const ps = parallaxState.current;
-      ps.x += (ps.tx - ps.x) * 0.05;
-      ps.y += (ps.ty - ps.y) * 0.05;
-
-      const applyTransform = (el: HTMLDivElement | null, factor: number) => {
-        if (!el) return;
-        // Parallax nudge stacks on top of the CSS drift animation via translate()
-        el.style.transform = `translate(${ps.x * factor}px, ${ps.y * factor}px)`;
-      };
-
-      applyTransform(ribbon1Ref.current, 1.0);
-      applyTransform(ribbon2Ref.current, 0.65);
-      applyTransform(ribbon3Ref.current, 1.25);
-      applyTransform(ribbon4Ref.current, 0.45);
-
-      ps.raf = requestAnimationFrame(animate);
-    };
-
-    const handleMouseLeave = () => {
-      parallaxState.current.tx = 0;
-      parallaxState.current.ty = 0;
-    };
-
-    hero.addEventListener('mousemove', handleMouseMove);
-    hero.addEventListener('mouseleave', handleMouseLeave);
-    parallaxState.current.raf = requestAnimationFrame(animate) as unknown as number;
-
-    return () => {
-      hero.removeEventListener('mousemove', handleMouseMove);
-      hero.removeEventListener('mouseleave', handleMouseLeave);
-      cancelAnimationFrame(parallaxState.current.raf);
-    };
-  }, [shouldReduceMotion]);
-
-  // Pause-based reduced-motion: CSS handles animation-play-state via media query
-  const motionPaused = shouldReduceMotion ? 'paused' : 'running';
+  const play = shouldReduceMotion ? 'paused' : 'running';
 
   return (
-    <div ref={heroRef} className="fixed inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true" style={{ zIndex: -1 }}>
+    <div className="fixed inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true" style={{ zIndex: -1 }}>
       {/*
-        Scoped keyframes for the four ribbon drift animations.
-        Each ribbon drifts diagonally with slight scale variation — calm, dreamy.
-        The bloom glow uses a ::before on the container (below).
+        Single translucent iridescent SILK RIBBON flowing across the page.
+        Large blurred bezier strokes over a CLEAN white page — NOT a colored
+        background. Lavender → pink → peach → soft cyan, opacity 0.08–0.16.
+        If the page looks "pink", this failed; it should look white with a
+        floating aurora ribbon.
       */}
       <style>{`
-        @keyframes aurora-ribbon-1 {
-          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(-12deg); }
-          30%      { transform: translate(28px, -20px) scaleX(1.06) scaleY(0.97) rotate(-10deg); }
-          65%      { transform: translate(-18px, 16px) scaleX(0.96) scaleY(1.04) rotate(-14deg); }
-        }
-        @keyframes aurora-ribbon-2 {
-          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(14deg); }
-          35%      { transform: translate(-24px, 22px) scaleX(1.05) scaleY(0.96) rotate(16deg); }
-          70%      { transform: translate(20px, -14px) scaleX(0.95) scaleY(1.05) rotate(12deg); }
-        }
-        @keyframes aurora-ribbon-3 {
-          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(-6deg); }
-          40%      { transform: translate(16px, 18px) scaleX(1.04) scaleY(0.98) rotate(-4deg); }
-          75%      { transform: translate(-22px, -12px) scaleX(0.97) scaleY(1.03) rotate(-8deg); }
-        }
-        @keyframes aurora-ribbon-4 {
-          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(8deg); }
-          45%      { transform: translate(-12px, -24px) scaleX(1.08) scaleY(0.95) rotate(10deg); }
-          80%      { transform: translate(18px, 10px) scaleX(0.94) scaleY(1.06) rotate(6deg); }
-        }
-        /* Bloom: soft luminous glow sitting at the very back */
-        .aurora-hero-bloom {
-          background:
-            radial-gradient(ellipse 70% 55% at 25% 30%,
-              hsl(var(--accent-primary) / 0.20) 0%,
-              transparent 62%),
-            radial-gradient(ellipse 65% 55% at 80% 70%,
-              hsl(var(--accent-secondary) / 0.16) 0%,
-              transparent 62%),
-            radial-gradient(ellipse 50% 45% at 55% 100%,
-              hsl(var(--accent-tertiary) / 0.14) 0%,
-              transparent 60%);
+        @keyframes aurora-silk-drift {
+          0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+          50%      { transform: translate3d(-1.6%, 1.4%, 0) rotate(1.1deg) scale(1.05); }
         }
         @media (prefers-reduced-motion: reduce) {
-          .aurora-ribbon { animation-play-state: paused !important; }
+          .aurora-silk-g { animation: none !important; }
         }
       `}</style>
-
-      {/* Back-most bloom layer — very subtle luminous glow, no animation needed */}
-      <div
-        className="aurora-hero-bloom absolute inset-0 pointer-events-none select-none"
-        aria-hidden="true"
-        style={{ zIndex: 0 }}
-      />
-
-      {/*
-        RIBBON 1 — wide lavender/violet diagonal band (top-left sweep)
-        Uses accent-primary + soft fixed pastel #f0abfc (fuchsia-300) blended.
-        Duration: 26s. Blur: 80px. Opacity: 0.28 (main accent ribbon).
-      */}
-      <div
-        ref={ribbon1Ref}
-        className="aurora-ribbon absolute pointer-events-none select-none"
-        aria-hidden="true"
-        style={{
-          top: '-10%',
-          left: '-20%',
-          width: '90%',
-          height: '70%',
-          background: `
-            radial-gradient(ellipse 100% 52% at 50% 50%,
-              hsl(var(--accent-primary) / 0.55) 0%,
-              #f0abfc66 42%,
-              transparent 78%)
-          `,
-          filter: 'blur(62px)',
-          transform: 'rotate(-12deg)',
-          animation: `aurora-ribbon-1 26s ease-in-out infinite`,
-          animationPlayState: motionPaused,
-          willChange: 'transform',
-          zIndex: 1,
-        }}
-      />
-
-      {/*
-        RIBBON 2 — blush-pink / peach diagonal band (top-right sweep)
-        Uses accent-secondary + fixed #fbcfe8 (pink-200) + #fed7aa (orange-200).
-        Duration: 34s. Blur: 90px. Opacity: 0.22.
-      */}
-      <div
-        ref={ribbon2Ref}
-        className="aurora-ribbon absolute pointer-events-none select-none"
-        aria-hidden="true"
-        style={{
-          top: '-15%',
-          right: '-25%',
-          width: '80%',
-          height: '75%',
-          background: `
-            radial-gradient(ellipse 100% 55% at 50% 50%,
-              hsl(var(--accent-secondary) / 0.48) 0%,
-              #fbcfe855 45%,
-              #fed7aa44 65%,
-              transparent 82%)
-          `,
-          filter: 'blur(70px)',
-          transform: 'rotate(14deg)',
-          animation: `aurora-ribbon-2 34s ease-in-out infinite`,
-          animationPlayState: motionPaused,
-          willChange: 'transform',
-          zIndex: 1,
-        }}
-      />
-
-      {/*
-        RIBBON 3 — peach/blush-pink lower diagonal (bottom-center sweep)
-        Uses accent-tertiary + fixed #fbcfe8 (blush).
-        Duration: 22s. Blur: 70px. Opacity: 0.20 (lighter, more dreamy).
-      */}
-      <div
-        ref={ribbon3Ref}
-        className="aurora-ribbon absolute pointer-events-none select-none"
-        aria-hidden="true"
-        style={{
-          bottom: '-20%',
-          left: '15%',
-          width: '75%',
-          height: '65%',
-          background: `
-            radial-gradient(ellipse 100% 55% at 50% 50%,
-              hsl(var(--accent-tertiary) / 0.44) 0%,
-              #fbcfe850 40%,
-              transparent 76%)
-          `,
-          filter: 'blur(58px)',
-          transform: 'rotate(-6deg)',
-          animation: `aurora-ribbon-3 22s ease-in-out infinite`,
-          animationPlayState: motionPaused,
-          willChange: 'transform',
-          zIndex: 1,
-        }}
-      />
-
-      {/*
-        RIBBON 4 — soft-blue / indigo crossing band (bottom-right)
-        Fixed soft-blue pastels: #c7d2fe (indigo-200) for richness.
-        Duration: 28s. Blur: 100px. Opacity: 0.18 (subtlest — adds depth).
-      */}
-      <div
-        ref={ribbon4Ref}
-        className="aurora-ribbon absolute pointer-events-none select-none"
-        aria-hidden="true"
-        style={{
-          bottom: '-25%',
-          right: '-15%',
-          width: '70%',
-          height: '70%',
-          background: `
-            radial-gradient(ellipse 100% 55% at 50% 50%,
-              #c7d2fe55 0%,
-              hsl(var(--accent-primary) / 0.30) 40%,
-              transparent 78%)
-          `,
-          filter: 'blur(80px)',
-          transform: 'rotate(8deg)',
-          animation: `aurora-ribbon-4 28s ease-in-out infinite`,
-          animationPlayState: motionPaused,
-          willChange: 'transform',
-          zIndex: 1,
-        }}
-      />
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 1440 900"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          <linearGradient id="auroraSilkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#c4b5fd" />
+            <stop offset="34%" stopColor="#f9a8d4" />
+            <stop offset="66%" stopColor="#fed7aa" />
+            <stop offset="100%" stopColor="#a5f3ec" />
+          </linearGradient>
+          <filter id="auroraSilkBlur" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="48" />
+          </filter>
+        </defs>
+        <g
+          className="aurora-silk-g"
+          filter="url(#auroraSilkBlur)"
+          fill="none"
+          stroke="url(#auroraSilkGrad)"
+          strokeLinecap="round"
+          style={{
+            animation: 'aurora-silk-drift 28s ease-in-out infinite',
+            animationPlayState: play,
+            transformOrigin: 'center',
+            willChange: 'transform',
+          }}
+        >
+          {/* Main silk stroke — long S-curve crossing the page */}
+          <path d="M -180 380 C 280 150, 600 560, 1040 300 S 1480 200, 1640 320" strokeWidth="300" opacity="0.16" />
+          {/* Secondary trailing fold */}
+          <path d="M -180 600 C 360 760, 780 400, 1180 600 S 1520 720, 1640 600" strokeWidth="220" opacity="0.10" />
+          {/* Faint upper wisp for depth */}
+          <path d="M 180 -80 C 540 300, 940 120, 1340 460" strokeWidth="180" opacity="0.07" />
+        </g>
+      </svg>
 
     </div>
   );

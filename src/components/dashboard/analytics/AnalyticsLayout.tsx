@@ -602,11 +602,11 @@ export function AnalyticsLayout() {
                             )}
 
                             {/* Live Clock */}
-                            <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-xl" style={{ background: 'var(--dash-surface)', border: '0.5px solid var(--dash-border)' }}>
-                                <span className="text-sm font-bold font-mono tabular-nums tracking-tight leading-none" style={{ color: 'var(--dash-text-primary)' }}>
+                            <div className="hidden md:flex flex-col items-center justify-center h-9 px-3 rounded-xl leading-none" style={{ background: 'var(--dash-surface)', border: '0.5px solid var(--dash-border)' }}>
+                                <span className="text-[13px] font-bold font-mono tabular-nums tracking-tight leading-none" style={{ color: 'var(--dash-text-primary)' }}>
                                     {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                 </span>
-                                <span className="text-[9px] font-mono font-medium mt-0.5" style={{ color: 'var(--dash-text-muted)' }}>
+                                <span className="text-[9px] font-mono font-medium mt-[3px] leading-none tracking-wide" style={{ color: 'var(--dash-text-muted)' }}>
                                     {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
                             </div>
