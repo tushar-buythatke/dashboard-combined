@@ -1140,45 +1140,46 @@ html, body, .theme-transition {
    Each drives --accent-gradient / glow / surface / charts cohesively.
    ==================================================================== */
 
-/* Soft, harmonious pastel meshes — tight hue families, gentle & luminous.
-   Primary stays deep enough for white text on CTAs; secondary/tertiary soften. */
+/* === 2 SIGNATURE themes (the two Kristin gradient boxes) === */
 
-/* Ocean — soft sky → azure → teal-mint */
-[data-accent-theme="indigo"] {
-  --accent-primary: 214 90% 62%;
-  --accent-secondary: 196 86% 62%;
-  --accent-tertiary: 172 66% 60%;
-}
-
-/* Aurora — soft lavender → violet → blush pink (premium default) */
+/* Aurora "Bloom" (SIGNATURE) — coral → pink → lavender (box 1) */
 [data-accent-theme="aurora"] {
-  --accent-primary: 256 90% 68%;
-  --accent-secondary: 280 82% 72%;
-  --accent-tertiary: 322 84% 75%;
+  --accent-primary: 10 88% 68%;
+  --accent-secondary: 330 82% 74%;
+  --accent-tertiary: 260 64% 74%;
 }
 
-/* Sunset — soft coral → rose-pink → peach */
+/* Ocean "Tide" (SIGNATURE) — sky-blue → cyan → mint (box 2) */
+[data-accent-theme="indigo"] {
+  --accent-primary: 198 88% 62%;
+  --accent-secondary: 180 70% 60%;
+  --accent-tertiary: 158 62% 66%;
+}
+
+/* === 3 LEGACY themes (clean, simpler, tight hue family) === */
+
+/* Sunset — warm orange → amber */
 [data-accent-theme="sunset"] {
-  --accent-primary: 8 90% 68%;
-  --accent-secondary: 344 90% 74%;
-  --accent-tertiary: 26 94% 72%;
+  --accent-primary: 28 95% 58%;
+  --accent-secondary: 40 92% 60%;
+  --accent-tertiary: 18 90% 62%;
 }
 
-/* Forest — soft emerald → teal → mint */
+/* Forest — emerald → teal → green */
 [data-accent-theme="forest"] {
-  --accent-primary: 158 64% 48%;
-  --accent-secondary: 170 60% 54%;
-  --accent-tertiary: 184 62% 60%;
+  --accent-primary: 152 60% 45%;
+  --accent-secondary: 166 56% 50%;
+  --accent-tertiary: 140 52% 54%;
 }
 
-/* Midnight — soft indigo → violet → purple (premium dark) */
+/* Midnight — indigo → violet → purple */
 [data-accent-theme="midnight"] {
-  --accent-primary: 246 82% 68%;
-  --accent-secondary: 266 80% 71%;
-  --accent-tertiary: 286 78% 74%;
+  --accent-primary: 250 72% 64%;
+  --accent-secondary: 268 66% 66%;
+  --accent-tertiary: 286 60% 68%;
 }
 
-/* Cyber / After Hours — soft lime → emerald → aqua (premium dark) */
+/* Cyber / After Hours — dropped from active set (kept for safety) */
 [data-accent-theme="afterhours"] {
   --accent-primary: 96 58% 55%;
   --accent-secondary: 158 58% 53%;

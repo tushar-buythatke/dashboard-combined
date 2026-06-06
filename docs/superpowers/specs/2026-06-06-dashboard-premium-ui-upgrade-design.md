@@ -312,6 +312,35 @@ Live-review corrections made after Checkpoint C:
   accent box-shadow ring that transforms together with the card. Toned down icon
   glow (~45% opacity, tighter blur).
 
+## 9D. v4 direction (live-review, locked)
+
+**Theme set = 2 signature + 3 legacy (5 total).** Cyber/afterhours is dropped
+(hidden from switcher + rotation; definition left in code, harmless).
+- **Signature** (full combined Kristin+Elara treatment — soft pastel gradient +
+  glowy aurora depth): **Aurora** (lavender→violet→blush), **Sunset**
+  (coral→rose→peach).
+- **Legacy** (clean, simpler): **Ocean**, **Forest**, **Midnight**.
+- Aurora stays the default.
+
+**Magical landing waves (S5+).** The landing hero background gets gorgeous, soft,
+glowy flowing aurora *ribbons* (Elara "Woman's balance" look) — luminous pastel
+pink/peach/lavender/soft-blue waves drifting slowly behind the hero. Expressive
+but soft; theme-reactive; reduced-motion + mobile safe.
+
+**AI chat redesign (S13).** The Dashboard Assistant chat is too small/plain.
+Make it bigger, sleeker, sexy: premium glass surface, soft-pastel/glow accent,
+larger comfortable sizing, and **kill the crappy ⌘L/⌘K shortcut pills** in the
+header (move to a subtle, tasteful hint or remove). Buttery open/close.
+
+**Filters panel + bar (S9, prioritized first).** The "Filters — click to expand"
+bar and the awkward inline "AI Chat ⌘L / ⌘K" shortcut block are crude. Premiumize:
+glass filter card, clean segmented/pill controls, and replace the shortcut display
+with a tasteful minimal affordance (small kbd chip or icon, not the current mess).
+
+**Premiumize every panel + buttery motion (S11+).** Every panel/card/control gets
+the premium surface + buttery transitions (spring hovers, smooth expand/collapse,
+soft elevation). Consistency pass across all panels.
+
 ## 10. Out of scope
 
 Backend/API, new features/data, auth, routing, the AI chatbot (already upgraded),

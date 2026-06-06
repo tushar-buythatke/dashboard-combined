@@ -2,12 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Mic, Command, Loader2, Sparkles, Minimize2, Copy, Check } from 'lucide-react';
+import { X, Mic, Command, Loader2, Sparkles, Minimize2, Copy, Check, ArrowUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { generateChatbotResponse, loadChatHistory, saveChatHistory, type ChatMessage, type ChatbotContext } from '@/services/chatbotService';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 
@@ -23,8 +22,8 @@ interface DashboardChatbotProps {
 
 // Responsive chatbot dimensions
 const getChatbotWidth = () => {
-    if (typeof window === 'undefined') return 420;
-    return window.innerWidth < 768 ? window.innerWidth - 24 : 420; // Mobile: full width minus minimal padding
+    if (typeof window === 'undefined') return 460;
+    return window.innerWidth < 768 ? window.innerWidth - 24 : 460; // Mobile: full width minus minimal padding
 };
 
 const getChatbotHeight = () => {
@@ -38,6 +37,14 @@ const MINIMIZED_SIZE = 56;
 const NAVBAR_HEIGHT = 64;
 const RIGHT_PADDING = 16;
 const MOBILE_PADDING = 12; // Mobile needs some padding
+
+// Starter prompts shown on the empty-state hero (tap to send)
+const SUGGESTIONS: { label: string; prompt: string }[] = [
+    { label: 'Summarize this dashboard', prompt: 'Give me a quick summary of what this dashboard is showing.' },
+    { label: "What changed recently?", prompt: 'What are the most notable changes in the data recently?' },
+    { label: 'Top performing metric', prompt: 'Which metric is performing best right now and why?' },
+    { label: 'Spot any anomalies', prompt: 'Are there any anomalies or outliers I should look into?' },
+];
 
 export function DashboardChatbot({
     isOpen,
@@ -415,6 +422,8 @@ export function DashboardChatbot({
     const chatbotHeight = Math.min(isMobile ? availableHeight : CHATBOT_HEIGHT, availableHeight);
     const mobileHeight = mobileViewport?.height ?? (typeof window !== 'undefined' ? window.innerHeight : chatbotHeight);
     const mobileTop = mobileViewport?.offsetTop ?? 0;
+    const isVoiceActive = voiceIsRecording || isRecording;
+    const showHero = messages.length === 0 && !isLoading && !isVoiceActive;
 
     const chatbotNode = (
         <div
@@ -564,25 +573,56 @@ export function DashboardChatbot({
 
                 {/* Messages - Scrollable */}
                 <ScrollArea className={cn("flex-1 relative z-10 scrollbar-hide overflow-y-auto", isMobile && "bg-gray-50 dark:bg-gray-950")} ref={scrollAreaRef}>
-                    <div className="p-3 space-y-2.5">
-                        {messages.length === 0 && (
-                            <div className="text-center py-8">
+                    {showHero ? (
+                        <div className="flex flex-col items-center justify-center min-h-full px-6 py-10 text-center animate-scale-in">
+                            {/* Accent halo behind the mark */}
+                            <div className="relative mb-6">
                                 <div className={cn(
-                                    "inline-flex items-center justify-center h-16 w-16 rounded-full mb-4",
-                                    "bg-gradient-to-br",
-                                    themeClasses.buttonGradient,
-                                    "shadow-lg"
+                                    "absolute inset-0 -m-4 rounded-full blur-2xl opacity-40 bg-gradient-to-br",
+                                    themeClasses.buttonGradient
+                                )} />
+                                <div className={cn(
+                                    "relative inline-flex items-center justify-center h-14 w-14 rounded-2xl",
+                                    "bg-gradient-to-br shadow-lg",
+                                    themeClasses.buttonGradient
                                 )}>
-                                    <Sparkles className="h-8 w-8 text-white" />
+                                    <Sparkles className="h-7 w-7 text-white" />
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">
-                                    How can I help you?
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-500">
-                                    Ask about filters, data, or insights
-                                </p>
                             </div>
-                        )}
+                            <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+                                What can I help with?
+                            </h2>
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-[280px]">
+                                Ask about your filters, metrics, or insights — or start with one of these.
+                            </p>
+
+                            {/* Suggestion chips */}
+                            <div className="mt-7 grid grid-cols-2 gap-2.5 w-full max-w-[340px]">
+                                {SUGGESTIONS.map((s) => (
+                                    <button
+                                        key={s.label}
+                                        type="button"
+                                        onClick={() => handleSend(s.prompt)}
+                                        disabled={isLoading}
+                                        className={cn(
+                                            "group text-left rounded-2xl px-3.5 py-3 transition-all duration-200",
+                                            "bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl",
+                                            "border border-gray-200/70 dark:border-white/10",
+                                            "shadow-sm hover:shadow-md hover:-translate-y-0.5",
+                                            themeClasses.cardHoverBorder,
+                                            themeClasses.cardHoverBorderDark,
+                                            "disabled:opacity-50 disabled:pointer-events-none"
+                                        )}
+                                    >
+                                        <span className="block text-[13px] font-medium leading-snug text-gray-700 dark:text-gray-200">
+                                            {s.label}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                    <div className="p-3 space-y-2.5">
                         {messages.map((message, idx) => (
                             <div
                                 key={idx}
@@ -593,16 +633,16 @@ export function DashboardChatbot({
                             >
                                 <div
                                     className={cn(
-                                        "max-w-[85%] rounded-2xl px-3.5 py-2",
+                                        "max-w-[85%] px-4 py-2.5",
                                         "break-words whitespace-pre-wrap",
                                         "relative group",
                                         message.role === 'user'
                                             ? cn(
-                                                "bg-gradient-to-r text-white",
+                                                "rounded-[20px] rounded-br-md bg-gradient-to-br text-white",
                                                 themeClasses.buttonGradient,
-                                                "shadow-md"
+                                                "shadow-[0_4px_16px_-2px_rgba(0,0,0,0.18)]"
                                             )
-                                            : "bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border border-gray-200/30 dark:border-gray-700/30"
+                                            : "rounded-[20px] rounded-bl-md bg-gray-100/80 dark:bg-white/[0.05] backdrop-blur-xl border border-gray-200/40 dark:border-white/[0.06]"
                                     )}
                                     style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                                     onClick={() => {
@@ -694,6 +734,7 @@ export function DashboardChatbot({
                         )}
                         <div ref={messagesEndRef} />
                     </div>
+                    )}
                 </ScrollArea>
 
                 {/* Input Area */}
@@ -701,96 +742,114 @@ export function DashboardChatbot({
                     className={cn(
                         "relative z-10 border-t border-gray-200/50 dark:border-gray-700/50",
                         "bg-white dark:bg-gray-900",
-                        "p-4"
+                        "px-3 pt-3 pb-2"
                     )}
-                    style={isMobile ? { paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' } : undefined}
+                    style={isMobile ? { paddingBottom: 'max(10px, env(safe-area-inset-bottom, 10px))' } : undefined}
                 >
-                    <div className="flex items-end gap-2">
-                        <div className="flex-1 relative">
-                            <textarea
-                                ref={inputRef as any}
-                                value={inputValue}
-                                onChange={(e) => {
-                                    // Allow all input including spaces - no restrictions
-                                    setInputValue(e.target.value);
-                                    // Auto-resize textarea
-                                    e.target.style.height = 'auto';
-                                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                                }}
-                                onKeyDown={handleKeyDown}
-                                onKeyPress={(e) => {
-                                    // Stop propagation to prevent parent handlers from blocking space
-                                    e.stopPropagation();
-                                }}
-                                placeholder="Ask for insights..."
-                                disabled={isLoading}
-                                autoComplete="off"
-                                spellCheck="true"
-                                rows={1}
-                                className={cn(
-                                    "w-full px-4 py-3 pr-24 rounded-2xl transition-all duration-300 shadow-lg disabled:opacity-50 resize-none overflow-y-auto scrollbar-hide min-h-[44px] max-h-[120px]",
-                                    themeClasses.cardBg,
-                                    "backdrop-blur-xl",
-                                    "border-2 border-gray-200/50 dark:border-gray-700/50",
-                                    "text-sm text-gray-900 dark:text-gray-100",
-                                    "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-                                    "focus:outline-none focus:ring-4 focus:ring-opacity-30",
-                                    "focus:border-white/60 dark:focus:border-gray-600/60",
-                                    themeClasses.ringAccent
-                                )}
-                            />
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                {/* Clear button */}
-                                {inputValue && (
-                                    <button
-                                        onClick={handleClearInput}
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                        className="h-9 w-9 rounded-lg flex items-center justify-center bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/80 transition-all"
-                                        title="Clear input"
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </button>
-                                )}
+                    {/* Contained input pill */}
+                    <div
+                        className={cn(
+                            "rounded-[24px] px-3 pt-2.5 pb-2 transition-all duration-300",
+                            "bg-white/80 dark:bg-white/[0.04] backdrop-blur-xl",
+                            "border border-gray-200/80 dark:border-white/10",
+                            "shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)]",
+                            "focus-within:ring-4 focus-within:ring-opacity-25",
+                            themeClasses.ringAccent,
+                            "focus-within:border-transparent"
+                        )}
+                    >
+                        <textarea
+                            ref={inputRef as any}
+                            value={inputValue}
+                            onChange={(e) => {
+                                // Allow all input including spaces - no restrictions
+                                setInputValue(e.target.value);
+                                // Auto-resize textarea
+                                e.target.style.height = 'auto';
+                                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                            }}
+                            onKeyDown={handleKeyDown}
+                            onKeyPress={(e) => {
+                                // Stop propagation to prevent parent handlers from blocking space
+                                e.stopPropagation();
+                            }}
+                            placeholder="Ask anything"
+                            disabled={isLoading}
+                            autoComplete="off"
+                            spellCheck="true"
+                            rows={1}
+                            className={cn(
+                                "w-full bg-transparent border-0 resize-none overflow-y-auto scrollbar-hide",
+                                "px-1.5 py-1 min-h-[28px] max-h-[120px]",
+                                "text-sm leading-relaxed text-gray-900 dark:text-gray-100",
+                                "placeholder:text-gray-400 dark:placeholder:text-gray-500",
+                                "focus:outline-none focus:ring-0 disabled:opacity-50"
+                            )}
+                        />
+
+                        {/* Control row: circular utilities on the left, send on the right */}
+                        <div className="flex items-center justify-between mt-1">
+                            <div className="flex items-center gap-1.5">
                                 {/* Voice/Stop button */}
                                 <button
                                     onClick={handleVoiceToggle}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     disabled={isLoading}
                                     className={cn(
-                                        "h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-200",
-                                        voiceIsRecording || isRecording
-                                            ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/50"
-                                            : "bg-gray-100/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-600/80"
+                                        "h-8 w-8 rounded-full flex items-center justify-center transition-all duration-200 disabled:opacity-50",
+                                        isVoiceActive
+                                            ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40"
+                                            : "border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200"
                                     )}
-                                    title={voiceIsRecording || isRecording ? "Stop recording" : "Start voice input"}
+                                    title={isVoiceActive ? "Stop recording" : "Start voice input"}
                                 >
-                                    {voiceIsRecording || isRecording ? (
-                                        <div className="h-3 w-3 rounded-full bg-white" />
+                                    {isVoiceActive ? (
+                                        <div className="h-2.5 w-2.5 rounded-full bg-white" />
                                     ) : (
                                         <Mic className="h-4 w-4" />
                                     )}
                                 </button>
+                                {/* Clear button */}
+                                {inputValue && (
+                                    <button
+                                        onClick={handleClearInput}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        className="h-8 w-8 rounded-full flex items-center justify-center border border-gray-200 dark:border-white/15 text-gray-500 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.06] hover:text-gray-700 dark:hover:text-gray-200 transition-all"
+                                        title="Clear input"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
                             </div>
+
+                            {/* Send button */}
+                            <button
+                                onClick={() => handleSend(inputValue, isVoiceActive)}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                disabled={!inputValue.trim() || isLoading}
+                                className={cn(
+                                    "h-9 w-9 rounded-xl flex items-center justify-center shrink-0",
+                                    "bg-gradient-to-br text-white",
+                                    themeClasses.buttonGradient,
+                                    "shadow-md transition-all duration-200",
+                                    "enabled:hover:shadow-lg enabled:hover:scale-105 enabled:active:scale-95",
+                                    "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                                )}
+                                title="Send"
+                            >
+                                {isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+                                )}
+                            </button>
                         </div>
-                        <Button
-                            onClick={() => handleSend(inputValue, voiceIsRecording || isRecording)}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            disabled={!inputValue.trim() || isLoading}
-                            className={cn(
-                                "h-11 w-11 rounded-xl",
-                                "bg-gradient-to-r text-white",
-                                themeClasses.buttonGradient,
-                                "shadow-lg hover:shadow-xl",
-                                "disabled:opacity-50 disabled:cursor-not-allowed"
-                            )}
-                        >
-                            {isLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Send className="h-4 w-4" />
-                            )}
-                        </Button>
                     </div>
+
+                    {/* Quiet disclaimer */}
+                    <p className="mt-2 text-center text-[11px] text-gray-400 dark:text-gray-500">
+                        AI can make mistakes. Double-check responses.
+                    </p>
                 </div>
             </div>
         </div>

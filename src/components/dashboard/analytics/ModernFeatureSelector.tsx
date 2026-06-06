@@ -591,25 +591,33 @@ function Footer() {
 }
 
 /* ========================================================================
-   AURORA HERO — 3 drifting mesh blobs + mouse parallax
+   AURORA RIBBON KEYFRAMES (injected inline via <style> to stay scoped)
+   Four layered ribbon waves drifting at slow, dreamy speeds.
+   Reduced-motion: animations are paused (not removed) via animation-play-state.
    ======================================================================== */
-function AuroraHero({ children }: { children: React.ReactNode }) {
+
+/* ========================================================================
+   AURORA HERO — Elara "Woman's balance" flowing ribbon aurora
+   Technique: 4 elongated radial-gradient bands at different diagonal angles,
+   heavily blurred (filter: blur 60–100px), low opacity (0.18–0.35), layered.
+   CSS keyframe animations drift each ribbon independently (18–34s loops).
+   Mouse parallax (lerp 0.05) applied via transform on top of drift.
+   ======================================================================== */
+function AuroraBackground() {
   const shouldReduceMotion = useReducedMotion();
   const heroRef = useRef<HTMLDivElement>(null);
-  const blob1Ref = useRef<HTMLDivElement>(null);
-  const blob2Ref = useRef<HTMLDivElement>(null);
-  const blob3Ref = useRef<HTMLDivElement>(null);
+  const ribbon1Ref = useRef<HTMLDivElement>(null);
+  const ribbon2Ref = useRef<HTMLDivElement>(null);
+  const ribbon3Ref = useRef<HTMLDivElement>(null);
+  const ribbon4Ref = useRef<HTMLDivElement>(null);
 
-  // Lerped parallax positions
+  // Lerped parallax state
   const parallaxState = useRef({ x: 0, y: 0, tx: 0, ty: 0, raf: 0 });
 
   useEffect(() => {
-    // Disable parallax on touch devices and reduced motion
     if (shouldReduceMotion) return;
     const isTouch = window.matchMedia('(hover: none)').matches;
     if (isTouch) return;
-
-    // Check media query
     const motionMq = window.matchMedia('(prefers-reduced-motion: reduce)');
     if (motionMq.matches) return;
 
@@ -620,25 +628,25 @@ function AuroraHero({ children }: { children: React.ReactNode }) {
       const rect = hero.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
-      // Target: blobs drift up to ±10px toward cursor
       parallaxState.current.tx = ((e.clientX - cx) / (rect.width / 2)) * 10;
       parallaxState.current.ty = ((e.clientY - cy) / (rect.height / 2)) * 10;
     };
 
     const animate = () => {
       const ps = parallaxState.current;
-      // Lerp toward target (0.05 factor = slow, smooth drift)
       ps.x += (ps.tx - ps.x) * 0.05;
       ps.y += (ps.ty - ps.y) * 0.05;
 
       const applyTransform = (el: HTMLDivElement | null, factor: number) => {
         if (!el) return;
+        // Parallax nudge stacks on top of the CSS drift animation via translate()
         el.style.transform = `translate(${ps.x * factor}px, ${ps.y * factor}px)`;
       };
 
-      applyTransform(blob1Ref.current, 1.0);
-      applyTransform(blob2Ref.current, 0.7);
-      applyTransform(blob3Ref.current, 1.3);
+      applyTransform(ribbon1Ref.current, 1.0);
+      applyTransform(ribbon2Ref.current, 0.65);
+      applyTransform(ribbon3Ref.current, 1.25);
+      applyTransform(ribbon4Ref.current, 0.45);
 
       ps.raf = requestAnimationFrame(animate);
     };
@@ -659,49 +667,179 @@ function AuroraHero({ children }: { children: React.ReactNode }) {
     };
   }, [shouldReduceMotion]);
 
+  // Pause-based reduced-motion: CSS handles animation-play-state via media query
+  const motionPaused = shouldReduceMotion ? 'paused' : 'running';
+
   return (
-    <div ref={heroRef} className="relative overflow-hidden">
-      {/* 3 aurora mesh blobs — opacity ~0.12, slow drift from CSS keyframes */}
+    <div ref={heroRef} className="fixed inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true" style={{ zIndex: -1 }}>
+      {/*
+        Scoped keyframes for the four ribbon drift animations.
+        Each ribbon drifts diagonally with slight scale variation — calm, dreamy.
+        The bloom glow uses a ::before on the container (below).
+      */}
+      <style>{`
+        @keyframes aurora-ribbon-1 {
+          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(-12deg); }
+          30%      { transform: translate(28px, -20px) scaleX(1.06) scaleY(0.97) rotate(-10deg); }
+          65%      { transform: translate(-18px, 16px) scaleX(0.96) scaleY(1.04) rotate(-14deg); }
+        }
+        @keyframes aurora-ribbon-2 {
+          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(14deg); }
+          35%      { transform: translate(-24px, 22px) scaleX(1.05) scaleY(0.96) rotate(16deg); }
+          70%      { transform: translate(20px, -14px) scaleX(0.95) scaleY(1.05) rotate(12deg); }
+        }
+        @keyframes aurora-ribbon-3 {
+          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(-6deg); }
+          40%      { transform: translate(16px, 18px) scaleX(1.04) scaleY(0.98) rotate(-4deg); }
+          75%      { transform: translate(-22px, -12px) scaleX(0.97) scaleY(1.03) rotate(-8deg); }
+        }
+        @keyframes aurora-ribbon-4 {
+          0%,100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(8deg); }
+          45%      { transform: translate(-12px, -24px) scaleX(1.08) scaleY(0.95) rotate(10deg); }
+          80%      { transform: translate(18px, 10px) scaleX(0.94) scaleY(1.06) rotate(6deg); }
+        }
+        /* Bloom: soft luminous glow sitting at the very back */
+        .aurora-hero-bloom {
+          background:
+            radial-gradient(ellipse 70% 55% at 25% 30%,
+              hsl(var(--accent-primary) / 0.20) 0%,
+              transparent 62%),
+            radial-gradient(ellipse 65% 55% at 80% 70%,
+              hsl(var(--accent-secondary) / 0.16) 0%,
+              transparent 62%),
+            radial-gradient(ellipse 50% 45% at 55% 100%,
+              hsl(var(--accent-tertiary) / 0.14) 0%,
+              transparent 60%);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .aurora-ribbon { animation-play-state: paused !important; }
+        }
+      `}</style>
+
+      {/* Back-most bloom layer — very subtle luminous glow, no animation needed */}
       <div
-        ref={blob1Ref}
-        className="mesh-blob mesh-blob-1 pointer-events-none select-none"
-        style={{
-          width: 420,
-          height: 420,
-          top: '-140px',
-          left: '-60px',
-          opacity: 0.12,
-          // CSS animation (mesh-drift-*) already set by class; parallax layered on top via style.transform
-        }}
+        className="aurora-hero-bloom absolute inset-0 pointer-events-none select-none"
         aria-hidden="true"
-      />
-      <div
-        ref={blob2Ref}
-        className="mesh-blob mesh-blob-2 pointer-events-none select-none"
-        style={{
-          width: 360,
-          height: 360,
-          top: '-80px',
-          right: '-80px',
-          opacity: 0.10,
-        }}
-        aria-hidden="true"
-      />
-      <div
-        ref={blob3Ref}
-        className="mesh-blob mesh-blob-3 pointer-events-none select-none"
-        style={{
-          width: 300,
-          height: 300,
-          bottom: '-60px',
-          left: '40%',
-          opacity: 0.09,
-        }}
-        aria-hidden="true"
+        style={{ zIndex: 0 }}
       />
 
-      {/* Hero content */}
-      {children}
+      {/*
+        RIBBON 1 — wide lavender/violet diagonal band (top-left sweep)
+        Uses accent-primary + soft fixed pastel #f0abfc (fuchsia-300) blended.
+        Duration: 26s. Blur: 80px. Opacity: 0.28 (main accent ribbon).
+      */}
+      <div
+        ref={ribbon1Ref}
+        className="aurora-ribbon absolute pointer-events-none select-none"
+        aria-hidden="true"
+        style={{
+          top: '-10%',
+          left: '-20%',
+          width: '90%',
+          height: '70%',
+          background: `
+            radial-gradient(ellipse 100% 52% at 50% 50%,
+              hsl(var(--accent-primary) / 0.55) 0%,
+              #f0abfc66 42%,
+              transparent 78%)
+          `,
+          filter: 'blur(62px)',
+          transform: 'rotate(-12deg)',
+          animation: `aurora-ribbon-1 26s ease-in-out infinite`,
+          animationPlayState: motionPaused,
+          willChange: 'transform',
+          zIndex: 1,
+        }}
+      />
+
+      {/*
+        RIBBON 2 — blush-pink / peach diagonal band (top-right sweep)
+        Uses accent-secondary + fixed #fbcfe8 (pink-200) + #fed7aa (orange-200).
+        Duration: 34s. Blur: 90px. Opacity: 0.22.
+      */}
+      <div
+        ref={ribbon2Ref}
+        className="aurora-ribbon absolute pointer-events-none select-none"
+        aria-hidden="true"
+        style={{
+          top: '-15%',
+          right: '-25%',
+          width: '80%',
+          height: '75%',
+          background: `
+            radial-gradient(ellipse 100% 55% at 50% 50%,
+              hsl(var(--accent-secondary) / 0.48) 0%,
+              #fbcfe855 45%,
+              #fed7aa44 65%,
+              transparent 82%)
+          `,
+          filter: 'blur(70px)',
+          transform: 'rotate(14deg)',
+          animation: `aurora-ribbon-2 34s ease-in-out infinite`,
+          animationPlayState: motionPaused,
+          willChange: 'transform',
+          zIndex: 1,
+        }}
+      />
+
+      {/*
+        RIBBON 3 — peach/blush-pink lower diagonal (bottom-center sweep)
+        Uses accent-tertiary + fixed #fbcfe8 (blush).
+        Duration: 22s. Blur: 70px. Opacity: 0.20 (lighter, more dreamy).
+      */}
+      <div
+        ref={ribbon3Ref}
+        className="aurora-ribbon absolute pointer-events-none select-none"
+        aria-hidden="true"
+        style={{
+          bottom: '-20%',
+          left: '15%',
+          width: '75%',
+          height: '65%',
+          background: `
+            radial-gradient(ellipse 100% 55% at 50% 50%,
+              hsl(var(--accent-tertiary) / 0.44) 0%,
+              #fbcfe850 40%,
+              transparent 76%)
+          `,
+          filter: 'blur(58px)',
+          transform: 'rotate(-6deg)',
+          animation: `aurora-ribbon-3 22s ease-in-out infinite`,
+          animationPlayState: motionPaused,
+          willChange: 'transform',
+          zIndex: 1,
+        }}
+      />
+
+      {/*
+        RIBBON 4 — soft-blue / indigo crossing band (bottom-right)
+        Fixed soft-blue pastels: #c7d2fe (indigo-200) for richness.
+        Duration: 28s. Blur: 100px. Opacity: 0.18 (subtlest — adds depth).
+      */}
+      <div
+        ref={ribbon4Ref}
+        className="aurora-ribbon absolute pointer-events-none select-none"
+        aria-hidden="true"
+        style={{
+          bottom: '-25%',
+          right: '-15%',
+          width: '70%',
+          height: '70%',
+          background: `
+            radial-gradient(ellipse 100% 55% at 50% 50%,
+              #c7d2fe55 0%,
+              hsl(var(--accent-primary) / 0.30) 40%,
+              transparent 78%)
+          `,
+          filter: 'blur(80px)',
+          transform: 'rotate(8deg)',
+          animation: `aurora-ribbon-4 28s ease-in-out infinite`,
+          animationPlayState: motionPaused,
+          willChange: 'transform',
+          zIndex: 1,
+        }}
+      />
+
     </div>
   );
 }
@@ -841,11 +979,13 @@ export function ModernFeatureSelector({
 
   return (
     <div className="relative z-10 flex-1 overflow-auto theme-transition">
-      {/* ── Hero with aurora blobs + parallax ── */}
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-12 pt-8 pb-6 lg:pt-12 lg:pb-8">
+      {/* ── Full-page magical aurora wave background (fixed, behind everything) ── */}
+      <AuroraBackground />
+
+      {/* ── Hero ── */}
+      <div className="relative z-10 px-4 sm:px-6 lg:px-8 xl:px-12 pt-8 pb-6 lg:pt-12 lg:pb-8">
         <div className="max-w-7xl mx-auto">
-          <AuroraHero>
-            <div className="relative text-center z-10 py-2">
+          <div className="relative text-center z-10 py-2">
               {/* Badge */}
               <motion.div
                 initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
@@ -900,7 +1040,6 @@ export function ModernFeatureSelector({
                 </kbd>
               </motion.button>
             </div>
-          </AuroraHero>
         </div>
       </div>
 

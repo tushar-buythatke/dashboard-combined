@@ -52,6 +52,7 @@ export function AccentThemeSelector({ className }: { className?: string }) {
             (typeof THEME_INFO)[Exclude<AccentTheme, 'auto'>],
         ][]
     ).filter(([key]) => {
+        if (key === 'afterhours') return false; // Cyber dropped (v4: 2 signature + 3 legacy)
         if (mode === 'light' && PREMIUM_THEMES.includes(key)) return false;
         return true;
     });
