@@ -8,6 +8,7 @@ import { useChartZoom } from '@/hooks/useChartZoom';
 import { ChartZoomControls } from '../components/ChartZoomControls';
 import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
+import { useChartColors } from '@/lib/chartTheme';
 
 interface FunnelGraphProps {
     data: any[];
@@ -55,6 +56,19 @@ interface FunnelStageData {
     }>;
 }
 
+// Determines worst-performing stage (highest drop-off, excluding stage 0)
+function getWorstStageIndex(funnelData: FunnelStageData[]): number {
+    let worstIdx = -1;
+    let worstDropoff = 0;
+    funnelData.forEach((stage, idx) => {
+        if (idx > 0 && stage.dropoffPercentage > worstDropoff) {
+            worstDropoff = stage.dropoffPercentage;
+            worstIdx = idx;
+        }
+    });
+    return worstIdx;
+}
+
 export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, eventNames, filters, onViewAsPercentage, isAvgDelayMode = false, isHourly = false, onToggleHourly }: FunnelGraphProps) {
     const { t: themeClasses } = useAccentTheme();
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
@@ -64,6 +78,23 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
     // Hovered stage for tooltip
     const [hoveredStage, setHoveredStage] = useState<FunnelStageData | null>(null);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+    // Bar entrance animation
+    const [animated, setAnimated] = useState(false);
+    const reducedMotion = typeof window !== 'undefined'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        : false;
+
+    const { accentPrimary, grid } = useChartColors();
+
+    useEffect(() => {
+        if (reducedMotion) {
+            setAnimated(true);
+            return;
+        }
+        // Trigger entrance on mount
+        const raf = requestAnimationFrame(() => setAnimated(true));
+        return () => cancelAnimationFrame(raf);
+    }, [reducedMotion]);
 
     const handleMouseEnter = (stage: FunnelStageData, e: React.MouseEvent) => {
         // Target the bar container (first child) for accurate measurement
@@ -362,6 +393,8 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
         return filteredProcessedStages;
     }, [data, stages, multipleChildEvents, eventColors, eventNames, filters]);
 
+    const worstStageIndex = useMemo(() => getWorstStageIndex(funnelData), [funnelData]);
+
     if (!funnelData || funnelData.length === 0) {
         return (
             <Card className={cn("rounded-3xl overflow-hidden backdrop-blur-xl border-2 shadow-xl", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)}>
@@ -450,6 +483,22 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         style={{ transform: `scale(${zoomLevel})` }}
                         onWheel={handleWheel}
                     >
+                        {/* SVG gradient defs for bar fills */}
+                        <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }}>
+                            <defs>
+                                {/* Normal stage gradient — accent top → tinted bottom */}
+                                <linearGradient id="funnelBarGradNormal" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor={accentPrimary} stopOpacity={1} />
+                                    <stop offset="100%" stopColor={accentPrimary} stopOpacity={0.42} />
+                                </linearGradient>
+                                {/* Problem/worst stage gradient — red */}
+                                <linearGradient id="funnelBarGradRed" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                                    <stop offset="100%" stopColor="#ef4444" stopOpacity={0.42} />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+
                         {/* Grid Lines - representing 0%, 25%, 50%, 75%, 100% */}
                         <div className="absolute inset-x-0 bottom-0 h-full pointer-events-none" style={{ left: '2rem', right: '1rem' }}>
                             {[0, 25, 50, 75, 100].map((level) => (
@@ -470,36 +519,117 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             const heightPct = Math.max(Math.min(stage.percentage, 100), 2);
                             const isSelected = selectedStage?.eventId === stage.eventId;
                             const isFinalMultiple = stage.isMultiple && stage.children;
+                            const isWorst = index === worstStageIndex;
+                            const isHovered = hoveredStage?.eventId === stage.eventId;
+                            // Dim other bars when one is hovered
+                            const isDimmed = hoveredStage !== null && !isHovered;
+                            // Stagger animation begin: 80ms per bar
+                            const staggerDelay = reducedMotion ? 0 : index * 80;
 
                             return (
                                 <div
                                     key={stage.eventId}
                                     className="flex flex-col items-center group w-14 sm:w-24 md:w-40 h-full cursor-pointer relative z-10"
+                                    style={{
+                                        opacity: isDimmed ? 0.38 : 1,
+                                        transition: 'opacity 200ms ease',
+                                    }}
                                     onClick={() => setSelectedStage(stage)}
-                                    onMouseEnter={(e) => handleMouseEnter(stage, e)}
-                                    onMouseLeave={() => setHoveredStage(null)}
+                                    onMouseEnter={(e) => {
+                                        setHighlightedStageId(stage.eventId);
+                                        handleMouseEnter(stage, e);
+                                    }}
+                                    onMouseLeave={() => {
+                                        setHighlightedStageId(null);
+                                        setHoveredStage(null);
+                                    }}
                                 >
+                                    {/* Drop-off floating pill between stages (above bar, before stage > 0) */}
+                                    {index > 0 && (
+                                        <div
+                                            className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-full z-20 pointer-events-none"
+                                            style={{ top: `calc(100% - ${heightPct}% - 2px)` }}
+                                        >
+                                            <div
+                                                className={cn(
+                                                    "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold shadow-md border whitespace-nowrap",
+                                                    isWorst
+                                                        ? "bg-red-500/90 text-white border-red-400/50 shadow-red-500/30"
+                                                        : stage.dropoffPercentage > 20
+                                                            ? "bg-orange-500/90 text-white border-orange-400/50 shadow-orange-500/30"
+                                                            : "bg-white/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 border-slate-200/70 dark:border-slate-600/50"
+                                                )}
+                                                style={{
+                                                    boxShadow: isWorst
+                                                        ? '0 2px 8px rgba(239,68,68,0.35)'
+                                                        : stage.dropoffPercentage > 20
+                                                            ? '0 2px 8px rgba(249,115,22,0.3)'
+                                                            : '0 2px 6px rgba(0,0,0,0.12)',
+                                                }}
+                                            >
+                                                <TrendingDown className="h-2.5 w-2.5 flex-shrink-0" />
+                                                <span>{stage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(stage.dropoffPercentage).toFixed(0)}%</span>
+                                            </div>
+                                            {/* Small arrow pointing down toward bar */}
+                                            <div
+                                                className={cn(
+                                                    "mx-auto w-0 h-0 mt-0.5",
+                                                )}
+                                                style={{
+                                                    borderLeft: '4px solid transparent',
+                                                    borderRight: '4px solid transparent',
+                                                    borderTop: isWorst
+                                                        ? '5px solid rgba(239,68,68,0.9)'
+                                                        : stage.dropoffPercentage > 20
+                                                            ? '5px solid rgba(249,115,22,0.9)'
+                                                            : '5px solid rgba(148,163,184,0.6)',
+                                                    width: 0,
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+
                                     {/* Bar container - aligned to bottom (0%) */}
                                     <div className="flex-1 flex items-end w-full relative">
                                         {!isFinalMultiple ? (
-                                            /* Regular single-event bar with dual metrics */
+                                            /* Regular single-event bar — gradient fill, rounded tops */
                                             <div
                                                 className={cn(
-                                                    "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-visible",
-                                                    // Color code based on drop-off percentage
-                                                    stage.dropoffPercentage > 30
-                                                        ? "bg-gradient-to-t from-red-400/90 to-red-500/90 hover:from-red-500/90 hover:to-red-600/90 border-2 border-red-500/30"
-                                                        : stage.dropoffPercentage > 15
-                                                            ? "bg-gradient-to-t from-orange-400/90 to-orange-500/90 hover:from-orange-500/90 hover:to-orange-600/90 border-2 border-orange-500/30"
-                                                            : "bg-gradient-to-t from-indigo-400/90 to-indigo-500/90 hover:from-indigo-500/90 hover:to-indigo-600/90 border-2 border-indigo-500/30",
-                                                    isSelected && "ring-4 ring-indigo-300/50 dark:ring-indigo-400/50 scale-105"
+                                                    "relative w-full shadow-md overflow-visible",
+                                                    "transition-all duration-300",
+                                                    isSelected && "ring-4 ring-white/40 dark:ring-white/20 scale-105",
                                                 )}
-                                                style={{ height: `${heightPct}%` }}
+                                                style={{
+                                                    height: animated ? `${heightPct}%` : '0%',
+                                                    borderRadius: '6px 6px 0 0',
+                                                    background: isWorst
+                                                        ? 'url(#funnelBarGradRed)'
+                                                        : undefined,
+                                                    backgroundImage: isWorst
+                                                        ? `linear-gradient(to bottom, #ef4444, rgba(239,68,68,0.42))`
+                                                        : `linear-gradient(to bottom, ${accentPrimary}, color-mix(in srgb, ${accentPrimary} 42%, transparent))`,
+                                                    boxShadow: isHovered
+                                                        ? isWorst
+                                                            ? '0 4px 20px rgba(239,68,68,0.45)'
+                                                            : `0 4px 20px color-mix(in srgb, ${accentPrimary} 40%, transparent)`
+                                                        : isWorst
+                                                            ? '0 2px 8px rgba(239,68,68,0.25)'
+                                                            : '0 2px 8px rgba(0,0,0,0.12)',
+                                                    transition: reducedMotion
+                                                        ? 'box-shadow 200ms ease'
+                                                        : `height 600ms cubic-bezier(0.16,1,0.3,1) ${staggerDelay}ms, box-shadow 200ms ease`,
+                                                }}
                                             >
-                                                {/* Labels ABOVE bar when percentage < 10% - positioned at top of bar with negative offset */}
+                                                {/* Labels ABOVE bar when percentage < 10% */}
                                                 {stage.percentage < 10 && (
                                                     <div className="absolute -top-10 sm:-top-12 left-1/2 -translate-x-1/2 flex flex-col items-center z-20 whitespace-nowrap transition-opacity duration-200 group-hover:opacity-0">
-                                                        <span className="font-bold text-xs sm:text-lg text-indigo-600 dark:text-indigo-400 drop-shadow-sm">
+                                                        <span
+                                                            className="font-bold text-xs sm:text-lg"
+                                                            style={{
+                                                                color: isWorst ? '#ef4444' : accentPrimary,
+                                                                textShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                                            }}
+                                                        >
                                                             {Math.min(stage.percentage, 100).toFixed(1)}%
                                                         </span>
                                                         <span className="font-semibold text-[10px] sm:text-sm text-gray-600 dark:text-gray-400">
@@ -508,13 +638,19 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                     </div>
                                                 )}
 
-                                                {/* Percentage and User Badges */}
+                                                {/* Percentage and User Badges — white text, text-shadow for legibility */}
                                                 <div className="absolute inset-0 flex flex-col items-center justify-center p-1 sm:p-2">
                                                     <div className="flex flex-col items-center gap-0.5">
-                                                        <span className="text-white font-bold text-[10px] sm:text-lg md:text-xl drop-shadow-lg leading-none">
+                                                        <span
+                                                            className="text-white font-bold text-[10px] sm:text-lg md:text-xl leading-none"
+                                                            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.55), 0 0px 1px rgba(0,0,0,0.8)' }}
+                                                        >
                                                             {Math.min(stage.percentage, 100).toFixed(1)}%
                                                         </span>
-                                                        <span className="text-white/80 font-semibold text-[8px] sm:text-xs drop-shadow-lg leading-none">
+                                                        <span
+                                                            className="text-white/90 font-semibold text-[8px] sm:text-xs leading-none"
+                                                            style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
+                                                        >
                                                             {stage.count.toLocaleString()} hits
                                                         </span>
                                                     </div>
@@ -535,22 +671,21 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                         </div>
                                                     )}
                                                 </div>
-
-                                                {/* High drop-off indicator */}
-                                                {stage.dropoffPercentage > 20 && stage.percentage >= 10 && (
-                                                    <div className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-red-500/40 backdrop-blur-md rounded-full px-1 sm:px-2 py-0.5 sm:py-1 border border-white/20">
-                                                        <span className="text-white text-[8px] sm:text-[10px] font-bold">{stage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(stage.dropoffPercentage).toFixed(0)}%</span>
-                                                    </div>
-                                                )}
                                             </div>
                                         ) : (
-                                            /* Final stage with multiple events - stacked segments showing INDIVIDUAL percentages */
+                                            /* Final stage with multiple events - stacked segments */
                                             <div
                                                 className={cn(
-                                                    "relative w-full transition-all duration-300 shadow-md rounded-t-xl overflow-hidden border-2 border-gray-300 dark:border-gray-600",
-                                                    isSelected && "ring-4 ring-gray-300/50 dark:ring-gray-400/50 scale-105"
+                                                    "relative w-full shadow-md overflow-hidden border border-gray-300/40 dark:border-gray-600/30",
+                                                    isSelected && "ring-4 ring-white/40 dark:ring-white/20 scale-105"
                                                 )}
-                                                style={{ height: `${heightPct}%` }}
+                                                style={{
+                                                    height: animated ? `${heightPct}%` : '0%',
+                                                    borderRadius: '6px 6px 0 0',
+                                                    transition: reducedMotion
+                                                        ? undefined
+                                                        : `height 600ms cubic-bezier(0.16,1,0.3,1) ${staggerDelay}ms`,
+                                                }}
                                             >
                                                 {/* Stacked segments for each child event - from bottom to top */}
                                                 {stage.children?.slice().reverse().map((child, childIdx) => {
@@ -578,7 +713,10 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                             {/* Show INDIVIDUAL percentage for each segment */}
                                                             {child.percentage > 10 && (
                                                                 <div className="absolute inset-0 flex items-center justify-center">
-                                                                    <span className="text-white font-bold text-xs sm:text-sm drop-shadow-lg">
+                                                                    <span
+                                                                        className="text-white font-bold text-xs sm:text-sm"
+                                                                        style={{ textShadow: '0 1px 4px rgba(0,0,0,0.55)' }}
+                                                                    >
                                                                         {Math.min(child.percentage, 100).toFixed(1)}%
                                                                     </span>
                                                                 </div>
@@ -587,12 +725,15 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                     );
                                                 })}
 
-                                                {/* Count on hover - NO total percentage overlay */}
+                                                {/* Count on hover */}
                                                 <div className={cn(
                                                     "absolute inset-x-0 top-2 flex items-center justify-center text-white text-xs sm:text-sm font-semibold px-1 transition-opacity",
                                                     isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                                                 )}>
-                                                    <span className="drop-shadow-lg bg-black/30 px-2 py-1 rounded text-center">
+                                                    <span
+                                                        className="bg-black/30 px-2 py-1 rounded text-center"
+                                                        style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}
+                                                    >
                                                         {stage.count.toLocaleString()}
                                                     </span>
                                                 </div>
@@ -622,10 +763,18 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         })}
                     </div>
 
-                    {/* Summary Footer with Final Stage Toggle */}
+                    {/* Summary Footer with gradient-border stat cards */}
                     <div className="mt-8 pt-6 border-t border-gray-200/50 dark:border-gray-700/50">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
-                            <div className="bg-indigo-100/60 dark:bg-indigo-900/30 backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 border-indigo-300/50 dark:border-indigo-500/40 shadow-md overflow-hidden">
+                            {/* Total Hits — gradient-border card */}
+                            <div
+                                className="relative rounded-2xl p-2 sm:p-4 overflow-hidden"
+                                style={{
+                                    background: 'linear-gradient(var(--dash-card-bg, #fff), var(--dash-card-bg, #fff)) padding-box, linear-gradient(135deg, #6366f1, #8b5cf6) border-box',
+                                    border: '1px solid transparent',
+                                    boxShadow: '0 2px 12px rgba(99,102,241,0.12)',
+                                }}
+                            >
                                 <div className="flex flex-col items-center">
                                     <div className="text-base sm:text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400 truncate w-full">
                                         {funnelData[0]?.count.toLocaleString() || 0}
@@ -639,7 +788,16 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     )}
                                 </div>
                             </div>
-                            <div className="bg-emerald-100/60 dark:bg-emerald-900/30 backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 border-emerald-300/50 dark:border-emerald-500/40 shadow-md overflow-hidden">
+
+                            {/* Completed — gradient-border card */}
+                            <div
+                                className="relative rounded-2xl p-2 sm:p-4 overflow-hidden"
+                                style={{
+                                    background: 'linear-gradient(var(--dash-card-bg, #fff), var(--dash-card-bg, #fff)) padding-box, linear-gradient(135deg, #10b981, #059669) border-box',
+                                    border: '1px solid transparent',
+                                    boxShadow: '0 2px 12px rgba(16,185,129,0.12)',
+                                }}
+                            >
                                 <div className="flex flex-col items-center">
                                     <div className="text-base sm:text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400 truncate w-full">
                                         {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
@@ -653,13 +811,33 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     )}
                                 </div>
                             </div>
-                            <div className={cn("backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40 overflow-hidden", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
-                                <div className={cn("text-base sm:text-2xl md:text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent truncate", themeClasses.buttonGradient)}>
+
+                            {/* Conversion Rate — accent gradient border */}
+                            <div
+                                className="relative rounded-2xl p-2 sm:p-4 overflow-hidden"
+                                style={{
+                                    background: `linear-gradient(var(--dash-card-bg, #fff), var(--dash-card-bg, #fff)) padding-box, linear-gradient(135deg, ${accentPrimary}, color-mix(in srgb, ${accentPrimary} 60%, #ec4899)) border-box`,
+                                    border: '1px solid transparent',
+                                    boxShadow: `0 2px 12px color-mix(in srgb, ${accentPrimary} 20%, transparent)`,
+                                }}
+                            >
+                                <div
+                                    className={cn("text-base sm:text-2xl md:text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent truncate", themeClasses.buttonGradient)}
+                                >
                                     {Math.min(funnelData[funnelData.length - 1]?.percentage || 0, 100).toFixed(1)}%
                                 </div>
                                 <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Conversion Rate</div>
                             </div>
-                            <div className="bg-gradient-to-br from-orange-100/60 to-amber-100/60 dark:from-orange-900/30 dark:to-amber-900/30 backdrop-blur-sm rounded-2xl p-2 sm:p-4 border-2 border-orange-300/50 dark:border-orange-500/40 shadow-md relative z-20 overflow-hidden">
+
+                            {/* View as % — gradient-border card */}
+                            <div
+                                className="relative rounded-2xl p-2 sm:p-4 overflow-hidden"
+                                style={{
+                                    background: 'linear-gradient(var(--dash-card-bg, #fff), var(--dash-card-bg, #fff)) padding-box, linear-gradient(135deg, #f97316, #f59e0b) border-box',
+                                    border: '1px solid transparent',
+                                    boxShadow: '0 2px 12px rgba(249,115,22,0.12)',
+                                }}
+                            >
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -682,8 +860,6 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">All Stages</div>
                             </div>
                         </div>
-
-
                     </div>
 
                 </CardContent>
@@ -813,6 +989,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     )}
                 </DialogContent>
             </Dialog >
+
             {/* Global Portal Tooltip - Renders outside stacking contexts */}
             {hoveredStage && createPortal(
                 <div
@@ -823,52 +1000,71 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                         transform: 'translate(-50%, -100%)'
                     }}
                 >
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.4)] border-2 border-indigo-500/50 dark:border-indigo-400/40 p-5 min-w-[280px] isolation-auto relative">
+                    <div
+                        className="rounded-2xl p-5 min-w-[280px] isolation-auto relative"
+                        style={{
+                            background: 'rgba(15, 15, 26, 0.90)',
+                            backdropFilter: 'blur(16px)',
+                            borderLeft: `3px solid ${worstStageIndex === funnelData.findIndex(s => s.eventId === hoveredStage.eventId) ? '#ef4444' : accentPrimary}`,
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.45)',
+                            border: `1px solid rgba(255,255,255,0.08)`,
+                            borderLeftWidth: '3px',
+                            borderLeftColor: worstStageIndex === funnelData.findIndex(s => s.eventId === hoveredStage.eventId) ? '#ef4444' : accentPrimary,
+                        }}
+                    >
                         {/* Tooltip Arrow */}
-                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-slate-900 rotate-45 border-r-2 border-b-2 border-indigo-500/50 dark:border-indigo-400/40" />
+                        <div
+                            className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
+                            style={{
+                                background: 'rgba(15, 15, 26, 0.90)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                borderTop: 'none',
+                                borderLeft: 'none',
+                            }}
+                        />
 
-                        <div className="font-bold text-gray-900 dark:text-gray-100 text-sm mb-3 truncate max-w-[240px] relative z-10" title={hoveredStage.eventName}>
+                        <div className="font-bold text-white text-sm mb-3 truncate max-w-[240px] relative z-10" title={hoveredStage.eventName}>
                             {funnelData.findIndex(s => s.eventId === hoveredStage.eventId) + 1}. {hoveredStage.eventName}
                         </div>
-                        <div className="grid grid-cols-3 gap-3 mb-4 border-b border-gray-100 dark:border-gray-800 pb-3 relative z-10">
+                        <div className="grid grid-cols-3 gap-3 mb-4 border-b border-white/10 pb-3 relative z-10">
                             <div className="flex flex-col">
-                                <span className="text-[10px] text-gray-500 uppercase font-semibold">Users</span>
-                                <span className="font-bold text-blue-600 dark:text-blue-400">{(hoveredStage.totalUsers || 0).toLocaleString()}</span>
+                                <span className="text-[10px] text-white/50 uppercase font-semibold">Users</span>
+                                <span className="font-bold text-blue-400">{(hoveredStage.totalUsers || 0).toLocaleString()}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] text-gray-500 uppercase font-semibold">New</span>
-                                <span className="font-bold text-teal-600 dark:text-teal-400">{(hoveredStage.newUsers || 0).toLocaleString()}</span>
+                                <span className="text-[10px] text-white/50 uppercase font-semibold">New</span>
+                                <span className="font-bold text-teal-400">{(hoveredStage.newUsers || 0).toLocaleString()}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] text-gray-500 uppercase font-semibold">Unique</span>
-                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{(hoveredStage.uniqueUsers || 0).toLocaleString()}</span>
+                                <span className="text-[10px] text-white/50 uppercase font-semibold">Unique</span>
+                                <span className="font-bold text-indigo-400">{(hoveredStage.uniqueUsers || 0).toLocaleString()}</span>
                             </div>
                         </div>
                         <div className="space-y-2 text-xs relative z-10">
                             <div className="flex items-center justify-between gap-6">
-                                <span className="text-gray-500 font-medium">Hits:</span>
-                                <span className="font-bold text-gray-800 dark:text-gray-200">{hoveredStage.count.toLocaleString()}</span>
+                                <span className="text-white/55 font-medium">Hits:</span>
+                                <span className="font-bold text-white">{hoveredStage.count.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center justify-between gap-6">
-                                <span className="text-gray-500 font-medium">Percentage:</span>
-                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{Math.min(hoveredStage.percentage, 100).toFixed(1)}%</span>
+                                <span className="text-white/55 font-medium">Percentage:</span>
+                                <span className="font-bold text-emerald-400">{Math.min(hoveredStage.percentage, 100).toFixed(1)}%</span>
                             </div>
                             {funnelData.findIndex(s => s.eventId === hoveredStage.eventId) > 0 && (
                                 <>
                                     <div className="flex items-center justify-between gap-6">
-                                        <span className="text-gray-500 font-medium">{hoveredStage.dropoffPercentage > 0 ? 'Drop-off:' : 'Increase:'}</span>
+                                        <span className="text-white/55 font-medium">{hoveredStage.dropoffPercentage > 0 ? 'Drop-off:' : 'Increase:'}</span>
                                         <span className={cn(
                                             "font-bold",
-                                            hoveredStage.dropoffPercentage > 30 ? "text-red-600 dark:text-red-400" :
-                                                hoveredStage.dropoffPercentage > 0 ? (hoveredStage.dropoffPercentage > 15 ? "text-orange-600 dark:text-orange-400" : "text-yellow-600 dark:text-yellow-400") :
-                                                    "text-emerald-600 dark:text-emerald-400"
+                                            hoveredStage.dropoffPercentage > 30 ? "text-red-400" :
+                                                hoveredStage.dropoffPercentage > 0 ? (hoveredStage.dropoffPercentage > 15 ? "text-orange-400" : "text-yellow-400") :
+                                                    "text-emerald-400"
                                         )}>
                                             {hoveredStage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(hoveredStage.dropoffPercentage).toFixed(1)}%
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between gap-6">
-                                        <span className="text-gray-500 font-medium">From previous:</span>
-                                        <span className="font-semibold text-gray-700 dark:text-gray-300">
+                                        <span className="text-white/55 font-medium">From previous:</span>
+                                        <span className="font-semibold text-white/80">
                                             {funnelData[funnelData.findIndex(s => s.eventId === hoveredStage.eventId) - 1]?.count.toLocaleString() || 0}
                                         </span>
                                     </div>

@@ -2,20 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
-import { Area, CartesianGrid, ComposedChart, Legend, Line, XAxis, YAxis } from "recharts"
+import { Area, CartesianGrid, ComposedChart, Legend, Line, Tooltip, XAxis, YAxis } from "recharts"
 import { TrendingUp, RefreshCw } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { ChartContainer, type ChartConfig } from "@/components/ui/chart"
 import { fetcher } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { type DateRange } from "react-day-picker"
+import { useChartColors, gridProps, AXIS_TICK_STYLE } from "@/lib/chartTheme"
+import { GlassTooltip } from "@/components/ui/GlassTooltip"
 
 const TOP_POS_OPTIONS = [
   { value: "all", label: "Global View" },
@@ -67,6 +69,7 @@ export function NotificationTrends({
   showDatePopover = false,
   hideRangeSelect = false,
 }: NotificationTrendsProps) {
+  const colors = useChartColors()
   const isControlledPos = controlledPOS !== undefined
   const [days, setDays] = useState(defaultDays)
   const [selectedPOS, setSelectedPOS] = useState<string>(controlledPOS ?? defaultPOS)
@@ -354,12 +357,23 @@ export function NotificationTrends({
         ) : (
           <ChartContainer config={chartConfig} className="h-[420px] w-full">
             <ComposedChart data={chartData} margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
-              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="4 4" vertical={false} />
+              <defs>
+                <linearGradient id="nt-success-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={colors.palette[1]} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={colors.palette[1]} stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="nt-delay-grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={colors.palette[2]} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={colors.palette[2]} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid {...gridProps(colors.grid)} />
               <XAxis
                 dataKey="displayDate"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
                 interval={chartData.length > 14 ? Math.ceil(chartData.length / 14) : 0}
               />
               <YAxis
@@ -368,10 +382,11 @@ export function NotificationTrends({
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
                 domain={leftDomain}
                 tickCount={6}
                 tickFormatter={(value) => `${Number(value ?? 0).toFixed(0)}%`}
-                label={{ value: "Success Rate %", angle: -90, position: "insideLeft", fill: "currentColor" }}
+                label={{ value: "Success Rate %", angle: -90, position: "insideLeft", fill: colors.axis, style: { fontSize: 11 } }}
               />
               <YAxis
                 yAxisId="right"
@@ -379,6 +394,7 @@ export function NotificationTrends({
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
                 domain={rightDomain}
                 tickCount={6}
                 tickFormatter={(value) => {
@@ -391,31 +407,27 @@ export function NotificationTrends({
                   }
                   return `${Math.max(0, Math.round(val * 60))}m`
                 }}
-                label={{ value: "Average Delay", angle: 90, position: "insideRight", fill: "currentColor" }}
+                label={{ value: "Average Delay", angle: 90, position: "insideRight", fill: colors.axis, style: { fontSize: 11 } }}
               />
-              <ChartTooltip
-                cursor={{ stroke: "hsl(var(--border))", strokeDasharray: "4 4" }}
+              <Tooltip
+                cursor={{ stroke: colors.accentPrimary, strokeWidth: 1, strokeDasharray: '4 4' }}
                 content={
-                  <ChartTooltipContent
-                    labelFormatter={(value, payload) => {
-                      const record = payload?.[0]?.payload as (typeof chartData)[number] | undefined
+                  <GlassTooltip
+                    labelFormatter={(value) => {
+                      const record = chartData.find(d => d.displayDate === String(value))
                       return record?.tooltipDate ?? String(value)
                     }}
                     formatter={(value, name) => {
-                      if (name === "success_rate") {
-                        return [`${Number(value).toFixed(2)}%`, "Success Rate"]
+                      if (name === "success_rate" || name === "Success Rate %") {
+                        return `${Number(value).toFixed(2)}%`
                       }
-                      if (name === "avg_delay_hours") {
+                      if (name === "avg_delay_hours" || name === "Average Delay") {
                         const hours = Number(value)
-                        if (hours >= 24) {
-                          return [`${(hours / 24).toFixed(1)} days`, "Avg Delay"]
-                        }
-                        if (hours >= 1) {
-                          return [`${hours.toFixed(1)} hours`, "Avg Delay"]
-                        }
-                        return [`${(hours * 60).toFixed(0)} mins`, "Avg Delay"]
+                        if (hours >= 24) return `${(hours / 24).toFixed(1)}d`
+                        if (hours >= 1) return `${hours.toFixed(1)}h`
+                        return `${(hours * 60).toFixed(0)}m`
                       }
-                      return [value ?? "—", name]
+                      return String(value ?? "—")
                     }}
                   />
                 }
@@ -425,19 +437,22 @@ export function NotificationTrends({
                 yAxisId="left"
                 type="monotone"
                 dataKey="success_rate"
-                stroke="hsl(150 70% 45%)"
-                strokeWidth={3}
-                dot={{ r: 4, strokeWidth: 2, stroke: "hsl(150 70% 45%)", fill: "var(--background)" }}
-                activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(150 70% 45%)", fill: "var(--background)" }}
+                stroke={colors.palette[1]}
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: colors.palette[1] }}
+                name="Success Rate %"
               />
               <Area
                 yAxisId="right"
                 type="monotone"
                 dataKey="avg_delay_hours"
-                stroke="var(--chart-delay)"
-                fill="var(--chart-delay)"
-                fillOpacity={0.15}
+                stroke={colors.palette[2]}
+                fill="url(#nt-delay-grad)"
                 strokeWidth={2.5}
+                dot={false}
+                activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: colors.palette[2] }}
+                name="Average Delay"
               />
             </ComposedChart>
           </ChartContainer>

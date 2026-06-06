@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from "react"
 import useSWR from "swr"
-import { Line, LineChart, XAxis, YAxis, CartesianGrid } from "recharts"
+import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts"
 import { Filter, TrendingUp, Calendar as CalendarIcon } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { type ChartConfig, ChartContainer } from "@/components/ui/chart"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { fetcher } from "@/lib/api"
@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { type DateRange } from "react-day-picker"
 import { PLATFORMS } from "@/services/apiService"
+import { useChartColors, gridProps, AXIS_TICK_STYLE } from "@/lib/chartTheme"
+import { GlassTooltip } from "@/components/ui/GlassTooltip"
 
 // All database events with better organization
 const ALL_EVENTS = [
@@ -81,6 +83,7 @@ type AggregatedEventPoint = {
 } & Record<string, number | string>
 
 export function EventVolumeChart() {
+  const colors = useChartColors()
   const [selectedPOS, setSelectedPOS] = useState<string>("2")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedPlatform, setSelectedPlatform] = useState<string>("all")
@@ -399,7 +402,17 @@ export function EventVolumeChart() {
         ) : (
           <ChartContainer config={lineChartConfig} className="h-[460px] w-full">
             <LineChart data={chartData}>
-              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="4 4" vertical={false} />
+              <defs>
+                {filteredEvents
+                  .filter((event) => selectedEvents.has(event.id))
+                  .map((event) => (
+                    <linearGradient key={event.id} id={`evol-grad-${event.id}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={event.color} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={event.color} stopOpacity={0} />
+                    </linearGradient>
+                  ))}
+              </defs>
+              <CartesianGrid {...gridProps(colors.grid)} />
               <XAxis
                 dataKey="timestamp"
                 type="number"
@@ -407,6 +420,7 @@ export function EventVolumeChart() {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
                 tickFormatter={(value) =>
                   new Date(value).toLocaleDateString('en-US', {
                     month: 'short',
@@ -418,21 +432,21 @@ export function EventVolumeChart() {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
+                tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
                 tickFormatter={(value) => {
                   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
                   if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`
                   return value.toString()
                 }}
               />
-              <ChartTooltip
-                cursor={{ stroke: 'hsl(var(--border))', strokeDasharray: '4 4' }}
+              <Tooltip
+                cursor={{ stroke: colors.accentPrimary, strokeWidth: 1, strokeDasharray: '4 4' }}
                 content={
-                  <ChartTooltipContent
-                    indicator="line"
+                  <GlassTooltip
                     labelFormatter={(value) =>
                       typeof value === 'number'
                         ? format(new Date(value), 'dd MMM yyyy')
-                        : value
+                        : String(value)
                     }
                   />
                 }
@@ -446,20 +460,10 @@ export function EventVolumeChart() {
                     type="monotone"
                     dataKey={event.name}
                     stroke={event.color}
-                    strokeWidth={CATEGORY_SERIES_STYLE[event.category]?.strokeWidth ?? 2.5}
+                    strokeWidth={2.5}
                     strokeDasharray={CATEGORY_SERIES_STYLE[event.category]?.strokeDasharray}
-                    dot={{
-                      r: (CATEGORY_SERIES_STYLE[event.category]?.dotRadius ?? 4) + 1,
-                      stroke: event.color,
-                      strokeWidth: 1.5,
-                      fill: 'var(--background)',
-                    }}
-                    activeDot={{
-                      r: (CATEGORY_SERIES_STYLE[event.category]?.dotRadius ?? 4) + 3,
-                      stroke: event.color,
-                      strokeWidth: 2,
-                      fill: 'var(--background)',
-                    }}
+                    dot={false}
+                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: event.color }}
                     name={event.displayName}
                     connectNulls={false}
                   />

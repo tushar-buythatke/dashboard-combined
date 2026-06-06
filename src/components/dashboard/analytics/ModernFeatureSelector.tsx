@@ -608,7 +608,7 @@ function AuroraBackground() {
   const play = shouldReduceMotion ? 'paused' : 'running';
 
   return (
-    <div className="fixed inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true" style={{ zIndex: -1 }}>
+    <div className="fixed inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true" style={{ zIndex: 0 }}>
       {/*
         Single translucent iridescent SILK RIBBON flowing across the page.
         Large blurred bezier strokes over a CLEAN white page — NOT a colored
@@ -639,7 +639,7 @@ function AuroraBackground() {
             <stop offset="100%" stopColor="#a5f3ec" />
           </linearGradient>
           <filter id="auroraSilkBlur" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="48" />
+            <feGaussianBlur stdDeviation="38" />
           </filter>
         </defs>
         <g
@@ -656,11 +656,11 @@ function AuroraBackground() {
           }}
         >
           {/* Main silk stroke — long S-curve crossing the page */}
-          <path d="M -180 380 C 280 150, 600 560, 1040 300 S 1480 200, 1640 320" strokeWidth="300" opacity="0.16" />
+          <path d="M -180 380 C 280 150, 600 560, 1040 300 S 1480 200, 1640 320" strokeWidth="300" opacity="0.34" />
           {/* Secondary trailing fold */}
-          <path d="M -180 600 C 360 760, 780 400, 1180 600 S 1520 720, 1640 600" strokeWidth="220" opacity="0.10" />
+          <path d="M -180 600 C 360 760, 780 400, 1180 600 S 1520 720, 1640 600" strokeWidth="220" opacity="0.24" />
           {/* Faint upper wisp for depth */}
-          <path d="M 180 -80 C 540 300, 940 120, 1340 460" strokeWidth="180" opacity="0.07" />
+          <path d="M 180 -80 C 540 300, 940 120, 1340 460" strokeWidth="180" opacity="0.16" />
         </g>
       </svg>
 
@@ -868,7 +868,7 @@ export function ModernFeatureSelector({
       </div>
 
       {/* ── Bento Feature Grid ── */}
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-12 pb-4">
+      <div className="relative z-10 px-4 sm:px-6 lg:px-8 xl:px-12 pb-4">
         <div
           ref={gridRef}
           className={cn(
@@ -890,7 +890,9 @@ export function ModernFeatureSelector({
         </div>
       </div>
 
-      <Footer />
+      <div className="relative z-10">
+        <Footer />
+      </div>
 
       {/* ── Command Palette ── */}
       <AnimatePresence>

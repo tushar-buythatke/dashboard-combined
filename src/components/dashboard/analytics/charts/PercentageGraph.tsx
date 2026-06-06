@@ -12,6 +12,8 @@ import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import type { EventConfig } from '@/types/analytics';
 import { PIE_COLORS } from '../dashboardViewer/constants';
 import { PieTooltip } from '../dashboardViewer/PieTooltip';
+import { useChartColors, gridProps, AXIS_TICK_STYLE } from '@/lib/chartTheme';
+import { GlassTooltip } from '@/components/ui/GlassTooltip';
 
 interface PercentageGraphProps {
     data: any[];
@@ -55,6 +57,7 @@ export function PercentageGraph({
     eventPieCharts = {},
 }: PercentageGraphProps) {
     const { t: themeClasses } = useAccentTheme();
+    const colors = useChartColors();
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom({ minZoom: 0.5, maxZoom: 3 });
     const debug = false;
     if (debug) {
@@ -1006,15 +1009,33 @@ export function PercentageGraph({
                                     }}
                                 >
                                     <defs>
-                                        <linearGradient id="percentageGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                        {/* Combined percentage gradient */}
+                                        <linearGradient id="pg-combined-grad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor={colors.accentPrimary} stopOpacity={0.3} />
+                                            <stop offset="100%" stopColor={colors.accentPrimary} stopOpacity={0} />
                                         </linearGradient>
+                                        {/* Success line gradient */}
+                                        <linearGradient id="pg-success-grad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.15} />
+                                            <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                                        </linearGradient>
+                                        {/* Fail line gradient */}
+                                        <linearGradient id="pg-fail-grad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#ef4444" stopOpacity={0.15} />
+                                            <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                                        </linearGradient>
+                                        {/* Per-child palette gradients (up to 8) */}
+                                        {Array.from({ length: 8 }, (_, i) => (
+                                            <linearGradient key={i} id={`pg-child-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor={colors.palette[i] || colors.accentSecondary} stopOpacity={0.15} />
+                                                <stop offset="100%" stopColor={colors.palette[i] || colors.accentSecondary} stopOpacity={0} />
+                                            </linearGradient>
+                                        ))}
                                     </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} />
+                                    <CartesianGrid {...gridProps(colors.grid)} />
                                     <XAxis
                                         dataKey="time"
-                                        tick={{ fontSize: 11, fill: '#6b7280' }}
+                                        tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
                                         angle={-45}
                                         textAnchor="end"
                                         height={80}
@@ -1022,22 +1043,23 @@ export function PercentageGraph({
                                         interval="preserveStartEnd"
                                     />
                                     <YAxis
-                                        tick={{ fontSize: 11, fill: '#6b7280' }}
-                                        label={{ value: getYAxisLabel(), angle: -90, position: 'insideLeft', style: { fontSize: 12 } }}
+                                        tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
+                                        label={{ value: getYAxisLabel(), angle: -90, position: 'insideLeft', style: { fontSize: 11, fill: colors.axis } }}
                                         domain={isAvgEventType >= 1 ? ['auto', 'auto'] : yAxisConfig.domain}
                                         ticks={isAvgEventType >= 1 ? undefined : (yAxisConfig.ticks as any)}
                                         tickFormatter={isAvgEventType >= 1 ? (value: number) => formatValue(value, true) : undefined}
                                     />
                                     <ReferenceLine
                                         y={overallStats.percentage}
-                                        stroke="#facc15"
-                                        strokeWidth={2}
-                                        strokeDasharray="4 4"
-                                        label={{ value: 'Avg', position: 'right', fill: '#facc15', fontSize: 11 }}
+                                        stroke={colors.avg}
+                                        strokeWidth={1.5}
+                                        strokeDasharray="6 4"
+                                        label={{ value: 'Avg', position: 'right', fill: colors.avg, fontSize: 11 }}
                                     />
                                     <Tooltip
                                         wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
-                                        content={({ active, payload }) => {
+                                        cursor={{ stroke: colors.accentPrimary, strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        content={({ active, payload, label: tooltipLabel }) => {
                                             if (active && payload && payload.length) {
                                                 const data = payload[0].payload;
                                                 const isAvgDelay = data.isAvgMetric;
@@ -1067,39 +1089,14 @@ export function PercentageGraph({
                                                     const eventName = eventId ? (eventNames[String(eventId)] || `Event ${eventId}`) : 'Event';
 
                                                     return (
-                                                        <div className="bg-white dark:bg-white p-3 rounded-lg shadow-lg border border-gray-200" style={{ backgroundColor: 'white' }}>
-                                                            <p className="text-sm font-semibold mb-2 text-gray-900">{data.time}</p>
-                                                            <div className="space-y-2 text-xs">
-                                                                <div className="flex items-center justify-between gap-3">
-                                                                    <span className="font-semibold text-green-600 flex items-center gap-1.5">
-                                                                        <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                                                                        {eventName} Success
-                                                                    </span>
-                                                                    <span className="font-mono font-bold text-gray-900">
-                                                                        {Number(data.successCount).toLocaleString()}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex items-center justify-between gap-3">
-                                                                    <span className="font-semibold text-red-600 flex items-center gap-1.5">
-                                                                        <span className="h-2 w-2 rounded-full bg-red-500"></span>
-                                                                        {eventName} Fail
-                                                                    </span>
-                                                                    <span className="font-mono font-bold text-gray-900">
-                                                                        {Number(data.failCount).toLocaleString()}
-                                                                    </span>
-                                                                </div>
-                                                                {/* Show percentages as supplemental info */}
-                                                                <div className="pt-2 mt-2 border-t border-gray-100 flex justify-between text-[10px] text-muted-foreground">
-                                                                    <span className="text-green-600/80">Success Rate: {data.success_percentage.toFixed(2)}%</span>
-                                                                    <span className="text-red-600/80">Fail Rate: {data.fail_percentage.toFixed(2)}%</span>
-                                                                </div>
-                                                                {data.hasAnomaly && (
-                                                                    <div className="mt-1 px-2 py-1 bg-amber-50 text-amber-700 rounded border border-amber-200 text-xs font-bold text-center flex items-center justify-center gap-1">
-                                                                        <span>⚠️</span> Anomaly Detected
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                                        <GlassTooltip
+                                                            active={active}
+                                                            label={data.time}
+                                                            payload={[
+                                                                { name: `${eventName} Success`, value: Number(data.successCount), color: '#22c55e' },
+                                                                { name: `${eventName} Fail`, value: Number(data.failCount), color: '#ef4444' },
+                                                            ]}
+                                                        />
                                                     );
                                                 }
 
@@ -1115,77 +1112,34 @@ export function PercentageGraph({
                                                     : parentEntries
                                                 ).sort((a, b) => Number(b[1]) - Number(a[1]));
 
+                                                // Build GlassTooltip payload from breakdown entries
+                                                const tooltipPayload = [
+                                                    {
+                                                        name: 'Percentage',
+                                                        value: data.percentage as number,
+                                                        color: colors.accentPrimary,
+                                                    },
+                                                    ...filteredChildEntries.map(([key, count], idx) => {
+                                                        const displayLabel = isApiEventMode
+                                                            ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
+                                                                key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
+                                                            : (eventNames[String(key)] || `Event ${key}`);
+                                                        const paletteColors = colors.palette;
+                                                        const color = eventColors[key] || paletteColors[idx % paletteColors.length];
+                                                        return { name: displayLabel, value: count as number, color };
+                                                    }),
+                                                ];
+
                                                 return (
-                                                    <div className="bg-white dark:bg-white p-4 rounded-xl shadow-xl border-2 border-gray-100 min-w-[220px]" style={{ backgroundColor: 'white' }}>
-                                                        <p className="text-sm font-bold mb-3 text-gray-900 border-b pb-2">{data.time}</p>
-                                                        <div className="space-y-2 text-xs">
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-gray-500">Percentage:</span>
-                                                                <span className="font-bold text-gray-700 text-sm">{data.percentage.toFixed(2)}%</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Child Amount' : 'Child Delay') : isAvgDelay ? 'Child Avg' : 'Child'}:</span>
-                                                                <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.childCount) : isAvgDelay ? data.childCount.toFixed(2) : data.childCount.toLocaleString()}</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between gap-4">
-                                                                <span className="text-gray-500">{isAvgEventType >= 1 ? (isAvgEventType === 2 ? 'Parent Amount' : 'Parent Delay') : isAvgDelay ? 'Parent Avg' : 'Parent'}:</span>
-                                                                <span className="font-bold text-gray-900">{isAvgEventType >= 1 ? formatValue(data.parentCount) : isAvgDelay ? data.parentCount.toFixed(2) : data.parentCount.toLocaleString()}</span>
-                                                            </div>
-                                                            {filteredChildEntries.length > 0 && (
-                                                                <div className="mt-3 pt-2 border-t border-gray-100">
-                                                                    <p className="font-bold mb-2 text-xs text-green-700 flex items-center gap-1">
-                                                                        {isApiEventMode ? 'Selected Status/Cache' : 'Child breakdown'}
-                                                                    </p>
-                                                                    <div className="space-y-1.5">
-                                                                        {filteredChildEntries.map(([key, count], idx) => {
-                                                                            const displayLabel = isApiEventMode
-                                                                                ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                                    key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
-                                                                                : (eventNames[String(key)] || `Event ${key}`);
-                                                                            // Use color from eventColors or fallback to premium colors
-                                                                            const colors = ['#8b5cf6', '#06b6d4', '#f43f5e', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#14b8a6', '#a855f7', '#f97316'];
-                                                                            const color = eventColors[key] || colors[idx % colors.length];
-                                                                            return (
-                                                                                <div key={key} className="flex items-center justify-between gap-3">
-                                                                                    <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
-                                                                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                                                                        {displayLabel}
-                                                                                    </span>
-                                                                                    <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                            {filteredParentEntries.length > 0 && (
-                                                                <div className="mt-3 pt-2 border-t border-gray-100">
-                                                                    <p className="font-bold mb-2 text-xs text-blue-700 flex items-center gap-1">
-                                                                        {isApiEventMode ? 'Status/Cache Breakdown' : 'Parent breakdown'}
-                                                                    </p>
-                                                                    <div className="space-y-1.5">
-                                                                        {filteredParentEntries.map(([key, count], idx) => {
-                                                                            const displayLabel = isApiEventMode
-                                                                                ? (key.startsWith('status_') ? `Status ${key.replace('status_', '')}` :
-                                                                                    key.startsWith('cache_') ? `Cache: ${key.replace('cache_', '')}` : (eventNames[String(key)] || `Event ${key}`))
-                                                                                : (eventNames[String(key)] || `Event ${key}`);
-                                                                            const colors = ['#3b82f6', '#14b8a6', '#a855f7', '#f97316', '#22c55e'];
-                                                                            const color = eventColors[key] || colors[idx % colors.length];
-                                                                            return (
-                                                                                <div key={key} className="flex items-center justify-between gap-3">
-                                                                                    <span className="flex items-center gap-2 text-gray-700 truncate max-w-[180px]" title={displayLabel}>
-                                                                                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                                                                        {displayLabel}
-                                                                                    </span>
-                                                                                    <span className="font-bold font-mono text-gray-900 flex-shrink-0">{isAvgEventType >= 1 ? formatValue(count) : isAvgDelay ? count.toFixed(2) : count.toLocaleString()}</span>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                    <GlassTooltip
+                                                        active={active}
+                                                        label={data.time}
+                                                        payload={tooltipPayload}
+                                                        formatter={(value, name) => {
+                                                            if (name === 'Percentage') return `${(value as number).toFixed(2)}%`;
+                                                            return isAvgEventType >= 1 ? formatValue(value as number) : isAvgDelay ? (value as number).toFixed(2) : (value as number).toLocaleString();
+                                                        }}
+                                                    />
                                                 );
                                             }
                                             return null;
@@ -1200,13 +1154,13 @@ export function PercentageGraph({
                                         if (isSameParentChildMode) {
                                             // Render SUCCESS and FAIL lines for same parent/child
                                             const lines = [
-                                                { id: 'success', dataKey: 'success_percentage', color: '#22c55e', name: 'Success %' }, // Fixed to Green
-                                                { id: 'fail', dataKey: 'fail_percentage', color: '#ef4444', name: 'Fail %' }
+                                                { id: 'success', dataKey: 'success_percentage', color: '#22c55e', grad: 'url(#pg-success-grad)', name: 'Success %' },
+                                                { id: 'fail', dataKey: 'fail_percentage', color: '#ef4444', grad: 'url(#pg-fail-grad)', name: 'Fail %' }
                                             ];
 
                                             return (
                                                 <>
-                                                    {lines.map(({ id, dataKey, color, name }) => {
+                                                    {lines.map(({ id, dataKey, color, grad, name }) => {
                                                         const isLineSelected = selectedLineId === null || selectedLineId === id;
                                                         const lineOpacity = isLineSelected ? 1 : 0.15;
                                                         const lineWidth = isLineSelected ? 2.5 : 1;
@@ -1219,11 +1173,11 @@ export function PercentageGraph({
                                                                 stroke={color}
                                                                 strokeWidth={lineWidth}
                                                                 strokeOpacity={lineOpacity}
-                                                                fill="none"
+                                                                fill={isLineSelected ? grad : 'none'}
                                                                 name={name}
                                                                 isAnimationActive={false}
                                                                 dot={false}
-                                                                activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
+                                                                activeDot={isLineSelected ? { r: 6, strokeWidth: 3, stroke: '#fff', fill: color } : false}
                                                             />
                                                         );
                                                     })}
@@ -1265,9 +1219,10 @@ export function PercentageGraph({
                                                 : childEvents;
 
                                         return renderKeys.map((childId, index) => {
-                                            const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-                                            const color = eventColors[childId] || colors[index % colors.length];
+                                            const paletteColors = colors.palette;
+                                            const color = eventColors[childId] || paletteColors[index % paletteColors.length];
                                             const childDataKey = `child_${childId}_percentage`;
+                                            const gradId = `pg-child-grad-${index % 8}`;
 
                                             const displayName = isApiEventMode
                                                 ? (childId.startsWith('status_') ? `Status ${childId.replace('status_', '')}` :
@@ -1287,11 +1242,11 @@ export function PercentageGraph({
                                                     stroke={color}
                                                     strokeWidth={lineWidth}
                                                     strokeOpacity={lineOpacity}
-                                                    fill="none"
+                                                    fill={isLineSelected ? `url(#${gradId})` : 'none'}
                                                     name={displayName}
                                                     isAnimationActive={false}
                                                     dot={false}
-                                                    activeDot={isLineSelected ? { r: 6, fill: color, stroke: '#fff', strokeWidth: 2 } : false}
+                                                    activeDot={isLineSelected ? { r: 6, strokeWidth: 3, stroke: '#fff', fill: color } : false}
                                                 />
                                             );
                                         });
@@ -1302,14 +1257,14 @@ export function PercentageGraph({
                                         <Area
                                             type="monotone"
                                             dataKey="parent_percentage"
-                                            stroke="#3b82f6"
+                                            stroke={colors.palette[4] || colors.accentSecondary}
                                             strokeWidth={2}
                                             fill="none"
                                             name="Parent Event (Avg)"
                                             isAnimationActive={false}
                                             dot={false}
                                             strokeDasharray="5 5"
-                                            activeDot={{ r: 6, fill: "#3b82f6", stroke: '#fff', strokeWidth: 2 }}
+                                            activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: colors.palette[4] || colors.accentSecondary }}
                                         />
                                     )}
 
@@ -1318,17 +1273,17 @@ export function PercentageGraph({
                                         <Area
                                             type="monotone"
                                             dataKey="percentage"
-                                            stroke="#8b5cf6"
-                                            strokeWidth={3}
-                                            fill="url(#percentageGradient)"
+                                            stroke={colors.accentPrimary}
+                                            strokeWidth={2.5}
+                                            fill="url(#pg-combined-grad)"
                                             name="Combined %"
                                             isAnimationActive={false}
                                             dot={false}
                                             activeDot={{
-                                                r: 8,
-                                                fill: "#8b5cf6",
-                                                stroke: "#fff",
-                                                strokeWidth: 2,
+                                                r: 6,
+                                                strokeWidth: 3,
+                                                stroke: '#fff',
+                                                fill: colors.accentPrimary,
                                                 cursor: "pointer",
                                                 onClick: (e: any, payload: any) => {
                                                     e?.stopPropagation?.();
@@ -1417,8 +1372,7 @@ export function PercentageGraph({
                                     return eventsWithAvg.map(({ eventId, avg }) => {
                                         // Find original index for color consistency
                                         const originalIndex = childEvents.indexOf(eventId);
-                                        const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
-                                        const color = eventColors[eventId] || colors[originalIndex % colors.length];
+                                        const color = eventColors[eventId] || colors.palette[originalIndex % colors.palette.length];
 
                                         const name = eventNames[String(eventId)] || `Event ${eventId}`;
                                         const isSelected = selectedLineId === eventId;
