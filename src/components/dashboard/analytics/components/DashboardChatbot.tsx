@@ -32,7 +32,7 @@ const getChatbotHeight = () => {
     return Math.min(CHATBOT_HEIGHT, availableHeight);
 };
 
-const CHATBOT_HEIGHT = 550; // Optimized height for better screen space
+const CHATBOT_HEIGHT = 640; // Larger, more premium panel
 const MINIMIZED_SIZE = 56;
 const NAVBAR_HEIGHT = 64;
 const RIGHT_PADDING = 16;
@@ -492,8 +492,8 @@ export function DashboardChatbot({
                 <div
                     className={cn(
                         "sticky top-0 z-20 border-b border-gray-200/50 dark:border-gray-700/50",
-                        "bg-white dark:bg-gray-900",
-                        isMobile ? "px-4 pb-3 pt-2" : "p-3"
+                        "bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl",
+                        isMobile ? "px-4 pb-3 pt-2" : "px-4 py-3"
                     )}
                 >
                     <div className="flex items-center justify-between">
@@ -507,11 +507,15 @@ export function DashboardChatbot({
                                 <Sparkles className="h-5 w-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                                <h3 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 leading-tight">
                                     Dashboard Assistant
                                 </h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                    Ask me anything about your dashboard
+                                <p className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                                    <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                        <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60 animate-ping" />
+                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                    </span>
+                                    <span className="truncate">Online · Ask about your dashboard</span>
                                 </p>
                             </div>
                         </div>
@@ -552,23 +556,6 @@ export function DashboardChatbot({
                             </button>
                         </div>
                     </div>
-                    {/* Keyboard shortcuts - hide on mobile */}
-                    {!isMobile && (
-                        <div className="mt-1.5 flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
-                            <div className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200">
-                                <Command className="h-2.5 w-2.5 opacity-70" />
-                                <span>L</span>
-                            </div>
-                            <span>open</span>
-                            <span className="mx-0.5">•</span>
-                            <div className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[9px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200">
-                                <span>⌘K</span>
-                            </div>
-                            <span>voice</span>
-                            <span className="mx-0.5">•</span>
-                            <span>Esc close</span>
-                        </div>
-                    )}
                 </div>
 
                 {/* Messages - Scrollable */}
