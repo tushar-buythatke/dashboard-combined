@@ -78,21 +78,5 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     chunkSizeWarningLimit: 1200,
-    rollupOptions: {
-      output: {
-        // Split the giant single bundle into cacheable, parallel-loaded vendor
-        // chunks. No behavior/motion change — just faster load + better caching
-        // (app-code edits no longer bust the heavy vendor caches).
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined
-          if (id.includes('recharts') || id.includes('/d3-') || id.includes('victory-vendor')) return 'charts'
-          if (id.includes('framer-motion')) return 'motion'
-          if (id.includes('react-dom') || id.includes('/scheduler/') || id.includes('react-router')) return 'react-vendor'
-          if (id.includes('lucide-react') || id.includes('@radix-ui')) return 'ui-vendor'
-          if (id.includes('firebase')) return 'firebase'
-          return 'vendor'
-        },
-      },
-    },
   },
 })
