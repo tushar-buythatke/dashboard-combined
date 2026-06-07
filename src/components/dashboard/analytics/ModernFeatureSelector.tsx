@@ -14,38 +14,30 @@ import { apiService } from '@/services/apiService';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
 import { useInView } from '@/hooks/useInView';
+import RandomBackground from '@/components/ui/background';
 
 /* ========================================================================
-   CARD WASH PALETTES — varied pastel hues by index, 5–8% opacity
-   These are intentional per-card decorative washes (not accent tokens).
+   CARD WASH PALETTES
    ======================================================================== */
 const CARD_WASHES = [
-  // lavender
   { light: 'rgba(167,139,250,0.06)', dark: 'rgba(139,92,246,0.07)' },
-  // mint
   { light: 'rgba(52,211,153,0.06)', dark: 'rgba(16,185,129,0.07)' },
-  // sky
   { light: 'rgba(56,189,248,0.06)', dark: 'rgba(14,165,233,0.07)' },
-  // peach
   { light: 'rgba(251,146,60,0.06)', dark: 'rgba(249,115,22,0.07)' },
-  // rose
   { light: 'rgba(251,113,133,0.06)', dark: 'rgba(244,63,94,0.07)' },
-  // amber
   { light: 'rgba(251,191,36,0.06)', dark: 'rgba(245,158,11,0.07)' },
-  // violet
   { light: 'rgba(196,181,253,0.07)', dark: 'rgba(167,139,250,0.08)' },
-  // teal
   { light: 'rgba(45,212,191,0.06)', dark: 'rgba(20,184,166,0.07)' },
 ];
 
 /* ========================================================================
-   ICON GRADIENT + GLOW configs — each feature gets a unique pairing
+   ICON GRADIENT + GLOW
    ======================================================================== */
 const FEATURE_META: Record<string, {
   icon: LucideIcon;
-  iconGradient: [string, string];     // [from, to] for icon circle gradient
-  iconGlow: string;                    // box-shadow glow color @20% opacity
-  cardGradient: string;               // bg gradient class for card (Tailwind)
+  iconGradient: [string, string];
+  iconGlow: string;
+  cardGradient: string;
   lightGradient: string;
 }> = {
   pricealert:      { icon: Bell,           iconGradient: ['#3b82f6','#06b6d4'], iconGlow: 'rgba(59,130,246,0.22)',  cardGradient: 'from-blue-500/20 to-cyan-500/20',    lightGradient: 'from-blue-100 to-cyan-100' },
@@ -77,15 +69,13 @@ function getFeatureMeta(name: string) {
 }
 
 /* ========================================================================
-   SPARKLINE — gradient fill, draw animation
+   SPARKLINE
    ======================================================================== */
 function MicroSparkline({ data, severity }: { data: number[]; severity: 'amber' | 'orange' | 'rose' | 'none' }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [drawn, setDrawn] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
-  // Wrap in a div for IntersectionObserver (SVGSVGElement doesn't extend HTMLElement)
   const { ref: inViewRef, inView } = useInView<HTMLDivElement>({ threshold: 0.1 });
-
 
   useEffect(() => {
     if (inView) {
@@ -174,16 +164,10 @@ function MicroSparkline({ data, severity }: { data: number[]; severity: 'amber' 
   );
 }
 
-/* ========================================================================
-   INSTANT COUNTER
-   ======================================================================== */
 function AlertCount({ value }: { value: number }) {
   return <span className="tabular-nums">{value.toLocaleString()}</span>;
 }
 
-/* ========================================================================
-   SEVERITY HELPERS
-   ======================================================================== */
 function getSeverity(count: number): 'none' | 'amber' | 'orange' | 'rose' {
   if (count === 0) return 'none';
   if (count <= 10) return 'amber';
@@ -208,6 +192,7 @@ function BentoCard({
   onClick,
   index,
   hoveredCard,
+  hoverArmedId,
   onHover,
 }: {
   feature: Feature;
@@ -215,6 +200,7 @@ function BentoCard({
   onClick: () => void;
   index: number;
   hoveredCard: string | null;
+  hoverArmedId: string | null;
   onHover: (id: string | null) => void;
 }) {
   const severity = getSeverity(alertCount);
@@ -223,17 +209,9 @@ function BentoCard({
   const meta = getFeatureMeta(feature.name);
   const Icon = meta.icon;
   const isDimmed = hoveredCard !== null && hoveredCard !== feature.id;
-
-  // Bento: every 5th card (0-indexed: index % 5 === 4) spans 2 cols — lg+ only
+  const isBlurred = hoverArmedId !== null && hoverArmedId !== feature.id;
   const isBentoWide = index % 5 === 4;
-
-  // Card wash color — rotated by index, adapted by dark mode
   const washIndex = index % CARD_WASHES.length;
-
-  // useInView for staggered scroll entrance
-  const { ref: cardRef, inView } = useInView<HTMLDivElement>({ threshold: 0.08 });
-
-  const staggerDelay = Math.min(index * 60, 480); // cap at 480ms
 
   const handleRipple = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget;
@@ -258,17 +236,13 @@ function BentoCard({
 
   return (
     <div
-      ref={cardRef}
-      className={cn(
-        'group relative',
-        // Bento asymmetry: every 5th spans 2 cols on lg+, stays 1 col on mobile/tablet
-        isBentoWide && 'lg:col-span-2',
-      )}
+      className={cn('group relative', isBentoWide && 'lg:col-span-2')}
       style={{
-        opacity: inView ? (isDimmed ? 0.52 : 1) : 0,
-        transform: inView ? (isDimmed ? 'scale(0.99)' : 'translateY(0px)') : 'translateY(20px)',
-        transition: `opacity 420ms var(--ease-out-expo) ${staggerDelay}ms, transform 420ms var(--ease-out-expo) ${staggerDelay}ms`,
-        willChange: 'opacity, transform',
+        opacity: isDimmed ? 0.52 : 1,
+        transform: isDimmed ? 'scale(0.99)' : 'translateY(0px)',
+        filter: isBlurred ? 'blur(8px)' : 'blur(0px)',
+        transition: 'opacity 420ms var(--ease-out-expo), transform 420ms var(--ease-out-expo), filter 700ms var(--ease-out-expo)',
+        willChange: 'opacity, transform, filter',
       }}
       onMouseEnter={() => onHover(feature.id)}
       onMouseLeave={() => onHover(null)}
@@ -279,7 +253,6 @@ function BentoCard({
         aria-label={`Open ${feature.name}${hasAlerts ? `, ${alertCount} active alerts` : ''}`}
         style={{ minHeight: 44 }}
       >
-        {/* ── Hover behavior driven by CSS — accent ring + lift move together (no detached border line) ── */}
         <style>{`
           .bento-card-${feature.id}:hover .bento-inner-${feature.id} {
             transform: translateY(-4px) scale(1.01) !important;
@@ -298,7 +271,6 @@ function BentoCard({
         `}</style>
 
         <div className={`bento-card-${feature.id} relative w-full`}>
-          {/* ── Inner card surface ── */}
           <div
             className={`bento-inner-${feature.id} relative rounded-2xl overflow-hidden`}
             style={{
@@ -311,37 +283,20 @@ function BentoCard({
               transition: 'transform 280ms var(--ease-spring), box-shadow 280ms var(--ease-spring)',
             }}
           >
-            {/* Dark mode card wash override via inline — layered on top */}
             <div
               className="absolute inset-0 pointer-events-none rounded-[15px] dark:opacity-100 opacity-0"
-              style={{
-                backgroundImage: `radial-gradient(ellipse at 30% 20%, ${CARD_WASHES[washIndex].dark} 0%, transparent 60%)`,
-              }}
+              style={{ backgroundImage: `radial-gradient(ellipse at 30% 20%, ${CARD_WASHES[washIndex].dark} 0%, transparent 60%)` }}
               aria-hidden="true"
             />
 
-            <div
-              className="relative p-5 lg:p-6 flex flex-col"
-              style={{ minHeight: isBentoWide ? 200 : 172 }}
-            >
-              {/* ── Top row: icon + status badge ── */}
+            <div className="relative p-5 lg:p-6 flex flex-col" style={{ minHeight: isBentoWide ? 200 : 172 }}>
               <div className="flex items-start justify-between mb-4">
-                {/* Icon — 52px gradient circle with colored glow */}
-                <div
-                  className="relative shrink-0 transition-transform duration-300 group-hover:scale-105"
-                  style={{ width: 52, height: 52 }}
-                >
-                  {/* Glow behind icon — kept subtle */}
+                <div className="relative shrink-0 transition-transform duration-300 group-hover:scale-105" style={{ width: 52, height: 52 }}>
                   <div
                     className="absolute inset-0 rounded-full blur-md pointer-events-none"
-                    style={{
-                      background: meta.iconGlow,
-                      transform: 'scale(1.12)',
-                      opacity: 0.45,
-                    }}
+                    style={{ background: meta.iconGlow, transform: 'scale(1.12)', opacity: 0.45 }}
                     aria-hidden="true"
                   />
-                  {/* Gradient circle */}
                   <div
                     className="relative w-full h-full rounded-full flex items-center justify-center"
                     style={{
@@ -350,14 +305,10 @@ function BentoCard({
                       boxShadow: `inset 0 1px 0 rgba(255,255,255,0.15)`,
                     }}
                   >
-                    <Icon
-                      style={{ color: meta.iconGradient[0], width: 22, height: 22 }}
-                      strokeWidth={1.7}
-                    />
+                    <Icon style={{ color: meta.iconGradient[0], width: 22, height: 22 }} strokeWidth={1.7} />
                   </div>
                 </div>
 
-                {/* Status badge */}
                 {hasAlerts ? (
                   <div
                     className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-mono font-bold tabular-nums leading-none shrink-0"
@@ -368,19 +319,12 @@ function BentoCard({
                     }}
                   >
                     <span className="relative flex h-2 w-2">
-                      <span
-                        className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-                        style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }}
-                      />
-                      <span
-                        className="relative inline-flex rounded-full h-2 w-2"
-                        style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }}
-                      />
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }} />
+                      <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }} />
                     </span>
                     <AlertCount value={alertCount} />
                   </div>
                 ) : (
-                  /* Glassmorphism "All Clear" pill */
                   <div
                     className="flex items-center gap-1.5 rounded-full px-2.5 py-1 shrink-0"
                     style={{
@@ -390,7 +334,6 @@ function BentoCard({
                       border: '1px solid rgba(16,185,129,0.18)',
                     }}
                   >
-                    {/* Pulsing green dot — communicates live state */}
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
@@ -403,23 +346,15 @@ function BentoCard({
                 )}
               </div>
 
-              {/* ── Feature name + description ── */}
               <div className="flex-1 min-w-0">
-                <h3
-                  className="text-sm font-semibold mb-1 tracking-tight truncate"
-                  style={{ color: 'var(--dash-text-primary)' }}
-                >
+                <h3 className="text-sm font-semibold mb-1 tracking-tight truncate" style={{ color: 'var(--dash-text-primary)' }}>
                   {feature.name}
                 </h3>
-                <p
-                  className="text-[11px] leading-relaxed line-clamp-2"
-                  style={{ color: 'var(--dash-text-secondary)' }}
-                >
+                <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: 'var(--dash-text-secondary)' }}>
                   {feature.description || `${feature.name} analytics and tracking`}
                 </p>
               </div>
 
-              {/* ── Wide bento card stat row ── */}
               {isBentoWide && hasAlerts && (
                 <div className="mt-3 flex items-center gap-3">
                   <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--dash-text-muted)' }}>
@@ -433,11 +368,7 @@ function BentoCard({
                 </div>
               )}
 
-              {/* ── Bottom: sparkline + "View →" CTA ── */}
-              <div
-                className="mt-4 pt-3 flex items-end justify-between gap-3"
-                style={{ borderTop: '1px solid var(--dash-border)' }}
-              >
+              <div className="mt-4 pt-3 flex items-end justify-between gap-3" style={{ borderTop: '1px solid var(--dash-border)' }}>
                 {trendData ? (
                   <div className="flex-1 min-w-0">
                     <MicroSparkline data={trendData} severity={severity} />
@@ -450,21 +381,11 @@ function BentoCard({
                   <div />
                 )}
 
-                {/* "View →" — arrow slides 4px right on hover, text accent-colors */}
                 <div className="flex items-center gap-1 shrink-0">
-                  <span
-                    className={`bento-view-text-${feature.id} text-[11px] font-semibold`}
-                    style={{ color: 'var(--dash-text-muted)', transition: 'color 200ms ease' }}
-                  >
+                  <span className={`bento-view-text-${feature.id} text-[11px] font-semibold`} style={{ color: 'var(--dash-text-muted)', transition: 'color 200ms ease' }}>
                     View
                   </span>
-                  <ArrowRight
-                    className={`bento-view-arrow-${feature.id} h-3 w-3`}
-                    style={{
-                      color: 'var(--dash-text-muted)',
-                      transition: 'transform 200ms ease, color 200ms ease',
-                    }}
-                  />
+                  <ArrowRight className={`bento-view-arrow-${feature.id} h-3 w-3`} style={{ color: 'var(--dash-text-muted)', transition: 'transform 200ms ease, color 200ms ease' }} />
                 </div>
               </div>
             </div>
@@ -591,84 +512,6 @@ function Footer() {
 }
 
 /* ========================================================================
-   AURORA RIBBON KEYFRAMES (injected inline via <style> to stay scoped)
-   Four layered ribbon waves drifting at slow, dreamy speeds.
-   Reduced-motion: animations are paused (not removed) via animation-play-state.
-   ======================================================================== */
-
-/* ========================================================================
-   AURORA HERO — Elara "Woman's balance" flowing ribbon aurora
-   Technique: 4 elongated radial-gradient bands at different diagonal angles,
-   heavily blurred (filter: blur 60–100px), low opacity (0.18–0.35), layered.
-   CSS keyframe animations drift each ribbon independently (18–34s loops).
-   Mouse parallax (lerp 0.05) applied via transform on top of drift.
-   ======================================================================== */
-function AuroraBackground() {
-  const shouldReduceMotion = useReducedMotion();
-  const play = shouldReduceMotion ? 'paused' : 'running';
-
-  return (
-    <div className="fixed inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true" style={{ zIndex: 0 }}>
-      {/*
-        Single translucent iridescent SILK RIBBON flowing across the page.
-        Large blurred bezier strokes over a CLEAN white page — NOT a colored
-        background. Lavender → pink → peach → soft cyan, opacity 0.08–0.16.
-        If the page looks "pink", this failed; it should look white with a
-        floating aurora ribbon.
-      */}
-      <style>{`
-        @keyframes aurora-silk-drift {
-          0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
-          50%      { transform: translate3d(-1.6%, 1.4%, 0) rotate(1.1deg) scale(1.05); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .aurora-silk-g { animation: none !important; }
-        }
-      `}</style>
-      <svg
-        className="absolute inset-0 h-full w-full"
-        viewBox="0 0 1440 900"
-        preserveAspectRatio="xMidYMid slice"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <linearGradient id="auroraSilkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#c4b5fd" />
-            <stop offset="34%" stopColor="#f9a8d4" />
-            <stop offset="66%" stopColor="#fed7aa" />
-            <stop offset="100%" stopColor="#a5f3ec" />
-          </linearGradient>
-          <filter id="auroraSilkBlur" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="38" />
-          </filter>
-        </defs>
-        <g
-          className="aurora-silk-g"
-          filter="url(#auroraSilkBlur)"
-          fill="none"
-          stroke="url(#auroraSilkGrad)"
-          strokeLinecap="round"
-          style={{
-            animation: 'aurora-silk-drift 28s ease-in-out infinite',
-            animationPlayState: play,
-            transformOrigin: 'center',
-            willChange: 'transform',
-          }}
-        >
-          {/* Main silk stroke — long S-curve crossing the page */}
-          <path d="M -180 380 C 280 150, 600 560, 1040 300 S 1480 200, 1640 320" strokeWidth="300" opacity="0.34" />
-          {/* Secondary trailing fold */}
-          <path d="M -180 600 C 360 760, 780 400, 1180 600 S 1520 720, 1640 600" strokeWidth="220" opacity="0.24" />
-          {/* Faint upper wisp for depth */}
-          <path d="M 180 -80 C 540 300, 940 120, 1340 460" strokeWidth="180" opacity="0.16" />
-        </g>
-      </svg>
-
-    </div>
-  );
-}
-
-/* ========================================================================
    MAIN COMPONENT
    ======================================================================== */
 export function ModernFeatureSelector({
@@ -682,9 +525,33 @@ export function ModernFeatureSelector({
   const [loading, setLoading] = useState(true);
   const [alertCounts, setAlertCounts] = useState<Record<string, number>>({});
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [hoverArmedId, setHoverArmedId] = useState<string | null>(null);
   const [cmdOpen, setCmdOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldReduceMotion = useReducedMotion();
+
+  const handleHover = useCallback((id: string | null) => {
+    setHoveredCard(id);
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (id) {
+      hoverTimerRef.current = setTimeout(() => {
+        setHoverArmedId(id);
+        hoverTimerRef.current = null;
+      }, 3000);
+    } else {
+      setHoverArmedId(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
 
   /* Keyboard shortcuts */
   useEffect(() => {
@@ -802,79 +669,92 @@ export function ModernFeatureSelector({
   }
 
   return (
-    <div className="relative z-10 flex-1 overflow-auto theme-transition">
-      {/* ── Full-page magical aurora wave background (fixed, behind everything) ── */}
-      <AuroraBackground />
+    /*
+     * RandomBackground is `position: fixed` and covers the full viewport on its
+     * own. The wrapper no longer needs an opaque page bg — keeping it
+     * transparent lets the fixed canvas show through the content area while
+     * the navbar (with its own opaque color) still sits cleanly on top.
+     */
+    <div
+      className="relative flex-1 overflow-auto theme-transition"
+      style={{ isolation: 'isolate', background: 'transparent' }}
+    >
+      <RandomBackground />
 
-      {/* ── Hero ── */}
-      <div className="relative z-10 px-4 sm:px-6 lg:px-8 xl:px-12 pt-8 pb-6 lg:pt-12 lg:pb-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative text-center z-10 py-2">
-              {/* Badge */}
-              <motion.div
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold mb-5 backdrop-blur-sm"
-                style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)' }}
-              >
-                <Zap className="h-3 w-3 text-amber-500" />
-                Analytics Dashboard
-              </motion.div>
+      {/* ── Hero Section ── */}
+      <div className="relative w-full min-h-[320px] flex flex-col justify-center pt-2 pb-6" style={{ zIndex: 1 }}>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full mt-auto mb-auto">
+          <div className="relative text-center py-2">
+            {/* Badge */}
+            <motion.div
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold mb-5 backdrop-blur-sm"
+              style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)' }}
+            >
+              <Zap className="h-3 w-3 text-amber-500" />
+              Analytics Dashboard
+            </motion.div>
 
-              {/* Heading — Clash Display font, gradient text */}
-              <motion.h1
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 16, filter: 'blur(10px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                transition={{ duration: 0.7, delay: 0.1 }}
-                className="font-display text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-[-0.03em] mb-4 bg-clip-text text-transparent"
-                style={{ backgroundImage: 'var(--accent-gradient)' }}
-              >
-                Hatke Analytics
-              </motion.h1>
+            {/* Heading */}
+            <motion.h1
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 16, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="relative font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-[-0.035em] mb-4 bg-clip-text text-transparent"
+              style={{
+                // Noise texture blended INTO the accent gradient, clipped to the letters
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"), var(--accent-gradient)`,
+                backgroundBlendMode: 'overlay',
+                backgroundSize: '150px 150px, cover',
+                // Dual halo: white outline pops on dark/colored bg, dark outline on light bg —
+                // so the letters stay crisply visible even when the bg matches the text color.
+                filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.9)) drop-shadow(0 0 2px rgba(255,255,255,0.6)) drop-shadow(0 1.5px 1.5px rgba(0,0,0,0.32)) drop-shadow(0 6px 20px var(--accent-glow))',
+              }}
+            >
+              Hatke Analytics
+            </motion.h1>
 
-              <motion.p
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="text-sm lg:text-base max-w-md mx-auto mb-6"
-                style={{ color: 'var(--dash-text-secondary)' }}
-              >
-                Choose a feature to explore detailed analytics and insights
-              </motion.p>
+            <motion.p
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-sm lg:text-base max-w-md mx-auto mb-6 font-medium"
+              style={{ color: 'var(--dash-text-primary)', textShadow: 'var(--dash-hero-text-shadow)' }}
+            >
+              Choose a feature to explore detailed analytics and insights
+            </motion.p>
 
-              {/* Search trigger */}
-              <motion.button
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                onClick={() => setCmdOpen(true)}
-                className="inline-flex items-center gap-2.5 w-full max-w-sm mx-auto px-4 py-2.5 rounded-xl text-left transition-all hover:shadow-md"
-                style={{
-                  background: 'var(--dash-card-bg)',
-                  border: '1px solid var(--dash-border)',
-                  color: 'var(--dash-text-muted)',
-                  minHeight: 44,
-                }}
-              >
-                <Search className="h-4 w-4 shrink-0" />
-                <span className="text-sm flex-1">Search analytics...</span>
-                <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-500 dark:text-slate-400">
-                  <Command className="h-2.5 w-2.5 opacity-70" />K
-                </kbd>
-              </motion.button>
-            </div>
+            {/* Search trigger */}
+            <motion.button
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              onClick={() => setCmdOpen(true)}
+              className="inline-flex items-center gap-2.5 w-full max-w-sm mx-auto px-4 py-2.5 rounded-xl text-left transition-all hover:shadow-md"
+              style={{
+                background: 'var(--dash-card-bg)',
+                border: '1px solid var(--dash-border)',
+                color: 'var(--dash-text-muted)',
+                minHeight: 44,
+              }}
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="text-sm flex-1">Search analytics...</span>
+              <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-500 dark:text-slate-400">
+                <Command className="h-2.5 w-2.5 opacity-70" />K
+              </kbd>
+            </motion.button>
+          </div>
         </div>
       </div>
 
       {/* ── Bento Feature Grid ── */}
-      <div className="relative z-10 px-4 sm:px-6 lg:px-8 xl:px-12 pb-4">
+      <div className="relative px-4 sm:px-6 lg:px-8 xl:px-12 pb-4" style={{ zIndex: 1 }}>
         <div
           ref={gridRef}
-          className={cn(
-            // 1 col mobile → 2 col tablet → 4 col desktop
-            'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-7xl mx-auto',
-          )}
+          className={cn('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-7xl mx-auto')}
         >
           {features.map((feature, index) => (
             <BentoCard
@@ -884,13 +764,14 @@ export function ModernFeatureSelector({
               onClick={() => onSelectFeature(feature.id)}
               index={index}
               hoveredCard={hoveredCard}
-              onHover={setHoveredCard}
+              hoverArmedId={hoverArmedId}
+              onHover={handleHover}
             />
           ))}
         </div>
       </div>
 
-      <div className="relative z-10">
+      <div className="relative" style={{ zIndex: 1 }}>
         <Footer />
       </div>
 

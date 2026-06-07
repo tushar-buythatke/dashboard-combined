@@ -659,12 +659,12 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                                     {stage.percentage > 25 && (stage.totalUsers || 0) > 0 && (
                                                         <div className="mt-1 sm:mt-3 flex-col gap-1.5 w-full px-1 sm:px-2 max-w-[120px] hidden sm:flex">
                                                             <div className="flex items-center justify-between bg-black/20 backdrop-blur-md rounded-md px-2 py-1 border border-white/10">
-                                                                <Users className="h-2.5 w-2.5 text-white/80" />
+                                                                <Users className="h-2.5 w-2.5 text-slate-600 dark:text-white/80" />
                                                                 <span className="text-[10px] font-bold text-white">{(stage.totalUsers || 0).toLocaleString()}</span>
                                                             </div>
                                                             {(stage.newUsers || 0) > 0 && (
                                                                 <div className="flex items-center justify-between bg-teal-500/30 backdrop-blur-md rounded-md px-2 py-1 border border-white/10">
-                                                                    <UserPlus className="h-2.5 w-2.5 text-white/80" />
+                                                                    <UserPlus className="h-2.5 w-2.5 text-slate-600 dark:text-white/80" />
                                                                     <span className="text-[10px] font-bold text-white">{(stage.newUsers || 0).toLocaleString()}</span>
                                                                 </div>
                                                             )}
@@ -747,7 +747,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                             className={cn(
                                                 "text-xs sm:text-sm font-semibold transition-colors mb-1 truncate max-w-full",
                                                 isSelected
-                                                    ? "text-indigo-600 dark:text-indigo-400"
+                                                    ? "text-indigo-600 dark:text-indigo-600 dark:text-indigo-400"
                                                     : "text-gray-700 dark:text-gray-300"
                                             )}
                                             title={`${index + 1}. ${stage.eventName}`}
@@ -776,7 +776,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 }}
                             >
                                 <div className="flex flex-col items-center">
-                                    <div className="text-base sm:text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400 truncate w-full">
+                                    <div className="text-base sm:text-2xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-600 dark:text-indigo-400 truncate w-full">
                                         {funnelData[0]?.count.toLocaleString() || 0}
                                     </div>
                                     <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Total Hits</div>
@@ -799,7 +799,7 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                 }}
                             >
                                 <div className="flex flex-col items-center">
-                                    <div className="text-base sm:text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-400 truncate w-full">
+                                    <div className="text-base sm:text-2xl md:text-3xl font-bold text-emerald-600 dark:text-emerald-600 dark:text-emerald-400 truncate w-full">
                                         {funnelData[funnelData.length - 1]?.count.toLocaleString() || 0}
                                     </div>
                                     <div className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium">Completed</div>
@@ -903,11 +903,11 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-blue-200/50 dark:border-blue-500/30 p-5 shadow-lg">
                                         <div className="flex items-center gap-3 mb-2">
                                             <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                                                <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                                <Users className="h-4 w-4 text-blue-600 dark:text-blue-600 dark:text-blue-400" />
                                             </div>
                                             <span className="text-sm font-medium text-muted-foreground">Total Count</span>
                                         </div>
-                                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-600 dark:text-blue-400">
                                             {selectedStage.count.toLocaleString()}
                                         </div>
                                     </div>
@@ -930,12 +930,12 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                                     <div className="bg-white dark:bg-slate-800/50 rounded-xl border border-orange-200/50 dark:border-orange-500/30 p-5 shadow-lg mb-6">
                                         <div className="flex items-center gap-3 mb-3">
                                             <div className="h-8 w-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                                                <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                                <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-600 dark:text-orange-400" />
                                             </div>
                                             <span className="text-sm font-semibold">Drop-off Analysis</span>
                                         </div>
                                         <div className="flex items-baseline gap-2">
-                                            <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                                            <span className="text-2xl font-bold text-orange-600 dark:text-orange-600 dark:text-orange-400">
                                                 {selectedStage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(selectedStage.dropoffPercentage).toFixed(1)}%
                                             </span>
                                             <span className="text-sm text-muted-foreground">
@@ -1001,70 +1001,60 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     }}
                 >
                     <div
-                        className="rounded-2xl p-5 min-w-[280px] isolation-auto relative"
+                        className="rounded-2xl p-5 min-w-[280px] isolation-auto relative backdrop-blur-xl bg-white/95 dark:bg-[#10101c]/92 border border-black/[0.06] dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                         style={{
-                            background: 'rgba(15, 15, 26, 0.90)',
-                            backdropFilter: 'blur(16px)',
-                            borderLeft: `3px solid ${worstStageIndex === funnelData.findIndex(s => s.eventId === hoveredStage.eventId) ? '#ef4444' : accentPrimary}`,
-                            boxShadow: '0 20px 50px rgba(0,0,0,0.45)',
-                            border: `1px solid rgba(255,255,255,0.08)`,
                             borderLeftWidth: '3px',
                             borderLeftColor: worstStageIndex === funnelData.findIndex(s => s.eventId === hoveredStage.eventId) ? '#ef4444' : accentPrimary,
                         }}
                     >
                         {/* Tooltip Arrow */}
                         <div
-                            className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45"
-                            style={{
-                                background: 'rgba(15, 15, 26, 0.90)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                borderTop: 'none',
-                                borderLeft: 'none',
-                            }}
+                            className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45 bg-white/95 dark:bg-[#10101c]/92 border border-black/[0.06] dark:border-white/10"
+                            style={{ borderTop: 'none', borderLeft: 'none' }}
                         />
 
-                        <div className="font-bold text-white text-sm mb-3 truncate max-w-[240px] relative z-10" title={hoveredStage.eventName}>
+                        <div className="font-bold text-slate-900 dark:text-white text-sm mb-3 truncate max-w-[240px] relative z-10" title={hoveredStage.eventName}>
                             {funnelData.findIndex(s => s.eventId === hoveredStage.eventId) + 1}. {hoveredStage.eventName}
                         </div>
-                        <div className="grid grid-cols-3 gap-3 mb-4 border-b border-white/10 pb-3 relative z-10">
+                        <div className="grid grid-cols-3 gap-3 mb-4 border-b border-slate-200/70 dark:border-white/10 pb-3 relative z-10">
                             <div className="flex flex-col">
-                                <span className="text-[10px] text-white/50 uppercase font-semibold">Users</span>
-                                <span className="font-bold text-blue-400">{(hoveredStage.totalUsers || 0).toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-400 dark:text-white/50 uppercase font-semibold">Users</span>
+                                <span className="font-bold text-blue-600 dark:text-blue-400">{(hoveredStage.totalUsers || 0).toLocaleString()}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] text-white/50 uppercase font-semibold">New</span>
-                                <span className="font-bold text-teal-400">{(hoveredStage.newUsers || 0).toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-400 dark:text-white/50 uppercase font-semibold">New</span>
+                                <span className="font-bold text-teal-600 dark:text-teal-400">{(hoveredStage.newUsers || 0).toLocaleString()}</span>
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-[10px] text-white/50 uppercase font-semibold">Unique</span>
-                                <span className="font-bold text-indigo-400">{(hoveredStage.uniqueUsers || 0).toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-400 dark:text-white/50 uppercase font-semibold">Unique</span>
+                                <span className="font-bold text-indigo-600 dark:text-indigo-400">{(hoveredStage.uniqueUsers || 0).toLocaleString()}</span>
                             </div>
                         </div>
                         <div className="space-y-2 text-xs relative z-10">
                             <div className="flex items-center justify-between gap-6">
-                                <span className="text-white/55 font-medium">Hits:</span>
-                                <span className="font-bold text-white">{hoveredStage.count.toLocaleString()}</span>
+                                <span className="text-slate-500 dark:text-white/55 font-medium">Hits:</span>
+                                <span className="font-bold text-slate-900 dark:text-white">{hoveredStage.count.toLocaleString()}</span>
                             </div>
                             <div className="flex items-center justify-between gap-6">
-                                <span className="text-white/55 font-medium">Percentage:</span>
-                                <span className="font-bold text-emerald-400">{Math.min(hoveredStage.percentage, 100).toFixed(1)}%</span>
+                                <span className="text-slate-500 dark:text-white/55 font-medium">Percentage:</span>
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{Math.min(hoveredStage.percentage, 100).toFixed(1)}%</span>
                             </div>
                             {funnelData.findIndex(s => s.eventId === hoveredStage.eventId) > 0 && (
                                 <>
                                     <div className="flex items-center justify-between gap-6">
-                                        <span className="text-white/55 font-medium">{hoveredStage.dropoffPercentage > 0 ? 'Drop-off:' : 'Increase:'}</span>
+                                        <span className="text-slate-500 dark:text-white/55 font-medium">{hoveredStage.dropoffPercentage > 0 ? 'Drop-off:' : 'Increase:'}</span>
                                         <span className={cn(
                                             "font-bold",
-                                            hoveredStage.dropoffPercentage > 30 ? "text-red-400" :
-                                                hoveredStage.dropoffPercentage > 0 ? (hoveredStage.dropoffPercentage > 15 ? "text-orange-400" : "text-yellow-400") :
-                                                    "text-emerald-400"
+                                            hoveredStage.dropoffPercentage > 30 ? "text-red-600 dark:text-red-400" :
+                                                hoveredStage.dropoffPercentage > 0 ? (hoveredStage.dropoffPercentage > 15 ? "text-orange-600 dark:text-orange-400" : "text-yellow-600 dark:text-yellow-400") :
+                                                    "text-emerald-600 dark:text-emerald-400"
                                         )}>
                                             {hoveredStage.dropoffPercentage >= 0 ? '-' : '+'}{Math.abs(hoveredStage.dropoffPercentage).toFixed(1)}%
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between gap-6">
-                                        <span className="text-white/55 font-medium">From previous:</span>
-                                        <span className="font-semibold text-white/80">
+                                        <span className="text-slate-500 dark:text-white/55 font-medium">From previous:</span>
+                                        <span className="font-semibold text-slate-600 dark:text-white/80">
                                             {funnelData[funnelData.findIndex(s => s.eventId === hoveredStage.eventId) - 1]?.count.toLocaleString() || 0}
                                         </span>
                                     </div>

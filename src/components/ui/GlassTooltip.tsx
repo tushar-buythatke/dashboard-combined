@@ -51,18 +51,21 @@ export function GlassTooltip({
     return (
         <div
             className={cn(
-                'animate-scale-in min-w-[120px] max-w-[260px] overflow-hidden rounded-[10px]',
-                'border-l-[3px] backdrop-blur-xl',
-                'px-3.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.35)]',
+                'animate-scale-in min-w-[120px] max-w-[260px] overflow-hidden rounded-[12px]',
+                'backdrop-blur-xl px-3.5 py-2.5',
+                // Theme-aware: clean white glass in light mode, dark glass in dark mode
+                'bg-white/95 dark:bg-[#10101c]/90',
+                'border border-black/[0.06] dark:border-white/10',
+                'shadow-[0_10px_30px_rgba(0,0,0,0.14)] dark:shadow-[0_10px_34px_rgba(0,0,0,0.5)]',
                 className,
             )}
             style={{
-                background: 'rgba(15, 15, 26, 0.85)',
                 borderLeftColor: accentColor,
+                borderLeftWidth: '3px',
             }}
         >
             {label !== undefined && label !== '' && (
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-white/55">
+                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-white/55">
                     {labelFormatter ? labelFormatter(label) : label}
                 </div>
             )}
@@ -81,9 +84,9 @@ export function GlassTooltip({
                             )}
                             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
                                 {payload.length > 1 && name !== '' && (
-                                    <span className="truncate text-[12px] text-white/65">{name}</span>
+                                    <span className="truncate text-[12px] text-slate-500 dark:text-white/65">{name}</span>
                                 )}
-                                <span className="text-[14px] font-semibold tabular-nums text-white">
+                                <span className="text-[14px] font-semibold tabular-nums text-slate-900 dark:text-white">
                                     {formatter
                                         ? formatter(value, name, color)
                                         : `${defaultFormatNumber(value)}${valueSuffix}`}

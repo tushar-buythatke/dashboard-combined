@@ -457,7 +457,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     "rounded-2xl overflow-hidden group transition-all duration-300 relative mb-6 glass-card-v2 hover-lift-premium",
                     filtersFlash && "ring-2 shadow-2xl"
                 )}
-                style={filtersFlash ? { borderColor: 'var(--theme-primary-alpha)' } : undefined}
+                style={{
+                    ...(filtersFlash ? { borderColor: 'var(--theme-primary-alpha)' } : {}),
+                    ...(!filtersCollapsed ? { boxShadow: '0 14px 44px -10px var(--theme-primary-alpha, rgba(99,102,241,0.20)), 0 4px 18px rgba(0,0,0,0.05)' } : {}),
+                }}
             >
                 {/* Flash Overlay */}
                 {filtersFlash && (
@@ -662,28 +665,35 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shadow-[0_1px_0_rgba(0,0,0,0.08)] select-none leading-none">⌘K</kbd>
                                 </div>
                             )}
-                            {/* AI Chat pill — accent-tinted, minimal */}
-                            <div className="flex items-center gap-1.5">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setLocalChatbotOpen(true);
-                                    }}
-                                    className="h-8 gap-1.5 px-3 rounded-full text-sm font-medium transition-all duration-200 border hover:scale-[1.02] active:scale-[0.98]"
+            {/* AI Chat pill — accent-tinted, shortcut integrated so ⌘L clearly opens chat */}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Open AI Chat  (⌘L)"
+                                aria-label="Open AI Chat (Command L)"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLocalChatbotOpen(true);
+                                }}
+                                className="h-8 gap-1.5 pl-3 pr-2 rounded-full text-sm font-medium transition-all duration-200 border hover:scale-[1.02] active:scale-[0.98]"
+                                style={{
+                                    background: 'var(--theme-primary-alpha)',
+                                    borderColor: 'color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+                                    color: 'var(--theme-primary)',
+                                }}
+                            >
+                                <Sparkles className="h-3.5 w-3.5" style={{ color: 'var(--theme-primary)' }} />
+                                <span>AI Chat</span>
+                                {/* Shortcut hint sits INSIDE the button so it reads as "⌘L opens AI Chat" */}
+                                <kbd
+                                    className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 ml-0.5 rounded-md text-[10px] font-mono font-semibold leading-none select-none border"
                                     style={{
-                                        background: 'var(--theme-primary-alpha)',
-                                        borderColor: 'color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+                                        background: 'color-mix(in srgb, var(--theme-primary) 16%, white)',
+                                        borderColor: 'color-mix(in srgb, var(--theme-primary) 26%, transparent)',
                                         color: 'var(--theme-primary)',
                                     }}
-                                >
-                                    <Sparkles className="h-3.5 w-3.5" style={{ color: 'var(--theme-primary)' }} />
-                                    <span>AI Chat</span>
-                                </Button>
-                                {/* Desktop-only shortcut hint */}
-                                <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shadow-[0_1px_0_rgba(0,0,0,0.08)] select-none leading-none">⌘L</kbd>
-                            </div>
+                                >⌘L</kbd>
+                            </Button>
                             {/* Collapse chevron */}
                             <button
                                 aria-label={filtersCollapsed ? 'Expand filters' : 'Collapse filters'}
@@ -1331,18 +1341,22 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         {/* Job ID (sourceStr) Filter - Only shown when data contains sourceStr values */}
                         {availableSourceStrs.length > 0 && (
                             <div
-                                className="mt-4 p-3 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-500/30"
+                                className="mt-4 p-3.5 rounded-xl border backdrop-blur-sm"
+                                style={{
+                                    background: 'linear-gradient(to right, hsl(var(--accent-primary) / 0.08), hsl(var(--accent-secondary) / 0.04))',
+                                    borderColor: 'hsl(var(--accent-primary) / 0.22)',
+                                }}
                             >
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <div className="flex items-center gap-2">
-                                        <Hash className="w-4 h-4 text-cyan-600" />
-                                        <Label className="text-sm uppercase tracking-wide text-cyan-700 dark:text-cyan-300 font-semibold">
+                                        <Hash className="w-4 h-4" style={{ color: 'hsl(var(--accent-primary))' }} />
+                                        <Label className="text-sm uppercase tracking-wide font-semibold" style={{ color: 'hsl(var(--accent-primary))' }}>
                                             Job ID Filter
                                         </Label>
                                         <InfoTooltip
                                             content="Filter data by specific background jobs or process IDs if available."
                                         />
-                                        <span className="text-xs text-cyan-600 dark:text-cyan-400">
+                                        <span className="text-xs font-medium" style={{ color: 'hsl(var(--accent-primary) / 0.8)' }}>
                                             ({availableSourceStrs.length} jobs found)
                                         </span>
                                     </div>
@@ -1369,7 +1383,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 setSelectedSourceStrs([]);
                                                 setTimeout(() => handleApplyFilters(), 100);
                                             }}
-                                            className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100 dark:hover:bg-cyan-900/30"
+                                            className="hover:bg-[hsl(var(--accent-primary)/0.1)]"
+                                            style={{ color: 'hsl(var(--accent-primary))' }}
                                         >
                                             Clear
                                         </Button>

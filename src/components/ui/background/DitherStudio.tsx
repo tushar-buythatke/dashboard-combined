@@ -1,0 +1,611 @@
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import bgImage from './bg-image.jpg';
+
+const VERTEX_SHADER_SOURCE = `
+  attribute vec2 a_position;
+  attribute vec2 a_texCoord;
+  varying vec2 v_texCoord;
+
+  void main() {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+    v_texCoord = a_texCoord;
+  }
+`;
+
+const FRAGMENT_SHADER_SOURCE = `
+  precision highp float;
+
+  varying vec2 v_texCoord;
+
+  uniform sampler2D u_image;
+  uniform sampler2D u_bayerMatrix;
+  uniform vec2 u_resolution;
+  uniform vec2 u_textureSize;
+
+  uniform float u_brightness;
+  uniform float u_contrast;
+  uniform float u_highlights;
+  uniform float u_midtones;
+  uniform float u_blur;
+
+  uniform int u_ditherMode;
+  uniform int u_useOriginalColors;
+  uniform vec3 u_themeFg;
+  uniform vec3 u_themeBg;
+  uniform float u_bayerSize;
+  uniform int u_objectFit;
+
+  uniform float u_pixelSize;
+
+  uniform int u_mouseEnabled;
+  uniform vec2 u_mousePos;
+  uniform float u_mouseRadius;
+
+  float interleavedGradientNoise(vec2 uv) {
+    vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+    return fract(magic.z * fract(dot(uv, magic.xy)));
+  }
+
+  vec3 applyColorCorrection(vec3 color) {
+    float b = u_brightness / 100.0;
+    float c = (u_contrast + 100.0) / 100.0;
+    float cSqu = c * c;
+
+    float gamma = 1.0;
+    if (u_midtones < 0.0) {
+      gamma = 1.0 + u_midtones / -100.0;
+    } else {
+      gamma = 1.0 - u_midtones / 200.0;
+    }
+
+    float h = 1.0 + u_highlights / 200.0;
+
+    vec3 val = color;
+    val = (val - 0.5) * cSqu + 0.5;
+    val += b;
+
+    val = max(val, vec3(0.0));
+    val = pow(val, vec3(gamma));
+
+    val = mix(val, val * h, step(0.5, val));
+
+    return clamp(val, 0.0, 1.0);
+  }
+
+  vec3 toGrayscale(vec3 color) {
+    float gray = dot(color, vec3(0.299, 0.587, 0.114));
+    return vec3(gray);
+  }
+
+  vec2 calculateUV() {
+    vec2 uv = v_texCoord;
+
+    if (u_objectFit == 2) {
+      return uv;
+    }
+
+    float canvasAspect = u_resolution.x / u_resolution.y;
+    float textureAspect = u_textureSize.x / u_textureSize.y;
+
+    vec2 scale = vec2(1.0);
+
+    if (u_objectFit == 0) {
+      if (canvasAspect > textureAspect) {
+        scale.x = textureAspect / canvasAspect;
+      } else {
+        scale.y = canvasAspect / textureAspect;
+      }
+    } else if (u_objectFit == 1) {
+      if (canvasAspect > textureAspect) {
+        scale.y = canvasAspect / textureAspect;
+      } else {
+        scale.x = textureAspect / canvasAspect;
+      }
+    }
+
+    uv = (uv - 0.5) / scale + 0.5;
+    return uv;
+  }
+
+  bool isOutOfBounds(vec2 uv) {
+    return uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
+  }
+
+  vec3 applyBlur(vec2 uv, float radius) {
+    if (radius <= 0.0) return texture2D(u_image, uv).rgb;
+
+    vec3 color = vec3(0.0);
+    float total = 0.0;
+    float steps = min(radius, 5.0);
+
+    for (float x = -5.0; x <= 5.0; x += 1.0) {
+      for (float y = -5.0; y <= 5.0; y += 1.0) {
+        if (abs(x) <= steps && abs(y) <= steps) {
+          vec2 offset = vec2(x, y) * radius / steps / u_textureSize;
+          vec2 sampleUV = uv + offset;
+          if (!isOutOfBounds(sampleUV)) {
+            color += texture2D(u_image, sampleUV).rgb;
+            total += 1.0;
+          }
+        }
+      }
+    }
+    return total > 0.0 ? color / total : vec3(0.0);
+  }
+
+  float getBayerThreshold(vec2 pos) {
+    vec2 bayerCoord = mod(pos, u_bayerSize) / u_bayerSize;
+    return texture2D(u_bayerMatrix, bayerCoord).r;
+  }
+
+  void main() {
+    vec2 uv = calculateUV();
+
+    if (u_pixelSize > 1.0) {
+      vec2 screenPos = gl_FragCoord.xy;
+      vec2 pixelatedScreenPos = floor(screenPos / u_pixelSize) * u_pixelSize + u_pixelSize * 0.5;
+
+      vec2 pixelatedNorm = pixelatedScreenPos / u_resolution;
+      vec2 pixelatedTexCoord = vec2(pixelatedNorm.x, 1.0 - pixelatedNorm.y);
+
+      if (u_objectFit == 2) {
+        uv = pixelatedTexCoord;
+      } else {
+        float canvasAspect = u_resolution.x / u_resolution.y;
+        float textureAspect = u_textureSize.x / u_textureSize.y;
+
+        vec2 scale = vec2(1.0);
+
+        if (u_objectFit == 0) {
+          if (canvasAspect > textureAspect) {
+            scale.x = textureAspect / canvasAspect;
+          } else {
+            scale.y = canvasAspect / textureAspect;
+          }
+        } else if (u_objectFit == 1) {
+          if (canvasAspect > textureAspect) {
+            scale.y = canvasAspect / textureAspect;
+          } else {
+            scale.x = textureAspect / canvasAspect;
+          }
+        }
+
+        uv = (pixelatedTexCoord - 0.5) / scale + 0.5;
+      }
+    }
+
+    if (isOutOfBounds(uv)) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+      return;
+    }
+
+    vec3 color = applyBlur(uv, u_blur);
+    color = applyColorCorrection(color);
+
+    vec3 unditheredColor = color;
+
+    vec2 ditherPos = gl_FragCoord.xy;
+    if (u_pixelSize > 1.0) {
+      ditherPos = floor(gl_FragCoord.xy / u_pixelSize);
+    }
+
+    bool grayscale = u_useOriginalColors == 0;
+
+    if (u_ditherMode == 1) {
+      if (grayscale) color = toGrayscale(color);
+      float threshold = getBayerThreshold(ditherPos);
+      color = step(threshold, color);
+    } else if (u_ditherMode == 2) {
+      float noise = interleavedGradientNoise(ditherPos);
+      if (grayscale) {
+        vec3 gray = toGrayscale(color);
+        color = vec3(step(noise, gray.r));
+      } else {
+        float noiseR = fract(noise + 0.0);
+        float noiseG = fract(noise + 0.333);
+        float noiseB = fract(noise + 0.666);
+        color = vec3(
+          step(noiseR, color.r),
+          step(noiseG, color.g),
+          step(noiseB, color.b)
+        );
+      }
+    } else {
+      if (grayscale) color = toGrayscale(color);
+    }
+
+    if (u_useOriginalColors == 0) {
+      color = mix(u_themeBg, u_themeFg, color);
+    }
+
+    if (u_useOriginalColors == 0) {
+      float lum = dot(unditheredColor, vec3(0.299, 0.587, 0.114));
+      unditheredColor = mix(u_themeBg, u_themeFg, vec3(lum));
+    }
+
+    if (u_mouseEnabled == 1 && u_mouseRadius > 0.0) {
+      float dist = distance(gl_FragCoord.xy, u_mousePos);
+      float reveal = 1.0 - smoothstep(u_mouseRadius * 0.3, u_mouseRadius, dist);
+      reveal *= 0.75;
+      color = mix(color, unditheredColor, reveal);
+    }
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+const THEME_COLORS: Record<ColorTheme, { fg: [number, number, number]; bg: [number, number, number]; useOriginalColors: boolean }> = {
+  colorful: { fg: [1, 1, 1], bg: [0, 0, 0], useOriginalColors: true },
+  monochrome: { fg: [1, 1, 1], bg: [0, 0, 0], useOriginalColors: false },
+  'ink-paper': { fg: [0.11, 0.09, 0.08], bg: [0.96, 0.94, 0.91], useOriginalColors: false },
+  'amber-glow': { fg: [1, 0.69, 0], bg: [0.1, 0.03, 0], useOriginalColors: false },
+  'game-boy': { fg: [0.19, 0.38, 0.19], bg: [0.61, 0.74, 0.06], useOriginalColors: false },
+  nes: { fg: [0.97, 0.97, 0.97], bg: [0, 0.25, 0.66], useOriginalColors: false },
+  terminal: { fg: [0, 1, 0.25], bg: [0.05, 0.05, 0.05], useOriginalColors: false },
+  blueprint: { fg: [0.88, 0.93, 1], bg: [0.04, 0.09, 0.16], useOriginalColors: false },
+  'neon-punk': { fg: [1, 0.08, 0.58], bg: [0.06, 0, 0.13], useOriginalColors: false },
+};
+
+function createBayerMatrix(n: number): number[][] {
+  if (n === 2) return [[0, 2], [3, 1]];
+  const lowerMatrix = createBayerMatrix(n / 2);
+  const size = lowerMatrix.length;
+  const matrix: number[][] = Array.from({ length: size * 2 }, () => new Array(size * 2));
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const value = lowerMatrix[y][x];
+      matrix[y][x] = 4 * value;
+      matrix[y][x + size] = 4 * value + 2;
+      matrix[y + size][x] = 4 * value + 3;
+      matrix[y + size][x + size] = 4 * value + 1;
+    }
+  }
+  return matrix;
+}
+
+export type DitherMode = 'none' | 'bayer' | 'floyd';
+export type BayerLevel = 2 | 4 | 8 | 16;
+export type MediaType = 'image' | 'video';
+export type ObjectFit = 'contain' | 'cover' | 'fill';
+export type ColorTheme =
+  | 'colorful'
+  | 'monochrome'
+  | 'ink-paper'
+  | 'amber-glow'
+  | 'game-boy'
+  | 'nes'
+  | 'terminal'
+  | 'blueprint'
+  | 'neon-punk';
+
+export interface DitherStudioProps {
+  mediaType?: MediaType;
+  ditherMode?: DitherMode;
+  colorTheme?: ColorTheme;
+  bayerLevel?: BayerLevel;
+  source?: string;
+  brightness?: number;
+  contrast?: number;
+  highlights?: number;
+  midtones?: number;
+  blur?: number;
+  objectFit?: ObjectFit;
+  pixelSize?: number;
+  mouseInteraction?: boolean;
+  mouseRadius?: number;
+  className?: string;
+}
+
+const DitherStudio = ({
+  mediaType = 'image',
+  ditherMode = 'bayer',
+  colorTheme = 'colorful',
+  bayerLevel = 8,
+  source = bgImage,
+  brightness = 0,
+  contrast = 0,
+  highlights = 0,
+  midtones = 0,
+  blur = 0,
+  objectFit = 'contain',
+  pixelSize = 1,
+  mouseInteraction = false,
+  mouseRadius = 100,
+  className = '',
+}: DitherStudioProps) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const glRef = useRef<WebGLRenderingContext | null>(null);
+  const programRef = useRef<WebGLProgram | null>(null);
+  const textureRef = useRef<WebGLTexture | null>(null);
+  const bayerTextureRef = useRef<WebGLTexture | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const animationFrameRef = useRef<number>(0);
+  const uniformLocationsRef = useRef<Record<string, WebGLUniformLocation | null>>({});
+  const mousePosRef = useRef<{ x: number; y: number }>({ x: -9999, y: -9999 });
+
+  const bayerMatrix = useMemo(() => createBayerMatrix(bayerLevel), [bayerLevel]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    mousePosRef.current = {
+      x: e.clientX - rect.left,
+      y: rect.height - (e.clientY - rect.top),
+    };
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    mousePosRef.current = { x: -9999, y: -9999 };
+  }, []);
+
+  const compileShader = useCallback((gl: WebGLRenderingContext, type: number, sourceStr: string) => {
+    const shader = gl.createShader(type);
+    if (!shader) return null;
+    gl.shaderSource(shader, sourceStr);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+      gl.deleteShader(shader);
+      return null;
+    }
+    return shader;
+  }, []);
+
+  const initWebGL = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return false;
+
+    const gl = canvas.getContext('webgl', {
+      alpha: true,
+      premultipliedAlpha: false,
+      antialias: false,
+      preserveDrawingBuffer: true,
+    });
+    if (!gl) {
+      console.error('WebGL not supported');
+      return false;
+    }
+
+    glRef.current = gl;
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
+    const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
+    if (!vertexShader || !fragmentShader) return false;
+
+    const program = gl.createProgram();
+    if (!program) return false;
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error('Program link error:', gl.getProgramInfoLog(program));
+      return false;
+    }
+    programRef.current = program;
+
+    const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+    const texCoords = new Float32Array([0, 1, 1, 1, 0, 0, 1, 0]);
+
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    const positionLoc = gl.getAttribLocation(program, 'a_position');
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+    const texCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
+    const texCoordLoc = gl.getAttribLocation(program, 'a_texCoord');
+    gl.enableVertexAttribArray(texCoordLoc);
+    gl.vertexAttribPointer(texCoordLoc, 2, gl.FLOAT, false, 0, 0);
+
+    uniformLocationsRef.current = {
+      u_image: gl.getUniformLocation(program, 'u_image'),
+      u_bayerMatrix: gl.getUniformLocation(program, 'u_bayerMatrix'),
+      u_resolution: gl.getUniformLocation(program, 'u_resolution'),
+      u_textureSize: gl.getUniformLocation(program, 'u_textureSize'),
+      u_brightness: gl.getUniformLocation(program, 'u_brightness'),
+      u_contrast: gl.getUniformLocation(program, 'u_contrast'),
+      u_highlights: gl.getUniformLocation(program, 'u_highlights'),
+      u_midtones: gl.getUniformLocation(program, 'u_midtones'),
+      u_blur: gl.getUniformLocation(program, 'u_blur'),
+      u_ditherMode: gl.getUniformLocation(program, 'u_ditherMode'),
+      u_useOriginalColors: gl.getUniformLocation(program, 'u_useOriginalColors'),
+      u_themeFg: gl.getUniformLocation(program, 'u_themeFg'),
+      u_themeBg: gl.getUniformLocation(program, 'u_themeBg'),
+      u_bayerSize: gl.getUniformLocation(program, 'u_bayerSize'),
+      u_objectFit: gl.getUniformLocation(program, 'u_objectFit'),
+      u_pixelSize: gl.getUniformLocation(program, 'u_pixelSize'),
+      u_mouseEnabled: gl.getUniformLocation(program, 'u_mouseEnabled'),
+      u_mousePos: gl.getUniformLocation(program, 'u_mousePos'),
+      u_mouseRadius: gl.getUniformLocation(program, 'u_mouseRadius'),
+    };
+
+    textureRef.current = gl.createTexture();
+    bayerTextureRef.current = gl.createTexture();
+    return true;
+  }, [compileShader]);
+
+  const updateBayerTexture = useCallback(() => {
+    const gl = glRef.current;
+    const bayerTexture = bayerTextureRef.current;
+    if (!gl || !bayerTexture) return;
+
+    const size = bayerLevel;
+    const data = new Uint8Array(size * size);
+    const maxVal = size * size;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        data[y * size + x] = Math.floor((bayerMatrix[y][x] / maxVal) * 255);
+      }
+    }
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, bayerTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, size, size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  }, [bayerLevel, bayerMatrix]);
+
+  const draw = useCallback(() => {
+    const gl = glRef.current;
+    const program = programRef.current;
+    const canvas = canvasRef.current;
+    const texture = textureRef.current;
+    const uniforms = uniformLocationsRef.current;
+    if (!gl || !program || !canvas || !texture) return;
+
+    const sourceElem = mediaType === 'video' ? videoRef.current : imageRef.current;
+    if (!sourceElem) return;
+
+    const srcW = sourceElem instanceof HTMLVideoElement ? sourceElem.videoWidth : sourceElem.width;
+    const srcH = sourceElem instanceof HTMLVideoElement ? sourceElem.videoHeight : sourceElem.height;
+    if (srcW === 0 || srcH === 0) return;
+
+    const dpr = 1;
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width * dpr;
+    const height = rect.height * dpr;
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+      gl.viewport(0, 0, width, height);
+    }
+
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(program);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceElem);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    gl.uniform1i(uniforms.u_image, 0);
+    gl.uniform1i(uniforms.u_bayerMatrix, 1);
+    gl.uniform2f(uniforms.u_resolution, width, height);
+    gl.uniform2f(uniforms.u_textureSize, srcW, srcH);
+    gl.uniform1f(uniforms.u_brightness, brightness);
+    gl.uniform1f(uniforms.u_contrast, contrast);
+    gl.uniform1f(uniforms.u_highlights, highlights);
+    gl.uniform1f(uniforms.u_midtones, midtones);
+    gl.uniform1f(uniforms.u_blur, blur);
+    gl.uniform1i(uniforms.u_ditherMode, ditherMode === 'none' ? 0 : ditherMode === 'bayer' ? 1 : 2);
+    const theme = THEME_COLORS[colorTheme];
+    gl.uniform1i(uniforms.u_useOriginalColors, theme.useOriginalColors ? 1 : 0);
+    gl.uniform3f(uniforms.u_themeFg, theme.fg[0], theme.fg[1], theme.fg[2]);
+    gl.uniform3f(uniforms.u_themeBg, theme.bg[0], theme.bg[1], theme.bg[2]);
+    gl.uniform1f(uniforms.u_bayerSize, bayerLevel);
+    gl.uniform1i(uniforms.u_objectFit, objectFit === 'contain' ? 0 : objectFit === 'cover' ? 1 : 2);
+    gl.uniform1f(uniforms.u_pixelSize, pixelSize);
+    gl.uniform1i(uniforms.u_mouseEnabled, mouseInteraction ? 1 : 0);
+    gl.uniform2f(uniforms.u_mousePos, mousePosRef.current.x, mousePosRef.current.y);
+    gl.uniform1f(uniforms.u_mouseRadius, mouseRadius * dpr);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }, [mediaType, brightness, contrast, highlights, midtones, blur, ditherMode, colorTheme, bayerLevel, objectFit, pixelSize, mouseInteraction, mouseRadius]);
+
+  useEffect(() => {
+    initWebGL();
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, [initWebGL]);
+
+  useEffect(() => {
+    updateBayerTexture();
+    draw();
+  }, [bayerLevel, bayerMatrix, updateBayerTexture, draw]);
+
+  useEffect(() => {
+    draw();
+  }, [ditherMode, colorTheme, brightness, contrast, highlights, midtones, blur, objectFit, pixelSize, mouseInteraction, mouseRadius, draw]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (mediaType === 'image' && source) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        imageRef.current = img;
+        draw();
+      };
+      img.onerror = () => {
+        if (img.src !== bgImage) {
+          console.warn(`[DitherStudio] Failed to load ${source}, falling back to bundled bg-image.jpg`);
+          const fallback = new Image();
+          fallback.crossOrigin = 'anonymous';
+          fallback.onload = () => {
+            imageRef.current = fallback;
+            draw();
+          };
+          fallback.src = bgImage;
+        }
+      };
+      img.src = source;
+    }
+
+    if (video) {
+      if (mediaType === 'video') {
+        video.play().catch((e) => console.error(e));
+      } else {
+        video.pause();
+      }
+    }
+
+    const needsLoop = mediaType === 'video' || mouseInteraction;
+    const loop = () => {
+      draw();
+      animationFrameRef.current = requestAnimationFrame(loop);
+    };
+    if (needsLoop) loop();
+
+    const handleResize = () => draw();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [mediaType, source, mouseInteraction, draw]);
+
+  return (
+    <>
+      <video
+        ref={videoRef}
+        src={mediaType === 'video' ? source : undefined}
+        crossOrigin="anonymous"
+        style={{ display: 'none' }}
+        loop
+        playsInline
+      />
+      <canvas
+        ref={canvasRef}
+        className={className}
+        onMouseMove={mouseInteraction ? handleMouseMove : undefined}
+        onMouseLeave={mouseInteraction ? handleMouseLeave : undefined}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+        }}
+      />
+    </>
+  );
+};
+
+export default DitherStudio;

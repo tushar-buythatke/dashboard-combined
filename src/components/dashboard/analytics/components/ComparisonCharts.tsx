@@ -863,19 +863,19 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
 
                                         return (
                                             <div
-                                                className="min-w-[180px] overflow-hidden rounded-[10px] border-l-[3px] px-3.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+                                                className="min-w-[180px] overflow-hidden rounded-[12px] border border-black/[0.06] dark:border-white/10 bg-white/95 dark:bg-[#10101c]/90 px-3.5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.14)] dark:shadow-[0_10px_34px_rgba(0,0,0,0.5)] backdrop-blur-xl"
                                                 style={{
-                                                    background: 'rgba(15, 15, 26, 0.85)',
                                                     borderLeftColor: entry?.color || '#10b981',
+                                                    borderLeftWidth: '3px',
                                                 }}
                                             >
-                                                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-white/55">{label}</div>
+                                                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-white/55">{label}</div>
                                                 <div className="flex items-baseline justify-between gap-3">
-                                                    <span className="text-[12px] text-white/65">Daily Value</span>
-                                                    <span className="text-[14px] font-semibold tabular-nums text-white">{formatNumber(Number(entry?.value))}</span>
+                                                    <span className="text-[12px] text-slate-500 dark:text-white/65">Daily Value</span>
+                                                    <span className="text-[14px] font-semibold tabular-nums text-slate-900 dark:text-white">{formatNumber(Number(entry?.value))}</span>
                                                 </div>
                                                 {isPartialLatestDay && (
-                                                    <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                                                    <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 px-2 py-0.5 text-[10px] font-semibold">
                                                         Latest point not yet accumulated
                                                     </div>
                                                 )}
@@ -909,12 +909,14 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     fill="url(#dailyGradient)"
                                     dot={(dotProps: any) => {
                                         const isPartial = Boolean(dotProps?.payload?.isPartialLatestDay);
+                                        const dotKey = dotProps?.key ?? `dot-${dotProps?.index ?? dotProps?.cx}-${dotProps?.cy}`;
+                                        // Only highlight the partial latest-day point; hide all other dots for a clean line
                                         if (isPartial) {
-                                            return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={5} fill="#f59e0b" stroke="#10b981" strokeWidth={2} />;
+                                            return <circle key={dotKey} cx={dotProps?.cx} cy={dotProps?.cy} r={5} fill="#f59e0b" stroke="#10b981" strokeWidth={2} />;
                                         }
-                                        return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={4} fill="#10b981" stroke="#fff" strokeWidth={2} />;
+                                        return <circle key={dotKey} cx={dotProps?.cx} cy={dotProps?.cy} r={0} fill="none" />;
                                     }}
-                                    activeDot={{ r: 6 }}
+                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: '#10b981' }}
                                     isAnimationActive={false}
                                 />
                             </LineChart>
