@@ -1,11 +1,12 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ReferenceArea } from 'recharts';
-import { TrendingUp, TrendingDown, Calendar, Clock, Maximize2 } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
+import { TrendingUp, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartZoomControls } from './ChartZoomControls';
 import { useChartZoom } from '@/hooks/useChartZoom';
+import { useChartColors, AXIS_TICK_STYLE, gridProps } from '@/lib/chartTheme';
+import { GlassTooltip } from '@/components/ui/GlassTooltip';
 
 // Color palette for different days
 const DAY_COLORS = [
@@ -57,6 +58,8 @@ interface ComparisonChartsProps {
  * Shows up to 7 different days overlaid on the same graph for day-wise comparison
  */
 export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors, eventNames = {}, eventStats, selectedEventKey, onEventClick, headless, onExpand }: ComparisonChartsProps) {
+    const { grid, axis, accentPrimary } = useChartColors();
+
     if (!data || data.length === 0) return null;
 
     // Group data by day
@@ -251,12 +254,12 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
         <div className={cn("w-full transition-all duration-300", headless ? "h-full min-h-[280px] sm:min-h-[380px]" : "h-[280px] sm:h-[380px] md:h-[450px]")}>
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 55 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                    <CartesianGrid {...gridProps(grid)} />
                     <XAxis
                         dataKey="time"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        tick={{ ...AXIS_TICK_STYLE, fill: axis }}
                         interval={2}
                         dy={10}
                     />
@@ -265,34 +268,12 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                         tickLine={false}
                         tickFormatter={formatNumber}
                         width={65}
-                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        tick={{ ...AXIS_TICK_STYLE, fill: axis }}
                         domain={[0, 'dataMax']}
                     />
-                    <Tooltip
-                        content={({ active, payload, label }: any) => {
-                            if (active && payload && payload.length) {
-                                return (
-                                    <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-3 shadow-xl rounded-xl min-w-[170px] z-50">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
-                                        <div className="space-y-2">
-                                            {payload.map((entry: any, index: number) => (
-                                                <div key={index} className="flex items-center justify-between gap-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                                                        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">{entry.name}</span>
-                                                    </div>
-                                                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">
-                                                        {formatNumber(entry.value)}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                );
-                            }
-                            return null;
-                        }}
-                    />
+                    <Tooltip content={<GlassTooltip formatter={(value, name, color) => (
+                        <span style={{ color: '#fff' }}>{formatNumber(typeof value === 'number' ? value : Number(value))}</span>
+                    )} />} />
 
                     <Legend
                         wrapperStyle={{ fontSize: '11px' }}
@@ -568,6 +549,7 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
 
     // Zoom functionality
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom();
+    const { grid, axis } = useChartColors();
 
     // Calculate hourly averages and deviations
     const hourlyStats: Record<number, { values: number[]; avg: number; min: number; max: number }> = {};
@@ -639,20 +621,20 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                                         <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <CartesianGrid {...gridProps(grid)} />
                                 <XAxis
                                     dataKey="time"
-                                    tick={{ fontSize: 12 }}
+                                    tick={{ ...AXIS_TICK_STYLE, fill: axis }}
                                     interval="preserveStartEnd"
+                                    axisLine={false}
+                                    tickLine={false}
                                 />
-                                <YAxis tick={{ fontSize: 12 }} />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                        border: '1px solid #ddd',
-                                        borderRadius: '8px'
-                                    }}
+                                <YAxis
+                                    tick={{ ...AXIS_TICK_STYLE, fill: axis }}
+                                    axisLine={false}
+                                    tickLine={false}
                                 />
+                                <Tooltip content={<GlassTooltip />} />
                                 <Legend />
 
                                 <Line
@@ -699,6 +681,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
 
     // Zoom functionality
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom();
+    const { grid, axis, avg: avgColor } = useChartColors();
 
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -854,15 +837,22 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                         <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                                <CartesianGrid {...gridProps(grid)} />
                                 <XAxis
                                     dataKey="date"
-                                    tick={{ fontSize: 11 }}
+                                    tick={{ ...AXIS_TICK_STYLE, fill: axis }}
                                     angle={-45}
                                     textAnchor="end"
                                     height={80}
+                                    axisLine={false}
+                                    tickLine={false}
                                 />
-                                <YAxis tick={{ fontSize: 12 }} tickFormatter={formatNumber} />
+                                <YAxis
+                                    tick={{ ...AXIS_TICK_STYLE, fill: axis }}
+                                    tickFormatter={formatNumber}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
                                 <Tooltip
                                     content={({ active, payload, label }: any) => {
                                         if (!active || !payload || !payload.length) return null;
@@ -872,14 +862,20 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                         const isPartialLatestDay = Boolean(point?.isPartialLatestDay);
 
                                         return (
-                                            <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200 dark:border-slate-800 p-3 shadow-xl rounded-xl min-w-[180px]">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
-                                                <div className="flex items-center justify-between gap-4">
-                                                    <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Daily Value</span>
-                                                    <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100">{formatNumber(Number(entry?.value))}</span>
+                                            <div
+                                                className="min-w-[180px] overflow-hidden rounded-[12px] border border-black/[0.06] dark:border-white/10 bg-white/95 dark:bg-[#10101c]/90 px-3.5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.14)] dark:shadow-[0_10px_34px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                                                style={{
+                                                    borderLeftColor: entry?.color || '#10b981',
+                                                    borderLeftWidth: '3px',
+                                                }}
+                                            >
+                                                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-white/55">{label}</div>
+                                                <div className="flex items-baseline justify-between gap-3">
+                                                    <span className="text-[12px] text-slate-500 dark:text-white/65">Daily Value</span>
+                                                    <span className="text-[14px] font-semibold tabular-nums text-slate-900 dark:text-white">{formatNumber(Number(entry?.value))}</span>
                                                 </div>
                                                 {isPartialLatestDay && (
-                                                    <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+                                                    <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 px-2 py-0.5 text-[10px] font-semibold">
                                                         Latest point not yet accumulated
                                                     </div>
                                                 )}
@@ -892,13 +888,13 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                 {/* Average reference line */}
                                 <ReferenceLine
                                     y={overallAvg}
-                                    stroke="#f59e0b"
+                                    stroke={avgColor}
                                     strokeWidth={2}
                                     strokeDasharray="5 5"
                                     label={{
                                         value: `Avg: ${formatNumber(overallAvg)}`,
                                         position: 'right',
-                                        fill: '#f59e0b',
+                                        fill: avgColor,
                                         fontSize: 12,
                                         fontWeight: 'bold'
                                     }}
@@ -913,12 +909,14 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     fill="url(#dailyGradient)"
                                     dot={(dotProps: any) => {
                                         const isPartial = Boolean(dotProps?.payload?.isPartialLatestDay);
+                                        const dotKey = dotProps?.key ?? `dot-${dotProps?.index ?? dotProps?.cx}-${dotProps?.cy}`;
+                                        // Only highlight the partial latest-day point; hide all other dots for a clean line
                                         if (isPartial) {
-                                            return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={5} fill="#f59e0b" stroke="#10b981" strokeWidth={2} />;
+                                            return <circle key={dotKey} cx={dotProps?.cx} cy={dotProps?.cy} r={5} fill="#f59e0b" stroke="#10b981" strokeWidth={2} />;
                                         }
-                                        return <circle cx={dotProps?.cx} cy={dotProps?.cy} r={4} fill="#10b981" stroke="#fff" strokeWidth={2} />;
+                                        return <circle key={dotKey} cx={dotProps?.cx} cy={dotProps?.cy} r={0} fill="none" />;
                                     }}
-                                    activeDot={{ r: 6 }}
+                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: '#10b981' }}
                                     isAnimationActive={false}
                                 />
                             </LineChart>

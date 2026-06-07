@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { DashboardProfile, Feature } from '@/types/analytics';
@@ -506,13 +506,16 @@ export function AnalyticsLayout() {
                         className={cn(
                             "mx-3 lg:mx-6 px-3 lg:px-5 flex justify-between items-center rounded-2xl transition-all duration-300",
                             headerScrolled
-                                ? "py-2 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
-                                : "py-2.5 lg:py-3 backdrop-blur-md shadow-none"
+                                ? "py-2 shadow-[0_8px_32px_rgba(0,0,0,0.10)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.28)]"
+                                : "py-2.5 lg:py-3 shadow-none"
                         )}
                         style={{
-                            background: headerScrolled ? 'var(--dash-header-bg)' : 'transparent',
-                            border: headerScrolled ? '1px solid var(--dash-header-border)' : '1px solid transparent',
-                        }}
+                            background: 'var(--dash-header-bg)',
+                            backdropFilter: 'blur(16px) saturate(180%)',
+                            WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                            border: '0.5px solid var(--dash-header-border)',
+                            boxShadow: headerScrolled ? '0 8px 32px rgba(0,0,0,0.10)' : '0 2px 12px rgba(0,0,0,0.04)',
+                        } as CSSProperties}
                     >
                         <div className="flex items-center gap-2 lg:gap-3">
                             <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl p-1 overflow-hidden flex items-center justify-center" style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)' }}>
@@ -599,16 +602,11 @@ export function AnalyticsLayout() {
                             )}
 
                             {/* Live Clock */}
-                            <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-lg" style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)' }}>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-sm font-bold font-mono tabular-nums tracking-tight" style={{ color: 'var(--dash-text-primary)' }}>
-                                        {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                                    </span>
-                                    <span className="text-xs font-mono tabular-nums animate-pulse" style={{ color: 'var(--dash-text-muted)' }}>
-                                        :{currentTime.getSeconds().toString().padStart(2, '0')}
-                                    </span>
-                                </div>
-                                <span className="text-[9px] font-medium" style={{ color: 'var(--dash-text-muted)' }}>
+                            <div className="hidden md:flex flex-col items-center justify-center h-9 px-3 rounded-xl leading-none" style={{ background: 'var(--dash-surface)', border: '0.5px solid var(--dash-border)' }}>
+                                <span className="text-[13px] font-bold font-mono tabular-nums tracking-tight leading-none" style={{ color: 'var(--dash-text-primary)' }}>
+                                    {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                </span>
+                                <span className="text-[9px] font-mono font-medium mt-[3px] leading-none tracking-wide" style={{ color: 'var(--dash-text-muted)' }}>
                                     {currentTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
                             </div>
@@ -624,16 +622,17 @@ export function AnalyticsLayout() {
                                 {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-slate-500" />}
                             </Button>
 
-                            {/* New Config — gradient + shimmer */}
+                            {/* New Config — gradient hero CTA + hover shimmer + glow */}
                             {hasWriteAccess(selectedFeatureId || newConfigFeature) && (
                                 <Button
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
-                                    className="relative overflow-hidden gap-2 h-8 rounded-lg text-white shadow-lg hover:brightness-110 transition-all"
-                                    style={{ background: 'var(--dash-btn-gradient)', boxShadow: '0 4px 20px var(--dash-glow-primary)' }}
+                                    className="group relative overflow-hidden gap-2 h-8 px-3 rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
+                                    style={{ background: 'var(--accent-gradient)', boxShadow: '0 2px 12px var(--theme-primary-alpha,rgba(99,102,241,0.2))' }}
                                 >
-                                    <span className="absolute inset-0 overflow-hidden">
-                                        <span className="absolute inset-0 -translate-x-full animate-[shimmer-sweep_2.5s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-15deg]" />
+                                    {/* Shimmer sweep — only plays on hover via group-hover */}
+                                    <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
+                                        <span className="absolute inset-y-0 w-1/2 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-15deg] transition-none group-hover:animate-[shimmer-sweep_0.6s_ease-out_forwards]" />
                                     </span>
                                     <Plus className="h-4 w-4 relative z-10" />
                                     <span className="hidden lg:inline relative z-10 text-xs font-semibold">New Config</span>
@@ -643,7 +642,10 @@ export function AnalyticsLayout() {
                             {/* User Profile */}
                             <div className="hidden md:flex items-center gap-2 pl-2" style={{ borderLeft: '1px solid var(--dash-border)' }}>
                                 <div className="relative">
-                                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-[10px] font-bold text-white">
+                                    <div
+                                        className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-[10px] font-bold text-white"
+                                        style={{ boxShadow: '0 0 0 2px hsl(var(--accent-primary) / 0.5)' }}
+                                    >
                                         {user?.username?.charAt(0)?.toUpperCase() || 'U'}
                                     </div>
                                     <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 border-2" style={{ borderColor: 'var(--dash-bg)' }} />
@@ -815,18 +817,18 @@ export function AnalyticsLayout() {
     return (
         <CustomEventLabelsProvider>
             <div className="flex flex-col relative min-h-screen theme-transition" style={{ background: 'var(--dash-bg)' }}>
-                <header 
+                <header
                     className={cn(
                         "fixed top-0 left-0 right-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] transition-all duration-300",
-                        innerScrolled && "header-glass-scrolled"
                     )}
-                    style={{ 
-                        paddingTop: 'env(safe-area-inset-top, 0px)', 
-                        background: innerScrolled ? undefined : 'transparent', 
-                        borderBottom: innerScrolled ? undefined : '1px solid transparent',
-                        backdropFilter: innerScrolled ? undefined : 'none',
-                        boxShadow: innerScrolled ? undefined : 'none'
-                    }}
+                    style={{
+                        paddingTop: 'env(safe-area-inset-top, 0px)',
+                        background: 'var(--dash-header-bg)',
+                        backdropFilter: 'blur(16px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                        borderBottom: '0.5px solid var(--dash-header-border)',
+                        boxShadow: innerScrolled ? '0 4px 24px rgba(0,0,0,0.08)' : '0 1px 8px rgba(0,0,0,0.04)',
+                    } as CSSProperties}
                 >
                     <div className="flex items-center gap-2 lg:gap-4">
                         {/* Mobile Menu Button */}
@@ -860,11 +862,12 @@ export function AnalyticsLayout() {
                                 <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                             </div>
                             <div className="flex items-center gap-1.5 lg:gap-2">
-                                <span className="font-semibold text-sm lg:text-base stat-gradient-text">
+                                <span className="font-semibold text-sm lg:text-base stat-gradient-text font-display">
                                     {selectedFeatureId ? getFeatureName(selectedFeatureId) : 'Analytics'}
                                 </span>
+                                <span className="text-xs hidden md:inline font-light opacity-30 select-none" style={{ color: 'var(--dash-text-muted)' }}>/</span>
                                 <span className="text-xs hidden md:inline font-medium" style={{ color: 'var(--dash-text-muted)' }}>
-                                    — {selectedOrganization?.name || 'Organization'}
+                                    {selectedOrganization?.name || 'Organization'}
                                 </span>
                             </div>
                         </div>
@@ -909,26 +912,36 @@ export function AnalyticsLayout() {
                             </Button>
                         )}
 
-                        {/* Feature Report Button - Ghost green */}
+                        {/* Feature Report Button - gradient border pill, fills on hover */}
                         {selectedFeatureId && (
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowReportModal(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 hover:scale-[1.02] transition-all backdrop-blur-sm bg-white/30 dark:bg-transparent"
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-emerald-700 dark:text-emerald-400 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_rgba(16,185,129,0.3)] group"
+                                style={{
+                                    border: '1px solid rgba(16,185,129,0.4)',
+                                }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, #10b981, #059669)'; (e.currentTarget as HTMLButtonElement).style.border = '1px solid transparent'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = ''; (e.currentTarget as HTMLButtonElement).style.border = '1px solid rgba(16,185,129,0.4)'; }}
                             >
                                 <FileText className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold hidden lg:inline">Generate Report</span>
                             </Button>
                         )}
 
-                        {/* Alerts Panel Button - Ghost pink/purple */}
+                        {/* Alerts Panel Button - gradient border pill, fills on hover */}
                         {selectedFeatureId && (
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowAlertsPanel(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl border-fuchsia-300 dark:border-fuchsia-500/30 text-fuchsia-700 dark:text-fuchsia-300 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-500/10 hover:scale-[1.02] transition-all backdrop-blur-sm bg-white/30 dark:bg-transparent"
+                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-fuchsia-700 dark:text-fuchsia-300 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_hsl(var(--accent-primary)/0.3)] group"
+                                style={{
+                                    border: '1px solid hsl(var(--accent-primary) / 0.35)',
+                                }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent-gradient)'; (e.currentTarget as HTMLButtonElement).style.border = '1px solid transparent'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = ''; (e.currentTarget as HTMLButtonElement).style.border = '1px solid hsl(var(--accent-primary) / 0.35)'; }}
                             >
                                 <BellRing className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold hidden lg:inline">Alerts Panel</span>
@@ -940,11 +953,12 @@ export function AnalyticsLayout() {
                                 <Button
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
-                                    className="relative overflow-hidden gap-2 h-8 rounded-xl text-white shadow-lg btn-theme-gradient"
+                                    className="group relative overflow-hidden gap-2 h-8 rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
+                                    style={{ background: 'var(--accent-gradient)', boxShadow: '0 2px 12px var(--theme-primary-alpha,rgba(99,102,241,0.2))' }}
                                 >
-                                    {/* Shimmer overlay */}
-                                    <span className="absolute inset-0 overflow-hidden pointer-events-none">
-                                        <span className="absolute inset-0 -translate-x-full animate-[shimmer-sweep_2.5s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent skew-x-[-15deg]" />
+                                    {/* Shimmer — hover only, single sweep */}
+                                    <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
+                                        <span className="absolute inset-y-0 w-1/2 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-15deg] transition-none group-hover:animate-[shimmer-sweep_0.6s_ease-out_forwards]" />
                                     </span>
                                     <Plus className="h-4 w-4 relative z-10" />
                                     <span className="hidden lg:inline font-semibold relative z-10">New Config</span>

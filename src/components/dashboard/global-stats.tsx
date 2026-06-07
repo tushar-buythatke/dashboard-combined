@@ -1,10 +1,13 @@
 "use client";
 
 import useSWR from "swr";
-import { ArrowUpRight, ArrowDownRight, MinusIcon } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, MinusIcon, Bell, CheckCircle, XCircle, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Area, AreaChart, Line, LineChart } from "recharts";
+import { Area, AreaChart, Line, LineChart, ResponsiveContainer } from "recharts";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { useCountUp } from "@/hooks/useCountUp";
+import { useInView } from "@/hooks/useInView";
+import { useChartColors } from "@/lib/chartTheme";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -31,6 +34,242 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+// ─── Individual premium stat card ────────────────────────────────────────────
+interface PremiumStatCardProps {
+  title: string;
+  /** Raw numeric target for count-up */
+  value: number;
+  /** Formatted display string (used when count-up doesn't apply, e.g. "2.3h") */
+  formattedValue?: string;
+  /** Use count-up animation on the big number */
+  useCountUpAnim?: boolean;
+  /** Decimal places for count-up */
+  decimals?: number;
+  delta: ReturnType<typeof formatDeltaUtil> | null;
+  comparisonLabel: string;
+  positiveTone?: "green" | "emerald" | "primary";
+  icon: React.ReactNode;
+  iconGradient: string;
+  numberColor: string;
+  sparkline?: React.ReactNode;
+  children?: React.ReactNode;
+  isLoading?: boolean;
+}
+
+// Utility – identical to original formatDelta, extracted so it's usable as a type.
+function formatDeltaUtil(
+  current: number,
+  previous: number,
+  { invert = false }: { invert?: boolean } = {}
+) {
+  if (previous <= 0) return null;
+  const rawDelta = ((current - previous) / previous) * 100;
+  if (!Number.isFinite(rawDelta)) return null;
+  const effectiveDelta = invert ? -rawDelta : rawDelta;
+  const trend = effectiveDelta > 0 ? "up" : effectiveDelta < 0 ? "down" : "flat";
+  return {
+    raw: rawDelta,
+    effective: effectiveDelta,
+    trend,
+    label: `${effectiveDelta >= 0 ? "+" : ""}${effectiveDelta.toFixed(1)}%`,
+  };
+}
+
+function TrendPill({
+  delta,
+  comparisonLabel,
+  positiveTone = "green",
+}: {
+  delta: ReturnType<typeof formatDeltaUtil> | null;
+  comparisonLabel: string;
+  positiveTone?: "green" | "emerald" | "primary";
+}) {
+  if (!delta) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] bg-muted/60 text-muted-foreground">
+        <MinusIcon className="h-3 w-3" />
+        <span>0.0%</span>
+        <span className="hidden sm:inline opacity-70">{comparisonLabel}</span>
+      </span>
+    );
+  }
+  const Icon =
+    delta.trend === "down" ? ArrowDownRight : delta.trend === "up" ? ArrowUpRight : MinusIcon;
+  const pillClass =
+    delta.trend === "flat"
+      ? "bg-muted/60 text-muted-foreground"
+      : delta.trend === "up"
+        ? positiveTone === "green"
+          ? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+          : "bg-blue-500/12 text-blue-600 dark:text-blue-400"
+        : positiveTone === "green"
+          ? "bg-red-500/12 text-red-600 dark:text-red-400"
+          : "bg-amber-500/12 text-amber-600 dark:text-amber-400";
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${pillClass}`}>
+      <Icon className="h-3 w-3" />
+      <span>{delta.label}</span>
+      <span className="hidden sm:inline opacity-70">{comparisonLabel}</span>
+    </span>
+  );
+}
+
+function PremiumStatCard({
+  title,
+  value,
+  formattedValue,
+  useCountUpAnim = true,
+  decimals = 0,
+  delta,
+  comparisonLabel,
+  positiveTone = "green",
+  icon,
+  iconGradient,
+  numberColor,
+  sparkline,
+  children,
+  isLoading = false,
+}: PremiumStatCardProps) {
+  const { ref, inView } = useInView<HTMLDivElement>();
+  const { formatted } = useCountUp(value, { start: inView && !isLoading, decimals });
+
+  return (
+    <div
+      ref={ref}
+      className="group relative rounded-2xl overflow-hidden transition-all duration-[280ms]"
+      style={{
+        background: "linear-gradient(145deg, var(--dash-card-bg) 0%, var(--accent-surface) 100%)",
+        border: "0.5px solid hsl(var(--accent-primary) / 0.12)",
+        boxShadow: "var(--dash-card-shadow)",
+        transition: "transform 280ms var(--ease-spring), box-shadow 280ms var(--ease-spring), border-color 280ms ease",
+      }}
+      onMouseEnter={(e) => {
+        const el = e.currentTarget;
+        el.style.transform = "translateY(-3px)";
+        el.style.boxShadow = "var(--dash-card-shadow-hover)";
+        el.style.borderColor = "hsl(var(--accent-primary) / 0.32)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget;
+        el.style.transform = "";
+        el.style.boxShadow = "var(--dash-card-shadow)";
+        el.style.borderColor = "hsl(var(--accent-primary) / 0.12)";
+      }}
+    >
+      {/* Card body */}
+      <div className="p-4 pb-3">
+        {/* Top row: icon left, sparkline right */}
+        <div className="flex items-start justify-between mb-3">
+          {/* Icon circle — 44px, accent gradient */}
+          <div
+            className="flex-shrink-0 flex items-center justify-center rounded-full"
+            style={{
+              width: 44,
+              height: 44,
+              background: iconGradient,
+              boxShadow: "0 4px 14px hsl(var(--accent-primary) / 0.3)",
+            }}
+          >
+            {icon}
+          </div>
+          {/* Sparkline slot */}
+          {sparkline && (
+            <div className="flex-shrink-0" style={{ filter: "drop-shadow(0 0 6px hsl(var(--accent-primary) / 0.3))" }}>
+              {sparkline}
+            </div>
+          )}
+        </div>
+
+        {/* Big number */}
+        <div className="flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            {isLoading ? (
+              <div className="h-8 w-24 rounded bg-muted/40 animate-pulse" />
+            ) : (
+              <div
+                className="text-[26px] font-bold leading-none tabular-nums"
+                style={{ color: numberColor }}
+              >
+                {useCountUpAnim ? formatted : (formattedValue ?? value.toLocaleString())}
+              </div>
+            )}
+            <div className="text-[11px] text-muted-foreground mt-1 font-medium uppercase tracking-wide">
+              {title}
+            </div>
+          </div>
+          {/* Trend pill — bottom right */}
+          <div className="flex-shrink-0 pb-0.5">
+            <TrendPill delta={delta} comparisonLabel={comparisonLabel} positiveTone={positiveTone} />
+          </div>
+        </div>
+      </div>
+
+      {/* Optional extra content (breakdown rows) */}
+      {children && (
+        <div className="px-4 pb-4 border-t border-border/30 pt-3">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Sparkline components ─────────────────────────────────────────────────────
+function AlertsSparkline({ data, color }: { data: { alerts: number }[]; color: string }) {
+  const uniqueId = "gs-alerts-grad";
+  return (
+    <div style={{ width: 72, height: 36 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
+          <defs>
+            <linearGradient id={uniqueId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            dataKey="alerts"
+            type="monotone"
+            stroke={color}
+            strokeWidth={1.5}
+            fill={`url(#${uniqueId})`}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function SuccessRateSparkline({ data, color }: { data: { successRate: number }[]; color: string }) {
+  const uniqueId = "gs-sr-grad";
+  return (
+    <div style={{ width: 72, height: 36 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 2 }}>
+          <defs>
+            <linearGradient id={uniqueId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Area
+            dataKey="successRate"
+            type="monotone"
+            stroke={color}
+            strokeWidth={1.5}
+            fill={`url(#${uniqueId})`}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function GlobalStats() {
   const lookbackDays = 14;
   const endDate = new Date();
@@ -51,6 +290,7 @@ export default function GlobalStats() {
     }
   );
 
+  const chartColors = useChartColors();
   const stats = data?.data?.global_stats || [];
 
   type DailyRollup = {
@@ -173,28 +413,10 @@ export default function GlobalStats() {
   const currentTotals = rollupWindow(currentWindow);
   const previousTotals = rollupWindow(previousWindow);
 
-  const formatDelta = (
-    current: number,
-    previous: number,
-    { invert = false }: { invert?: boolean } = {}
-  ) => {
-    if (previous <= 0) return null;
-    const rawDelta = ((current - previous) / previous) * 100;
-    if (!Number.isFinite(rawDelta)) return null;
-    const effectiveDelta = invert ? -rawDelta : rawDelta;
-    const trend = effectiveDelta > 0 ? "up" : effectiveDelta < 0 ? "down" : "flat";
-    return {
-      raw: rawDelta,
-      effective: effectiveDelta,
-      trend,
-      label: `${effectiveDelta >= 0 ? "+" : ""}${effectiveDelta.toFixed(1)}%`,
-    };
-  };
-
-  const alertsDelta = formatDelta(currentTotals.totalAlerts, previousTotals.totalAlerts);
-  const successRateDelta = formatDelta(currentTotals.successRate, previousTotals.successRate);
-  const errorsDelta = formatDelta(currentTotals.totalErrors, previousTotals.totalErrors, { invert: true });
-  const delayDelta = formatDelta(currentTotals.avgDelay, previousTotals.avgDelay, { invert: true });
+  const alertsDelta = formatDeltaUtil(currentTotals.totalAlerts, previousTotals.totalAlerts);
+  const successRateDelta = formatDeltaUtil(currentTotals.successRate, previousTotals.successRate);
+  const errorsDelta = formatDeltaUtil(currentTotals.totalErrors, previousTotals.totalErrors, { invert: true });
+  const delayDelta = formatDeltaUtil(currentTotals.avgDelay, previousTotals.avgDelay, { invert: true });
 
   const totalSuccess = currentTotals.totalSuccess;
   const totalErrors = currentTotals.totalErrors;
@@ -204,171 +426,132 @@ export default function GlobalStats() {
   const pushErrorsTotal = currentTotals.pushErrors;
   const emailErrorsTotal = currentTotals.emailErrors;
 
-  const chartData = currentWindow.map((day) => ({
-    date: new Date(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    alerts: day.totalAlerts,
-    successRate: day.successRate,
-  }));
+  // Chart data for sparklines — oldest → newest so the trend reads left→right
+  const chartData = [...currentWindow]
+    .reverse()
+    .map((day) => ({
+      date: new Date(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      alerts: day.totalAlerts,
+      successRate: day.successRate,
+    }));
 
   const comparisonWindow = Math.max(windowSize, 1);
   const comparisonLabel = previousWindow.length
-    ? `vs previous ${comparisonWindow} day${comparisonWindow === 1 ? "" : "s"}`
-    : "vs previous period";
+    ? `vs prev ${comparisonWindow}d`
+    : "vs prev period";
 
-  const renderDelta = (
-    delta: ReturnType<typeof formatDelta>,
-    fallback: string,
-    positiveTone: "green" | "emerald" | "primary" = "green",
-  ) => {
-    if (!delta) {
-      return (
-        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-          <MinusIcon className="h-3 w-3" />
-          <span>0.0%</span>
-          <span>{fallback}</span>
-        </span>
-      );
-    }
+  // Derived accent colors from chartTheme (theme-aware, no hardcoded hex)
+  const alertsColor = chartColors.accentPrimary;
+  const successColor = chartColors.palette[1]; // emerald
+  const errorsColor = chartColors.palette[3];  // red
+  const delayColor = chartColors.palette[2];   // amber
 
-    const Icon =
-      delta.trend === "down" ? ArrowDownRight : delta.trend === "up" ? ArrowUpRight : MinusIcon;
-    const toneClass =
-      delta.trend === "flat"
-        ? "text-muted-foreground"
-        : delta.trend === "down"
-          ? positiveTone === "green" ? "text-red-500" : "text-amber-500"
-          : positiveTone === "green" ? "text-green-500" : "text-blue-500";
+  // Icon gradients using CSS vars so they follow the accent theme
+  const accentGradient = "var(--accent-gradient, linear-gradient(135deg, hsl(var(--accent-primary)) 0%, hsl(var(--accent-secondary)) 100%))";
 
-    return (
-      <span className="flex items-center gap-1 text-xs">
-        <Icon className={`w-3 h-3 ${toneClass}`} />
-        <span className={`${toneClass}`}>{delta.label}</span>
-        <span className="text-muted-foreground">{comparisonLabel}</span>
-      </span>
-    );
-  };
+  const avgDelayFormatted = avgDelay < 1
+    ? `${Math.round(avgDelay * 60)}m`
+    : `${avgDelay.toFixed(1)}h`;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {/* Total Alerts Card with Mini Chart */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription>Total Alerts</CardDescription>
-          <CardTitle className="text-3xl font-bold">
-            {isLoading ? "..." : currentTotals.totalAlerts.toLocaleString()}
-          </CardTitle>
-          {renderDelta(alertsDelta, comparisonLabel)}
-        </CardHeader>
-        <CardContent className="pb-2">
-          <ChartContainer config={chartConfig} className="h-[60px] w-full">
-            <AreaChart
-              data={chartData}
-              margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
-            >
-              <Area
-                dataKey="alerts"
-                fill="var(--color-alerts)"
-                fillOpacity={0.2}
-                stroke="var(--color-alerts)"
-                strokeWidth={2}
-                type="monotone"
-              />
-            </AreaChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      {/* ── Card 1: Total Alerts ─────────────────────────────────────────── */}
+      <PremiumStatCard
+        title="Total Alerts"
+        value={currentTotals.totalAlerts}
+        useCountUpAnim={true}
+        delta={alertsDelta}
+        comparisonLabel={comparisonLabel}
+        positiveTone="green"
+        icon={<Bell className="h-5 w-5 text-white" />}
+        iconGradient={accentGradient}
+        numberColor={alertsColor}
+        sparkline={chartData.length > 1 ? <AlertsSparkline data={chartData} color={alertsColor} /> : undefined}
+        isLoading={isLoading}
+      />
 
-      {/* Success Rate Card with Mini Chart */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription>Success Rate</CardDescription>
-          <CardTitle className="text-3xl font-bold text-green-600">
-            {isLoading ? "..." : `${successRate.toFixed(1)}%`}
-          </CardTitle>
-          {renderDelta(successRateDelta, comparisonLabel)}
-        </CardHeader>
-        <CardContent className="pb-2">
-          <ChartContainer config={chartConfig} className="h-[60px] w-full">
-            <LineChart
-              data={chartData}
-              margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
-            >
-              <Line
-                type="monotone"
-                dataKey="successRate"
-                stroke="var(--color-successRate)"
-                strokeWidth={2.5}
-                strokeOpacity={0.85}
-                connectNulls
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                dot={{ r: 2.5, strokeWidth: 0, fill: "var(--color-successRate)" }}
-                activeDot={{ r: 4, strokeWidth: 0, fill: "var(--color-successRate)" }}
-              />
-            </LineChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+      {/* ── Card 2: Success Rate ─────────────────────────────────────────── */}
+      <PremiumStatCard
+        title="Success Rate"
+        value={successRate}
+        formattedValue={`${successRate.toFixed(1)}%`}
+        useCountUpAnim={false}
+        delta={successRateDelta}
+        comparisonLabel={comparisonLabel}
+        positiveTone="green"
+        icon={<CheckCircle className="h-5 w-5 text-white" />}
+        iconGradient={`linear-gradient(135deg, ${successColor} 0%, #0d9488 100%)`}
+        numberColor={successColor}
+        sparkline={chartData.length > 1 ? <SuccessRateSparkline data={chartData} color={successColor} /> : undefined}
+        isLoading={isLoading}
+      />
 
-      {/* Total Errors Card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription>Total Errors</CardDescription>
-          <CardTitle className="text-3xl font-bold text-red-600">
-            {isLoading ? "..." : totalErrors.toLocaleString()}
-          </CardTitle>
-          {renderDelta(errorsDelta, comparisonLabel, "green")}
-        </CardHeader>
-        <CardContent>
+      {/* ── Card 3: Total Errors ─────────────────────────────────────────── */}
+      <PremiumStatCard
+        title="Total Errors"
+        value={totalErrors}
+        useCountUpAnim={true}
+        delta={errorsDelta}
+        comparisonLabel={comparisonLabel}
+        positiveTone="green"
+        icon={<XCircle className="h-5 w-5 text-white" />}
+        iconGradient={`linear-gradient(135deg, ${errorsColor} 0%, #dc2626 100%)`}
+        numberColor={errorsColor}
+        isLoading={isLoading}
+      >
+        {/* Existing Push/Email breakdown — preserved */}
+        <div className="flex items-center justify-between text-sm">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-orange-500" />
+              <span className="text-muted-foreground text-[11px]">Push Errors</span>
+            </div>
+            <div className="font-mono font-bold text-sm">
+              {pushErrorsTotal.toLocaleString()}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-purple-500" />
+              <span className="text-muted-foreground text-[11px]">Email Errors</span>
+            </div>
+            <div className="font-mono font-bold text-sm">
+              {emailErrorsTotal.toLocaleString()}
+            </div>
+          </div>
+        </div>
+      </PremiumStatCard>
+
+      {/* ── Card 4: Avg Delay ────────────────────────────────────────────── */}
+      <PremiumStatCard
+        title="Avg Delay"
+        value={avgDelay}
+        formattedValue={avgDelayFormatted}
+        useCountUpAnim={false}
+        delta={delayDelta}
+        comparisonLabel={comparisonLabel}
+        positiveTone="green"
+        icon={<Clock className="h-5 w-5 text-white" />}
+        iconGradient={`linear-gradient(135deg, ${delayColor} 0%, #d97706 100%)`}
+        numberColor={delayColor}
+        isLoading={isLoading}
+      >
+        {/* Existing Success/Attempts breakdown — preserved */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-orange-500" />
-                <span className="text-muted-foreground">Push Errors</span>
-              </div>
-              <div className="font-mono font-bold">
-                {pushErrorsTotal.toLocaleString()}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-purple-500" />
-                <span className="text-muted-foreground">Email Errors</span>
-              </div>
-              <div className="font-mono font-bold">
-                {emailErrorsTotal.toLocaleString()}
-              </div>
-            </div>
+            <span className="text-muted-foreground text-[11px]">Total Success</span>
+            <span className="font-mono font-semibold text-emerald-600">
+              {totalSuccess.toLocaleString()}
+            </span>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Average Delay Card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardDescription>Avg Delay</CardDescription>
-          <CardTitle className="text-3xl font-bold text-orange-600">
-            {isLoading ? "..." : avgDelay < 1 ? `${Math.round(avgDelay * 60)}m` : `${avgDelay.toFixed(1)}h`}
-          </CardTitle>
-          {renderDelta(delayDelta, comparisonLabel, "green")}
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Total Success</span>
-              <span className="font-mono font-semibold text-green-600">
-                {totalSuccess.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Attempts</span>
-              <span className="font-mono font-semibold">
-                {totalAttempts.toLocaleString()}
-              </span>
-            </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground text-[11px]">Attempts</span>
+            <span className="font-mono font-semibold">
+              {totalAttempts.toLocaleString()}
+            </span>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </PremiumStatCard>
     </div>
   );
 }

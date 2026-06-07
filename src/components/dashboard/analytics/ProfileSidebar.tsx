@@ -426,7 +426,12 @@ export const ProfileSidebar = memo(function ProfileSidebar({
 
     // Expanded Content JSX moved to separate variable for cleaner render
     const expandedContentJSX = (
-        <div className={cn("flex flex-col h-full transition-colors duration-500 sidebar-glass")}>
+        <div
+            className={cn("flex flex-col h-full transition-colors duration-500 sidebar-glass")}
+            style={{
+                background: 'linear-gradient(to bottom, hsl(var(--accent-primary) / 0.03) 0%, transparent 60%)',
+            }}
+        >
             {/* Unified Header + Search Section - Seamless */}
             <div className={cn(
                 "border-b border-white/20 dark:border-white/10"
@@ -434,6 +439,13 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                 {/* Top Row: Title + Actions */}
                 <div className="px-3 pt-3 pb-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
+                        {/* Section gradient icon */}
+                        <div
+                            className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                            style={{ background: 'linear-gradient(135deg, hsl(var(--accent-primary) / 0.9), hsl(var(--accent-primary) / 0.5))' }}
+                        >
+                            <LayoutDashboard className="w-3 h-3 text-white" aria-hidden="true" />
+                        </div>
                         <div>
                             <h2 className="font-bold text-sm stat-gradient-text flex items-center gap-1">
                                 Profiles
@@ -446,9 +458,10 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                             <Button
                                 onClick={onCreateProfile}
                                 size="sm"
-                                className={cn("h-6 px-2.5 text-[10px] text-white rounded-full shadow-sm", t.buttonGradient, t.buttonHover)}
+                                className={cn("h-6 px-2.5 text-[10px] text-white rounded-full shadow-sm bg-gradient-to-r", t.buttonGradient, t.buttonHover)}
+                                style={{ background: 'var(--accent-gradient)' }}
                             >
-                                <Plus className="h-3 w-3 mr-1" />
+                                <span className="mr-0.5 text-[9px] leading-none" aria-hidden="true">✦</span>
                                 New
                             </Button>
                         )}
@@ -474,12 +487,23 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                 {/* Search - Glassmorphic */}
                 <div className="px-3 pb-3">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         <Input
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search profiles or panels..."
-                            className="h-9 pl-9 text-sm rounded-xl focus:ring-2 focus:ring-offset-0 backdrop-blur-md bg-white/50 dark:bg-white/10 border border-white/30 dark:border-white/10 focus:border-white/50 dark:focus:border-white/20"
+                            className="h-9 pl-9 text-sm rounded-full backdrop-blur-md bg-white/50 dark:bg-white/10 border border-white/30 dark:border-white/10 transition-all duration-150 ease-out focus-visible:ring-0 focus-visible:outline-none"
+                            style={{
+                                ['--tw-ring-shadow' as string]: 'none',
+                            }}
+                            onFocus={(e) => {
+                                e.currentTarget.style.boxShadow = '0 0 0 3px hsl(var(--accent-primary) / 0.15)';
+                                e.currentTarget.style.borderColor = 'hsl(var(--accent-primary) / 0.4)';
+                            }}
+                            onBlur={(e) => {
+                                e.currentTarget.style.boxShadow = '';
+                                e.currentTarget.style.borderColor = '';
+                            }}
                         />
                     </div>
                 </div>
@@ -515,33 +539,30 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                         exit={{ opacity: 0, scale: 0.95 }}
                                         className="relative mb-1"
                                     >
-                                        {/* Continuous vertical tree line — spans parent + children */}
-                                        {isSelected && (
-                                            <div
-                                                className="absolute left-5 top-0 bottom-0 w-[2px] z-0 pointer-events-none"
-                                                style={{
-                                                    background: 'repeating-linear-gradient(to bottom, var(--theme-primary-alpha, rgba(139,92,246,0.3)) 0px, var(--theme-primary-alpha, rgba(139,92,246,0.3)) 4px, transparent 4px, transparent 8px)'
-                                                }}
-                                            />
-                                        )}
-
                                         {/* Profile Node */}
                                         <div className="relative group flex items-center z-10">
-                                            {/* Horizontal branch connector from vertical line to profile */}
-                                            {isSelected && (
-                                                <div
-                                                    className="absolute left-5 top-1/2 -translate-y-1/2 w-3.5 h-[2px] z-0 pointer-events-none"
-                                                    style={{ background: 'var(--theme-primary)' }}
-                                                />
-                                            )}
                                             <button
                                                 onClick={() => handleSelectProfile(profile.profileId)}
                                                 className={cn(
-                                                    "flex-1 text-left p-2 rounded-xl transition-all duration-200 flex items-center gap-2 group/btn",
+                                                    "flex-1 text-left p-2 rounded-xl transition-all duration-[150ms] ease-out flex items-center gap-2 group/btn border",
                                                     isSelected
-                                                        ? cn("shadow-md border", t.sidebarActive, t.sidebarActiveDark, t.borderAccent, t.borderAccentDark)
-                                                        : cn("border border-transparent hover:translate-x-1", t.cardHoverBorder, t.cardHoverBorderDark)
+                                                        ? "shadow-sm font-medium"
+                                                        : "border-transparent hover:translate-x-[2px]"
                                                 )}
+                                                style={isSelected ? {
+                                                    background: 'linear-gradient(to right, hsl(var(--accent-primary) / 0.12), hsl(var(--accent-primary) / 0.04))',
+                                                    borderColor: 'hsl(var(--accent-primary) / 0.18)',
+                                                } : undefined}
+                                                onMouseEnter={(e) => {
+                                                    if (!isSelected) {
+                                                        e.currentTarget.style.background = 'hsl(var(--accent-primary) / 0.06)';
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (!isSelected) {
+                                                        e.currentTarget.style.background = '';
+                                                    }
+                                                }}
                                             >
                                                 <div className={cn(
                                                     "w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm border",
@@ -665,25 +686,33 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <motion.button
-                                                                            whileHover={{ x: 4 }}
+                                                                            whileHover={{ x: 2 }}
+                                                                            transition={{ duration: 0.15, ease: 'easeOut' }}
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
                                                                                 onJumpToPanel?.(panel.panelId, panel.panelName || `Panel ${pIndex + 1}`);
                                                                             }}
                                                                             className={cn(
-                                                                                "w-full relative py-1.5 px-2 rounded-lg flex items-center gap-2 group/panel transition-all border",
+                                                                                "w-full relative py-1.5 px-2 rounded-lg flex items-center gap-2 group/panel transition-all duration-[150ms] ease-out border",
                                                                                 isPanelActive
-                                                                                    ? cn("shadow-sm font-semibold backdrop-blur-sm", t.sidebarActive, t.sidebarActiveDark, t.sidebarActiveText, t.sidebarActiveTextDark, t.borderAccent, t.borderAccentDark)
-                                                                                    : "bg-transparent hover:bg-white/50 dark:hover:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-transparent"
+                                                                                    ? "shadow-sm font-medium backdrop-blur-sm"
+                                                                                    : "bg-transparent border-transparent text-slate-500 dark:text-slate-400"
                                                                             )}
-                                                                            style={isPanelActive ? { borderLeft: '2px solid var(--theme-primary)' } : undefined}
+                                                                            style={isPanelActive ? {
+                                                                                background: 'linear-gradient(to right, hsl(var(--accent-primary) / 0.10), hsl(var(--accent-primary) / 0.03))',
+                                                                                borderColor: 'hsl(var(--accent-primary) / 0.15)',
+                                                                            } : undefined}
+                                                                            onMouseEnter={(e) => {
+                                                                                if (!isPanelActive) {
+                                                                                    e.currentTarget.style.background = 'hsl(var(--accent-primary) / 0.06)';
+                                                                                }
+                                                                            }}
+                                                                            onMouseLeave={(e) => {
+                                                                                if (!isPanelActive) {
+                                                                                    e.currentTarget.style.background = '';
+                                                                                }
+                                                                            }}
                                                                         >
-                                                                            {/* Horizontal connector */}
-                                                                            <div 
-                                                                                className="absolute left-[-14px] top-1/2 w-3 h-[1px]"
-                                                                                style={{ background: isPanelActive ? 'var(--theme-primary)' : 'var(--theme-primary-alpha, rgba(139,92,246,0.3))' }}
-                                                                            />
-
                                                                             <div className={cn(
                                                                                 "w-4 h-4 rounded-full flex items-center justify-center",
                                                                                 isPanelActive
@@ -695,12 +724,15 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                                                 {getChartIcon(panel)}
                                                                             </div>
                                                                             <div className="flex-1 min-w-0 flex items-center justify-start text-left">
-                                                                                <span className={cn(
-                                                                                    "text-[11px] truncate block w-full text-left transition-colors",
-                                                                                    isPanelActive
-                                                                                        ? cn(t.sidebarActiveText, t.sidebarActiveTextDark)
-                                                                                        : "font-medium text-slate-500 dark:text-slate-400"
-                                                                                )}>
+                                                                                <span
+                                                                                    className={cn(
+                                                                                        "text-[11px] truncate block w-full text-left transition-colors",
+                                                                                        isPanelActive
+                                                                                            ? "font-medium"
+                                                                                            : "font-medium text-slate-500 dark:text-slate-400"
+                                                                                    )}
+                                                                                    style={isPanelActive ? { color: 'hsl(var(--accent-primary))' } : undefined}
+                                                                                >
                                                                                     {displayName}
                                                                                 </span>
                                                                             </div>

@@ -2344,11 +2344,23 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
         }
     }, [eventKeys]);
 
-    // Auto-select first event for Error Event Tracking
+    // Auto-select first ERROR event for Error Event Tracking (must match the
+    // errorEventKeys filter, else the chart stays empty until a manual click)
     useEffect(() => {
-        if (eventKeys.length > 0) {
-            if (!errorSelectedEventKey || !eventKeys.find(ek => ek.eventKey === errorSelectedEventKey)) {
-                setErrorSelectedEventKey(eventKeys[0].eventKey);
+        const errorKeys = eventKeys.filter(ek => ek.isErrorEvent === 1 && (!ek.isAvgEvent || ek.isAvgEvent === 0));
+        if (errorKeys.length > 0) {
+            if (!errorSelectedEventKey || !errorKeys.find(ek => ek.eventKey === errorSelectedEventKey)) {
+                setErrorSelectedEventKey(errorKeys[0].eventKey);
+            }
+        }
+    }, [eventKeys]);
+
+    // Auto-select first AVG/cost event for Avg/Cost Trends (same reason)
+    useEffect(() => {
+        const avgKeys = eventKeys.filter(ek => (ek.isAvgEvent || 0) >= 1);
+        if (avgKeys.length > 0) {
+            if (!avgSelectedEventKey || !avgKeys.find(ek => ek.eventKey === avgSelectedEventKey)) {
+                setAvgSelectedEventKey(avgKeys[0].eventKey);
             }
         }
     }, [eventKeys]);

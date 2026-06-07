@@ -10,6 +10,8 @@ import {
     Calendar,
     Target
 } from 'lucide-react';
+import { useCountUp } from '@/hooks/useCountUp';
+import { useInView } from '@/hooks/useInView';
 import { cn } from '@/lib/utils';
 import { CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { EnhancedCard } from '@/components/ui/enhanced-card';
@@ -133,6 +135,12 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
         };
     }, [graphData, eventKeys, selectedEventId]);
 
+    // ── count-up + inView — must be before any early return ─────────────────
+    const { ref: cardInViewRef, inView: cardInView } = useInView<HTMLDivElement>();
+    const { formatted: fmtTotalUsers } = useCountUp(userMetrics?.totalUsers ?? 0, { start: cardInView && !!userMetrics });
+    const { formatted: fmtNewUsers } = useCountUp(userMetrics?.newUsers ?? 0, { start: cardInView && !!userMetrics });
+    const { formatted: fmtUniqueUsers } = useCountUp(userMetrics?.uniqueUsers ?? 0, { start: cardInView && !!userMetrics });
+
     // Don't render if no user data
     if (!userMetrics) return null;
 
@@ -144,15 +152,36 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
     };
 
     return (
+        <div
+            ref={cardInViewRef}
+            className="group rounded-2xl transition-all duration-[280ms]"
+            style={{
+                transform: "translateY(0px)",
+                transition: "transform 280ms var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1))",
+            }}
+            onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)";
+            }}
+            onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.transform = "translateY(0px)";
+            }}
+        >
         <EnhancedCard
             variant="glass"
             glow={true}
-            className="border border-blue-200/60 dark:border-blue-500/30 bg-gradient-to-br from-blue-50/80 via-white to-teal-50/60 dark:from-blue-900/20 dark:via-slate-900/80 dark:to-teal-900/20 rounded-2xl shadow-[0_8px_30px_rgba(59,130,246,0.1)] hover:shadow-[0_20px_40px_rgba(59,130,246,0.15)] transition-all duration-300"
+            className="border border-[hsl(var(--accent-primary)/0.12)] rounded-2xl transition-shadow duration-[280ms] group-hover:shadow-xl"
         >
             <CardHeader className="pb-3 px-3 md:px-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-teal-600 flex items-center justify-center shadow-lg">
+                        <div
+                            className="flex items-center justify-center rounded-full flex-shrink-0"
+                            style={{
+                                width: 44, height: 44,
+                                background: "var(--accent-gradient, linear-gradient(135deg, hsl(var(--accent-primary)) 0%, hsl(var(--accent-secondary)) 100%))",
+                                boxShadow: "0 4px 14px hsl(var(--accent-primary) / 0.3)",
+                            }}
+                        >
                             <Users className="h-5 w-5 text-white" />
                         </div>
                         <div>
@@ -232,8 +261,8 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
                                 <InfoTooltip content="Total number of users who interacted with events during this period." />
                             </span>
                         </div>
-                        <div className="text-lg md:text-xl font-bold text-blue-600">
-                            {formatNumber(userMetrics.totalUsers)}
+                        <div className="text-lg md:text-xl font-bold text-blue-600 tabular-nums">
+                            {fmtTotalUsers}
                         </div>
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             {userMetrics.totalTrend >= 0 ? (
@@ -267,8 +296,8 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
                                 <InfoTooltip content="Users who interacted for the first time during this period." />
                             </span>
                         </div>
-                        <div className="text-lg md:text-xl font-bold text-teal-600">
-                            {formatNumber(userMetrics.newUsers)}
+                        <div className="text-lg md:text-xl font-bold text-teal-600 tabular-nums">
+                            {fmtNewUsers}
                         </div>
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             {userMetrics.newTrend >= 0 ? (
@@ -302,8 +331,8 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
                                 <InfoTooltip content="Distinct users based on unique identifiers." />
                             </span>
                         </div>
-                        <div className="text-lg md:text-xl font-bold text-indigo-600">
-                            {formatNumber(userMetrics.uniqueUsers)}
+                        <div className="text-lg md:text-xl font-bold text-indigo-600 tabular-nums">
+                            {fmtUniqueUsers}
                         </div>
                         <div className="text-[10px] text-muted-foreground">
                             {userMetrics.newUserRate.toFixed(1)}% new rate
@@ -505,6 +534,7 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
                 </div>
             </CardContent>
         </EnhancedCard>
+        </div>
     );
 });
 

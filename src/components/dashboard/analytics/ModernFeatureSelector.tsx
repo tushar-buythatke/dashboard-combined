@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { motion, useInView, useReducedMotion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Bell, Ticket, Calculator, Bug, ScanEye, ArrowLeftRight,
   ShoppingCart, MessageSquare, Gift, CreditCard, Car,
@@ -13,41 +13,69 @@ import { cn } from '@/lib/utils';
 import { apiService } from '@/services/apiService';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useAnalyticsAuth } from '@/contexts/AnalyticsAuthContext';
+import { useInView } from '@/hooks/useInView';
+import RandomBackground from '@/components/ui/background';
 
 /* ========================================================================
-   FEATURE ICONS & GRADIENTS — unique per feature
+   CARD WASH PALETTES
    ======================================================================== */
-const FEATURE_META: Record<string, { icon: LucideIcon; gradient: string; lightGradient: string }> = {
-  pricealert:       { icon: Bell,          gradient: 'from-blue-500/20 to-cyan-500/20',       lightGradient: 'from-blue-100 to-cyan-100' },
-  autocoupons:      { icon: Ticket,        gradient: 'from-emerald-500/20 to-teal-500/20',    lightGradient: 'from-emerald-100 to-teal-100' },
-  spendcalculator:  { icon: Calculator,    gradient: 'from-violet-500/20 to-purple-500/20',   lightGradient: 'from-violet-100 to-purple-100' },
-  spidy:            { icon: Bug,           gradient: 'from-rose-500/20 to-pink-500/20',       lightGradient: 'from-rose-100 to-pink-100' },
-  lookalike:        { icon: ScanEye,       gradient: 'from-amber-500/20 to-orange-500/20',    lightGradient: 'from-amber-100 to-orange-100' },
-  pricecomparison:  { icon: ArrowLeftRight,gradient: 'from-indigo-500/20 to-blue-500/20',     lightGradient: 'from-indigo-100 to-blue-100' },
-  grocery:          { icon: ShoppingCart,  gradient: 'from-lime-500/20 to-green-500/20',      lightGradient: 'from-lime-100 to-green-100' },
-  chatai:           { icon: MessageSquare, gradient: 'from-sky-500/20 to-cyan-500/20',        lightGradient: 'from-sky-100 to-cyan-100' },
-  giftvoucher:      { icon: Gift,          gradient: 'from-fuchsia-500/20 to-pink-500/20',    lightGradient: 'from-fuchsia-100 to-pink-100' },
-  checkout:         { icon: CreditCard,    gradient: 'from-teal-500/20 to-emerald-500/20',    lightGradient: 'from-teal-100 to-emerald-100' },
-  cabcomparison:    { icon: Car,           gradient: 'from-orange-500/20 to-amber-500/20',    lightGradient: 'from-orange-100 to-amber-100' },
-  dealscanner:      { icon: ScanLine,      gradient: 'from-cyan-500/20 to-blue-500/20',       lightGradient: 'from-cyan-100 to-blue-100' },
-  scrapper:         { icon: Database,      gradient: 'from-rose-500/20 to-red-500/20',        lightGradient: 'from-rose-100 to-red-100' },
-  searchapi:        { icon: Code,          gradient: 'from-purple-500/20 to-indigo-500/20',   lightGradient: 'from-purple-100 to-indigo-100' },
-  buyhatkewebsite:  { icon: Globe,         gradient: 'from-slate-500/20 to-gray-500/20',      lightGradient: 'from-slate-100 to-gray-100' },
+const CARD_WASHES = [
+  { light: 'rgba(167,139,250,0.06)', dark: 'rgba(139,92,246,0.07)' },
+  { light: 'rgba(52,211,153,0.06)', dark: 'rgba(16,185,129,0.07)' },
+  { light: 'rgba(56,189,248,0.06)', dark: 'rgba(14,165,233,0.07)' },
+  { light: 'rgba(251,146,60,0.06)', dark: 'rgba(249,115,22,0.07)' },
+  { light: 'rgba(251,113,133,0.06)', dark: 'rgba(244,63,94,0.07)' },
+  { light: 'rgba(251,191,36,0.06)', dark: 'rgba(245,158,11,0.07)' },
+  { light: 'rgba(196,181,253,0.07)', dark: 'rgba(167,139,250,0.08)' },
+  { light: 'rgba(45,212,191,0.06)', dark: 'rgba(20,184,166,0.07)' },
+];
+
+/* ========================================================================
+   ICON GRADIENT + GLOW
+   ======================================================================== */
+const FEATURE_META: Record<string, {
+  icon: LucideIcon;
+  iconGradient: [string, string];
+  iconGlow: string;
+  cardGradient: string;
+  lightGradient: string;
+}> = {
+  pricealert:      { icon: Bell,           iconGradient: ['#3b82f6','#06b6d4'], iconGlow: 'rgba(59,130,246,0.22)',  cardGradient: 'from-blue-500/20 to-cyan-500/20',    lightGradient: 'from-blue-100 to-cyan-100' },
+  autocoupons:     { icon: Ticket,         iconGradient: ['#10b981','#14b8a6'], iconGlow: 'rgba(16,185,129,0.22)',  cardGradient: 'from-emerald-500/20 to-teal-500/20', lightGradient: 'from-emerald-100 to-teal-100' },
+  spendcalculator: { icon: Calculator,     iconGradient: ['#8b5cf6','#a855f7'], iconGlow: 'rgba(139,92,246,0.22)', cardGradient: 'from-violet-500/20 to-purple-500/20', lightGradient: 'from-violet-100 to-purple-100' },
+  spidy:           { icon: Bug,            iconGradient: ['#f43f5e','#ec4899'], iconGlow: 'rgba(244,63,94,0.22)',  cardGradient: 'from-rose-500/20 to-pink-500/20',    lightGradient: 'from-rose-100 to-pink-100' },
+  lookalike:       { icon: ScanEye,        iconGradient: ['#f59e0b','#f97316'], iconGlow: 'rgba(245,158,11,0.22)', cardGradient: 'from-amber-500/20 to-orange-500/20', lightGradient: 'from-amber-100 to-orange-100' },
+  pricecomparison: { icon: ArrowLeftRight, iconGradient: ['#6366f1','#3b82f6'], iconGlow: 'rgba(99,102,241,0.22)', cardGradient: 'from-indigo-500/20 to-blue-500/20',  lightGradient: 'from-indigo-100 to-blue-100' },
+  grocery:         { icon: ShoppingCart,   iconGradient: ['#84cc16','#22c55e'], iconGlow: 'rgba(132,204,22,0.22)', cardGradient: 'from-lime-500/20 to-green-500/20',   lightGradient: 'from-lime-100 to-green-100' },
+  chatai:          { icon: MessageSquare,  iconGradient: ['#0ea5e9','#06b6d4'], iconGlow: 'rgba(14,165,233,0.22)', cardGradient: 'from-sky-500/20 to-cyan-500/20',     lightGradient: 'from-sky-100 to-cyan-100' },
+  giftvoucher:     { icon: Gift,           iconGradient: ['#d946ef','#ec4899'], iconGlow: 'rgba(217,70,239,0.22)', cardGradient: 'from-fuchsia-500/20 to-pink-500/20', lightGradient: 'from-fuchsia-100 to-pink-100' },
+  checkout:        { icon: CreditCard,     iconGradient: ['#14b8a6','#10b981'], iconGlow: 'rgba(20,184,166,0.22)', cardGradient: 'from-teal-500/20 to-emerald-500/20', lightGradient: 'from-teal-100 to-emerald-100' },
+  cabcomparison:   { icon: Car,            iconGradient: ['#f97316','#f59e0b'], iconGlow: 'rgba(249,115,22,0.22)', cardGradient: 'from-orange-500/20 to-amber-500/20', lightGradient: 'from-orange-100 to-amber-100' },
+  dealscanner:     { icon: ScanLine,       iconGradient: ['#06b6d4','#3b82f6'], iconGlow: 'rgba(6,182,212,0.22)',  cardGradient: 'from-cyan-500/20 to-blue-500/20',    lightGradient: 'from-cyan-100 to-blue-100' },
+  scrapper:        { icon: Database,       iconGradient: ['#ef4444','#f43f5e'], iconGlow: 'rgba(239,68,68,0.22)',  cardGradient: 'from-rose-500/20 to-red-500/20',     lightGradient: 'from-rose-100 to-red-100' },
+  searchapi:       { icon: Code,           iconGradient: ['#a855f7','#6366f1'], iconGlow: 'rgba(168,85,247,0.22)', cardGradient: 'from-purple-500/20 to-indigo-500/20', lightGradient: 'from-purple-100 to-indigo-100' },
+  buyhatkewebsite: { icon: Globe,          iconGradient: ['#64748b','#475569'], iconGlow: 'rgba(100,116,139,0.22)',cardGradient: 'from-slate-500/20 to-gray-500/20',   lightGradient: 'from-slate-100 to-gray-100' },
 };
 
 function getFeatureMeta(name: string) {
   const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return FEATURE_META[key] || { icon: Sparkles, gradient: 'from-slate-500/20 to-gray-500/20', lightGradient: 'from-slate-100 to-gray-100' };
+  return FEATURE_META[key] || {
+    icon: Sparkles,
+    iconGradient: ['#6366f1', '#a855f7'] as [string, string],
+    iconGlow: 'rgba(99,102,241,0.22)',
+    cardGradient: 'from-slate-500/20 to-gray-500/20',
+    lightGradient: 'from-slate-100 to-gray-100',
+  };
 }
 
 /* ========================================================================
-   SPARKLINE — upgraded with gradient fill, glow, tooltip, draw animation
+   SPARKLINE
    ======================================================================== */
 function MicroSparkline({ data, severity }: { data: number[]; severity: 'amber' | 'orange' | 'rose' | 'none' }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [drawn, setDrawn] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
-  const inView = useInView(svgRef, { once: true, margin: '-20px' });
+  const { ref: inViewRef, inView } = useInView<HTMLDivElement>({ threshold: 0.1 });
 
   useEffect(() => {
     if (inView) {
@@ -68,9 +96,7 @@ function MicroSparkline({ data, severity }: { data: number[]; severity: 'amber' 
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min || 1;
-  const w = 110;
-  const h = 32;
-  const pad = 3;
+  const w = 110, h = 32, pad = 3;
 
   const pts = data.map((v, i) => {
     const x = pad + (i / (data.length - 1)) * (w - 2 * pad);
@@ -85,11 +111,16 @@ function MicroSparkline({ data, severity }: { data: number[]; severity: 'amber' 
   const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
   return (
-    <div className="relative">
-      <svg ref={svgRef} width={w} height={h} className="overflow-visible" onMouseLeave={() => setHoverIdx(null)}>
+    <div ref={inViewRef} className="relative">
+      <svg
+        ref={svgRef}
+        width={w} height={h}
+        className="overflow-visible"
+        onMouseLeave={() => setHoverIdx(null)}
+      >
         <defs>
           <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="100%">
-            <stop offset="0%" stopColor={stroke} stopOpacity={0.2} />
+            <stop offset="0%" stopColor={stroke} stopOpacity={0.25} />
             <stop offset="100%" stopColor={stroke} stopOpacity={0} />
           </linearGradient>
         </defs>
@@ -101,7 +132,6 @@ function MicroSparkline({ data, severity }: { data: number[]; severity: 'amber' 
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="transition-all duration-300 group-hover:[filter:drop-shadow(0_0_3px_currentColor)]"
           strokeDasharray={drawn ? undefined : pathLen}
           strokeDashoffset={drawn ? 0 : pathLen}
           style={{ transition: 'stroke-dashoffset 1s ease-out' }}
@@ -134,16 +164,10 @@ function MicroSparkline({ data, severity }: { data: number[]; severity: 'amber' 
   );
 }
 
-/* ========================================================================
-   INSTANT COUNTER — reliable, no animation delay
-   ======================================================================== */
 function AlertCount({ value }: { value: number }) {
   return <span className="tabular-nums">{value.toLocaleString()}</span>;
 }
 
-/* ========================================================================
-   SEVERITY HELPERS
-   ======================================================================== */
 function getSeverity(count: number): 'none' | 'amber' | 'orange' | 'rose' {
   if (count === 0) return 'none';
   if (count <= 10) return 'amber';
@@ -160,7 +184,7 @@ function generateTrend(count: number, featureId: string): number[] {
 }
 
 /* ========================================================================
-   BENTO CARD — Glassmorphism 2.0 with full theme support
+   PREMIUM BENTO CARD
    ======================================================================== */
 function BentoCard({
   feature,
@@ -168,6 +192,7 @@ function BentoCard({
   onClick,
   index,
   hoveredCard,
+  hoverArmedId,
   onHover,
 }: {
   feature: Feature;
@@ -175,15 +200,18 @@ function BentoCard({
   onClick: () => void;
   index: number;
   hoveredCard: string | null;
+  hoverArmedId: string | null;
   onHover: (id: string | null) => void;
 }) {
   const severity = getSeverity(alertCount);
   const hasAlerts = severity !== 'none';
-  const isWide = alertCount > 100;
   const trendData = hasAlerts ? generateTrend(alertCount, feature.id) : null;
   const meta = getFeatureMeta(feature.name);
   const Icon = meta.icon;
   const isDimmed = hoveredCard !== null && hoveredCard !== feature.id;
+  const isBlurred = hoverArmedId !== null && hoverArmedId !== feature.id;
+  const isBentoWide = index % 5 === 4;
+  const washIndex = index % CARD_WASHES.length;
 
   const handleRipple = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     const btn = e.currentTarget;
@@ -194,7 +222,7 @@ function BentoCard({
     circle.style.cssText = `
       position: absolute; border-radius: 50%; width: ${d}px; height: ${d}px;
       left: ${e.clientX - rect.left - r}px; top: ${e.clientY - rect.top - r}px;
-      background: rgba(255,255,255,0.12); animation: ripple-effect 0.55s ease-out forwards;
+      background: rgba(255,255,255,0.10); animation: ripple-effect 0.55s ease-out forwards;
       pointer-events: none; z-index: 20;
     `;
     btn.appendChild(circle);
@@ -207,149 +235,164 @@ function BentoCard({
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 24, filter: 'blur(4px)' }}
-      animate={{ opacity: isDimmed ? 0.55 : 1, y: 0, filter: 'blur(0px)' }}
-      transition={{ duration: 0.5, delay: index * 0.03, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className={cn('group relative', isWide && 'sm:col-span-2')}
+    <div
+      className={cn('group relative', isBentoWide && 'lg:col-span-2')}
+      style={{
+        opacity: isDimmed ? 0.52 : 1,
+        transform: isDimmed ? 'scale(0.99)' : 'translateY(0px)',
+        filter: isBlurred ? 'blur(8px)' : 'blur(0px)',
+        transition: 'opacity 420ms var(--ease-out-expo), transform 420ms var(--ease-out-expo), filter 700ms var(--ease-out-expo)',
+        willChange: 'opacity, transform, filter',
+      }}
       onMouseEnter={() => onHover(feature.id)}
       onMouseLeave={() => onHover(null)}
     >
       <button
         onClick={handleClick}
-        className="relative w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dash-border-hover)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--dash-bg)] touch-target"
+        className="relative w-full text-left rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--dash-bg)]"
         aria-label={`Open ${feature.name}${hasAlerts ? `, ${alertCount} active alerts` : ''}`}
+        style={{ minHeight: 44 }}
       >
-        {/* Animated gradient border shell */}
-        <div
-          className={cn(
-            'absolute inset-0 rounded-2xl transition-all duration-500 opacity-0 group-hover:opacity-100',
-            'bg-gradient-to-br from-teal-400/15 via-purple-400/8 to-blue-400/5'
-          )}
-        />
+        <style>{`
+          .bento-card-${feature.id}:hover .bento-inner-${feature.id} {
+            transform: translateY(-4px) scale(1.01) !important;
+            border-color: hsl(var(--accent-primary) / 0.35) !important;
+            box-shadow: 0 0 0 1.5px hsl(var(--accent-primary) / 0.40), 0 16px 40px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.06) !important;
+          }
+          .dark .bento-card-${feature.id}:hover .bento-inner-${feature.id} {
+            box-shadow: 0 0 0 1.5px hsl(var(--accent-primary) / 0.5), 0 16px 40px rgba(0,0,0,0.35), 0 4px 12px rgba(0,0,0,0.25) !important;
+          }
+          .bento-card-${feature.id}:hover .bento-view-arrow-${feature.id} {
+            transform: translateX(4px) !important;
+          }
+          .bento-card-${feature.id}:hover .bento-view-text-${feature.id} {
+            color: hsl(var(--accent-primary)) !important;
+          }
+        `}</style>
 
-        {/* Critical top shimmer bar */}
-        {isWide && (
-          <div className="absolute top-0 left-2 right-2 h-[2px] overflow-hidden rounded-full z-10">
-            <div className="h-full w-full bg-gradient-to-r from-amber-400 via-rose-400 to-amber-400 animate-[shimmer-border_3s_linear_infinite]" />
-          </div>
-        )}
-
-        {/* Inner card */}
-        <div
-          className={cn(
-            'relative m-[1px] rounded-[15px] h-full overflow-hidden',
-            'transition-all duration-500 ease-out',
-            'group-hover:-translate-y-1'
-          )}
-          style={{
-            background: isWide
-              ? `radial-gradient(ellipse at 50% 0%, var(--dash-glow-primary) 0%, transparent 60%), var(--dash-card-bg)`
-              : 'var(--dash-card-bg)',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-            boxShadow: 'var(--dash-card-shadow)',
-            border: '1px solid var(--dash-card-border)',
-          }}
-        >
+        <div className={`bento-card-${feature.id} relative w-full`}>
           <div
-            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+            className={`bento-inner-${feature.id} relative rounded-2xl overflow-hidden`}
             style={{
-              background: 'radial-gradient(500px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.03), transparent 40%)',
+              background: `var(--dash-card-bg)`,
+              backgroundImage: `radial-gradient(ellipse at 30% 20%, ${CARD_WASHES[washIndex].light} 0%, transparent 60%)`,
+              backdropFilter: 'blur(12px) saturate(160%)',
+              WebkitBackdropFilter: 'blur(12px) saturate(160%)',
+              border: '1px solid var(--dash-card-border)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)',
+              transition: 'transform 280ms var(--ease-spring), box-shadow 280ms var(--ease-spring)',
             }}
-          />
+          >
+            <div
+              className="absolute inset-0 pointer-events-none rounded-[15px] dark:opacity-100 opacity-0"
+              style={{ backgroundImage: `radial-gradient(ellipse at 30% 20%, ${CARD_WASHES[washIndex].dark} 0%, transparent 60%)` }}
+              aria-hidden="true"
+            />
 
-          <div className="relative p-5 lg:p-6 flex flex-col h-full" style={{ minHeight: isWide ? 200 : 170 }}>
-            {/* Top row */}
-            <div className="flex items-start justify-between mb-3">
-              <div
-                className={cn(
-                  'h-10 w-10 rounded-xl flex items-center justify-center border transition-all duration-300 group-hover:scale-110',
-                  'bg-gradient-to-br',
-                  meta.gradient,
-                  'border-white/10 dark:border-white/10',
-                  'border-black/5'
-                )}
-              >
-                <Icon
-                  className="h-5 w-5 text-slate-700 dark:text-white transition-colors"
-                  strokeWidth={1.8}
-                />
-              </div>
-
-              {hasAlerts ? (
-                <div
-                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-mono font-bold tabular-nums leading-none"
-                  style={{
-                    background: severity === 'rose' ? 'var(--dash-alert-critical-bg)' : 'var(--dash-alert-bg)',
-                    border: `1px solid ${severity === 'rose' ? 'var(--dash-alert-critical-border)' : 'var(--dash-alert-border)'}`,
-                    color: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-text)',
-                  }}
-                >
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }} />
-                    <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }} />
-                  </span>
-                  <AlertCount value={alertCount} />
-                </div>
-              ) : (
-                <div className="flex items-center gap-1 rounded-full px-2 py-0.5 bg-emerald-500/8 border border-emerald-500/15">
-                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
-                  <span className="text-[9px] font-medium text-emerald-600 dark:text-emerald-400">All Clear</span>
-                </div>
-              )}
-            </div>
-
-            {/* Text */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold mb-1 tracking-tight transition-colors truncate" style={{ color: 'var(--dash-text-primary)' }}>
-                {feature.name}
-              </h3>
-              <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: 'var(--dash-text-secondary)' }}>
-                {feature.description || `${feature.name} analytics and tracking`}
-              </p>
-            </div>
-
-            {/* Wide card stat row */}
-            {isWide && (
-              <div className="mt-3 flex items-center gap-3">
-                <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--dash-text-muted)' }}>
-                  <TrendingUp className="h-3 w-3 text-emerald-500" />
-                  <span className="font-medium text-emerald-600 dark:text-emerald-400">↑ 12% vs last week</span>
-                </div>
-                <div className="h-3 w-px" style={{ background: 'var(--dash-border)' }} />
-                <div className="text-[10px] font-medium" style={{ color: 'var(--dash-text-muted)' }}>
-                  Peak: <span className="font-bold" style={{ color: 'var(--dash-text-secondary)' }}>402/hr</span>
-                </div>
-              </div>
-            )}
-
-            {/* Bottom: sparkline + CTA */}
-            <div className="mt-4 pt-3 flex items-end justify-between gap-3" style={{ borderTop: '1px solid var(--dash-border)' }}>
-              {trendData ? (
-                <div className="flex-1 min-w-0">
-                  <MicroSparkline data={trendData} severity={severity} />
-                  <div className="flex items-center gap-1 mt-1">
-                    <TrendingUp className="h-2.5 w-2.5" style={{ color: 'var(--dash-text-muted)' }} />
-                    <span className="text-[9px] font-medium" style={{ color: 'var(--dash-text-muted)' }}>7d trend</span>
+            <div className="relative p-5 lg:p-6 flex flex-col" style={{ minHeight: isBentoWide ? 200 : 172 }}>
+              <div className="flex items-start justify-between mb-4">
+                <div className="relative shrink-0 transition-transform duration-300 group-hover:scale-105" style={{ width: 52, height: 52 }}>
+                  <div
+                    className="absolute inset-0 rounded-full blur-md pointer-events-none"
+                    style={{ background: meta.iconGlow, transform: 'scale(1.12)', opacity: 0.45 }}
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="relative w-full h-full rounded-full flex items-center justify-center"
+                    style={{
+                      background: `linear-gradient(135deg, ${meta.iconGradient[0]}1f 0%, ${meta.iconGradient[1]}2b 100%)`,
+                      border: `1px solid ${meta.iconGradient[0]}26`,
+                      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.15)`,
+                    }}
+                  >
+                    <Icon style={{ color: meta.iconGradient[0], width: 22, height: 22 }} strokeWidth={1.7} />
                   </div>
                 </div>
-              ) : (
-                <div />
+
+                {hasAlerts ? (
+                  <div
+                    className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-mono font-bold tabular-nums leading-none shrink-0"
+                    style={{
+                      background: severity === 'rose' ? 'var(--dash-alert-critical-bg)' : 'var(--dash-alert-bg)',
+                      border: `1px solid ${severity === 'rose' ? 'var(--dash-alert-critical-border)' : 'var(--dash-alert-border)'}`,
+                      color: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-text)',
+                    }}
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }} />
+                      <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: severity === 'rose' ? 'var(--dash-alert-critical-text)' : 'var(--dash-alert-dot)' }} />
+                    </span>
+                    <AlertCount value={alertCount} />
+                  </div>
+                ) : (
+                  <div
+                    className="flex items-center gap-1.5 rounded-full px-2.5 py-1 shrink-0"
+                    style={{
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      background: 'rgba(16,185,129,0.08)',
+                      border: '1px solid rgba(16,185,129,0.18)',
+                    }}
+                  >
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                    </span>
+                    <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 leading-none">
+                      All Clear
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold mb-1 tracking-tight truncate" style={{ color: 'var(--dash-text-primary)' }}>
+                  {feature.name}
+                </h3>
+                <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: 'var(--dash-text-secondary)' }}>
+                  {feature.description || `${feature.name} analytics and tracking`}
+                </p>
+              </div>
+
+              {isBentoWide && hasAlerts && (
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--dash-text-muted)' }}>
+                    <TrendingUp className="h-3 w-3 text-emerald-500" />
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">↑ 12% vs last week</span>
+                  </div>
+                  <div className="h-3 w-px" style={{ background: 'var(--dash-border)' }} />
+                  <div className="text-[10px] font-medium" style={{ color: 'var(--dash-text-muted)' }}>
+                    Peak: <span className="font-bold" style={{ color: 'var(--dash-text-secondary)' }}>402/hr</span>
+                  </div>
+                </div>
               )}
 
-              <div
-                className="flex items-center gap-1 text-[11px] font-medium shrink-0 transition-all duration-300 group-hover:translate-x-0.5"
-                style={{ color: 'var(--dash-text-muted)' }}
-              >
-                <span>View</span>
-                <ArrowRight className="h-3 w-3" />
+              <div className="mt-4 pt-3 flex items-end justify-between gap-3" style={{ borderTop: '1px solid var(--dash-border)' }}>
+                {trendData ? (
+                  <div className="flex-1 min-w-0">
+                    <MicroSparkline data={trendData} severity={severity} />
+                    <div className="flex items-center gap-1 mt-1">
+                      <TrendingUp className="h-2.5 w-2.5" style={{ color: 'var(--dash-text-muted)' }} />
+                      <span className="text-[9px] font-medium" style={{ color: 'var(--dash-text-muted)' }}>7d trend</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className={`bento-view-text-${feature.id} text-[11px] font-semibold`} style={{ color: 'var(--dash-text-muted)', transition: 'color 200ms ease' }}>
+                    View
+                  </span>
+                  <ArrowRight className={`bento-view-arrow-${feature.id} h-3 w-3`} style={{ color: 'var(--dash-text-muted)', transition: 'transform 200ms ease, color 200ms ease' }} />
+                </div>
               </div>
             </div>
           </div>
         </div>
       </button>
-    </motion.div>
+    </div>
   );
 }
 
@@ -413,7 +456,7 @@ function CommandPalette({
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-[var(--dash-text-muted)]"
             style={{ color: 'var(--dash-text-primary)' }}
           />
-          <kbd className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-500 dark:text-slate-400 transition-all duration-200">
+          <kbd className="hidden sm:inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-500 dark:text-slate-400">
             ESC
           </kbd>
         </div>
@@ -427,8 +470,14 @@ function CommandPalette({
                 onClick={() => { onSelect(feature.id); onClose(); }}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
               >
-                <div className={cn('h-8 w-8 rounded-lg flex items-center justify-center bg-gradient-to-br', meta.lightGradient, 'dark:' + meta.gradient)}>
-                  <Icon className="h-4 w-4 text-slate-600 dark:text-white" strokeWidth={1.8} />
+                <div
+                  className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    background: `linear-gradient(135deg, ${meta.iconGradient[0]}22, ${meta.iconGradient[1]}33)`,
+                    border: `1px solid ${meta.iconGradient[0]}25`,
+                  }}
+                >
+                  <Icon style={{ color: meta.iconGradient[0], width: 15, height: 15 }} strokeWidth={1.8} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium truncate" style={{ color: 'var(--dash-text-primary)' }}>{feature.name}</div>
@@ -440,7 +489,7 @@ function CommandPalette({
           })}
           {filtered.length === 0 && (
             <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--dash-text-muted)' }}>
-              No features found for "{query}"
+              No features found for &quot;{query}&quot;
             </div>
           )}
         </div>
@@ -476,19 +525,35 @@ export function ModernFeatureSelector({
   const [loading, setLoading] = useState(true);
   const [alertCounts, setAlertCounts] = useState<Record<string, number>>({});
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [hoverArmedId, setHoverArmedId] = useState<string | null>(null);
   const [cmdOpen, setCmdOpen] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldReduceMotion = useReducedMotion();
 
-  /* Mouse spotlight */ 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (shouldReduceMotion || !gridRef.current) return;
-    const rect = gridRef.current.getBoundingClientRect();
-    gridRef.current.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-    gridRef.current.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
-  }, [shouldReduceMotion]);
+  const handleHover = useCallback((id: string | null) => {
+    setHoveredCard(id);
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (id) {
+      hoverTimerRef.current = setTimeout(() => {
+        setHoverArmedId(id);
+        hoverTimerRef.current = null;
+      }, 3000);
+    } else {
+      setHoverArmedId(null);
+    }
+  }, []);
 
-  /* Keyboard shortcuts */ 
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
+
+  /* Keyboard shortcuts */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
@@ -501,7 +566,7 @@ export function ModernFeatureSelector({
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  /* Load features */ 
+  /* Load features */
   useEffect(() => {
     if (orgLoading) return;
     const load = async () => {
@@ -528,7 +593,7 @@ export function ModernFeatureSelector({
     load();
   }, [selectedOrganization?.id, user?.role, user?.permissions, orgLoading]);
 
-  /* Load alert counts */ 
+  /* Load alert counts */
   useEffect(() => {
     const loadAlerts = async () => {
       if (!features.length) return;
@@ -604,65 +669,92 @@ export function ModernFeatureSelector({
   }
 
   return (
-    <div className="relative z-10 flex-1 overflow-auto theme-transition">
-      {/* Hero */}
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-12 pt-8 pb-6 lg:pt-12 lg:pb-8">
-        <div className="max-w-7xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold mb-5 backdrop-blur-sm"
-            style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)' }}
-          >
-            <Zap className="h-3 w-3 text-amber-500" />
-            Analytics Dashboard
-          </motion.div>
+    /*
+     * RandomBackground is `position: fixed` and covers the full viewport on its
+     * own. The wrapper no longer needs an opaque page bg — keeping it
+     * transparent lets the fixed canvas show through the content area while
+     * the navbar (with its own opaque color) still sits cleanly on top.
+     */
+    <div
+      className="relative flex-1 overflow-auto theme-transition"
+      style={{ isolation: 'isolate', background: 'transparent' }}
+    >
+      <RandomBackground />
 
-          <motion.h1
-            initial={{ opacity: 0, y: 16, filter: 'blur(10px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-[-0.02em] mb-4"
-            style={{ color: 'var(--dash-text-primary)' }}
-          >
-            Hatke Analytics
-          </motion.h1>
+      {/* ── Hero Section ── */}
+      <div className="relative w-full min-h-[320px] flex flex-col justify-center pt-2 pb-6" style={{ zIndex: 1 }}>
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 w-full mt-auto mb-auto">
+          <div className="relative text-center py-2">
+            {/* Badge */}
+            <motion.div
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold mb-5 backdrop-blur-sm"
+              style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-secondary)' }}
+            >
+              <Zap className="h-3 w-3 text-amber-500" />
+              Analytics Dashboard
+            </motion.div>
 
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-sm lg:text-base max-w-md mx-auto mb-6"
-            style={{ color: 'var(--dash-text-secondary)' }}
-          >
-            Choose a feature to explore detailed analytics and insights
-          </motion.p>
+            {/* Heading */}
+            <motion.h1
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 16, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="relative font-display text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-[-0.035em] mb-4 bg-clip-text text-transparent"
+              style={{
+                // Noise texture blended INTO the accent gradient, clipped to the letters
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"), var(--accent-gradient)`,
+                backgroundBlendMode: 'overlay',
+                backgroundSize: '150px 150px, cover',
+                // Dual halo: white outline pops on dark/colored bg, dark outline on light bg —
+                // so the letters stay crisply visible even when the bg matches the text color.
+                filter: 'drop-shadow(0 0 1px rgba(255,255,255,0.9)) drop-shadow(0 0 2px rgba(255,255,255,0.6)) drop-shadow(0 1.5px 1.5px rgba(0,0,0,0.32)) drop-shadow(0 6px 20px var(--accent-glow))',
+              }}
+            >
+              Hatke Analytics
+            </motion.h1>
 
-          {/* Prominent Search Input */}
-          <motion.button
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            onClick={() => setCmdOpen(true)}
-            className="inline-flex items-center gap-2.5 w-full max-w-sm mx-auto px-4 py-2.5 rounded-xl text-left transition-all hover:shadow-md"
-            style={{ background: 'var(--dash-card-bg)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-muted)' }}
-          >
-            <Search className="h-4 w-4 shrink-0" />
-            <span className="text-sm flex-1">Search analytics...</span>
-            <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-500 dark:text-slate-400 transition-all duration-200">
-              <Command className="h-2.5 w-2.5 opacity-70" />K
-            </kbd>
-          </motion.button>
+            <motion.p
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-sm lg:text-base max-w-md mx-auto mb-6 font-medium"
+              style={{ color: 'var(--dash-text-primary)', textShadow: 'var(--dash-hero-text-shadow)' }}
+            >
+              Choose a feature to explore detailed analytics and insights
+            </motion.p>
+
+            {/* Search trigger */}
+            <motion.button
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              onClick={() => setCmdOpen(true)}
+              className="inline-flex items-center gap-2.5 w-full max-w-sm mx-auto px-4 py-2.5 rounded-xl text-left transition-all hover:shadow-md"
+              style={{
+                background: 'var(--dash-card-bg)',
+                border: '1px solid var(--dash-border)',
+                color: 'var(--dash-text-muted)',
+                minHeight: 44,
+              }}
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="text-sm flex-1">Search analytics...</span>
+              <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-500 dark:text-slate-400">
+                <Command className="h-2.5 w-2.5 opacity-70" />K
+              </kbd>
+            </motion.button>
+          </div>
         </div>
       </div>
 
-      {/* Bento Grid */}
-      <div className="px-4 sm:px-6 lg:px-8 xl:px-12 pb-4">
+      {/* ── Bento Feature Grid ── */}
+      <div className="relative px-4 sm:px-6 lg:px-8 xl:px-12 pb-4" style={{ zIndex: 1 }}>
         <div
           ref={gridRef}
-          onMouseMove={handleMouseMove}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 max-w-7xl mx-auto"
+          className={cn('grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-7xl mx-auto')}
         >
           {features.map((feature, index) => (
             <BentoCard
@@ -672,15 +764,18 @@ export function ModernFeatureSelector({
               onClick={() => onSelectFeature(feature.id)}
               index={index}
               hoveredCard={hoveredCard}
-              onHover={setHoveredCard}
+              hoverArmedId={hoverArmedId}
+              onHover={handleHover}
             />
           ))}
         </div>
       </div>
 
-      <Footer />
+      <div className="relative" style={{ zIndex: 1 }}>
+        <Footer />
+      </div>
 
-      {/* Command Palette */}
+      {/* ── Command Palette ── */}
       <AnimatePresence>
         {cmdOpen && (
           <CommandPalette

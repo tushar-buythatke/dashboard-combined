@@ -20,6 +20,8 @@ import {
     Zap,
     X,
 } from 'lucide-react';
+import { useChartColors, gridProps, AXIS_TICK_STYLE } from '@/lib/chartTheme';
+import { GlassTooltip } from '@/components/ui/GlassTooltip';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -222,6 +224,7 @@ export const AdditionalPanelItem = React.memo(({
     isHourly,
 }: AdditionalPanelItemProps) => {
     const { t: themeClasses } = useAccentTheme();
+    const colors = useChartColors();
 
     const eventColors = useMemo(() => {
         const map: Record<string, string> = {};
@@ -923,18 +926,29 @@ export const AdditionalPanelItem = React.memo(({
                                                                             data={pieData}
                                                                             cx="50%"
                                                                             cy="50%"
-                                                                            innerRadius={45}
-                                                                            outerRadius={70}
+                                                                            innerRadius="52%"
+                                                                            outerRadius="76%"
                                                                             paddingAngle={2}
                                                                             dataKey="value"
                                                                             isAnimationActive={false}
-                                                                            stroke="none"
+                                                                            stroke={colors.surface}
+                                                                            strokeWidth={2}
                                                                         >
                                                                             {pieData.map((_: any, index: number) => (
-                                                                                <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                                                <Cell key={`cell-${index}`} fill={colors.palette[index % colors.palette.length]} />
                                                                             ))}
                                                                         </Pie>
-                                                                        <Tooltip wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} content={<PieTooltip totalValue={pieTotal} category={pieType} />} />
+                                                                        <Tooltip
+                                                                            wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
+                                                                            content={<GlassTooltip
+                                                                                formatter={(value, name) => (
+                                                                                    <span>
+                                                                                        {typeof value === 'number' ? new Intl.NumberFormat().format(value) : value}
+                                                                                        {pieTotal > 0 ? <span className="ml-1 text-white/50 text-[11px]">({((Number(value) / pieTotal) * 100).toFixed(1)}%)</span> : null}
+                                                                                    </span>
+                                                                                )}
+                                                                            />}
+                                                                        />
                                                                     </PieChart>
                                                                 </ResponsiveContainer>
                                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -951,10 +965,10 @@ export const AdditionalPanelItem = React.memo(({
                                                                             return (
                                                                                 <div key={idx} className="flex items-center justify-between text-[10px] font-bold">
                                                                                     <div className="flex items-center gap-1.5 min-w-0">
-                                                                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                                                                                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: colors.palette[idx % colors.palette.length] }} />
                                                                                         <span className="truncate text-muted-foreground">{item.name}</span>
                                                                                     </div>
-                                                                                    <span className="text-indigo-500">{percentage.toFixed(0)}%</span>
+                                                                                    <span style={{ color: colors.accentPrimary }}>{percentage.toFixed(0)}%</span>
                                                                                 </div>
                                                                             );
                                                                         })}
@@ -1011,10 +1025,31 @@ export const AdditionalPanelItem = React.memo(({
                                     <div className="h-[280px] md:h-[360px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <AreaChart data={panelApiSeries} margin={{ top: 10, right: 20, left: 0, bottom: 40 }}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                                                <defs>
+                                                    {/* Breakdown-specific gradients */}
+                                                    <linearGradient id={`apiBdServer_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor={colors.palette[3]} stopOpacity={0.3} />
+                                                        <stop offset="100%" stopColor={colors.palette[3]} stopOpacity={0} />
+                                                    </linearGradient>
+                                                    <linearGradient id={`apiBdNetwork_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor={colors.avg} stopOpacity={0.3} />
+                                                        <stop offset="100%" stopColor={colors.avg} stopOpacity={0} />
+                                                    </linearGradient>
+                                                    {/* Per-series area gradients */}
+                                                    {apiEventKeyInfos.map((_: any, idx: number) => {
+                                                        const c = colors.palette[idx % colors.palette.length];
+                                                        return (
+                                                            <linearGradient key={`apiareagrad_${panel.panelId}_${idx}`} id={`apiAreaGrad_${panel.panelId}_${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="0%" stopColor={c} stopOpacity={0.3} />
+                                                                <stop offset="100%" stopColor={c} stopOpacity={0} />
+                                                            </linearGradient>
+                                                        );
+                                                    })}
+                                                </defs>
+                                                <CartesianGrid {...gridProps(colors.grid)} />
                                                 <XAxis dataKey="date" tick={<CustomXAxisTick isHourly={pIsHourly} />} axisLine={false} tickLine={false} height={45} interval={Math.max(0, Math.floor((panelApiSeries.length || 0) / 8))} />
                                                 <YAxis
-                                                    tick={{ fill: '#94a3b8', fontSize: 11 }}
+                                                    tick={{ ...AXIS_TICK_STYLE, fill: colors.axis }}
                                                     axisLine={false}
                                                     tickLine={false}
                                                     tickFormatter={(value) => {
@@ -1026,9 +1061,19 @@ export const AdditionalPanelItem = React.memo(({
                                                     width={65}
                                                     dx={-5}
                                                 />
-                                                <Tooltip content={<CustomTooltip events={events} eventKeys={apiEventKeyInfos as any} />} wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }} />
+                                                <Tooltip
+                                                    content={<GlassTooltip
+                                                        formatter={(value, name) => {
+                                                            const v = Number(value);
+                                                            if (panelMetricView?.startsWith('timing')) return `${v.toFixed(1)}ms`;
+                                                            if (panelMetricView?.startsWith('bytes')) return v >= 1000000 ? `${(v / 1000000).toFixed(2)}MB` : `${v.toFixed(0)}B`;
+                                                            return new Intl.NumberFormat().format(v);
+                                                        }}
+                                                    />}
+                                                    wrapperStyle={{ pointerEvents: 'none', zIndex: 1000 }}
+                                                />
                                                 {apiEventKeyInfos.map((ek: any, idx: number) => {
-                                                    const color = EVENT_COLORS[idx % EVENT_COLORS.length];
+                                                    const color = colors.palette[idx % colors.palette.length];
                                                     let dataKey = `${ek.eventKey}_count`;
                                                     if (panelMetricView === 'timing' || panelMetricView === 'timing-anomaly') dataKey = `${ek.eventKey}_avgServerToUser`;
                                                     if (panelMetricView === 'bytes') dataKey = `${ek.eventKey}_avgBytesOut`;
@@ -1037,8 +1082,32 @@ export const AdditionalPanelItem = React.memo(({
                                                     if (panelMetricView === 'timing-breakdown') {
                                                         return (
                                                             <Fragment key={`pbreak_fun_${panel.panelId}_${ek.eventKey}`}>
-                                                                <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
-                                                                <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                <Area
+                                                                    type="monotone"
+                                                                    dataKey={`${ek.eventKey}_avgServerToCloud`}
+                                                                    name={`${ek.eventName} (Server)`}
+                                                                    stroke={colors.palette[3]}
+                                                                    strokeWidth={2.5}
+                                                                    fill={`url(#apiBdServer_${panel.panelId})`}
+                                                                    dot={false}
+                                                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff' }}
+                                                                    stackId={ek.eventKey}
+                                                                    isAnimationActive={false}
+                                                                    connectNulls={true}
+                                                                />
+                                                                <Area
+                                                                    type="monotone"
+                                                                    dataKey={`${ek.eventKey}_avgCloudToUser`}
+                                                                    name={`${ek.eventName} (Network)`}
+                                                                    stroke={colors.avg}
+                                                                    strokeWidth={2.5}
+                                                                    fill={`url(#apiBdNetwork_${panel.panelId})`}
+                                                                    dot={false}
+                                                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff' }}
+                                                                    stackId={ek.eventKey}
+                                                                    isAnimationActive={false}
+                                                                    connectNulls={true}
+                                                                />
                                                             </Fragment>
                                                         );
                                                     }
@@ -1051,11 +1120,11 @@ export const AdditionalPanelItem = React.memo(({
                                                             name={ek.eventName}
                                                             stroke={color}
                                                             strokeWidth={2.5}
-                                                            fillOpacity={0.12}
-                                                            fill={color}
+                                                            fill={`url(#apiAreaGrad_${panel.panelId}_${idx})`}
                                                             dot={false}
-                                                            activeDot={{ r: 6, fill: color, stroke: '#fff', strokeWidth: 2 }}
-                                                            isAnimationActive={false} connectNulls={true}
+                                                            activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff' }}
+                                                            isAnimationActive={false}
+                                                            connectNulls={true}
                                                         />
                                                     );
                                                 })}

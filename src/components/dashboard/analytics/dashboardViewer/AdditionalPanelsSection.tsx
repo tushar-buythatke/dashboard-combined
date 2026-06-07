@@ -466,41 +466,52 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                             </div>
                         </div>
 
-                        <Card className="rounded-2xl glass-card-v2 hover-lift-premium">
-                            <CardHeader className="pb-4">
-                                <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+                        <Card className="rounded-2xl glass-card-v2 hover-lift-premium overflow-hidden">
+                            {/* ── Panel Banner ── Premium S3 treatment */}
+                            <CardHeader
+                                className="pb-4 pt-5 px-4 sm:px-6 relative overflow-hidden min-h-[80px] flex flex-col justify-center"
+                                style={{ background: 'var(--accent-gradient)' }}
+                            >
+                                {/* Subtle floating orbs — honours prefers-reduced-motion via global CSS */}
+                                <div
+                                    className="glass-orb glass-orb-1 pointer-events-none"
+                                    style={{ width: 120, height: 120, top: -40, right: '15%', opacity: 0.18, background: 'rgba(255,255,255,0.22)' }}
+                                />
+                                <div
+                                    className="glass-orb glass-orb-2 pointer-events-none"
+                                    style={{ width: 80, height: 80, bottom: -20, left: '8%', opacity: 0.13, background: 'rgba(255,255,255,0.18)' }}
+                                />
+
+                                <div className="relative z-10 flex items-center justify-between flex-wrap gap-3 sm:gap-4">
                                     <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                                        <div className="h-9 w-9 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shadow-lg shrink-0" style={{ background: 'var(--theme-gradient)' }}>
+                                        <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-full flex items-center justify-center shadow-lg shrink-0 bg-white/20 backdrop-blur-sm border border-white/30">
                                             {panelGraphType === 'bar' ? (
-                                                <BarChart3 className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                                             ) : (
-                                                <TrendingUp className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                                                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                                             )}
                                         </div>
                                         <div className="min-w-0">
-                                            <h2 className="text-base sm:text-2xl font-bold text-foreground truncate">{panel.panelName}</h2>
-                                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                            <h2
+                                                className="font-display font-semibold text-white truncate"
+                                                style={{ fontSize: '22px', textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}
+                                            >
+                                                {panel.panelName}
+                                            </h2>
+                                            <p className="flex items-center gap-2 mt-0.5 flex-wrap">
                                                 {panelConfig?.isApiEvent && (
                                                     <>
-                                                        <span className={cn("px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)}>
+                                                        {/* frosted-glass API badge */}
+                                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white backdrop-blur-[8px] border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                                             API
                                                         </span>
-                                                        <span className="text-muted-foreground">•</span>
+                                                        <span style={{ color: 'rgba(255,255,255,0.5)' }}>•</span>
                                                     </>
                                                 )}
+                                                {/* frosted-glass chart-type badge */}
                                                 <span
-                                                    className={cn(
-                                                        "px-2 py-0.5 rounded-full text-xs font-medium",
-                                                        panelGraphType === 'bar'
-                                                            ? "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
-                                                            : panelGraphType === 'percentage'
-                                                                ? "bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-200"
-                                                                : panelGraphType === 'funnel'
-                                                                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-                                                                    : panelGraphType === 'user_flow'
-                                                                        ? "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300"
-                                                                        : "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
-                                                    )}
+                                                    className="px-2 py-0.5 rounded-full text-xs font-medium text-white backdrop-blur-[8px] border"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                 >
                                                     {panelGraphType === 'bar'
                                                         ? 'Bar Chart'
@@ -516,16 +527,23 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                         </div>
                                     </div>
 
+                                    {/* frosted-glass stat pills */}
                                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                                        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20">
-                                            <span className="text-xs sm:text-sm font-medium text-blue-700 dark:text-blue-300 whitespace-nowrap">
-                                                {isPanelLoading ? <Skeleton className="h-4 w-12" /> : formatNumber(pTotalCount)} total
+                                        <div
+                                            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-[8px] border min-h-[44px]"
+                                            style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
+                                        >
+                                            <span className="text-xs sm:text-sm font-medium text-white whitespace-nowrap">
+                                                {isPanelLoading ? <Skeleton className="h-4 w-12 bg-white/30" /> : formatNumber(pTotalCount)} total
                                             </span>
                                             <span className="hidden sm:inline"><InfoTooltip content="Sum of all events recorded for this panel and its filters." /></span>
                                         </div>
-                                        <div className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20">
-                                            <span className="text-xs sm:text-sm font-medium text-green-700 dark:text-green-300 whitespace-nowrap">
-                                                {isPanelLoading ? <Skeleton className="h-4 w-10" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}%
+                                        <div
+                                            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg backdrop-blur-[8px] border min-h-[44px]"
+                                            style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
+                                        >
+                                            <span className="text-xs sm:text-sm font-medium text-white whitespace-nowrap">
+                                                {isPanelLoading ? <Skeleton className="h-4 w-10 bg-white/30" /> : (pTotalCount > 0 ? ((pTotalSuccess / pTotalCount) * 100).toFixed(1) : 0)}%
                                             </span>
                                             <span className="hidden sm:inline"><InfoTooltip content="Percentage of events that completed successfully in this panel." /></span>
                                         </div>
@@ -768,23 +786,32 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
+                                                    title="Open AI Chat  (⌘L)"
+                                                    aria-label="Open AI Chat (Command L)"
                                                     onClick={() => {
                                                         setChatbotOpen(prev => ({
                                                             ...prev,
                                                             [panel.panelId]: !prev[panel.panelId]
                                                         }));
-                                                        // Position will be set to right side in chatbot component
                                                     }}
-                                                    className={cn(
-                                                        "h-8 gap-1.5 sm:gap-2 px-2 sm:px-3 border-indigo-200 dark:border-indigo-800 bg-white/60 dark:bg-slate-900/40 text-indigo-700 dark:text-indigo-300",
-                                                        "hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:text-indigo-800 dark:hover:text-indigo-200",
-                                                        "transition-all duration-300 shadow-sm relative overflow-hidden group/chat ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-lg"
-                                                    )}
+                                                    className="h-8 gap-1.5 pl-2.5 pr-2 rounded-full text-sm font-medium border transition-all duration-200 shadow-sm relative overflow-hidden group/chat hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2"
+                                                    style={{
+                                                        background: 'var(--theme-primary-alpha)',
+                                                        borderColor: 'color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+                                                        color: 'var(--theme-primary)',
+                                                    }}
                                                 >
-                                                    <Sparkles className="h-4 w-4 text-indigo-500 group-hover/chat:scale-110 transition-transform" />
+                                                    <Sparkles className="h-3.5 w-3.5 group-hover/chat:scale-110 transition-transform" style={{ color: 'var(--theme-primary)' }} />
                                                     <span className="hidden sm:inline">AI Chat</span>
+                                                    <kbd
+                                                        className="hidden sm:inline-flex items-center px-1.5 py-0.5 ml-0.5 rounded-md text-[10px] font-mono font-semibold leading-none select-none border"
+                                                        style={{
+                                                            background: 'color-mix(in srgb, var(--theme-primary) 16%, white)',
+                                                            borderColor: 'color-mix(in srgb, var(--theme-primary) 26%, transparent)',
+                                                            color: 'var(--theme-primary)',
+                                                        }}
+                                                    >⌘L</kbd>
                                                 </Button>
-                                                <span className={cn("hidden sm:inline text-xs font-bold px-2 py-0.5 rounded-md border border-slate-200/70 dark:border-slate-700/70 shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase)}>⌘L</span>
                                             </div>
                                             {/* Refresh Button - Updated to match Main Panel & Purple Flash */}
                                             <div className="flex flex-col items-center gap-0.5">
@@ -828,15 +855,16 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                     {/* Show filters only if explicitly NOT collapsed (false means expanded now) */}
                                     {panelFiltersCollapsed?.[panel.panelId] === false && (
                                         <>
-                                            <div className="mb-4 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                            <div
+                                                className="mb-4 p-3.5 rounded-xl backdrop-blur-xl bg-white/70 dark:bg-slate-900/50 shadow-[0_12px_34px_-12px_var(--theme-primary-alpha,rgba(99,102,241,0.22)),0_2px_10px_rgba(0,0,0,0.04)]"
+                                                style={{ border: '1px solid hsl(var(--accent-primary) / 0.16)' }}
+                                            >
                                                 <div className="flex items-center justify-between mb-3">
-                                                    <div className="text-xs font-medium text-muted-foreground">Filter Configuration</div>
-                                                    <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200 hover:shadow-[0_2px_4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)] hover:bg-white/90 dark:hover:bg-white/15">
-                                                            <Command className="h-2.5 w-2.5 opacity-70" />
-                                                            <span>L</span>
+                                                    <div className="text-xs font-semibold tracking-tight flex items-center gap-1.5" style={{ color: 'hsl(var(--accent-primary))' }}>
+                                                        <span className="inline-flex h-4 w-4 items-center justify-center rounded-md" style={{ background: 'var(--accent-gradient)' }}>
+                                                            <Filter className="h-2.5 w-2.5 text-white" />
                                                         </span>
-                                                        <span>for AI Chat</span>
+                                                        Filter Configuration
                                                     </div>
                                                 </div>
                                                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">

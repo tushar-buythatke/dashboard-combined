@@ -457,7 +457,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     "rounded-2xl overflow-hidden group transition-all duration-300 relative mb-6 glass-card-v2 hover-lift-premium",
                     filtersFlash && "ring-2 shadow-2xl"
                 )}
-                style={filtersFlash ? { borderColor: 'var(--theme-primary-alpha)' } : undefined}
+                style={{
+                    ...(filtersFlash ? { borderColor: 'var(--theme-primary-alpha)' } : {}),
+                    ...(!filtersCollapsed ? { boxShadow: '0 14px 44px -10px var(--theme-primary-alpha, rgba(99,102,241,0.20)), 0 4px 18px rgba(0,0,0,0.05)' } : {}),
+                }}
             >
                 {/* Flash Overlay */}
                 {filtersFlash && (
@@ -467,33 +470,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 <div className="absolute top-0 left-0 w-full h-[2px]" style={{ background: 'var(--theme-gradient)' }} />
 
                 <CardHeader className="pb-3 relative cursor-pointer select-none transition-colors command-bar rounded-xl m-2" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-bold flex items-center gap-2">
-                            <div 
-                                className="h-7 w-7 rounded-lg flex items-center justify-center transition-all"
+                    <div className="flex items-center justify-between gap-2">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2 min-w-0">
+                            <div
+                                className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
                                 style={!filtersCollapsed ? { background: 'var(--theme-gradient)' } : undefined}
                             >
-                                <Filter className={cn("h-4 w-4", filtersCollapsed ? "text-gray-500 dark:text-gray-300" : "text-white")} />
+                                <Filter className={cn("h-3.5 w-3.5 transition-colors duration-200", filtersCollapsed ? "text-gray-500 dark:text-gray-300" : "text-white")} />
                             </div>
-                            <span className="font-bold text-lg">Filters</span>
-                            <span className={cn(
-                                "text-[10px] font-semibold px-2 py-0.5 rounded-full border italic",
-                                filtersCollapsed
-                                    ? "text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-800/50"
-                                    : "text-white border-white/20 bg-white/20 backdrop-blur-sm"
-                            )}
-                            style={!filtersCollapsed ? { background: 'var(--theme-gradient)', color: 'white', borderColor: 'transparent' } : undefined}
-                            >
-                                {filtersCollapsed ? "click to expand" : "expanded"}
-                            </span>
+                            <span className="font-semibold tracking-tight text-slate-800 dark:text-slate-100">Filters</span>
                             {/* API Event Badge */}
                             {isMainPanelApi && (
-                                <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white shadow-md" style={{ background: 'var(--theme-gradient)' }}>
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-sm flex-shrink-0" style={{ background: 'var(--theme-gradient)' }}>
                                     API
                                 </span>
                             )}
                             {pendingRefresh && (
-                                <span className="text-xs px-2 py-1 bg-amber-500 text-white rounded-full font-medium animate-pulse">
+                                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded-full font-semibold border border-amber-200 dark:border-amber-500/30 flex-shrink-0 animate-pulse">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
                                     Changed
                                 </span>
                             )}
@@ -501,7 +495,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         <div className="flex items-center gap-2 flex-wrap justify-end">
                             {/* Voice Command Button - Admin Only & Non-API Only */}
                             {isAdmin && !isMainPanelApi && (
-                                <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex items-center gap-1.5">
                                     <Popover open={voicePopoverOpen} onOpenChange={(open) => {
                                         setVoicePopoverOpen(open);
                                         if (open) {
@@ -577,16 +571,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </UiTooltip>
 
                                         <PopoverContent
-                                            className="w-[calc(100vw-2rem)] sm:w-80 p-4 border-2 border-indigo-100 dark:border-indigo-900/50 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
+                                            className="w-[calc(100vw-2rem)] sm:w-80 p-4 border border-slate-200/60 dark:border-slate-700/60 shadow-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl"
                                             onClick={(e) => e.stopPropagation()}
                                         >
                                             <div className="space-y-4">
                                                 <div className="flex items-center justify-between">
-                                                    <h4 className="font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-                                                        <Sparkles className="h-4 w-4" />
+                                                    <h4 className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2 text-sm">
+                                                        <Sparkles className="h-4 w-4" style={{ color: 'var(--theme-primary)' }} />
                                                         AI Voice Assistant
                                                     </h4>
-                                                    <Badge variant="outline" className="text-[10px] uppercase font-bold text-indigo-500 border-indigo-200">
+                                                    <Badge variant="outline" className="text-[10px] uppercase font-bold border-slate-200 dark:border-slate-700 text-slate-500">
                                                         Beta
                                                     </Badge>
                                                 </div>
@@ -594,7 +588,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <div className="relative">
                                                     <textarea
                                                         placeholder="Type your command or use voice..."
-                                                        className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none resize-none font-medium text-slate-700 dark:text-slate-200"
+                                                        className="w-full min-h-[150px] max-h-[400px] p-4 text-sm bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl outline-none resize-none font-medium text-slate-700 dark:text-slate-200 transition-shadow duration-200 focus:shadow-[0_0_0_3px_var(--theme-primary-alpha)]"
                                                         value={manualTranscript}
                                                         onChange={(e) => setManualTranscript(e.target.value)}
                                                         onKeyDown={(e) => {
@@ -667,62 +661,68 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             </div>
                                         </PopoverContent>
                                     </Popover>
-                                    <span className={cn("text-sm font-bold px-2 py-0.5 rounded-md border shadow-sm transition-colors duration-500", themeClasses.cardBg, themeClasses.textBase, "border-slate-200/70 dark:border-slate-700/70")}>⌘K</span>
+                                    {/* Tasteful ⌘K kbd chip — desktop only */}
+                                    <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shadow-[0_1px_0_rgba(0,0,0,0.08)] select-none leading-none">⌘K</kbd>
                                 </div>
                             )}
-                            {/* Chatbot Button - Ghost style with theme border */}
-                            <div className="flex flex-col items-center gap-0.5">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        setLocalChatbotOpen(true);
-                                    }}
-                                    className="h-8 gap-2 px-3 rounded-lg backdrop-blur-sm bg-white/30 dark:bg-transparent border hover:scale-[1.02] transition-all duration-200"
-                                    style={{ borderColor: 'var(--theme-primary-alpha)', color: 'var(--theme-primary)' }}
-                                >
-                                    <Sparkles className="h-4 w-4 group-hover/chat:scale-110 transition-transform" style={{ color: 'var(--theme-primary)' }} />
-                                    <span>AI Chat</span>
-                                </Button>
-                                <span className="text-xs font-bold px-2 py-0.5 rounded-md border shadow-sm backdrop-blur-sm bg-white/30 dark:bg-gray-800/50 border-white/30 dark:border-white/10">⌘L</span>
-                            </div>
-                            {/* Quick Refresh Shortcut Hint - Theme gradient */}
-                            <div className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-lg text-white shadow-lg" style={{ background: 'var(--theme-gradient)' }}>
-                                <span className="text-xs font-bold bg-white/20 rounded px-1">⌘</span>
-                                <span className="text-xs font-medium">+Enter Refresh</span>
-                            </div>
+            {/* AI Chat pill — accent-tinted, shortcut integrated so ⌘L clearly opens chat */}
                             <Button
                                 variant="ghost"
                                 size="sm"
+                                title="Open AI Chat  (⌘L)"
+                                aria-label="Open AI Chat (Command L)"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLocalChatbotOpen(true);
+                                }}
+                                className="h-8 gap-1.5 pl-3 pr-2 rounded-full text-sm font-medium transition-all duration-200 border hover:scale-[1.02] active:scale-[0.98]"
+                                style={{
+                                    background: 'var(--theme-primary-alpha)',
+                                    borderColor: 'color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+                                    color: 'var(--theme-primary)',
+                                }}
+                            >
+                                <Sparkles className="h-3.5 w-3.5" style={{ color: 'var(--theme-primary)' }} />
+                                <span>AI Chat</span>
+                                {/* Shortcut hint sits INSIDE the button so it reads as "⌘L opens AI Chat" */}
+                                <kbd
+                                    className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 ml-0.5 rounded-md text-[10px] font-mono font-semibold leading-none select-none border"
+                                    style={{
+                                        background: 'color-mix(in srgb, var(--theme-primary) 16%, white)',
+                                        borderColor: 'color-mix(in srgb, var(--theme-primary) 26%, transparent)',
+                                        color: 'var(--theme-primary)',
+                                    }}
+                                >⌘L</kbd>
+                            </Button>
+                            {/* Collapse chevron */}
+                            <button
+                                aria-label={filtersCollapsed ? 'Expand filters' : 'Collapse filters'}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setFiltersCollapsed(!filtersCollapsed);
                                 }}
-                                className="h-8 w-8 p-0"
+                                className="h-8 w-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-all duration-200 flex-shrink-0"
                             >
-                                {filtersCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-                            </Button>
+                                <ChevronDown
+                                    className="h-4 w-4 transition-transform duration-200"
+                                    style={{ transform: filtersCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}
+                                />
+                            </button>
                         </div>
                     </div>
                 </CardHeader>
                 {!filtersCollapsed && (
                     <CardContent className="pb-6 overflow-x-hidden">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="text-sm font-medium text-muted-foreground">Filter Configuration</div>
-                                <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide bg-white/70 dark:bg-white/10 backdrop-blur-sm border border-white/50 dark:border-white/20 shadow-[0_1px_2px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.4)] text-slate-600 dark:text-slate-300 transition-all duration-200 hover:shadow-[0_2px_4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.5)] hover:bg-white/90 dark:hover:bg-white/15">
-                                        <Command className="h-2.5 w-2.5 opacity-70" />
-                                        <span>L</span>
-                                    </span>
-                                    <span>for AI Chat</span>
-                                </div>
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                Filter Configuration
                             </div>
                             {/* Hourly/Daily Toggle in Filter Panel */}
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap">Resolution:</span>
                                 <div className="flex items-center gap-2">
-                                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                                    {/* Segmented pill with accent active indicator */}
+                                    <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 rounded-xl p-1 border border-slate-200/60 dark:border-slate-700/60 shadow-sm relative overflow-hidden">
                                         {dataLoading && (
                                             <div className="absolute inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-[1px] flex items-center justify-center z-10">
                                                 <RefreshCw className="h-3 w-3 animate-spin text-gray-700" />
@@ -732,12 +732,14 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             onClick={() => setHourlyOverride?.(true)}
                                             disabled={dataLoading}
                                             className={cn(
-                                                "px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
-                                                isHourly
-                                                    ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
-                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
+                                                "relative px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                 dataLoading && "opacity-50 cursor-not-allowed"
                                             )}
+                                            style={isHourly ? {
+                                                background: 'var(--theme-gradient)',
+                                                color: 'white',
+                                                boxShadow: '0 2px 8px var(--theme-primary-alpha)',
+                                            } : { color: 'var(--color-slate-500)' } as React.CSSProperties}
                                         >
                                             Hourly
                                         </button>
@@ -745,18 +747,20 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             onClick={() => setHourlyOverride?.(false)}
                                             disabled={dataLoading}
                                             className={cn(
-                                                "px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
-                                                !isHourly
-                                                    ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
-                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50",
+                                                "relative px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
                                                 dataLoading && "opacity-50 cursor-not-allowed"
                                             )}
+                                            style={!isHourly ? {
+                                                background: 'var(--theme-gradient)',
+                                                color: 'white',
+                                                boxShadow: '0 2px 8px var(--theme-primary-alpha)',
+                                            } : { color: 'var(--color-slate-500)' } as React.CSSProperties}
                                         >
                                             Daily
                                         </button>
                                     </div>
-                                    {/* Shortcut hint - hidden on mobile */}
-                                    <span className="hidden sm:inline px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800/60 text-gray-800 dark:text-gray-200 font-bold rounded-md border border-gray-300 dark:border-gray-600" title="Press ⌘+Shift to toggle">⌘+Shift</span>
+                                    {/* Shortcut hint — desktop only, tasteful kbd chip */}
+                                    <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 shadow-[0_1px_0_rgba(0,0,0,0.08)] select-none leading-none" title="Press ⌘+Shift to toggle">⌘⇧</kbd>
                                 </div>
                             </div>
                         </div>
@@ -1337,18 +1341,22 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         {/* Job ID (sourceStr) Filter - Only shown when data contains sourceStr values */}
                         {availableSourceStrs.length > 0 && (
                             <div
-                                className="mt-4 p-3 bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-900/20 dark:to-blue-900/20 rounded-lg border border-cyan-200 dark:border-cyan-500/30"
+                                className="mt-4 p-3.5 rounded-xl border backdrop-blur-sm"
+                                style={{
+                                    background: 'linear-gradient(to right, hsl(var(--accent-primary) / 0.08), hsl(var(--accent-secondary) / 0.04))',
+                                    borderColor: 'hsl(var(--accent-primary) / 0.22)',
+                                }}
                             >
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <div className="flex items-center gap-2">
-                                        <Hash className="w-4 h-4 text-cyan-600" />
-                                        <Label className="text-sm uppercase tracking-wide text-cyan-700 dark:text-cyan-300 font-semibold">
+                                        <Hash className="w-4 h-4" style={{ color: 'hsl(var(--accent-primary))' }} />
+                                        <Label className="text-sm uppercase tracking-wide font-semibold" style={{ color: 'hsl(var(--accent-primary))' }}>
                                             Job ID Filter
                                         </Label>
                                         <InfoTooltip
                                             content="Filter data by specific background jobs or process IDs if available."
                                         />
-                                        <span className="text-xs text-cyan-600 dark:text-cyan-400">
+                                        <span className="text-xs font-medium" style={{ color: 'hsl(var(--accent-primary) / 0.8)' }}>
                                             ({availableSourceStrs.length} jobs found)
                                         </span>
                                     </div>
@@ -1375,7 +1383,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 setSelectedSourceStrs([]);
                                                 setTimeout(() => handleApplyFilters(), 100);
                                             }}
-                                            className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-100 dark:hover:bg-cyan-900/30"
+                                            className="hover:bg-[hsl(var(--accent-primary)/0.1)]"
+                                            style={{ color: 'hsl(var(--accent-primary))' }}
                                         >
                                             Clear
                                         </Button>
@@ -1386,44 +1395,44 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                         {/* Apply Filters Button and Auto-refresh Config */}
                         <div className="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 pb-4 border-t border-border/50">
-                            <div className="flex items-center gap-4 flex-wrap">
-                                {/* Prominent Apply Filters button with clear visual cue */}
+                            <div className="flex items-center gap-3 flex-wrap">
+                                {/* Apply button — accent gradient; pulse ripple ONLY when changes are pending */}
                                 <Button
                                     onClick={() => handleApplyFilters()}
                                     disabled={dataLoading}
                                     size="lg"
                                     className={cn(
-                                        "relative transition-all duration-300 font-semibold px-6 py-3",
-                                        pendingRefresh
-                                            ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-xl shadow-red-500/40 border-2 border-red-300"
-                                            : cn("text-white", themeClasses.buttonGradient, themeClasses.buttonHover),
-                                        refreshFlash && "ring-4 ring-green-400 ring-opacity-75"
+                                        "relative overflow-hidden transition-all duration-200 font-semibold px-6 py-3 text-white rounded-xl border-0 shadow-md active:scale-[0.98]",
+                                        refreshFlash && "ring-2 ring-green-400 ring-opacity-75"
                                     )}
+                                    style={pendingRefresh ? {
+                                        background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                                        boxShadow: '0 4px 16px rgba(239,68,68,0.35)',
+                                    } : {
+                                        background: 'var(--theme-gradient)',
+                                        boxShadow: '0 4px 12px var(--theme-primary-alpha)',
+                                    }}
                                 >
-                                    {/* Flash overlay */}
+                                    {/* Pending-only pulse ripple */}
+                                    {pendingRefresh && !dataLoading && (
+                                        <span className="absolute inset-0 rounded-xl bg-white/20 animate-ping pointer-events-none" style={{ animationDuration: '1.4s' }} />
+                                    )}
+                                    {/* Success flash overlay */}
                                     {refreshFlash && (
-                                        <span className="absolute inset-0 bg-green-400/30 animate-ping rounded-lg" />
+                                        <span className="absolute inset-0 bg-green-400/30 animate-ping rounded-xl pointer-events-none" />
                                     )}
                                     {dataLoading ? (
-                                        <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                                     ) : (
-                                        <RefreshCw className="mr-2 h-5 w-5" />
+                                        <RefreshCw className="mr-2 h-4 w-4" />
                                     )}
-                                    {pendingRefresh ? "⚡ APPLY CHANGES" : "Refresh This Panel"}
-                                    <span className="ml-2 px-2 py-0.5 text-[11px] bg-white/20 rounded-md font-semibold">⌘+Enter</span>
-                                    {pendingRefresh && (
-                                        <div
-                                            className="absolute -top-1 -right-1 w-5 h-5 bg-white text-red-600 rounded-full flex items-center justify-center text-xs font-bold shadow-lg border-2 border-red-300"
-                                        >
-                                            !
-                                        </div>
-                                    )}
+                                    <span className="relative">{pendingRefresh ? "Apply Changes" : "Refresh Panel"}</span>
+                                    <kbd className="ml-2 px-1.5 py-0.5 text-[10px] bg-white/20 rounded font-mono font-semibold border-0 leading-none">⌘↵</kbd>
                                 </Button>
                                 {pendingRefresh && (
-                                    <span
-                                        className="text-sm text-red-600 dark:text-red-400 font-medium"
-                                    >
-                                        Filters changed! Click to update data.
+                                    <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                        Filters changed — click to update.
                                     </span>
                                 )}
 
@@ -1990,19 +1999,23 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                         // Merge filter state with config
                         return (
                             <Card className={cn("relative border border-slate-200/60 dark:border-indigo-500/20 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl mt-4", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                <CardHeader className="pb-2 bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/30 dark:to-slate-800/20 border-b border-gray-200/40 dark:border-gray-500/20">
-                                    <div className="flex items-center justify-between">
+                                {/* ── Panel Banner S3 ── */}
+                                <CardHeader
+                                    className="pb-3 pt-4 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                    style={{ background: 'var(--accent-gradient)' }}
+                                >
+                                    <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 100, height: 100, top: -35, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.2)' }} />
+                                    <div className="relative z-10 flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg shadow-gray-500/20">
-                                                <GitBranch className="h-6 w-6 text-white" />
+                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 bg-white/20 backdrop-blur-sm border border-white/30">
+                                                <GitBranch className="h-5 w-5 text-white" />
                                             </div>
                                             <div>
-                                                <CardTitle className="text-base md:text-lg">User Flow Visualization</CardTitle>
-                                                <p className="text-xs text-muted-foreground mt-0.5">Track user journey through defined stages</p>
+                                                <CardTitle className="font-display font-semibold text-white" style={{ fontSize: '20px', textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>User Flow Visualization</CardTitle>
+                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>Track user journey through defined stages</p>
                                             </div>
                                         </div>
-                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-300">Flow Analysis</span>
+                                        <span className="text-xs font-semibold px-2.5 py-1.5 min-h-[36px] flex items-center rounded-lg backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>Flow Analysis</span>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-6">
@@ -2169,19 +2182,26 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                             return (
                                 <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                    <CardHeader className="pb-2 px-3 md:px-6">
-                                        <div className="flex items-center justify-between">
+                                    {/* ── Panel Banner S3 ── */}
+                                    <CardHeader
+                                        className="pb-3 pt-4 px-3 md:px-6 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                        style={{ background: 'var(--accent-gradient)' }}
+                                    >
+                                        <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 90, height: 90, top: -30, right: '12%', opacity: 0.14, background: 'rgba(255,255,255,0.2)' }} />
+                                        <div className="relative z-10 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
-                                                <CardTitle className="text-sm sm:text-base md:text-lg">8-Day Hourly</CardTitle>
-                                                <span className="hidden sm:inline px-2 py-0.5 text-xs bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-bold rounded-md border border-indigo-300 dark:border-indigo-600" title="Press ⌘+Shift to toggle Hourly/Daily">⌘+Shift</span>
+                                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                                                </div>
+                                                <CardTitle className="font-display font-semibold text-white text-sm sm:text-base md:text-lg" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>8-Day Hourly</CardTitle>
+                                                <span className="hidden sm:inline px-2 py-0.5 text-xs font-bold rounded-md backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }} title="Press ⌘+Shift to toggle Hourly/Daily">⌘+Shift</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                    className="h-8 text-xs text-white backdrop-blur-[8px] border min-h-[36px] hover:bg-white/25"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                     onClick={() => {
                                                         setPanelChartType(prev => {
                                                             const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2198,7 +2218,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
+                                                    className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                                     onClick={() => setExpandedChart({
                                                         type: 'hourly_overlay',
                                                         title: '8-Day Hourly Comparison'
@@ -2238,18 +2258,25 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                             return (
                                 <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                    <CardHeader className="pb-2 px-3 md:px-6">
-                                        <div className="flex items-center justify-between">
+                                    {/* ── Panel Banner S3 ── */}
+                                    <CardHeader
+                                        className="pb-3 pt-4 px-3 md:px-6 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                        style={{ background: 'var(--accent-gradient)' }}
+                                    >
+                                        <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 90, height: 90, top: -30, right: '8%', opacity: 0.15, background: 'rgba(255,255,255,0.2)' }} />
+                                        <div className="relative z-10 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
-                                                <CardTitle className="text-sm sm:text-base md:text-lg">Daily Overlay</CardTitle>
+                                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                                                </div>
+                                                <CardTitle className="font-display font-semibold text-white text-sm sm:text-base md:text-lg" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>Daily Overlay</CardTitle>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                                    className="h-8 text-xs text-white backdrop-blur-[8px] border min-h-[36px] hover:bg-white/25"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                     onClick={() => {
                                                         setPanelChartType(prev => {
                                                             const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2268,7 +2295,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         <Button
                                                             variant="ghost"
                                                             size="icon"
-                                                            className="h-7 w-7 ml-2 text-gray-500 hover:text-indigo-600"
+                                                            className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                                             onClick={() => setExpandedChart({
                                                                 type: 'daily_overlay',
                                                                 title: 'Daily Overlay Comparison'
@@ -2322,19 +2349,26 @@ export const MainPanelSection = React.memo(function MainPanelSection({
 
                             return (
                                 <Card className={cn("relative border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                    <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                    <CardHeader className="pb-2 px-3 md:px-6">
-                                        <div className="flex items-center justify-between">
+                                    {/* ── Panel Banner S3 ── */}
+                                    <CardHeader
+                                        className="pb-3 pt-4 px-3 md:px-6 relative overflow-hidden min-h-[72px] border-b border-white/10"
+                                        style={{ background: 'var(--accent-gradient)' }}
+                                    >
+                                        <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 80, height: 80, top: -25, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.2)' }} />
+                                        <div className="relative z-10 flex items-center justify-between">
                                             <div className="flex items-center gap-2">
-                                                <TrendingUp className="h-5 w-5 text-emerald-600" />
-                                                <CardTitle className="text-base md:text-lg">Daily Trends with Average Line</CardTitle>
-                                                <span className="text-xs text-muted-foreground">({daysDiff} days)</span>
+                                                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                    <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                                                </div>
+                                                <CardTitle className="font-display font-semibold text-white text-base md:text-lg" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>Daily Trends with Average Line</CardTitle>
+                                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>({daysDiff} days)</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-xs bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                                    className="h-8 text-xs text-white backdrop-blur-[8px] border min-h-[36px] hover:bg-white/25"
+                                                    style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                     onClick={() => {
                                                         setPanelChartType(prev => {
                                                             const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2372,20 +2406,23 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     return (
                         <div>
                             <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                <CardHeader className="pb-2 px-3 md:px-6">
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                                {/* ── Panel Banner S3 ── */}
+                                <CardHeader
+                                    className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                    style={{ background: 'var(--accent-gradient)' }}
+                                >
+                                    <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 140, height: 140, top: -50, right: '8%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                    <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 80, height: 80, bottom: -25, left: '5%', opacity: 0.12, background: 'rgba(255,255,255,0.18)' }} />
+                                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
-                                            <div
-                                                className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20"
-                                            >
+                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
                                                 <BarChart3 className="h-5 w-5 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <CardTitle className="text-base md:text-lg flex items-center gap-2">
-                                                    {/* API Event Indicator Badge */}
+                                                <CardTitle className="font-display font-semibold text-white text-base md:text-[22px] flex items-center gap-2" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>
+                                                    {/* API Event frosted badge */}
                                                     {profile?.panels?.[0]?.filterConfig?.isApiEvent === true && (
-                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-gray-500 to-slate-600 text-white shadow-md">
+                                                        <span className="px-2 py-0.5 rounded-full text-xs font-bold text-white backdrop-blur-[8px] border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                                             API
                                                         </span>
                                                     )}
@@ -2404,7 +2441,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                         return 'Daily Event Trends with Average';
                                                     })()}
                                                 </CardTitle>
-                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                     {isHourly ? (
                                                         <span className="hidden md:inline">
                                                             {(() => {
@@ -2422,7 +2459,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             {/* AI Insights Button - Admin Only */}
                                             {isAdmin && (
                                                 <AiInsightsBadge
@@ -2435,10 +2472,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 />
                                             )}
 
+                                            {/* frosted glass overlay toggle */}
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="h-9 text-sm font-semibold bg-white dark:bg-slate-800 border-indigo-300 dark:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 px-4"
+                                                className="h-9 text-sm font-semibold text-white backdrop-blur-[8px] border min-h-[44px] px-4 hover:bg-white/25"
+                                                style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}
                                                 onClick={() => {
                                                     setPanelChartType(prev => {
                                                         const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2460,15 +2499,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     return mainChartType === 'deviation' ? '← Event Trends' : 'Daily Overlay →';
                                                 })()}
                                             </Button>
-                                            {/* Hourly/Daily Toggle */}
-                                            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-1 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                            {/* frosted-glass Hourly/Daily Toggle */}
+                                            <div className="flex items-center rounded-xl p-1 border backdrop-blur-[8px]" style={{ background: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                                 <button
                                                     onClick={() => setHourlyOverride?.(true)}
                                                     className={cn(
-                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
+                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-h-[36px]",
                                                         isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
-                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
+                                                            ? "bg-white/30 text-white shadow-md"
+                                                            : "text-white/70 hover:text-white hover:bg-white/15"
                                                     )}
                                                 >
                                                     Hourly
@@ -2476,10 +2515,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <button
                                                     onClick={() => setHourlyOverride?.(false)}
                                                     className={cn(
-                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200",
+                                                        "px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-h-[36px]",
                                                         !isHourly
-                                                            ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-md ring-1 ring-gray-200 dark:ring-gray-500/30"
-                                                            : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50"
+                                                            ? "bg-white/30 text-white shadow-md"
+                                                            : "text-white/70 hover:text-white hover:bg-white/15"
                                                     )}
                                                 >
                                                     Daily
@@ -2488,7 +2527,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-7 w-7 text-gray-500 hover:text-indigo-600"
+                                                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                                 onClick={() => {
                                                     // Determine current chart type and render correct expanded view
                                                     const mainPanelId = profile?.panels?.[0]?.panelId;
@@ -2985,19 +3024,24 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 avgEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
                         <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                            <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                            <CardHeader className="pb-2 px-3 md:px-6">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                            {/* ── Panel Banner S3 ── */}
+                            <CardHeader
+                                className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                style={{ background: 'var(--accent-gradient)' }}
+                            >
+                                <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 120, height: 120, top: -40, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 70, height: 70, bottom: -20, left: '6%', opacity: 0.12, background: 'rgba(255,255,255,0.18)' }} />
+                                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                        <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
                                             {(() => {
                                                 const firstAvgEvent = avgEventKeys[0];
                                                 const avgEventType = firstAvgEvent?.isAvgEvent || 0;
-                                                return avgEventType === 2 ? <DollarSign className="h-6 w-6 text-white" /> : <Clock className="h-6 w-6 text-white" />;
+                                                return avgEventType === 2 ? <DollarSign className="h-5 w-5 text-white" /> : <Clock className="h-5 w-5 text-white" />;
                                             })()}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg">
+                                            <CardTitle className="font-display font-semibold text-white text-base md:text-[22px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>
                                                 {(() => {
                                                     const firstAvgEvent = avgEventKeys[0];
                                                     const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3006,7 +3050,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                     return 'Time Delay Trends';
                                                 })()}
                                             </CardTitle>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                 {(() => {
                                                     const firstAvgEvent = avgEventKeys[0];
                                                     const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3023,7 +3067,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-xs font-semibold px-2.5 py-1 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">
+                                        <span className="text-xs font-semibold px-2.5 py-1.5 min-h-[36px] flex items-center rounded-lg backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                             {(() => {
                                                 const firstAvgEvent = avgEventKeys[0];
                                                 const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3034,7 +3078,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-7 w-7 ml-1 text-gray-500 hover:text-indigo-600"
+                                            className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
                                             onClick={() => {
                                                 const firstAvgEvent = avgEventKeys[0];
                                                 const avgEventType = firstAvgEvent?.isAvgEvent || 0;
@@ -3226,23 +3270,28 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     return (
                         <div>
                             <Card className={cn("relative border border-blue-200/60 dark:border-blue-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                                <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                                <CardHeader className="pb-2 px-3 md:px-6">
-                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                                {/* ── Panel Banner S3 ── */}
+                                <CardHeader
+                                    className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                    style={{ background: 'var(--accent-gradient)' }}
+                                >
+                                    <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 120, height: 120, top: -40, right: '10%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                    <div className="glass-orb glass-orb-2 pointer-events-none" style={{ width: 70, height: 70, bottom: -20, left: '5%', opacity: 0.12, background: 'rgba(255,255,255,0.18)' }} />
+                                    <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                                                <Activity className="h-6 w-6 text-white" />
+                                            <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
+                                                <Activity className="h-5 w-5 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <CardTitle className="text-base md:text-lg">API Performance Metrics</CardTitle>
-                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                <CardTitle className="font-display font-semibold text-white text-base md:text-[22px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>API Performance Metrics</CardTitle>
+                                                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                     <span className="hidden md:inline">Response times, data transfer, and status code distribution</span>
                                                     <span className="md:hidden">API timing and status metrics</span>
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs font-semibold px-2.5 py-1 rounded bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">API Events</span>
+                                            <span className="text-xs font-semibold px-2.5 py-1.5 min-h-[36px] flex items-center rounded-lg backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>API Events</span>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -3491,31 +3540,35 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 errorEventKeys.length > 0 && !isFirstPanelSpecialGraph && (
                     <div>
                         <Card className={cn("relative border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.5)] rounded-2xl hover:shadow-card-hover transition-all duration-500 backdrop-blur-xl", themeClasses.cardBg, themeClasses.cardHoverBorder)}>
-                            <div className={cn("absolute top-0 left-0 right-0 h-1.5 transition-all duration-500 z-30", themeClasses.headerGradient)} />
-                            <CardHeader className="pb-2 px-3 md:px-6">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                            {/* ── Panel Banner S3 ── */}
+                            <CardHeader
+                                className="pb-3 pt-5 px-3 md:px-6 relative overflow-hidden min-h-[80px] border-b border-white/10"
+                                style={{ background: 'var(--accent-gradient)' }}
+                            >
+                                <div className="glass-orb glass-orb-1 pointer-events-none" style={{ width: 110, height: 110, top: -35, right: '12%', opacity: 0.15, background: 'rgba(255,255,255,0.22)' }} />
+                                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                                        <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg bg-white/20 backdrop-blur-sm border border-white/30 shrink-0">
                                             <AlertTriangle className="h-5 w-5 text-white" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <CardTitle className="text-base md:text-lg">Error Event Tracking</CardTitle>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                            <CardTitle className="font-display font-semibold text-white text-base md:text-[22px]" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.15)' }}>Error Event Tracking</CardTitle>
+                                            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.7)' }}>
                                                 <span className="hidden md:inline">Failed event counts over time • Red line = Failed Count</span>
                                                 <span className="md:hidden">Failed count tracking for isError events</span>
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {/* Hourly/Daily Toggle */}
-                                        <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+                                        {/* frosted-glass Hourly/Daily Toggle */}
+                                        <div className="flex items-center rounded-lg p-0.5 border backdrop-blur-[8px]" style={{ background: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)' }}>
                                             <button
                                                 onClick={() => setHourlyOverride?.(true)}
                                                 className={cn(
-                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 min-h-[36px]",
                                                     isHourly
-                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
-                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                        ? "bg-white/30 text-white shadow-sm"
+                                                        : "text-white/70 hover:text-white hover:bg-white/15"
                                                 )}
                                             >
                                                 Hourly
@@ -3523,16 +3576,16 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                             <button
                                                 onClick={() => setHourlyOverride?.(false)}
                                                 className={cn(
-                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200",
+                                                    "px-2 py-1 text-xs font-medium rounded-md transition-all duration-200 min-h-[36px]",
                                                     !isHourly
-                                                        ? "bg-white dark:bg-slate-600 text-gray-700 dark:text-gray-200 shadow-sm"
-                                                        : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                                                        ? "bg-white/30 text-white shadow-sm"
+                                                        : "text-white/70 hover:text-white hover:bg-white/15"
                                                 )}
                                             >
                                                 Daily
                                             </button>
                                         </div>
-                                        <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400">isError Events</span>
+                                        <span className="text-[10px] font-bold px-2 py-1 rounded backdrop-blur-[8px] text-white border" style={{ background: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.25)' }}>isError Events</span>
                                     </div>
                                 </div>
                             </CardHeader>

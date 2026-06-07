@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Clock,
     Activity,
@@ -16,6 +16,8 @@ import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import { CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { EnhancedCard } from '@/components/ui/enhanced-card';
+import { useCountUp } from '@/hooks/useCountUp';
+import { useInView } from '@/hooks/useInView';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip, Bar, Cell, ReferenceLine } from 'recharts';
@@ -34,6 +36,22 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
     const { t: themeClasses } = useAccentTheme();
     const [selectedHour, setSelectedHour] = useState(new Date().getHours());
     const [selectedEventKey, setSelectedEventKey] = useState<string | null>(null);
+
+    // ── hooks must be unconditional — declared before any early return ───────
+    const { ref: cardRef, inView: cardInView } = useInView<HTMLDivElement>();
+    // Targets are resolved later; placeholders are 0 so count-up is gated by `start`
+    // We use a two-pass approach: hooks fire with 0 while data is absent (gated off),
+    // then re-fire with real values once the component is visible and data available.
+    const [countTargets, setCountTargets] = useState({
+        overallTotal: 0, overallSuccessRate: 0,
+        selectedTotal: 0, selectedSuccess: 0, selectedFail: 0, selectedSuccessRate: 0,
+    });
+    const { formatted: fmtOverallTotal } = useCountUp(countTargets.overallTotal, { start: cardInView });
+    const { formatted: fmtOverallSuccessRate } = useCountUp(countTargets.overallSuccessRate, { start: cardInView, decimals: 1 });
+    const { formatted: fmtSelectedTotal } = useCountUp(countTargets.selectedTotal, { start: cardInView });
+    const { formatted: fmtSelectedSuccess } = useCountUp(countTargets.selectedSuccess, { start: cardInView });
+    const { formatted: fmtSelectedFail } = useCountUp(countTargets.selectedFail, { start: cardInView });
+    const { formatted: fmtSelectedSuccessRate } = useCountUp(countTargets.selectedSuccessRate, { start: cardInView, decimals: 1 });
 
     if (!isHourly || !graphData || graphData.length === 0) return null;
 
@@ -155,16 +173,55 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
         return `${hour12}${period}`;
     };
 
+    // ── sync computed values to count-up targets ─────────────────────────────
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        setCountTargets({
+            overallTotal: isAvgEvent ? 0 : overallTotal,
+            overallSuccessRate,
+            selectedTotal: isAvgEvent ? 0 : selectedStats.total,
+            selectedSuccess: selectedStats.success,
+            selectedFail: selectedStats.fail,
+            selectedSuccessRate,
+        });
+    }, [isAvgEvent, overallTotal, overallSuccessRate, selectedStats.total, selectedStats.success, selectedStats.fail, selectedSuccessRate]);
+
     return (
+        <div
+            ref={cardRef}
+            className="group transition-all duration-[280ms] rounded-2xl"
+            style={{
+                transform: "translateY(0px)",
+                transition: "transform 280ms var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)), box-shadow 280ms ease",
+            }}
+            onMouseEnter={(e) => {
+                (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)";
+            }}
+            onMouseLeave={(e) => {
+                (e.currentTarget as HTMLDivElement).style.transform = "translateY(0px)";
+            }}
+        >
         <EnhancedCard
             variant="glass"
             glow={true}
-            className={cn("rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border", themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.cardAccentBg, themeClasses.cardAccentBgDark)}
+            className={cn(
+                "rounded-2xl border transition-shadow duration-[280ms]",
+                themeClasses.borderAccent, themeClasses.borderAccentDark,
+                themeClasses.cardAccentBg, themeClasses.cardAccentBgDark,
+                "group-hover:shadow-xl"
+            )}
         >
             <CardHeader className="pb-3 px-3 md:px-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                     <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+                        <div
+                            className="flex items-center justify-center rounded-full"
+                            style={{
+                                width: 44, height: 44,
+                                background: "var(--accent-gradient, linear-gradient(135deg, hsl(var(--accent-primary)) 0%, hsl(var(--accent-secondary)) 100%))",
+                                boxShadow: "0 4px 14px hsl(var(--accent-primary) / 0.3)",
+                            }}
+                        >
                             <Clock className="h-5 w-5 text-white" />
                         </div>
                         <div>
@@ -238,7 +295,7 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
                             </span>
                         </div>
                         <div className="text-base md:text-lg font-bold text-blue-600">
-                            {isAvgEvent ? formatDelay(overallAvgDelay) : overallTotal.toLocaleString()}
+                            {isAvgEvent ? formatDelay(overallAvgDelay) : fmtOverallTotal}
                         </div>
                         <div className="text-[10px] text-muted-foreground">{selectedEventKey ? eventKeys.find(e => e.eventKey === selectedEventKey)?.eventName : 'All events'}</div>
                     </div>
@@ -250,7 +307,7 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
                                 <InfoTooltip content="Percentage of events that completed successfully without errors." />
                             </span>
                         </div>
-                        <div className="text-lg font-bold text-emerald-600">{overallSuccessRate.toFixed(1)}%</div>
+                        <div className="text-lg font-bold text-emerald-600">{fmtOverallSuccessRate}%</div>
                         <div className="text-[10px] text-muted-foreground">{overallSuccess.toLocaleString()} succeeded</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-200/50 dark:border-amber-500/20">
@@ -425,22 +482,22 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                         <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
                             <div className="text-xl sm:text-2xl font-bold text-blue-600">
-                                {isAvgEvent ? formatDelay(selectedAvgDelay) : selectedStats.total.toLocaleString()}
+                                {isAvgEvent ? formatDelay(selectedAvgDelay) : fmtSelectedTotal}
                             </div>
                             <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">
                                 {isAvgEvent ? 'Avg Delay' : 'Total Events'}
                             </div>
                         </div>
                         <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-emerald-600">{selectedStats.success.toLocaleString()}</div>
+                            <div className="text-xl sm:text-2xl font-bold text-emerald-600">{fmtSelectedSuccess}</div>
                             <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Successful</div>
                         </div>
                         <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-red-600">{selectedStats.fail.toLocaleString()}</div>
+                            <div className="text-xl sm:text-2xl font-bold text-red-600">{fmtSelectedFail}</div>
                             <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Failed</div>
                         </div>
                         <div className="text-center p-2 sm:p-3 rounded-xl bg-white/80 dark:bg-gray-800/50 shadow-sm">
-                            <div className="text-xl sm:text-2xl font-bold text-gray-600">{selectedSuccessRate.toFixed(1)}%</div>
+                            <div className="text-xl sm:text-2xl font-bold text-gray-600">{fmtSelectedSuccessRate}%</div>
                             <div className="text-[9px] sm:text-[10px] text-muted-foreground uppercase font-medium">Success Rate</div>
                         </div>
                     </div>
@@ -470,5 +527,6 @@ export const HourlyStatsCard = React.memo(({ graphData, isHourly, eventKeys = []
                 </div>
             </CardContent>
         </EnhancedCard>
+        </div>
     );
 });
