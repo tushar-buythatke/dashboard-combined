@@ -340,6 +340,8 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
+console.log("checking acknowledgement of the jules review, long")
+
 function SidebarSeparator({
   className,
   ...props
