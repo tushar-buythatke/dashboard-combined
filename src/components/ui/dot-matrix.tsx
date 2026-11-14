@@ -53,6 +53,8 @@ export function DotMatrix({ text = 'hatke', className, gap = 11, variant = 'hero
         return;
       }
       cols = Math.floor(w / gap); rows = Math.floor(h / gap);
+      // Hidden or collapsed: nothing to sample yet; ResizeObserver rebuilds once visible.
+      if (cols < 1 || rows < 1) { mask = new Uint8Array(0); cols = rows = 0; return; }
 
       const off = document.createElement('canvas');
       off.width = cols; off.height = rows;

@@ -763,7 +763,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                         { k: 'Average / day', v: formatNumber(overallAvg) },
                         { k: `Peak · ${peak?.date ?? '-'}`, v: formatNumber(peak?.value ?? 0) },
                         { k: `Latest · ${latest?.date ?? '-'}`, v: formatNumber(latest?.value ?? 0) },
-                        { k: 'Latest vs average', v: `${latestVsAvg >= 0 ? '+' : ''}${latestVsAvg.toFixed(1)}%`, tone: latestVsAvg >= 0 ? 'var(--e-mint)' : 'var(--e-coral)' },
+                        { k: 'Latest vs average', v: `${latestVsAvg >= 0 ? '+' : ''}${latestVsAvg.toFixed(1)}%`, tone: latestVsAvg >= 0 ? 'var(--e-mint)' : 'var(--e-red)' },
                     ].map((x) => (
                         <div key={x.k} className="rounded-[18px] px-4 py-3" style={{ background: 'var(--e-surface-2)' }}>
                             <p className="truncate text-[11.5px]" style={{ color: 'var(--e-ink-3)' }}>{x.k}</p>

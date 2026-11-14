@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { Eye, EyeOff, Lock, User, LogIn, UserPlus, Clock, QrCode, Smartphone, CheckCircle2, RefreshCw, ArrowRight, Copy, Loader2, ShieldCheck, ShieldAlert, Settings2, Building2, Sun, Moon } from 'lucide-react'
+import { DotMatrix } from '@/components/ui/dot-matrix'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
@@ -94,7 +95,10 @@ export default function AuthLogin() {
     const [resetLoading, setResetLoading] = useState(false)
     const [resetUserData, setResetUserData] = useState<{ userId: number; userName: string } | null>(null)
 
-    const themeGradient = THEME_GRADIENTS[actualTheme] || THEME_GRADIENTS.aurora
+    // Solid accent per theme (hex so existing `${color}40` alpha suffixes keep working).
+    const ACCENT_HEX: Record<string, string> = { aurora: '#e5603f', indigo: '#1f7ae0', sunset: '#d98a12', forest: '#3f8f5a', midnight: '#6d4cff', afterhours: '#2f5bff' }
+    const accentHex = ACCENT_HEX[actualTheme as string] || ACCENT_HEX.aurora
+    const themeGradient = { ...(THEME_GRADIENTS[actualTheme] || THEME_GRADIENTS.aurora), from: accentHex, to: accentHex }
     const isDark = mode === 'dark'
 
     // Redirect if already authenticated - only check on mount
@@ -586,12 +590,9 @@ export default function AuthLogin() {
         background: `linear-gradient(135deg, ${themeGradient.from}, ${themeGradient.to})`,
     } as React.CSSProperties
 
-    const glowRingStyle = {
-        boxShadow: `0 0 30px ${themeGradient.from}4D`,
-    } as React.CSSProperties
 
     const renderTabs = () => (
-        <div className={`flex rounded-full p-1 mb-6 relative ${isDark ? 'bg-black/20 backdrop-blur-sm' : 'bg-slate-200/50'}`}>
+        <div className="flex rounded-full p-1 mb-6 relative" style={{ background: 'var(--e-surface-3)' }}>
             {flowState !== 'forgot' && (
                 <>
                     <motion.div
@@ -1062,125 +1063,100 @@ export default function AuthLogin() {
     )
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ background: isDark ? '#020617' : '#f8fafc' }}>
-            {/* Animated Mesh Gradient Background */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="mesh-blob mesh-blob-1 w-[500px] h-[500px] -top-32 -left-32" />
-                <div className="mesh-blob mesh-blob-2 w-[600px] h-[600px] top-1/3 -right-48" />
-                <div className="mesh-blob mesh-blob-3 w-[450px] h-[450px] -bottom-32 left-1/4" />
-                <div className="mesh-blob mesh-blob-4 w-[400px] h-[400px] top-1/4 left-1/2" />
-            </div>
-
-            {/* Floating Glass Orbs */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="glass-orb glass-orb-1 w-96 h-96 top-[10%] left-[5%] opacity-30" />
-                <div className="glass-orb glass-orb-2 w-80 h-80 top-[60%] right-[8%] opacity-20" />
-                <div className="glass-orb glass-orb-3 w-72 h-72 bottom-[15%] left-[20%] opacity-25" />
-            </div>
-
-            {/* Noise Texture Overlay */}
-            <div className="noise-overlay" />
-
-            {/* Theme Toggle - Top Right */}
-            <button
-                onClick={toggleMode}
-                className={`fixed top-4 right-4 z-50 h-10 w-10 rounded-full flex items-center justify-center transition-all hover:scale-110 ${isDark ? 'bg-white/10 backdrop-blur-md border border-white/20' : 'bg-white/60 backdrop-blur-md border border-white/40'}`}
-                aria-label="Toggle theme"
-            >
-                {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-600" />}
-            </button>
-
-            <motion.div
-                className={`w-full transition-all duration-500 relative z-10 ${flowState === 'signup' ? 'max-w-xl' : 'max-w-[420px]'}`}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-            >
-                {/* Glassmorphism Card */}
-                <div className={`relative overflow-hidden rounded-[28px] p-8 ${isDark ? 'glass-v3-dark' : 'glass-v3-light'}`}>
-                    {/* Subtle inner glow */}
-                    <div className="absolute inset-0 rounded-[28px] pointer-events-none" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1)' }} />
-
-                    {/* Logo Area */}
-                    <motion.div
-                        className="flex flex-col items-center mb-6"
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1, type: 'spring', bounce: 0.4 }}
-                    >
-                        <div
-                            className="h-[72px] w-[72px] rounded-2xl p-2 shadow-lg mb-4 relative z-10 flex items-center justify-center"
-                            style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.8)', border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.6)'}`, ...glowRingStyle }}
-                        >
-                            <img src="/assets/logo_512x512.png" alt="Logo" className="w-full h-full object-contain" />
+        <div className="min-h-screen w-full p-3 sm:p-4 lg:p-5" style={{ background: 'var(--e-canvas)' }}>
+            <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-[1500px] grid-cols-1 gap-4 lg:min-h-[calc(100vh-2.5rem)] lg:grid-cols-[1.15fr_1fr]">
+                {/* Brand panel */}
+                <div className="relative hidden overflow-hidden rounded-[36px] lg:flex lg:flex-col" style={{ background: '#0c0c0b' }}>
+                    <div className="pointer-events-none absolute inset-0" style={{ background: `radial-gradient(70% 55% at 30% 10%, ${themeGradient.from}55, transparent 70%), radial-gradient(50% 40% at 100% 100%, ${themeGradient.from}33, transparent 70%)` }} />
+                    <div className="relative z-10 flex items-center gap-3 p-8">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 p-2">
+                            <img src="/assets/logo_512x512.png" alt="Buyhatke" className="h-full w-full object-contain" />
                         </div>
-
-                        {/* Title with gradient and shimmer */}
-                        <h1
-                            className="text-3xl font-bold tracking-tight text-center text-shimmer"
-                            style={{
-                                ...gradientTextStyle,
-                                backgroundSize: '200% auto',
-                            }}
-                        >
-                            Feature Tracking Dashboard
-                        </h1>
-
-                        {/* Subtitle */}
-                        <motion.p
-                            className={`mt-2 text-sm text-center ${isDark ? 'text-white/50' : 'text-slate-500'}`}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.3 }}
-                        >
-                            Sign in to access analytics & insights
-                        </motion.p>
-                    </motion.div>
-
-                    {/* Error Alert */}
-                    <AnimatePresence>
-                        {error && (
-                            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mb-4">
-                                <Alert variant="destructive" className="py-2 rounded-xl border-red-500/30 bg-red-500/10">
-                                    <AlertDescription className="text-red-400">{error}</AlertDescription>
-                                </Alert>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* Form Content */}
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={flowState}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.2 }}
-                        >
-                            {(flowState === 'login' || flowState === 'signup') && renderTabs()}
-                            {flowState === 'login' && renderLoginForm()}
-                            {flowState === 'forgot' && renderForgotPassword()}
-                            {flowState === 'signup' && renderSignupForm()}
-                            {flowState === 'setup2fa' && render2FASetup()}
-                            {flowState === 'waiting' && renderWaitingApproval()}
-                            {flowState === 'verifyotp' && renderOTPVerification()}
-                        </motion.div>
-                    </AnimatePresence>
-
-                    {/* Protected by Buyhatke Guard */}
-                    <div className="text-center pt-6 mt-4 border-t" style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(148,163,184,0.15)' }}>
-                        <p className={`text-[10px] uppercase tracking-widest font-bold flex items-center justify-center gap-1.5 ${isDark ? 'text-white/20' : 'text-slate-400'}`}>
-                            <ShieldCheck className="w-3 h-3 animate-pulse" style={{ color: themeGradient.from }} />
-                            Protected by Buyhatke Guard
-                        </p>
+                        <div className="h-7 w-[150px]"><DotMatrix text="buyhatke" variant="mark" /></div>
+                    </div>
+                    <div className="relative z-10 min-h-[260px] flex-1 px-4">
+                        <DotMatrix text="hatke" gap={13} />
+                    </div>
+                    <div className="relative z-10 p-8 pt-0">
+                        <h2 className="text-[clamp(2.4rem,4vw,3.6rem)] font-medium leading-[0.98] tracking-[-0.04em] text-white" style={{ fontFamily: 'var(--font-display)' }}>
+                            Every feature.<br />Every event. <span style={{ color: themeGradient.from }}>Live.</span>
+                        </h2>
+                        <div className="mt-6 flex flex-wrap gap-2">
+                            {['Critical alerts', 'Hourly heat grids', 'Funnels & ratios', 'AI chat on your data'].map((t) => (
+                                <span key={t} className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[12.5px] font-bold text-white/80">{t}</span>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className={`mt-6 text-center text-xs ${isDark ? 'text-white/15' : 'text-slate-400'}`}>
-                    <p> 2026 Buyhatke Technologies Pvt. Ltd.</p>
+                {/* Form side */}
+                <div className="relative flex flex-col">
+                    <div className="flex items-center justify-between px-2 pt-2">
+                        <div className="flex items-center gap-3 lg:invisible">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full p-2" style={{ background: 'var(--e-ink-pill)' }}>
+                                <img src="/assets/logo_512x512.png" alt="Buyhatke" className="h-full w-full object-contain" />
+                            </div>
+                            <div className="h-6 w-[128px]"><DotMatrix text="buyhatke" variant="mark" /></div>
+                        </div>
+                        <button onClick={toggleMode} className="e-round" aria-label="Toggle theme">
+                            {mode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                        </button>
+                    </div>
+
+                    <div className="flex flex-1 items-center justify-center py-8">
+                        <motion.div
+                            className={`w-full px-2 ${flowState === 'signup' ? 'max-w-xl' : 'max-w-[440px]'}`}
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                            <div className="mb-7">
+                                <p className="text-[13px] font-bold" style={{ color: themeGradient.from }}>Feature tracking dashboard</p>
+                                <h1 className="mt-2 text-[clamp(2.4rem,5vw,3.4rem)] font-medium leading-[0.98] tracking-[-0.04em]" style={{ fontFamily: 'var(--font-display)', color: 'var(--e-ink)' }}>
+                                    {flowState === 'signup' ? 'Create your account' : flowState === 'forgot' ? 'Reset access' : 'Welcome back'}
+                                </h1>
+                                <p className="mt-3 text-[14px]" style={{ color: 'var(--e-ink-3)' }}>
+                                    {flowState === 'signup' ? 'Use your work email. An admin approves new accounts.' : 'Sign in to your analytics and alerts.'}
+                                </p>
+                            </div>
+
+                            <AnimatePresence>
+                                {error && (
+                                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="mb-4">
+                                        <Alert variant="destructive" className="rounded-[18px] border-0 py-2.5" style={{ background: 'color-mix(in srgb, var(--e-red) 12%, transparent)' }}>
+                                            <AlertDescription style={{ color: 'var(--e-red)' }}>{error}</AlertDescription>
+                                        </Alert>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={flowState}
+                                    initial={{ opacity: 0, x: 16 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -16 }}
+                                    transition={{ duration: 0.2 }}
+                                >
+                                    {(flowState === 'login' || flowState === 'signup') && renderTabs()}
+                                    {flowState === 'login' && renderLoginForm()}
+                                    {flowState === 'forgot' && renderForgotPassword()}
+                                    {flowState === 'signup' && renderSignupForm()}
+                                    {flowState === 'setup2fa' && render2FASetup()}
+                                    {flowState === 'waiting' && renderWaitingApproval()}
+                                    {flowState === 'verifyotp' && renderOTPVerification()}
+                                </motion.div>
+                            </AnimatePresence>
+
+                            <p className="mt-8 flex items-center gap-1.5 text-[12px] font-bold" style={{ color: 'var(--e-ink-3)' }}>
+                                <ShieldCheck className="h-3.5 w-3.5" style={{ color: themeGradient.from }} />
+                                Protected by Buyhatke Guard · 2FA on every account
+                            </p>
+                        </motion.div>
+                    </div>
+                    <p className="px-2 pb-2 text-[11.5px]" style={{ color: 'var(--e-ink-3)' }}>© 2026 Buyhatke Technologies Pvt. Ltd.</p>
                 </div>
-            </motion.div>
+            </div>
         </div>
     )
 }

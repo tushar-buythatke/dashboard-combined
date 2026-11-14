@@ -86,6 +86,7 @@ import {
 } from 'recharts';
 
 import { AnimatedNumber } from './AnimatedNumber';
+import { PanelDeepDive } from './PanelDeepDive';
 import { MiniSparkline } from './MiniSparkline';
 import { CollapsibleLegend } from './CollapsibleLegend';
 import { PieTooltip } from './PieTooltip';
@@ -1577,6 +1578,12 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     );
                 })()
             }
+
+            {normalEventKeys.length > 0 && (() => {
+                const gt = (profile?.panels?.[0] as any)?.filterConfig?.graphType;
+                if (gt === 'percentage' || gt === 'funnel' || gt === 'user_flow') return null;
+                return <PanelDeepDive graphData={graphData} eventKeys={normalEventKeys} isHourly={isHourly} />;
+            })()}
 
             {/* Main Chart - Count Events Only */}
             {

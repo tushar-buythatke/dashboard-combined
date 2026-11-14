@@ -65,7 +65,7 @@ function getSeverity(count: number): 'none' | 'amber' | 'orange' | 'rose' {
 const SEVERITY_STYLE = {
   none: { bg: 'rgba(20,163,95,0.10)', fg: 'var(--e-mint)', label: 'All clear' },
   amber: { bg: 'rgba(235,161,43,0.14)', fg: '#b7770f', label: 'alerts' },
-  orange: { bg: 'rgba(229,96,63,0.12)', fg: 'var(--e-coral)', label: 'alerts' },
+  orange: { bg: 'rgba(229,96,63,0.12)', fg: '#e5603f', label: 'alerts' },
   rose: { bg: 'rgba(226,71,127,0.12)', fg: '#d0335f', label: 'alerts' },
 } as const;
 
