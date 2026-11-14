@@ -929,7 +929,8 @@ export const AdditionalPanelItem = React.memo(({
                                                                             innerRadius="52%"
                                                                             outerRadius="76%"
                                                                             paddingAngle={2}
-                                                                            dataKey="value"
+                                                                            cornerRadius={6}
+                                                                dataKey="value"
                                                                             isAnimationActive={false}
                                                                             stroke={colors.surface}
                                                                             strokeWidth={2}
@@ -1028,11 +1029,11 @@ export const AdditionalPanelItem = React.memo(({
                                                 <defs>
                                                     {/* Breakdown-specific gradients */}
                                                     <linearGradient id={`apiBdServer_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stopColor={colors.palette[3]} stopOpacity={0.3} />
+                                                        <stop offset="0%" stopColor={colors.palette[3]} stopOpacity={0.26} />
                                                         <stop offset="100%" stopColor={colors.palette[3]} stopOpacity={0} />
                                                     </linearGradient>
                                                     <linearGradient id={`apiBdNetwork_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="0%" stopColor={colors.avg} stopOpacity={0.3} />
+                                                        <stop offset="0%" stopColor={colors.avg} stopOpacity={0.26} />
                                                         <stop offset="100%" stopColor={colors.avg} stopOpacity={0} />
                                                     </linearGradient>
                                                     {/* Per-series area gradients */}
@@ -1040,7 +1041,7 @@ export const AdditionalPanelItem = React.memo(({
                                                         const c = colors.palette[idx % colors.palette.length];
                                                         return (
                                                             <linearGradient key={`apiareagrad_${panel.panelId}_${idx}`} id={`apiAreaGrad_${panel.panelId}_${idx}`} x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="0%" stopColor={c} stopOpacity={0.3} />
+                                                                <stop offset="0%" stopColor={c} stopOpacity={0.26} />
                                                                 <stop offset="100%" stopColor={c} stopOpacity={0} />
                                                             </linearGradient>
                                                         );

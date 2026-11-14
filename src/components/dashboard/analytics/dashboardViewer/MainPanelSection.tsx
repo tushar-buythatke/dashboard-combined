@@ -98,8 +98,7 @@ import { ChartExpandedView } from '../components/ChartExpandedView';
 import { combinePieChartDuplicates, PIE_COLORS, shouldShowPieChart } from './constants';
 
 const EVENT_COLORS = [
-    '#a855f7', '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
-    '#06b6d4', '#8b5cf6', '#ec4899', '#f43f5e', '#14b8a6'
+    '#e5603f', '#2f6bff', '#14a35f', '#eba12b', '#7c6feb', '#e2477f', '#0ea5b7', '#f39a6a', '#5b8c3a', '#8a8880',
 ];
 
 // Professional Pie Tooltip
@@ -466,19 +465,17 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                 {filtersFlash && (
                     <div className="absolute inset-0 animate-pulse pointer-events-none z-20 opacity-20" style={{ background: 'var(--theme-gradient)' }} />
                 )}
-                {/* Gradient Accent Bar - Theme aware */}
-                <div className="absolute top-0 left-0 w-full h-[2px]" style={{ background: 'var(--theme-gradient)' }} />
 
-                <CardHeader className="pb-3 relative cursor-pointer select-none transition-colors command-bar rounded-xl m-2" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
+                <CardHeader className="py-4 px-5 relative cursor-pointer select-none" onClick={() => setFiltersCollapsed(!filtersCollapsed)}>
                     <div className="flex items-center justify-between gap-2">
                         <CardTitle className="text-base font-semibold flex items-center gap-2 min-w-0">
                             <div
-                                className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200"
-                                style={!filtersCollapsed ? { background: 'var(--theme-gradient)' } : undefined}
+                                className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-200"
+                                style={{ background: filtersCollapsed ? 'var(--e-surface-3)' : 'hsl(var(--accent-primary))' }}
                             >
-                                <Filter className={cn("h-3.5 w-3.5 transition-colors duration-200", filtersCollapsed ? "text-gray-500 dark:text-gray-300" : "text-white")} />
+                                <Filter className="h-4 w-4" style={{ color: filtersCollapsed ? 'var(--e-ink)' : '#fff' }} />
                             </div>
-                            <span className="font-semibold tracking-tight text-slate-800 dark:text-slate-100">Filters</span>
+                            <span className="text-[18px] font-medium tracking-[-0.02em]" style={{ fontFamily: 'var(--font-display)', color: 'var(--e-ink)' }}>Filters</span>
                             {/* API Event Badge */}
                             {isMainPanelApi && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white shadow-sm flex-shrink-0" style={{ background: 'var(--theme-gradient)' }}>
@@ -675,23 +672,15 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                     e.stopPropagation();
                                     setLocalChatbotOpen(true);
                                 }}
-                                className="h-8 gap-1.5 pl-3 pr-2 rounded-full text-sm font-medium transition-all duration-200 border hover:scale-[1.02] active:scale-[0.98]"
-                                style={{
-                                    background: 'var(--theme-primary-alpha)',
-                                    borderColor: 'color-mix(in srgb, var(--theme-primary) 25%, transparent)',
-                                    color: 'var(--theme-primary)',
-                                }}
+                                className="h-9 gap-2 pl-3.5 pr-2 rounded-full text-[13px] font-bold border-0 transition-opacity hover:opacity-90 active:scale-[0.97]"
+                                style={{ background: 'var(--e-ink-pill)', color: 'var(--e-canvas)' }}
                             >
-                                <Sparkles className="h-3.5 w-3.5" style={{ color: 'var(--theme-primary)' }} />
+                                <span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-ping rounded-full bg-[var(--e-mint)] opacity-60" /><span className="relative h-2 w-2 rounded-full bg-[var(--e-mint)]" /></span>
                                 <span>AI Chat</span>
                                 {/* Shortcut hint sits INSIDE the button so it reads as "⌘L opens AI Chat" */}
                                 <kbd
                                     className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 ml-0.5 rounded-md text-[10px] font-mono font-semibold leading-none select-none border"
-                                    style={{
-                                        background: 'color-mix(in srgb, var(--theme-primary) 16%, white)',
-                                        borderColor: 'color-mix(in srgb, var(--theme-primary) 26%, transparent)',
-                                        color: 'var(--theme-primary)',
-                                    }}
+                                    style={{ background: 'color-mix(in srgb, var(--e-canvas) 16%, transparent)', borderColor: 'transparent', color: 'var(--e-canvas)' }}
                                 >⌘L</kbd>
                             </Button>
                             {/* Collapse chevron */}
@@ -1486,188 +1475,104 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                     }
 
                     return (
-                        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5 mt-5">
-                            {/* Total Count Card */}
-                            <div
-                                className="group"
-                            >
-                                <Card className={cn("relative rounded-2xl transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg border bg-white/95 dark:bg-gray-900/95", themeClasses.borderAccent, themeClasses.borderAccentDark, themeClasses.cardHoverBorder)}>
-                                    {/* Gradient Accent Bar */}
-                                    <div className={cn("absolute top-0 left-0 w-full h-1 bg-gradient-to-r", themeClasses.headerGradient)} />
-
-                                    <CardContent className="pt-4 pb-4 relative">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <div
-                                                    className={cn("h-8 w-8 rounded-lg bg-gradient-to-br flex items-center justify-center shadow-md mb-2", themeClasses.buttonGradient)}
-                                                >
-                                                    <Hash className="h-4 w-4 text-white" />
-                                                </div>
-                                                <div
-                                                    className="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-white dark:to-slate-200 bg-clip-text text-transparent min-h-[32px]"
-                                                >
-                                                    {dataLoading ? <Skeleton className="h-8 w-24" /> : <AnimatedNumber value={totalCount} />}
-                                                </div>
-                                                <div className={cn("text-xs mt-0.5 font-medium flex items-center gap-1", themeClasses.textMuted)}>
-                                                    Total Events
-                                                    <InfoTooltip content="Grand total of all events recorded within the selected timeframe and filters." />
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-1">
-                                                <MiniSparkline data={graphData.slice(-7).map(d => d.count || 0)} color="#a855f7" />
-                                                <span
-                                                    className="flex items-center gap-1 text-xs text-gray-700 dark:text-gray-400"
-                                                >
-                                                    <Activity className="h-3 w-3" />
-                                                    <span>{Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24))} days</span>
+                        <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 mt-5 items-stretch">
+                            {(() => {
+                                const days = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
+                                const successRate = totalCount > 0 ? (totalSuccess / totalCount) * 100 : 0;
+                                const failRate = totalCount > 0 ? (totalFail / totalCount) * 100 : 0;
+                                const hasFailures = totalCount !== totalSuccess;
+                                const tile = (opts: {
+                                    key: string;
+                                    icon: React.ReactNode;
+                                    label: string;
+                                    info: string;
+                                    value: React.ReactNode;
+                                    chip?: React.ReactNode;
+                                    spark?: React.ReactNode;
+                                    tone?: string;
+                                }) => (
+                                    <div
+                                        key={opts.key}
+                                        className="flex min-h-[156px] flex-col rounded-[24px] p-5 transition-shadow duration-300"
+                                        style={{ background: 'var(--e-surface)', boxShadow: 'var(--dash-card-shadow)' }}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="flex items-center gap-2 text-[12.5px] font-bold" style={{ color: 'var(--e-ink-2)' }}>
+                                                <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: opts.tone ? `color-mix(in srgb, ${opts.tone} 14%, transparent)` : 'var(--e-surface-3)', color: opts.tone ?? 'var(--e-ink)' }}>
+                                                    {opts.icon}
                                                 </span>
-                                            </div>
+                                                {opts.label}
+                                                <InfoTooltip content={opts.info} />
+                                            </span>
+                                            {opts.chip}
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {/* Success Count Card — hidden when totalCount == totalSuccess (no failures) */}
-                            {totalCount !== totalSuccess && <div
-                                className="group"
-                            >
-                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-green-200/60 dark:border-green-500/30 hover:border-green-400/60 dark:hover:border-green-400/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
-                                    {/* Gradient Accent Bar */}
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-400" />
-
-                                    <CardContent className="pt-4 pb-4 relative">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <div
-                                                    className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent min-h-[32px]"
-                                                >
-                                                    {dataLoading ? <Skeleton className="h-8 w-20" /> : <AnimatedNumber value={totalSuccess} />}
-                                                </div>
-                                                <div className={cn("text-xs mt-0.5 font-medium flex items-center gap-1", themeClasses.textMuted)}>
-                                                    Success Count
-                                                    <InfoTooltip content="Total number of events that were processed successfully." />
-                                                </div>
+                                        <div className="mt-auto flex items-end justify-between gap-3 pt-4">
+                                            <div className="min-h-[40px] text-[34px] font-medium leading-none tracking-[-0.035em] tabular-nums" style={{ fontFamily: 'var(--font-display)', color: 'var(--e-ink)' }}>
+                                                {opts.value}
                                             </div>
-                                            <div className="flex flex-col items-end gap-2">
-                                                {/* Success Rate Badge */}
-                                                <span
-                                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${(totalSuccess / totalCount * 100) >= 90
-                                                        ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300'
-                                                        : (totalSuccess / totalCount * 100) >= 70
-                                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
-                                                            : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300'
-                                                        }`}
-                                                >
-                                                    {(totalSuccess / totalCount * 100) >= 90 ? (
-                                                        <ArrowUpRight className="h-3 w-3" />
-                                                    ) : (
-                                                        <ArrowDownRight className="h-3 w-3" />
-                                                    )}
-                                                    {totalCount > 0 ? ((totalSuccess / totalCount) * 100).toFixed(1) : 0}%
-                                                </span>
-                                                <MiniSparkline data={graphData.slice(-7).map(d => d.successCount || 0)} color="#22c55e" />
-                                            </div>
+                                            {opts.spark}
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            </div>}
-
-                            {/* Fail Count Card — hidden when totalCount == totalSuccess (no failures) */}
-                            {totalCount !== totalSuccess && <div
-                                className="group"
-                            >
-                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-red-200/60 dark:border-red-500/30 hover:border-red-400/60 dark:hover:border-red-400/50 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
-                                    {/* Gradient Accent Bar */}
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-orange-500 to-amber-400" />
-
-                                    <CardContent className="pt-4 pb-4 relative">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <div
-                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-md shadow-red-500/25 mb-2"
-                                                >
-                                                    <XCircle className="h-4 w-4 text-white" />
-                                                </div>
-                                                <div
-                                                    className="text-2xl font-bold bg-gradient-to-r from-red-600 to-orange-600 dark:from-white dark:to-slate-200 bg-clip-text text-transparent min-h-[32px]"
-                                                >
-                                                    {dataLoading ? <Skeleton className="h-8 w-16" /> : <AnimatedNumber value={totalFail} />}
-                                                </div>
-                                                <div className={cn("text-xs mt-0.5 font-medium flex items-center gap-1", themeClasses.textMuted)}>
-                                                    Fail Count
-                                                    <InfoTooltip content="Total number of events that encountered errors or failed processing." />
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-2">
-                                                {/* Alert indicator for high fail rate */}
-                                                {totalFail > 0 && (totalFail / totalCount * 100) > 10 && (
-                                                    <span
-                                                        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300"
-                                                    >
-                                                        <Flame className="h-3 w-3" />
-                                                        Alert
+                                    </div>
+                                );
+                                const chip = (text: React.ReactNode, tone: string) => (
+                                    <span className="inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-bold tabular-nums" style={{ background: `color-mix(in srgb, ${tone} 14%, transparent)`, color: tone }}>
+                                        {text}
+                                    </span>
+                                );
+                                return [
+                                    tile({
+                                        key: 'total',
+                                        icon: <Hash className="h-4 w-4" />,
+                                        label: 'Total events',
+                                        info: 'Grand total of all events recorded within the selected timeframe and filters.',
+                                        value: dataLoading ? <Skeleton className="h-9 w-28" /> : <AnimatedNumber value={totalCount} />,
+                                        chip: chip(`${days}d`, 'var(--e-ink-2)'),
+                                        spark: <MiniSparkline data={graphData.slice(-7).map(d => d.count || 0)} color="hsl(var(--accent-primary))" />,
+                                        tone: 'hsl(var(--accent-primary))',
+                                    }),
+                                    hasFailures && tile({
+                                        key: 'success',
+                                        icon: <CheckCircle2 className="h-4 w-4" />,
+                                        label: 'Success',
+                                        info: 'Total number of events that were processed successfully.',
+                                        value: dataLoading ? <Skeleton className="h-9 w-24" /> : <AnimatedNumber value={totalSuccess} />,
+                                        chip: chip(<>{successRate >= 90 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}{successRate.toFixed(1)}%</>, successRate >= 90 ? 'var(--e-mint)' : successRate >= 70 ? 'var(--e-amber)' : 'var(--e-red)'),
+                                        spark: <MiniSparkline data={graphData.slice(-7).map(d => d.successCount || 0)} color="var(--e-mint)" />,
+                                        tone: 'var(--e-mint)',
+                                    }),
+                                    hasFailures && tile({
+                                        key: 'fail',
+                                        icon: <XCircle className="h-4 w-4" />,
+                                        label: 'Failures',
+                                        info: 'Total number of events that encountered errors or failed processing.',
+                                        value: dataLoading ? <Skeleton className="h-9 w-20" /> : <AnimatedNumber value={totalFail} />,
+                                        chip: failRate > 10 ? chip(<><Flame className="h-3 w-3" />{failRate.toFixed(1)}%</>, 'var(--e-red)') : chip(`${failRate.toFixed(1)}%`, 'var(--e-ink-2)'),
+                                        spark: <MiniSparkline data={graphData.slice(-7).map(d => d.failCount || 0)} color="var(--e-red)" />,
+                                        tone: 'var(--e-red)',
+                                    }),
+                                    tile({
+                                        key: 'events',
+                                        icon: <Target className="h-4 w-4" />,
+                                        label: 'Events in view',
+                                        info: 'The specific event types currently being visualized in the trends below.',
+                                        value: selectedEventsList.length || 'All',
+                                        spark: (
+                                            <div className="flex max-w-[60%] flex-wrap justify-end gap-1">
+                                                {selectedEventsList.slice(0, 3).map((eventName) => (
+                                                    <span key={eventName} className="max-w-full truncate rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: 'var(--e-surface-3)', color: 'var(--e-ink-2)' }} title={eventName}>
+                                                        {eventName}
+                                                    </span>
+                                                ))}
+                                                {selectedEventsList.length > 3 && (
+                                                    <span className="rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: 'var(--e-ink-pill)', color: 'var(--e-canvas)' }}>
+                                                        +{selectedEventsList.length - 3}
                                                     </span>
                                                 )}
-                                                <MiniSparkline data={graphData.slice(-7).map(d => d.failCount || 0)} color="#ef4444" />
                                             </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>}
-
-                            {/* Selected Events Card */}
-                            <div
-                                className="group"
-                            >
-                                <Card className="relative bg-white/95 dark:bg-gray-900/95 rounded-2xl border-gray-200/60 dark:border-gray-600/40 hover:border-gray-300/80 dark:hover:border-gray-500/60 transition-all duration-300 cursor-pointer overflow-hidden shadow-md hover:shadow-lg">
-                                    {/* Gradient Accent Bar */}
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gray-400 via-slate-500 to-gray-600" />
-
-                                    <CardContent className="pt-4 pb-4 relative">
-                                        <div className="flex items-start justify-between mb-1.5">
-                                            <div>
-                                                <div
-                                                    className="h-8 w-8 rounded-lg bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-md shadow-gray-500/25"
-                                                >
-                                                    <Target className="h-4 w-4 text-white" />
-                                                </div>
-                                                <span
-                                                    className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-200"
-                                                >
-                                                    <AnimatedNumber value={selectedEventsList.length} suffix={` event${selectedEventsList.length !== 1 ? 's' : ''}`} />
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 max-h-[45px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 pr-2">
-                                            {selectedEventsList.length > 0 ? selectedEventsList.slice(0, 6).map((eventName, idx) => (
-                                                <span
-                                                    key={eventName}
-                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gradient-to-r from-gray-100 to-slate-100 text-gray-800 dark:from-gray-700/30 dark:to-slate-700/30 dark:text-gray-200 border border-gray-200 dark:border-gray-500/30 cursor-pointer shadow-sm hover:shadow-md transition-shadow"
-                                                >
-                                                    {eventName}
-                                                </span>
-                                            )) : (
-                                                <span
-                                                    className="text-muted-foreground text-sm italic"
-                                                >
-                                                    All events selected
-                                                </span>
-                                            )}
-                                            {selectedEventsList.length > 6 && (
-                                                <span
-                                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gradient-to-r from-gray-500 to-slate-500 text-white shadow-lg"
-                                                >
-                                                    +{selectedEventsList.length - 6} more
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground mt-1.5 font-medium flex items-center gap-1">
-                                            Selected Events
-                                            <InfoTooltip content="The specific event types currently being visualized in the trends below." />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                                        ),
+                                    }),
+                                ];
+                            })()}
                         </div>
                     );
                 })()
@@ -2718,7 +2623,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                                 return (
                                                                                     <linearGradient key={`barGrad_${index}_${eventKeyInfo.eventKey}`} id={`barColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                        <stop offset="0%" stopColor={color} stopOpacity={1} />
+                                                                                        <stop offset="0%" stopColor={color} stopOpacity={0.26} />
                                                                                         <stop offset="100%" stopColor={color} stopOpacity={0.7} />
                                                                                     </linearGradient>
                                                                                 );
@@ -2777,7 +2682,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 dataKey="count"
                                                                                 name="Total"
                                                                                 yAxisId="left"
-                                                                                fill="#6366f1"
+                                                                                fill="hsl(var(--accent-primary))"
                                                                                 radius={[3, 3, 0, 0]}
                                                                                 isAnimationActive={false}
                                                                                 animationDuration={0}
@@ -2809,7 +2714,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                                 return (
                                                                                     <linearGradient key={`areaGrad_${index}_${eventKeyInfo.eventKey}`} id={`areaColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                        <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                        <stop offset="5%" stopColor={color} stopOpacity={0.26} />
                                                                                         <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                                                                                     </linearGradient>
                                                                                 );
@@ -2879,7 +2784,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                                     cx={dotProps?.cx}
                                                                                                     cy={dotProps?.cy}
                                                                                                     r={5}
-                                                                                                    fill="#f59e0b"
+                                                                                                    fill="var(--e-amber)"
                                                                                                     stroke={color}
                                                                                                     strokeWidth={2}
                                                                                                 />
@@ -2904,10 +2809,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 dataKey="count"
                                                                                 name="Total"
                                                                                 yAxisId="left"
-                                                                                stroke="#6366f1"
+                                                                                stroke="hsl(var(--accent-primary))"
                                                                                 strokeWidth={2.5}
                                                                                 fillOpacity={0.3}
-                                                                                fill="#6366f1"
+                                                                                fill="hsl(var(--accent-primary))"
                                                                                 dot={(dotProps: any) => {
                                                                                     const isPartial = !isHourly && Boolean(dotProps?.payload?.isPartialLatestDay);
                                                                                     if (!isPartial) {
@@ -2918,8 +2823,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                             cx={dotProps?.cx}
                                                                                             cy={dotProps?.cy}
                                                                                             r={5}
-                                                                                            fill="#f59e0b"
-                                                                                            stroke="#6366f1"
+                                                                                            fill="var(--e-amber)"
+                                                                                            stroke="hsl(var(--accent-primary))"
                                                                                             strokeWidth={2}
                                                                                         />
                                                                                     );
@@ -3141,8 +3046,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                             return (
                                                                 <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.26} />
+                                                                    <stop offset="95%" stopColor={color} stopOpacity={0} />
                                                                 </linearGradient>
                                                             );
                                                         })}
@@ -3362,8 +3267,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                             const color = EVENT_COLORS[index % EVENT_COLORS.length];
                                                             return (
                                                                 <linearGradient key={`apiGrad_${index}_${eventKeyInfo.eventKey}`} id={`apiColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.26} />
+                                                                    <stop offset="95%" stopColor={color} stopOpacity={0} />
                                                                 </linearGradient>
                                                             );
                                                         })}
@@ -3445,9 +3350,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         type="monotone"
                                                                         dataKey={`${eventKey}_avgServerToCloud`}
                                                                         name={`${eventKeyInfo.eventName} (Server)`}
-                                                                        stroke="#ef4444"
+                                                                        stroke="var(--e-red)"
                                                                         strokeWidth={2}
-                                                                        fill="#ef4444"
+                                                                        fill="var(--e-red)"
                                                                         fillOpacity={0.3}
                                                                         stackId={eventKey}
                                                                         isAnimationActive={false}
@@ -3456,9 +3361,9 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                         type="monotone"
                                                                         dataKey={`${eventKey}_avgCloudToUser`}
                                                                         name={`${eventKeyInfo.eventName} (Network)`}
-                                                                        stroke="#f59e0b"
+                                                                        stroke="var(--e-amber)"
                                                                         strokeWidth={2}
-                                                                        fill="#f59e0b"
+                                                                        fill="var(--e-amber)"
                                                                         fillOpacity={0.3}
                                                                         stackId={eventKey}
                                                                         isAnimationActive={false}
@@ -3487,8 +3392,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 <g key={`anomaly-${cx}-${cy}`}>
                                                                     <polygon
                                                                         points={`${cx},${cy - 12} ${cx - 8},${cy + 4} ${cx + 8},${cy + 4}`}
-                                                                        fill="#ef4444"
-                                                                        stroke="#fff"
+                                                                        fill="var(--e-red)"
+                                                                        stroke="var(--e-surface)"
                                                                         strokeWidth={2}
                                                                         filter="drop-shadow(0 2px 4px rgba(239,68,68,0.4))"
                                                                     />
@@ -3614,13 +3519,13 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                 <defs>
                                                     {/* Error gradient (red) */}
                                                     <linearGradient id="errorGradient" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                                                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
+                                                        <stop offset="5%" stopColor="var(--e-red)" stopOpacity={0.26} />
+                                                        <stop offset="95%" stopColor="var(--e-red)" stopOpacity={0} />
                                                     </linearGradient>
                                                     {/* Success gradient (green) */}
                                                     <linearGradient id="okGradient" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                                                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                                                        <stop offset="5%" stopColor="var(--e-mint)" stopOpacity={0.26} />
+                                                        <stop offset="95%" stopColor="var(--e-mint)" stopOpacity={0} />
                                                     </linearGradient>
                                                 </defs>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
@@ -3657,7 +3562,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                     type="monotone"
                                                                     dataKey={`${eventKey}_success`}
                                                                     name={`${eventKeyInfo.eventName} (Failed Count)`}
-                                                                    stroke="#ef4444"
+                                                                    stroke="var(--e-red)"
                                                                     strokeWidth={3}
                                                                     fill="url(#errorGradient)"
                                                                     dot={false}
@@ -3783,9 +3688,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 innerRadius={70}
                                                                 outerRadius={100}
                                                                 paddingAngle={2}
+                                                                cornerRadius={6}
                                                                 dataKey="value"
                                                                 strokeWidth={2}
-                                                                stroke="#fff"
+                                                                stroke="var(--e-surface)"
                                                                 isAnimationActive={false}
                                                                 animationDuration={0}
                                                             >
@@ -3857,9 +3763,10 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 innerRadius={70}
                                                                 outerRadius={100}
                                                                 paddingAngle={2}
+                                                                cornerRadius={6}
                                                                 dataKey="value"
                                                                 strokeWidth={2}
-                                                                stroke="#fff"
+                                                                stroke="var(--e-surface)"
                                                                 isAnimationActive={false}
                                                                 animationDuration={0}
                                                             >
@@ -3973,6 +3880,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 innerRadius={45}
                                                                 outerRadius={70}
                                                                 paddingAngle={2}
+                                                                cornerRadius={6}
                                                                 dataKey="value"
                                                                 isAnimationActive={false}
                                                                 stroke="none"
@@ -4060,6 +3968,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 innerRadius={45}
                                                                 outerRadius={70}
                                                                 paddingAngle={2}
+                                                                cornerRadius={6}
                                                                 dataKey="value"
                                                                 isAnimationActive={false}
                                                                 stroke="none"
@@ -4147,6 +4056,7 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                 innerRadius={45}
                                                                 outerRadius={70}
                                                                 paddingAngle={2}
+                                                                cornerRadius={6}
                                                                 dataKey="value"
                                                                 isAnimationActive={false}
                                                                 stroke="none"
@@ -4316,7 +4226,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                         innerRadius={45}
                                                                                         outerRadius={70}
                                                                                         paddingAngle={2}
-                                                                                        dataKey="value"
+                                                                                        cornerRadius={6}
+                                                                dataKey="value"
                                                                                         isAnimationActive={false}
                                                                                         stroke="none"
                                                                                     >
@@ -4440,7 +4351,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                             innerRadius={55}
                                                                             outerRadius={85}
                                                                             paddingAngle={2}
-                                                                            dataKey="value"
+                                                                            cornerRadius={6}
+                                                                dataKey="value"
                                                                             isAnimationActive={false}
                                                                             stroke="none"
                                                                         >
@@ -4594,7 +4506,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                                 innerRadius={45}
                                                                                                 outerRadius={70}
                                                                                                 paddingAngle={2}
-                                                                                                dataKey="value"
+                                                                                                cornerRadius={6}
+                                                                dataKey="value"
                                                                                                 isAnimationActive={false}
                                                                                                 stroke="none"
                                                                                             >
@@ -4718,7 +4631,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                     innerRadius={55}
                                                                                     outerRadius={85}
                                                                                     paddingAngle={2}
-                                                                                    dataKey="value"
+                                                                                    cornerRadius={6}
+                                                                dataKey="value"
                                                                                     isAnimationActive={false}
                                                                                     stroke="none"
                                                                                 >
@@ -4836,7 +4750,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                     innerRadius={45}
                                                                                     outerRadius={70}
                                                                                     paddingAngle={2}
-                                                                                    dataKey="value"
+                                                                                    cornerRadius={6}
+                                                                dataKey="value"
                                                                                     isAnimationActive={false}
                                                                                     stroke="none"
                                                                                 >
@@ -4963,7 +4878,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                                 innerRadius={55}
                                                                                 outerRadius={85}
                                                                                 paddingAngle={2}
-                                                                                dataKey="value"
+                                                                                cornerRadius={6}
+                                                                dataKey="value"
                                                                                 isAnimationActive={false}
                                                                                 stroke="none"
                                                                             >
@@ -5150,7 +5066,8 @@ export const MainPanelSection = React.memo(function MainPanelSection({
                                                                             innerRadius={55}
                                                                             outerRadius={85}
                                                                             paddingAngle={2}
-                                                                            dataKey="value"
+                                                                            cornerRadius={6}
+                                                                dataKey="value"
                                                                             isAnimationActive={false}
                                                                             stroke="none"
                                                                         >

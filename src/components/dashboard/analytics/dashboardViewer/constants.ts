@@ -2,18 +2,7 @@
 // Harmonious, sophisticated colors for better visual appeal and accessibility
 
 export const EVENT_COLORS = [
-    '#6366f1', // Rich Purple
-    '#3b82f6', // Vibrant Blue
-    '#10b981', // Emerald Green
-    '#f59e0b', // Amber
-    '#ec4899', // Pink
-    '#06b6d4', // Cyan
-    '#a855f7', // Deep Purple
-    '#14b8a6', // Teal
-    '#e11d48', // Rose
-    '#7c3aed', // Violet
-    '#f97316', // Orange
-    '#84cc16', // Lime
+    '#e5603f', '#2f6bff', '#14a35f', '#eba12b', '#7c6feb', '#e2477f', '#0ea5b7', '#f39a6a', '#5b8c3a', '#8a8880', '#c2410c', '#3d5a80',
 ];
 
 // Premium error colors - sophisticated and vibrant for better distinction
@@ -29,18 +18,7 @@ export const ERROR_COLORS = [
 ];
 
 export const PIE_COLORS = [
-    '#6366f1', // Rich Purple
-    '#3b82f6', // Vibrant Blue
-    '#10b981', // Emerald Green
-    '#f59e0b', // Amber
-    '#ec4899', // Pink
-    '#06b6d4', // Cyan
-    '#a855f7', // Deep Purple
-    '#14b8a6', // Teal
-    '#e11d48', // Rose
-    '#7c3aed', // Violet
-    '#f97316', // Orange
-    '#84cc16', // Lime
+    '#e5603f', '#2f6bff', '#14a35f', '#eba12b', '#7c6feb', '#e2477f', '#0ea5b7', '#f39a6a', '#5b8c3a', '#8a8880', '#c2410c', '#3d5a80',
 ];
 
 // Utility function to combine duplicate entries (like multiple "Unknown") in pie chart data

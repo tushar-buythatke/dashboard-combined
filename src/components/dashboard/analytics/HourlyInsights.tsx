@@ -387,12 +387,12 @@ export function HourlyInsights({ graphData, isHourly, eventKeys = [], events = [
                             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={isAutosnipe ? "#22c55e" : "hsl(var(--primary))"} stopOpacity={0.9} />
+                                        <stop offset="0%" stopColor={isAutosnipe ? "#22c55e" : "hsl(var(--primary))"} stopOpacity={0.26} />
                                         <stop offset="100%" stopColor={isAutosnipe ? "#16a34a" : "hsl(var(--primary))"} stopOpacity={0.4} />
                                     </linearGradient>
                                     <linearGradient id="barGradientInactive" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={isAutosnipe ? "#22c55e" : "hsl(var(--primary))"} stopOpacity={0.4} />
-                                        <stop offset="100%" stopColor={isAutosnipe ? "#16a34a" : "hsl(var(--primary))"} stopOpacity={0.1} />
+                                        <stop offset="0%" stopColor={isAutosnipe ? "#22c55e" : "hsl(var(--primary))"} stopOpacity={0.26} />
+                                        <stop offset="100%" stopColor={isAutosnipe ? "#16a34a" : "hsl(var(--primary))"} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={isAutosnipe ? 0.05 : 0.1} stroke={isAutosnipe ? "#22c55e" : undefined} />

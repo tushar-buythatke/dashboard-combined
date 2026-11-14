@@ -449,28 +449,11 @@ export function DashboardChatbot({
             <div
                 className={cn(
                     "relative shadow-2xl overflow-hidden h-full flex flex-col",
-                    isMobile ? "bg-white dark:bg-gray-900" : cn(themeClasses.cardBg, "backdrop-blur-2xl"),
-                    isMobile ? "border-0" : "border border-white/20 dark:border-gray-700/30",
-                    "shadow-[0_20px_60px_rgba(0,0,0,0.3)]",
-                    isMobile ? "rounded-none" : "rounded-3xl"
+                    "bg-[var(--e-surface)]",
+                    "border-0 shadow-[0_0_0_1px_var(--e-line),0_40px_80px_-30px_rgba(0,0,0,0.5)]",
+                    isMobile ? "rounded-none" : "rounded-[28px]"
                 )}
             >
-                {/* Glassmorphic gradient overlay - hidden on mobile for solid background */}
-                {!isMobile && (
-                    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                        <div className={cn(
-                            "absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-30",
-                            "bg-gradient-to-br",
-                            themeClasses.buttonGradient
-                        )} />
-                        <div className={cn(
-                            "absolute -bottom-24 -left-24 w-72 h-72 rounded-full blur-3xl opacity-20",
-                            "bg-gradient-to-br",
-                            themeClasses.buttonGradient
-                        )} />
-                    </div>
-                )}
-
                 {/* Mobile drag handle / close bar */}
                 {isMobile && (
                     <button
@@ -491,23 +474,20 @@ export function DashboardChatbot({
                 {/* Header - Sticky */}
                 <div
                     className={cn(
-                        "sticky top-0 z-20 border-b border-gray-200/50 dark:border-gray-700/50",
-                        "bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl",
+                        "sticky top-0 z-20 border-b border-[var(--e-line)]",
+                        "bg-[var(--e-surface)]",
                         isMobile ? "px-4 pb-3 pt-2" : "px-4 py-3"
                     )}
                 >
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
                             <div className={cn(
-                                "h-10 w-10 rounded-xl flex items-center justify-center shrink-0",
-                                "bg-gradient-to-br",
-                                themeClasses.buttonGradient,
-                                "shadow-lg"
+                                "h-10 w-10 rounded-full flex items-center justify-center shrink-0 bg-[var(--e-coral)]"
                             )}>
                                 <Sparkles className="h-5 w-5 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <h3 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 leading-tight">
+                                <h3 className="text-[17px] font-medium tracking-[-0.02em] leading-tight" style={{ color: 'var(--e-ink)' }}>
                                     Dashboard Assistant
                                 </h3>
                                 <p className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">
@@ -564,19 +544,11 @@ export function DashboardChatbot({
                         <div className="flex flex-col items-center justify-center min-h-full px-6 py-10 text-center animate-scale-in">
                             {/* Accent halo behind the mark */}
                             <div className="relative mb-6">
-                                <div className={cn(
-                                    "absolute inset-0 -m-4 rounded-full blur-2xl opacity-40 bg-gradient-to-br",
-                                    themeClasses.buttonGradient
-                                )} />
-                                <div className={cn(
-                                    "relative inline-flex items-center justify-center h-14 w-14 rounded-2xl",
-                                    "bg-gradient-to-br shadow-lg",
-                                    themeClasses.buttonGradient
-                                )}>
+                                <div className="relative inline-flex items-center justify-center h-14 w-14 rounded-full bg-[var(--e-coral)] shadow-[0_14px_30px_-12px_hsl(var(--accent-primary)/0.7)]">
                                     <Sparkles className="h-7 w-7 text-white" />
                                 </div>
                             </div>
-                            <h2 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">
+                            <h2 className="text-[28px] font-medium tracking-[-0.03em]" style={{ color: 'var(--e-ink)' }}>
                                 What can I help with?
                             </h2>
                             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 max-w-[280px]">
@@ -592,10 +564,8 @@ export function DashboardChatbot({
                                         onClick={() => handleSend(s.prompt)}
                                         disabled={isLoading}
                                         className={cn(
-                                            "group text-left rounded-2xl px-3.5 py-3 transition-all duration-200",
-                                            "bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl",
-                                            "border border-gray-200/70 dark:border-white/10",
-                                            "shadow-sm hover:shadow-md hover:-translate-y-0.5",
+                                            "group text-left rounded-[18px] px-4 py-3 text-[13px] font-bold transition-all duration-200",
+                                            "bg-[var(--e-surface-2)] hover:bg-[var(--e-surface-3)] text-[var(--e-ink)]",
                                             themeClasses.cardHoverBorder,
                                             themeClasses.cardHoverBorderDark,
                                             "disabled:opacity-50 disabled:pointer-events-none"
@@ -736,13 +706,9 @@ export function DashboardChatbot({
                     {/* Contained input pill */}
                     <div
                         className={cn(
-                            "rounded-[24px] px-3 pt-2.5 pb-2 transition-all duration-300",
-                            "bg-white/80 dark:bg-white/[0.04] backdrop-blur-xl",
-                            "border border-gray-200/80 dark:border-white/10",
-                            "shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)]",
-                            "focus-within:ring-4 focus-within:ring-opacity-25",
-                            themeClasses.ringAccent,
-                            "focus-within:border-transparent"
+                            "rounded-[24px] px-3 pt-2.5 pb-2 transition-shadow duration-200",
+                            "bg-[var(--e-surface-2)]",
+                            "focus-within:shadow-[0_0_0_3px_hsl(var(--accent-primary)/0.22)]"
                         )}
                     >
                         <textarea
@@ -770,7 +736,7 @@ export function DashboardChatbot({
                                 "px-1.5 py-1 min-h-[28px] max-h-[120px]",
                                 "text-sm leading-relaxed text-gray-900 dark:text-gray-100",
                                 "placeholder:text-gray-400 dark:placeholder:text-gray-500",
-                                "focus:outline-none focus:ring-0 disabled:opacity-50"
+                                "!outline-none !ring-0 !shadow-none focus:!outline-none focus-visible:!outline-none disabled:opacity-50"
                             )}
                         />
 
@@ -815,10 +781,9 @@ export function DashboardChatbot({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 disabled={!inputValue.trim() || isLoading}
                                 className={cn(
-                                    "h-9 w-9 rounded-xl flex items-center justify-center shrink-0",
-                                    "bg-gradient-to-br text-white",
-                                    themeClasses.buttonGradient,
-                                    "shadow-md transition-all duration-200",
+                                    "h-9 w-9 rounded-full flex items-center justify-center shrink-0",
+                                    "bg-[var(--e-coral)] text-white",
+                                    "transition-all duration-200",
                                     "enabled:hover:shadow-lg enabled:hover:scale-105 enabled:active:scale-95",
                                     "disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                                 )}

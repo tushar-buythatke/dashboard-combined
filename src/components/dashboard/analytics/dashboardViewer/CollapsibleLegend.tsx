@@ -1,7 +1,6 @@
-import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 import type { EventConfig } from '@/types/analytics';
-import { cn } from '@/lib/utils';
 import type { EventKeyInfo } from './types';
 import { ERROR_COLORS, EVENT_COLORS } from './constants';
 
@@ -111,7 +110,7 @@ export const CollapsibleLegend = ({
     };
 
     return (
-        <div className="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-5 py-3 md:py-3.5 bg-gray-50/80 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-2">
             {visibleItems.map((eventKeyInfo, index) => {
                 const event = events.find(e => String(e.eventId) === eventKeyInfo.eventId);
                 const isErrorEvent = event?.isErrorEvent === 1;
@@ -139,83 +138,44 @@ export const CollapsibleLegend = ({
                 const stats = eventStats[eventKeyInfo.eventKey] || { total: 0, successRate: 0, errorRate: 0, isErrorEvent: false, isAvgEvent: false, avgDelay: 0 };
                 const isSelected = selectedEventKey === eventKeyInfo.eventKey;
 
-                // Color based on error rate (low error = green, high error = red)
-                const rateColor = stats.errorRate <= 10
-                    ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
-                    : stats.errorRate <= 30
-                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400"
-                        : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400";
+                const rateTone = stats.errorRate <= 10 ? 'var(--e-mint)' : stats.errorRate <= 30 ? 'var(--e-amber)' : 'var(--e-red)';
+                const metric = stats.isAvgEventType >= 1 && stats.avgDelay > 0
+                    ? formatDelayOrAmount(stats.avgDelay, stats.isAvgEventType, event?.feature)
+                    : `${stats.successRate.toFixed(0)}%`;
+                const tags = [
+                    eventKeyInfo.isErrorEvent === 1 || stats.isErrorEvent ? 'error' : null,
+                    eventKeyInfo.isAvgEvent === 2 ? 'avg ₹' : eventKeyInfo.isAvgEvent === 1 ? 'avg' : null,
+                ].filter(Boolean);
 
                 return (
-                    <div
+                    <button
+                        type="button"
                         key={`${index}_${eventKeyInfo.eventKey}`}
                         id={`legend-${eventKeyInfo.eventKey}`}
-                        className={cn(
-                            "flex items-center gap-2 md:gap-2.5 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-white dark:bg-gray-900 shadow-sm border cursor-pointer transition-all whitespace-nowrap",
-                            isSelected
-                                ? "border-indigo-500 ring-2 ring-indigo-500/30"
-                                : "border-gray-100 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-500/50"
-                        )}
+                        aria-pressed={isSelected}
+                        className="flex h-10 items-center gap-2 whitespace-nowrap rounded-full px-4 text-[13px] transition-colors"
+                        style={isSelected
+                            ? { background: 'var(--e-ink-pill)', color: 'var(--e-canvas)' }
+                            : { background: 'var(--e-surface-2)', color: 'var(--e-ink-2)' }}
                         onClick={() => onEventClick?.(eventKeyInfo.eventKey)}
                     >
-                        <div
-                            className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full shadow-inner flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                        />
-                        <span className="text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[140px] md:max-w-[200px]">
+                        <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                        <span className="max-w-[160px] truncate font-bold md:max-w-[220px]" title={eventKeyInfo.eventName}>
                             {eventKeyInfo.eventName}
                         </span>
-                        {eventKeyInfo.isErrorEvent === 1 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400">isError</span>
-                        )}
-                        {(eventKeyInfo.isAvgEvent === 1 || eventKeyInfo.isAvgEvent === 2) && (
-                            <span className={cn(
-                                "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                                eventKeyInfo.isAvgEvent === 2
-                                    ? "bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400"
-                                    : "bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
-                            )}>
-                                {eventKeyInfo.isAvgEvent === 2 ? 'isAvg₹' : 'isAvg'}
-                            </span>
-                        )}
-                        <span className="text-xs md:text-sm font-semibold text-gray-900 dark:text-white">
-                            {stats.total.toLocaleString()}
-                        </span>
-
-                        {/* Show delay time or rupees for avg events */}
-                        {stats.isAvgEventType >= 1 && stats.avgDelay > 0 ? (
-                            <span className={cn(
-                                "text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1",
-                                stats.isAvgEventType === 2
-                                    ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400"
-                                    : "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400"
-                            )}>
-                                {stats.isAvgEventType === 2 ? null : <Clock className="w-3 h-3" />}
-                                {formatDelayOrAmount(stats.avgDelay, stats.isAvgEventType, event?.feature)}
-                            </span>
-                        ) : (
-                            <>
-                                {/* Show error indicator for error events */}
-                                {stats.isErrorEvent && (
-                                    <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-red-500/90 text-white shadow-sm">
-                                        ERR
-                                    </span>
-                                )}
-                                <span className={cn(
-                                    "text-xs font-semibold px-2.5 py-1 rounded-full",
-                                    rateColor
-                                )}>
-                                    {stats.successRate.toFixed(0)}%
-                                </span>
-                            </>
-                        )}
-                    </div>
+                        {tags.map((t) => (
+                            <span key={t as string} className="text-[10.5px] font-bold opacity-60">{t}</span>
+                        ))}
+                        <span className="tabular-nums opacity-80">{stats.total.toLocaleString()}</span>
+                        <span className="tabular-nums text-[12px] font-bold" style={{ color: isSelected ? undefined : rateTone }}>{metric}</span>
+                    </button>
                 );
             })}
             {eventKeys.length > maxVisibleItems && (
                 <button
                     onClick={onToggle}
-                    className="flex items-center gap-1.5 h-9 px-3 md:px-4 text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-500/20 rounded-lg transition-colors whitespace-nowrap"
+                    className="flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-bold transition-colors hover:bg-[var(--e-surface-3)]"
+                    style={{ color: 'var(--e-ink-2)' }}
                 >
                     {isExpanded ? (
                         <>

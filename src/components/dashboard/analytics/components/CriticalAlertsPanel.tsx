@@ -149,19 +149,6 @@ export function CriticalAlertsPanel({
                         ? "border border-red-200/60 dark:border-red-500/30 shadow-[0_8px_30px_rgba(239,68,68,0.12)]"
                         : ""
             )}>
-                {/* Theme gradient top border accent - always present */}
-                <div 
-                    className={cn(
-                        "absolute top-0 left-0 w-full h-[3px] z-30",
-                        isAutosnipe
-                            ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-500"
-                            : criticalAlerts.length > 0
-                                ? "bg-gradient-to-r from-red-600 via-orange-500 to-red-600 animate-pulse"
-                                : ""
-                    )}
-                    style={!isAutosnipe && criticalAlerts.length === 0 ? { background: 'var(--theme-gradient)' } : undefined}
-                />
-
                 {/* Collapsed Header Bar */}
                 <div
                     className={cn(
@@ -172,8 +159,8 @@ export function CriticalAlertsPanel({
                                 : "bg-emerald-950/20"
                         ) : (
                             alertsPanelCollapsed
-                                ? "bg-slate-50/40 dark:bg-slate-950/20 hover:bg-slate-50/60 dark:hover:bg-slate-950/40"
-                                : "bg-slate-100/50 dark:bg-slate-950/30"
+                                ? "hover:bg-[var(--e-surface-2)]"
+                                : ""
                         )
                     )}
                     onClick={onToggleCollapse}
@@ -181,14 +168,14 @@ export function CriticalAlertsPanel({
                     <div className="flex items-center gap-4 relative z-10">
                         <div
                             className={cn(
-                                "h-11 w-11 rounded-full flex items-center justify-center shadow-lg ring-2 ring-white/20 dark:ring-white/10 transition-transform duration-300 group-hover:scale-110",
+                                "h-11 w-11 rounded-full flex items-center justify-center",
                                 criticalAlerts.length > 0
-                                    ? "bg-gradient-to-br from-rose-500 to-orange-600 shadow-rose-500/30"
+                                    ? "bg-[var(--e-red)]"
                                     : isAutosnipe
                                         ? "bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/30"
                                         : "text-white"
                             )}
-                            style={!isAutosnipe && criticalAlerts.length === 0 ? { background: 'var(--theme-gradient)' } : undefined}
+                            style={!isAutosnipe && criticalAlerts.length === 0 ? { background: 'var(--e-mint)' } : undefined}
                         >
                             {criticalAlerts.length > 0 ? (
                                 <Bell className="h-5 w-5 text-white animate-bounce-slow" />
@@ -197,7 +184,7 @@ export function CriticalAlertsPanel({
                             )}
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold flex items-center gap-2">
+                            <h2 className="text-[19px] font-medium tracking-[-0.02em] flex items-center gap-2">
                                 <span className={cn(
                                     "bg-clip-text text-transparent",
                                     isAutosnipe
@@ -241,8 +228,8 @@ export function CriticalAlertsPanel({
                         {criticalAlerts.length > 0 && (
                             <div
                                 className={cn(
-                                    "px-4 py-1.5 rounded-xl text-white text-base font-black shadow-xl ring-2 ring-white/20",
-                                    "bg-gradient-to-r from-rose-500 to-orange-500 shadow-rose-500/40"
+                                    "px-3.5 py-1 rounded-full text-white text-[14px] font-bold tabular-nums",
+                                    "bg-[var(--e-red)]"
                                 )}
                             >
                                 {criticalAlerts.length}

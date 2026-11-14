@@ -393,7 +393,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                 <Button
                     onClick={onCreateProfile}
                     size="icon"
-                    className={cn("h-8 w-8 mx-auto mb-4 bg-gradient-to-br text-white", t.buttonGradient, t.buttonHover)}
+                    className="h-9 w-9 mx-auto mb-4 rounded-full bg-[var(--e-coral)] text-white hover:opacity-90"
                     title="Create New Profile"
                 >
                     <Plus className="h-4 w-4" />
@@ -409,10 +409,10 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                             key={profile.profileId}
                             onClick={() => handleSelectProfile(profile.profileId)}
                             className={cn(
-                                "w-full h-10 rounded-lg flex items-center justify-center transition-colors duration-200",
+                                "w-full h-10 rounded-full flex items-center justify-center transition-colors duration-200",
                                 isSelected
-                                    ? cn(t.sidebarActive, t.sidebarActiveDark, t.sidebarActiveText, t.sidebarActiveTextDark, "border-2", t.borderAccent, t.borderAccentDark)
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-transparent"
+                                    ? "bg-[var(--e-ink-pill)] text-[var(--e-canvas)] shadow-[0_8px_18px_-10px_rgba(0,0,0,.5)]"
+                                    : "bg-[var(--e-surface-2)] text-[var(--e-ink-2)] hover:bg-[var(--e-surface-3)]"
                             )}
                             title={profile.profileName}
                         >
@@ -427,10 +427,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
     // Expanded Content JSX moved to separate variable for cleaner render
     const expandedContentJSX = (
         <div
-            className={cn("flex flex-col h-full transition-colors duration-500 sidebar-glass")}
-            style={{
-                background: 'linear-gradient(to bottom, hsl(var(--accent-primary) / 0.03) 0%, transparent 60%)',
-            }}
+            className="flex flex-col h-full"
         >
             {/* Unified Header + Search Section - Seamless */}
             <div className={cn(
@@ -447,7 +444,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                             <LayoutDashboard className="w-3 h-3 text-white" aria-hidden="true" />
                         </div>
                         <div>
-                            <h2 className="font-bold text-sm stat-gradient-text flex items-center gap-1">
+                            <h2 className="font-medium text-[18px] tracking-[-0.02em] flex items-center gap-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--e-ink)' }}>
                                 Profiles
                             </h2>
                             <p className="text-[10px] text-gray-500 dark:text-gray-400">{profiles.length} dashboards</p>
@@ -492,7 +489,7 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search profiles or panels..."
-                            className="h-9 pl-9 text-sm rounded-full backdrop-blur-md bg-white/50 dark:bg-white/10 border border-white/30 dark:border-white/10 transition-all duration-150 ease-out focus-visible:ring-0 focus-visible:outline-none"
+                            className="h-10 pl-9 text-sm rounded-full bg-[var(--e-surface-2)] border-transparent transition-all duration-150 ease-out focus-visible:ring-0 focus-visible:outline-none"
                             style={{
                                 ['--tw-ring-shadow' as string]: 'none',
                             }}
@@ -544,18 +541,18 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                             <button
                                                 onClick={() => handleSelectProfile(profile.profileId)}
                                                 className={cn(
-                                                    "flex-1 text-left p-2 rounded-xl transition-all duration-[150ms] ease-out flex items-center gap-2 group/btn border",
+                                                    "flex-1 text-left p-2 rounded-[18px] transition-all duration-[150ms] ease-out flex items-center gap-2 group/btn border",
                                                     isSelected
                                                         ? "shadow-sm font-medium"
                                                         : "border-transparent hover:translate-x-[2px]"
                                                 )}
                                                 style={isSelected ? {
-                                                    background: 'linear-gradient(to right, hsl(var(--accent-primary) / 0.12), hsl(var(--accent-primary) / 0.04))',
-                                                    borderColor: 'hsl(var(--accent-primary) / 0.18)',
+                                                    background: 'var(--e-surface-3)',
+                                                    borderColor: 'transparent',
                                                 } : undefined}
                                                 onMouseEnter={(e) => {
                                                     if (!isSelected) {
-                                                        e.currentTarget.style.background = 'hsl(var(--accent-primary) / 0.06)';
+                                                        e.currentTarget.style.background = 'var(--e-surface-2)';
                                                     }
                                                 }}
                                                 onMouseLeave={(e) => {
@@ -565,12 +562,12 @@ export const ProfileSidebar = memo(function ProfileSidebar({
                                                 }}
                                             >
                                                 <div className={cn(
-                                                    "w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm border",
+                                                    "w-8 h-8 rounded-full flex items-center justify-center transition-all",
                                                     isSelected
                                                         ? "bg-gradient-to-br text-white"
                                                         : cn("bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700", t.textPrimary, t.textPrimaryDark)
                                                 )}
-                                                style={isSelected ? { background: 'var(--theme-gradient)' } : undefined}
+                                                style={isSelected ? { background: 'var(--e-coral)' } : { background: 'var(--e-surface-3)' }}
                                                 >
                                                     <Layers className="w-3.5 h-3.5" />
                                                 </div>
@@ -827,14 +824,14 @@ export const ProfileSidebar = memo(function ProfileSidebar({
             {/* Mobile Sidebar */}
             {isMobileOpen && (
                 <div
-                    className={cn("fixed inset-y-0 left-0 w-72 flex flex-col z-50 lg:hidden shadow-xl transition-colors duration-500", t.sidebarBg, t.borderAccent)}
+                    className="fixed inset-y-0 left-0 w-72 flex flex-col z-50 lg:hidden shadow-xl bg-[var(--e-surface)]"
                 >
                     {expandedContentJSX}
                 </div>
             )}
 
             {/* Desktop Sidebar (width handled by parent) */}
-            <div className={cn("hidden lg:flex flex-col h-full transition-colors duration-500", t.sidebarBg)}>
+            <div className="hidden lg:flex flex-col h-full bg-[var(--e-surface)]">
                 {isCollapsed ? collapsedContentJSX : expandedContentJSX}
             </div>
 

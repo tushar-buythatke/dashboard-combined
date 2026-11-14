@@ -51,21 +51,14 @@ export function GlassTooltip({
     return (
         <div
             className={cn(
-                'animate-scale-in min-w-[120px] max-w-[260px] overflow-hidden rounded-[12px]',
-                'backdrop-blur-xl px-3.5 py-2.5',
-                // Theme-aware: clean white glass in light mode, dark glass in dark mode
-                'bg-white/95 dark:bg-[#10101c]/90',
-                'border border-black/[0.06] dark:border-white/10',
-                'shadow-[0_10px_30px_rgba(0,0,0,0.14)] dark:shadow-[0_10px_34px_rgba(0,0,0,0.5)]',
+                'min-w-[140px] max-w-[280px] overflow-hidden rounded-[18px] px-4 py-3',
+                'bg-[var(--e-surface)] shadow-[0_0_0_1px_var(--e-line),0_24px_50px_-20px_rgba(0,0,0,0.45)]',
                 className,
             )}
-            style={{
-                borderLeftColor: accentColor,
-                borderLeftWidth: '3px',
-            }}
+
         >
             {label !== undefined && label !== '' && (
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-white/55">
+                <div className="mb-1 text-[11.5px] font-medium text-[var(--e-ink-3)]">
                     {labelFormatter ? labelFormatter(label) : label}
                 </div>
             )}

@@ -6,7 +6,6 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { Percent, TrendingUp, TrendingDown, X, BarChart3, Activity, AlertTriangle, Maximize2, PieChart as PieChartIcon } from 'lucide-react';
 import { useChartZoom } from '@/hooks/useChartZoom';
 import { ChartZoomControls } from '../components/ChartZoomControls';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
 import type { EventConfig } from '@/types/analytics';
@@ -880,33 +879,26 @@ export function PercentageGraph({
 
     return (
         <>
-            <Card className={cn("rounded-3xl overflow-hidden backdrop-blur-xl border-2 shadow-xl relative", themeClasses.cardBg, themeClasses.borderAccent, themeClasses.borderAccentDark)}>
-                {/* Thematic gradient accent bar */}
-                <div className={cn("absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r z-10", themeClasses.buttonGradient)} />
-                <CardHeader className="pb-3 px-4 md:px-6 bg-gradient-to-r from-white/50 via-gray-50/30 to-white/40 dark:from-gray-800/30 dark:via-gray-900/20 dark:to-gray-800/30 border-b border-gray-200/30 dark:border-gray-700/30 pt-5">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
-                        <div className="flex items-center gap-3">
-                            <div className={cn("h-11 w-11 rounded-2xl bg-gradient-to-br flex items-center justify-center shadow-lg ring-2 ring-white/30 dark:ring-white/10", themeClasses.buttonGradient)}>
-                                <Percent className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                                <CardTitle className="text-base md:text-lg">Percentage Analysis</CardTitle>
-                                <p className="text-sm text-muted-foreground mt-0.5 font-medium">
-                                    Child/Parent Event Ratio • {isHourly ? 'Hourly' : 'Daily'} Breakdown
-                                </p>
-                            </div>
+            <Card className="overflow-hidden relative">
+                <CardHeader className="pb-2 px-5 md:px-7 pt-6">
+                    <div className="flex items-start justify-between flex-wrap gap-3">
+                        <div>
+                            <CardTitle className="text-[22px] md:text-[26px] font-medium tracking-[-0.03em]">Conversion ratio</CardTitle>
+                            <p className="text-[13px] mt-1" style={{ color: 'var(--e-ink-3)' }}>
+                                Child ÷ parent events, {isHourly ? 'by hour' : 'by day'}
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
                             {/* Day-wise / Hourly Toggle */}
                             {onToggleHourly && (
-                                <div className="flex items-center gap-1 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-xl border border-gray-200/50 dark:border-gray-600/30 p-1 shadow-sm">
+                                <div className="flex items-center gap-1 rounded-full p-1" style={{ background: 'var(--e-surface-3)' }}>
                                     <button
                                         onClick={() => onToggleHourly(false)}
                                         className={cn(
-                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                            "h-8 px-4 text-[12.5px] font-bold rounded-full transition-colors",
                                             !isHourly
-                                                ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
-                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
+                                                ? "bg-[var(--e-ink-pill)] text-[var(--e-canvas)]"
+                                                : "text-[var(--e-ink-2)]"
                                         )}
                                     >
                                         Daily
@@ -914,10 +906,10 @@ export function PercentageGraph({
                                     <button
                                         onClick={() => onToggleHourly(true)}
                                         className={cn(
-                                            "px-4 py-2 text-sm font-semibold rounded-lg transition-all",
+                                            "h-8 px-4 text-[12.5px] font-bold rounded-full transition-colors",
                                             isHourly
-                                                ? cn("bg-gradient-to-r text-white shadow-md", themeClasses.buttonGradient)
-                                                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-700/50"
+                                                ? "bg-[var(--e-ink-pill)] text-[var(--e-canvas)]"
+                                                : "text-[var(--e-ink-2)]"
                                         )}
                                     >
                                         Hourly
@@ -946,44 +938,26 @@ export function PercentageGraph({
                                     <Maximize2 className="h-5 w-5" />
                                 </Button>
                             )}
-                            <Badge variant="secondary" className={cn("bg-gradient-to-r text-white px-3 py-1 shadow-md", themeClasses.buttonGradient)}>
-                                <span className="text-lg font-bold">{overallStats.percentage.toFixed(2)}%</span>
-                            </Badge>
+
                         </div>
                     </div>
                 </CardHeader>
 
-                <CardContent className="p-4 md:p-6 bg-white/40 dark:bg-gray-900/40">
+                <CardContent className="p-5 md:p-7">
                     {/* Summary Stats - Parent on Left, Child on Right - Only show for count-based events */}
                     {chartData.length > 0 && !chartData[0].isAvgMetric && (
-                        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
-                            <div className="text-center p-2 sm:p-4 bg-blue-100/60 dark:bg-blue-900/30 backdrop-blur-sm rounded-2xl border-2 border-blue-300/50 dark:border-blue-500/40 shadow-md overflow-hidden">
-                                <div className="text-sm sm:text-2xl font-bold text-blue-600 dark:text-blue-400 truncate">
-                                    {overallStats.totalParent.toLocaleString()}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                            {[
+                                { k: 'Parent events', v: overallStats.totalParent.toLocaleString(), sub: getParentEventNames() },
+                                { k: 'Ratio', v: `${overallStats.percentage.toFixed(2)}%`, sub: `Range ${overallStats.minPercentage.toFixed(1)}% to ${overallStats.maxPercentage.toFixed(1)}%`, hero: true },
+                                { k: 'Child events', v: overallStats.totalChild.toLocaleString(), sub: getChildEventNames() },
+                            ].map((x) => (
+                                <div key={x.k} className="rounded-[20px] px-4 py-3.5 overflow-hidden" style={x.hero ? { background: 'var(--e-ink-pill)', color: 'var(--e-canvas)' } : { background: 'var(--e-surface-2)', color: 'var(--e-ink)' }}>
+                                    <div className="text-[12px] font-bold" style={{ opacity: x.hero ? 0.6 : 1, color: x.hero ? undefined : 'var(--e-ink-3)' }}>{x.k}</div>
+                                    <div className="mt-1 text-[30px] font-medium leading-none tracking-[-0.035em] tabular-nums truncate" style={{ fontFamily: 'var(--font-display)' }}>{x.v}</div>
+                                    <div className="mt-1.5 truncate text-[11.5px]" style={{ opacity: x.hero ? 0.6 : 1, color: x.hero ? undefined : 'var(--e-ink-3)' }} title={x.sub}>{x.sub}</div>
                                 </div>
-                                <div className="text-[10px] sm:text-sm text-muted-foreground mt-1 font-medium">Parent Events</div>
-                                <div className="text-[10px] sm:text-sm text-muted-foreground truncate hidden sm:block" title={getParentEventNames()}>
-                                    {getParentEventNames()}
-                                </div>
-                            </div>
-                            <div className={cn("text-center p-2 sm:p-4 backdrop-blur-sm rounded-2xl border-2 shadow-md bg-gradient-to-br from-white/60 to-gray-100/40 dark:from-gray-800/40 dark:to-gray-900/40 overflow-hidden", themeClasses.borderAccent, themeClasses.borderAccentDark)}>
-                                <div className={cn("text-sm sm:text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent", themeClasses.buttonGradient)}>
-                                    {overallStats.percentage.toFixed(2)}%
-                                </div>
-                                <div className="text-[10px] sm:text-sm text-muted-foreground mt-1 font-medium">Overall Ratio</div>
-                                <div className="text-[10px] sm:text-sm text-muted-foreground truncate">
-                                    {overallStats.minPercentage.toFixed(1)}% - {overallStats.maxPercentage.toFixed(1)}%
-                                </div>
-                            </div>
-                            <div className="text-center p-2 sm:p-4 bg-green-100/60 dark:bg-green-900/30 backdrop-blur-sm rounded-2xl border-2 border-green-300/50 dark:border-green-500/40 shadow-md overflow-hidden">
-                                <div className="text-sm sm:text-2xl font-bold text-green-600 dark:text-green-400 truncate">
-                                    {overallStats.totalChild.toLocaleString()}
-                                </div>
-                                <div className="text-[10px] sm:text-sm text-muted-foreground mt-1 font-medium">Child Events</div>
-                                <div className="text-[10px] sm:text-sm text-muted-foreground truncate hidden sm:block" title={getChildEventNames()}>
-                                    {getChildEventNames()}
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     )}
 
@@ -1011,18 +985,18 @@ export function PercentageGraph({
                                     <defs>
                                         {/* Combined percentage gradient */}
                                         <linearGradient id="pg-combined-grad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor={colors.accentPrimary} stopOpacity={0.3} />
+                                            <stop offset="0%" stopColor={colors.accentPrimary} stopOpacity={0.26} />
                                             <stop offset="100%" stopColor={colors.accentPrimary} stopOpacity={0} />
                                         </linearGradient>
                                         {/* Success line gradient */}
                                         <linearGradient id="pg-success-grad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.15} />
-                                            <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                                            <stop offset="0%" stopColor="var(--e-mint)" stopOpacity={0.15} />
+                                            <stop offset="100%" stopColor="var(--e-mint)" stopOpacity={0} />
                                         </linearGradient>
                                         {/* Fail line gradient */}
                                         <linearGradient id="pg-fail-grad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="#ef4444" stopOpacity={0.15} />
-                                            <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                                            <stop offset="0%" stopColor="var(--e-red)" stopOpacity={0.15} />
+                                            <stop offset="100%" stopColor="var(--e-red)" stopOpacity={0} />
                                         </linearGradient>
                                         {/* Per-child palette gradients (up to 8) */}
                                         {Array.from({ length: 8 }, (_, i) => (
@@ -1185,7 +1159,7 @@ export function PercentageGraph({
                                                     <Scatter
                                                         name="Anomaly Detected"
                                                         dataKey="anomalyValue"
-                                                        fill="#f59e0b"
+                                                        fill="var(--e-amber)"
                                                         shape={(props: any) => {
                                                             const { cx, cy, payload } = props;
                                                             if (payload.hasAnomaly) {
@@ -1502,7 +1476,8 @@ export function PercentageGraph({
                                                                             innerRadius={45}
                                                                             outerRadius={75}
                                                                             paddingAngle={2}
-                                                                            dataKey="value"
+                                                                            cornerRadius={6}
+                                                                dataKey="value"
                                                                             isAnimationActive={false}
                                                                             stroke="none"
                                                                         >
@@ -1553,7 +1528,8 @@ export function PercentageGraph({
                                             innerRadius={65}
                                             outerRadius={100}
                                             paddingAngle={2}
-                                            dataKey="value"
+                                            cornerRadius={6}
+                                                                dataKey="value"
                                             strokeWidth={2}
                                             stroke="rgba(255,255,255,0.8)"
                                             isAnimationActive={false}

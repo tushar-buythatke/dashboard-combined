@@ -11,8 +11,7 @@ import { useTheme } from '@/components/theme/theme-provider';
 
 /** Fallback ordered palette (matches the CSS `--chart-color-*` defaults). */
 export const FALLBACK_CHART_PALETTE = [
-    '#6c47ff', '#10b981', '#f59e0b', '#ef4444', '#06b6d4',
-    '#a855f7', '#f97316', '#84cc16', '#ec4899', '#3b82f6',
+    '#e5603f', '#2f6bff', '#14a35f', '#eba12b', '#7c6feb', '#e2477f', '#0ea5b7', '#f39a6a', '#5b8c3a', '#8a8880',
 ] as const;
 
 export interface ChartColors {

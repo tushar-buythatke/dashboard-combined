@@ -4476,7 +4476,7 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                             <XAxis dataKey="date" />
                                             <YAxis />
                                             <Tooltip />
-                                            <Bar dataKey="count" fill="#8884d8" />
+                                            <Bar dataKey="count" fill="hsl(var(--accent-primary))" />
                                         </BarChart>
                                     ) : (
                                         <AreaChart data={graphData} margin={{ top: 10, right: 10, left: 0, bottom: 50 }}>
@@ -4513,13 +4513,13 @@ export function DashboardViewer({ profileId, onEditProfile, onAlertsUpdate, onPa
                                                 const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                 return (
                                                     <linearGradient key={`timeGrad_${index}_${eventKeyInfo.eventKey}`} id={`timeColor_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                        <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                        <stop offset="5%" stopColor={color} stopOpacity={0.26} />
+                                                        <stop offset="95%" stopColor={color} stopOpacity={0} />
                                                     </linearGradient>
                                                 );
                                             })}
                                         </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.3} vertical={false} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" opacity={0.3} vertical={false} />
                                         <XAxis dataKey="date" />
                                         <YAxis />
                                         <Tooltip />

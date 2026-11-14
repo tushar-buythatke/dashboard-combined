@@ -110,19 +110,19 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                     <BarChart data={data}>
                         <defs>
                             <linearGradient id="countGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.8} />
-                                <stop offset="100%" stopColor="#6366f1" stopOpacity={0.3} />
+                                <stop offset="0%" stopColor="hsl(var(--accent-primary))" stopOpacity={0.26} />
+                                <stop offset="100%" stopColor="hsl(var(--accent-primary))" stopOpacity={0.3} />
                             </linearGradient>
                             <linearGradient id="successGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.8} />
-                                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.3} />
+                                <stop offset="0%" stopColor="var(--e-mint)" stopOpacity={0.26} />
+                                <stop offset="100%" stopColor="var(--e-mint)" stopOpacity={0.3} />
                             </linearGradient>
                             <linearGradient id="failGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
-                                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3} />
+                                <stop offset="0%" stopColor="var(--e-red)" stopOpacity={0.26} />
+                                <stop offset="100%" stopColor="var(--e-red)" stopOpacity={0.3} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" opacity={0.4} />
                         <XAxis dataKey="timestamp" tick={{ fontSize: 11, fill: '#6b7280' }} />
                         <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} />
                         <Tooltip
@@ -142,19 +142,19 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                     <AreaChart data={data}>
                         <defs>
                             <linearGradient id="areaCount" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                <stop offset="5%" stopColor="hsl(var(--accent-primary))" stopOpacity={0.26} />
+                                <stop offset="95%" stopColor="hsl(var(--accent-primary))" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="areaSuccess" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                                <stop offset="5%" stopColor="var(--e-mint)" stopOpacity={0.26} />
+                                <stop offset="95%" stopColor="var(--e-mint)" stopOpacity={0} />
                             </linearGradient>
                             <linearGradient id="areaFail" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                                <stop offset="5%" stopColor="var(--e-red)" stopOpacity={0.26} />
+                                <stop offset="95%" stopColor="var(--e-red)" stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" opacity={0.4} />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" opacity={0.4} />
                         <XAxis dataKey="timestamp" tick={{ fontSize: 11, fill: '#6b7280' }} />
                         <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} />
                         <Tooltip
@@ -166,9 +166,9 @@ export function PanelPreview({ events, filters, graphType, dateRange }: PanelPre
                             }}
                         />
                         <Legend />
-                        <Area type="monotone" dataKey="count" name="Total" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#areaCount)" />
-                        <Area type="monotone" dataKey="successCount" name="Success" stroke="#22c55e" strokeWidth={2} fillOpacity={1} fill="url(#areaSuccess)" />
-                        <Area type="monotone" dataKey="failCount" name="Fail" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#areaFail)" />
+                        <Area type="monotone" dataKey="count" name="Total" stroke="hsl(var(--accent-primary))" strokeWidth={2} fillOpacity={1} fill="url(#areaCount)" />
+                        <Area type="monotone" dataKey="successCount" name="Success" stroke="var(--e-mint)" strokeWidth={2} fillOpacity={1} fill="url(#areaSuccess)" />
+                        <Area type="monotone" dataKey="failCount" name="Fail" stroke="var(--e-red)" strokeWidth={2} fillOpacity={1} fill="url(#areaFail)" />
                     </AreaChart>
                 )}
             </ResponsiveContainer>

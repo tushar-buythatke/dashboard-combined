@@ -1,19 +1,6 @@
 import React, { useEffect, useState } from 'react';
 // Removed framer-motion for performance
-import {
-    Activity,
-    Calendar as CalendarIcon,
-    CheckCircle2,
-    ChevronDown,
-    ChevronUp,
-    Clock,
-    DollarSign,
-    TrendingUp,
-    Users,
-    UserPlus,
-    Fingerprint,
-    XCircle
-} from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 import type { EventConfig } from '@/types/analytics';
 import { cn } from '@/lib/utils';
@@ -263,7 +250,6 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
     const itemLabel = isApiPanel ? 'endpoint' : 'event';
     const isPartialLatestDay = Boolean((data as any)?.isPartialLatestDay);
 
-    const accentBorderColor = eventDataItems[0]?.color || 'var(--accent-primary, #6c47ff)';
 
     return (
         <div
@@ -271,253 +257,90 @@ export const CustomTooltip = ({ active, payload, label, events: allEvents = [], 
                 "relative z-[1000] overflow-visible",
                 isPinned
                     ? "bg-transparent p-3 md:p-4 pointer-events-auto"
-                    : "rounded-[12px] backdrop-blur-xl shadow-[0_10px_30px_rgba(0,0,0,0.14)] dark:shadow-[0_10px_34px_rgba(0,0,0,0.5)] border border-black/[0.06] dark:border-white/10 bg-white/95 dark:bg-[#10101c]/90 px-3.5 py-2.5 min-w-[300px] max-w-[500px]"
+                    : "rounded-[22px] bg-[var(--e-surface)] shadow-[0_0_0_1px_var(--e-line),0_30px_60px_-24px_rgba(0,0,0,0.45)] px-4 py-3.5 min-w-[280px] max-w-[380px]"
             )}
-            style={!isPinned ? {
-                borderLeftColor: accentBorderColor,
-                borderLeftWidth: '3px',
-            } : {}}
+
             onMouseMoveCapture={stopEvent}
             onWheelCapture={stopEvent}
             onClick={stopEvent}
         >
 
-            {/* Content wrapper */}
             <div className="relative z-10">
                 {/* Header */}
-                <div className={cn(
-                    "flex items-center justify-between gap-3 mb-3 pb-3",
-                    isPinned ? "border-b border-slate-200/60 dark:border-slate-700/60" : "border-b border-slate-200/70 dark:border-white/10"
-                )}>
-                    <div className="flex items-center gap-2 md:gap-3">
-                        <div
-                            className={cn(
-                                "h-9 w-9 md:h-11 md:w-11 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg",
-                                someAvgEvents
-                                    ? "bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-amber-500/30"
-                                    : "bg-gradient-to-br from-gray-500 via-gray-600 to-slate-600 shadow-gray-500/30"
-                            )}
-                        >
-                            {someBytesEvents ? (
-                                <Activity className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                            ) : someAvgEvents ? (
-                                headerMetricType === 'money' ? (
-                                    <DollarSign className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                ) : (
-                                    <Clock className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                )
-                            ) : (
-                                <CalendarIcon className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                            )}
+                <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <div className="truncate text-[14px] font-bold leading-tight" style={{ color: 'var(--e-ink)' }}>{label}</div>
+                        <div className="mt-0.5 text-[11.5px]" style={{ color: 'var(--e-ink-3)' }}>
+                            {eventDataItems.length} {itemLabel}{eventDataItems.length !== 1 ? 's' : ''}
+                            {sumTotalUsers > 0 && <> · {formatMetric(sumTotalUsers, 'count')} users · {formatMetric(sumNewUsers, 'count')} new</>}
                         </div>
-                        <div className="min-w-0 flex-1">
-                            <div className={cn("font-bold text-sm md:text-base leading-tight truncate", isPinned ? "text-foreground" : "text-slate-900 dark:text-white")}>{label}</div>
-                            <div className={cn("text-[10px] md:text-[11px] font-medium mt-0.5", isPinned ? "text-muted-foreground" : "text-slate-500 dark:text-white/55")}>{eventDataItems.length} {itemLabel}{eventDataItems.length !== 1 ? 's' : ''}</div>
-                            {isPartialLatestDay && (
-                                <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
-                                    Latest point not yet accumulated
-                                </div>
-                            )}
-                        </div>
+                        {isPartialLatestDay && (
+                            <div className="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: 'color-mix(in srgb, var(--e-amber) 16%, transparent)', color: 'var(--e-amber)' }}>
+                                Still accumulating
+                            </div>
+                        )}
                     </div>
-                    {/* Overall stats */}
-                    <div className="text-right flex-shrink-0">
-                        <div
-                            className={cn(
-                                "text-xl md:text-2xl font-extrabold",
-                                isPinned
-                                    ? cn("bg-clip-text text-transparent", someAvgEvents ? "bg-gradient-to-r from-amber-600 to-orange-600" : "bg-gradient-to-r from-gray-600 to-slate-600")
-                                    : (someAvgEvents ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-white")
-                            )}
-                        >
+                    <div className="flex-shrink-0 text-right">
+                        <div className="text-[24px] font-medium leading-none tracking-[-0.03em] tabular-nums" style={{ fontFamily: 'var(--font-display)', color: 'var(--e-ink)' }}>
                             {someAvgEvents && formattedAvgMetric ? formattedAvgMetric : formatMetric(totalCount, 'count')}
                         </div>
-                        <div className={cn(
-                            "text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-0.5 md:py-1 rounded-full shadow-sm mt-1 inline-block",
-                            isPinned
-                                ? (overallSuccessRate >= 90 ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" :
-                                    overallSuccessRate >= 70 ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-400" :
-                                        "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400")
-                                : (overallSuccessRate >= 90 ? "bg-green-500/15 text-green-400 border border-green-500/20" :
-                                    overallSuccessRate >= 70 ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/20" :
-                                        "bg-red-500/15 text-red-400 border border-red-500/20")
-                        )}>
-                            {overallSuccessRate.toFixed(0)}% Success
+                        <div
+                            className="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums"
+                            style={{
+                                background: `color-mix(in srgb, ${overallSuccessRate >= 90 ? 'var(--e-mint)' : overallSuccessRate >= 70 ? 'var(--e-amber)' : 'var(--e-red)'} 14%, transparent)`,
+                                color: overallSuccessRate >= 90 ? 'var(--e-mint)' : overallSuccessRate >= 70 ? 'var(--e-amber)' : 'var(--e-red)',
+                            }}
+                        >
+                            {overallSuccessRate.toFixed(0)}% ok
                         </div>
                     </div>
                 </div>
 
-                {/* User Metrics Summary Bar */}
-                {sumTotalUsers > 0 && (
-                    <div className="flex items-center gap-4 mb-3 px-1 py-1.5 bg-slate-50 dark:bg-slate-800/40 rounded-lg border border-slate-100 dark:border-slate-700/50">
-                        <div className="flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                                {formatMetric(sumTotalUsers, 'count')} <span className="text-[9px] font-medium opacity-70">users</span>
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <UserPlus className="w-3.5 h-3.5 text-teal-500" />
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                                {formatMetric(sumNewUsers, 'count')} <span className="text-[9px] font-medium opacity-70">new</span>
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <Fingerprint className="w-3.5 h-3.5 text-indigo-500" />
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                                {formatMetric(sumUniqueUsers, 'count')} <span className="text-[9px] font-medium opacity-70">unique</span>
-                            </span>
-                        </div>
-                    </div>
-                )}
-
-                {/* Click to expand hint when not pinned */}
-                {!isPinned && eventDataItems.length > 0 && (
-                    <div className="text-[9px] text-center text-muted-foreground mb-2 opacity-70">
-                        💡 Click on chart to lock & expand details
-                    </div>
-                )}
-
-                {/* Per-Event Data with Success/Fail / Delay */}
-                <div className={cn(
-                    "space-y-2.5 md:space-y-3 overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full dark:[&::-webkit-scrollbar-thumb]:bg-gray-600",
-                    isPinned ? "max-h-[300px] md:max-h-[400px]" : "max-h-60 md:max-h-72"
-                )}>
+                {/* Per-event rows */}
+                <div className={cn("mt-3 space-y-1 overflow-y-auto pr-1", isPinned ? "max-h-[300px] md:max-h-[400px]" : "max-h-64")}>
                     {visibleItems.map((item: any, index: number) => (
-                        <div
-                            key={index}
-                            className={cn(
-                                "p-2.5 md:p-3 rounded-lg md:rounded-xl border transition-all group",
-                                isPinned
-                                    ? "bg-gradient-to-br from-gray-50/50 to-gray-100/30 dark:from-gray-800/40 dark:to-gray-800/20 border-gray-200/40 dark:border-gray-700/20 hover:border-gray-300 dark:hover:border-gray-500/40"
-                                    : "bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20"
-                            )}
-                        >
-                            {/* Title Line */}
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2 md:gap-2.5 min-w-0 flex-1">
-                                    <div
-                                        className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full flex-shrink-0 shadow-sm ring-1 ring-white/20 group-hover:scale-125 transition-transform"
-                                        style={{ backgroundColor: item.color }}
-                                    />
-                                    <span className={cn("text-xs md:text-sm font-bold break-words leading-tight", isPinned ? "text-foreground" : "text-slate-900 dark:text-white")}>{item.name}</span>
-                                </div>
-
-                                {/* Metric Display (Timing or Count) */}
-                                {item.isAvgEvent && item.metricLabel ? (
-                                    <div className="flex flex-col items-end">
-                                        <span className="text-sm md:text-base font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {item.metricLabel}
-                                        </span>
-                                    </div>
-                                ) : !item.isAvgEvent && (
-                                    <span className={cn("text-sm md:text-base font-extrabold", isPinned ? "bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-200 bg-clip-text text-transparent" : "text-slate-900 dark:text-white")}>{formatMetric(item.count, 'count')}</span>
-                                )}
-                            </div>
-
-                            {/* Details Line */}
-                            <div className="flex items-center gap-2 text-[10px] md:text-[11px]">
-                                {/* Total Count for Avg events (Timing View) */}
-                                {item.isAvgEvent && (
-                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 font-bold text-gray-600 dark:text-gray-400">
-                                        {formatMetric(item.count, 'count')} reqs
-                                    </span>
-                                )}
-
-                                {/* Success/Fail Details */}
-                                <div className="flex items-center gap-1.5 ml-0.5">
-                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-50 dark:bg-green-500/10 border border-green-100 dark:border-green-500/10">
-                                        <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />
-                                        <span className="font-bold text-green-700 dark:text-green-400">
-                                            {formatMetric(item.successCount, 'count')}
-                                        </span>
-                                    </span>
-                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/10">
-                                        <XCircle className="w-2.5 h-2.5 text-red-500" />
-                                        <span className="font-bold text-red-700 dark:text-red-400">
-                                            {formatMetric(item.errorCount, 'count')}
-                                        </span>
-                                    </span>
-                                </div>
-
-                                {/* Percentage Pill */}
-                                <span className={cn(
-                                    "ml-auto font-black px-2 py-0.5 rounded-full text-[9px] shadow-sm uppercase tracking-tighter",
-                                    item.successRate >= 90
-                                        ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900/50"
-                                        : item.successRate >= 70
-                                            ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-900/50"
-                                            : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50"
-                                )}>
-                                    {item.successRate.toFixed(0)}%
+                        <div key={index} className="rounded-[14px] px-2.5 py-2" style={{ background: 'var(--e-surface-2)' }}>
+                            <div className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                                <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold" style={{ color: 'var(--e-ink)' }} title={item.name}>{item.name}</span>
+                                <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--e-ink)' }}>
+                                    {item.isAvgEvent && item.metricLabel ? item.metricLabel : formatMetric(item.count, 'count')}
                                 </span>
                             </div>
-
-                            {/* Per-item User Metrics */}
-                            {item.totalUsers > 0 && (
-                                <div className="mt-2 pt-2 border-t border-gray-200/40 dark:border-gray-700/40 flex items-center gap-3">
-                                    <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
-                                        <Users className="w-2.5 h-2.5" />
-                                        {formatMetric(item.totalUsers, 'count')}
-                                    </span>
-                                    <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
-                                        <UserPlus className="w-2.5 h-2.5" />
-                                        {formatMetric(item.newUsers, 'count')}
-                                    </span>
-                                    <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-500 dark:text-slate-400">
-                                        <Fingerprint className="w-2.5 h-2.5" />
-                                        {formatMetric(item.uniqueUsers, 'count')}
-                                    </span>
-                                </div>
-                            )}
+                            <div className="mt-1.5 flex items-center gap-2 pl-[18px] text-[11px] tabular-nums" style={{ color: 'var(--e-ink-3)' }}>
+                                <span className="h-1 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--e-surface-3)' }}>
+                                    <span className="block h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, item.successRate))}%`, background: item.successRate >= 90 ? 'var(--e-mint)' : item.successRate >= 70 ? 'var(--e-amber)' : 'var(--e-red)' }} />
+                                </span>
+                                {item.isAvgEvent && <span>{formatMetric(item.count, 'count')} reqs</span>}
+                                <span style={{ color: 'var(--e-mint)' }}>{formatMetric(item.successCount, 'count')} ok</span>
+                                <span style={{ color: 'var(--e-red)' }}>{formatMetric(item.errorCount, 'count')} err</span>
+                                <span className="font-bold" style={{ color: 'var(--e-ink-2)' }}>{item.successRate.toFixed(0)}%</span>
+                            </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Expand/Collapse Button */}
                 {eventDataItems.length > 3 && (
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             setIsExpanded(!isExpanded);
                         }}
-                        className="w-full mt-3 py-2 px-4 rounded-xl bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-500/10 dark:to-slate-500/10 text-gray-700 dark:text-gray-300 text-[10px] font-bold hover:from-gray-100 hover:to-slate-100 dark:hover:from-gray-500/20 dark:hover:to-slate-500/20 transition-all flex items-center justify-center gap-1.5 border border-gray-200/50 dark:border-gray-500/30 shadow-sm"
+                        className="mt-2 flex w-full items-center justify-center gap-1 rounded-full py-1.5 text-[11.5px] font-bold"
+                        style={{ background: 'var(--e-surface-2)', color: 'var(--e-ink-2)' }}
                     >
-                        {isExpanded ? (
-                            <>
-                                <ChevronUp className="w-3.5 h-3.5" />
-                                SHOW LESS
-                            </>
-                        ) : (
-                            <>
-                                <ChevronDown className="w-3.5 h-3.5" />
-                                SEE {hiddenCount} MORE
-                            </>
-                        )}
+                        {isExpanded ? <><ChevronUp className="h-3.5 w-3.5" />Show less</> : <><ChevronDown className="h-3.5 w-3.5" />{hiddenCount} more</>}
                     </button>
                 )}
 
-                {/* Footer with totals */}
-                <div className={cn("mt-3 md:mt-4 pt-3 md:pt-4 border-t border-dashed", isPinned ? "border-gray-200 dark:border-gray-800" : "border-white/10")}>
-                    <div className="flex items-center justify-between text-[11px] md:text-xs">
-                        {someAvgEvents && formattedAvgMetric ? (
-                            <span className={cn("font-medium flex items-center gap-1", isPinned ? "text-muted-foreground" : "text-slate-500 dark:text-white/55")}>
-                                <Clock className="w-3 h-3 text-amber-500" />
-                                Avg: <span className="font-extrabold text-amber-600 dark:text-amber-400">{formattedAvgMetric}</span>
-                            </span>
-                        ) : (
-                            <span className={cn("font-medium uppercase tracking-wider opacity-60", isPinned ? "text-muted-foreground" : "text-slate-500 dark:text-white/55")}>Total Population</span>
-                        )}
-
-                        <div className="flex items-center gap-3">
-                            <span className={cn("font-extrabold", isPinned ? "text-foreground" : "text-slate-900 dark:text-white")}>{formatMetric(totalCount, 'count')} <span className={cn("text-[9px] font-medium", isPinned ? "text-muted-foreground" : "text-white/45")}>reqs</span></span>
-                            <div className={cn("h-3 w-[1px]", isPinned ? "bg-gray-200 dark:bg-gray-800" : "bg-white/10")} />
-                            <span className="font-extrabold text-green-400">{formatMetric(totalSuccess, 'count')} <span className={cn("text-[9px] font-medium", isPinned ? "text-muted-foreground" : "text-white/45")}>ok</span></span>
-                            <div className={cn("h-3 w-[1px]", isPinned ? "bg-gray-200 dark:bg-gray-800" : "bg-white/10")} />
-                            <span className="font-extrabold text-red-400">{formatMetric(totalErrors, 'count')} <span className={cn("text-[9px] font-medium", isPinned ? "text-muted-foreground" : "text-white/45")}>err</span></span>
-                        </div>
-                    </div>
+                {/* Footer */}
+                <div className="mt-3 flex items-center justify-between gap-3 border-t pt-2.5 text-[11.5px] tabular-nums" style={{ borderColor: 'var(--e-line)', color: 'var(--e-ink-3)' }}>
+                    <span>{someAvgEvents && formattedAvgMetric ? <>Avg <b style={{ color: 'var(--e-ink)' }}>{formattedAvgMetric}</b></> : (!isPinned ? 'Click to pin' : 'Totals')}</span>
+                    <span className="flex items-center gap-2.5">
+                        <span><b style={{ color: 'var(--e-ink)' }}>{formatMetric(totalCount, 'count')}</b> reqs</span>
+                        <span><b style={{ color: 'var(--e-mint)' }}>{formatMetric(totalSuccess, 'count')}</b> ok</span>
+                        <span><b style={{ color: 'var(--e-red)' }}>{formatMetric(totalErrors, 'count')}</b> err</span>
+                    </span>
                 </div>
             </div>
         </div>

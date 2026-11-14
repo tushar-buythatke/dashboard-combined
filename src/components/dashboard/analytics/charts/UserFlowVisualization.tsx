@@ -101,9 +101,9 @@ const CustomLink = (props: any) => {
         <Layer>
             <defs>
                 <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+                    <stop offset="0%" stopColor={color} stopOpacity={0.26} />
                     <stop offset="60%" stopColor={color} stopOpacity={0.15} />
-                    <stop offset="100%" stopColor={color} stopOpacity={0.05} />
+                    <stop offset="100%" stopColor={color} stopOpacity={0} />
                 </linearGradient>
             </defs>
 

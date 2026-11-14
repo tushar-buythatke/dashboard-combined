@@ -47,7 +47,9 @@ interface FeatureReportModalProps {
   organizationId?: number;
 }
 
-const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#06b6d4', '#84cc16', '#14b8a6', '#f97316'];
+const CHART_COLORS = [
+    '#e5603f', '#2f6bff', '#14a35f', '#eba12b', '#7c6feb', '#e2477f', '#0ea5b7', '#f39a6a', '#5b8c3a', '#8a8880',
+];
 
 // Chart axis tick style that works in both light and dark mode
 const getAxisTickStyle = (fontSize: number = 10) => ({
@@ -468,22 +470,22 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                       <ComposedChart data={report.dailyTrends}>
                         <defs>
                           <linearGradient id="totalGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
+                            <stop offset="5%" stopColor="hsl(var(--accent-primary))" stopOpacity={0.26} />
+                            <stop offset="95%" stopColor="hsl(var(--accent-primary))" stopOpacity={0} />
                           </linearGradient>
                           <linearGradient id="successGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                            <stop offset="5%" stopColor="var(--e-mint)" stopOpacity={0.26} />
+                            <stop offset="95%" stopColor="var(--e-mint)" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" strokeOpacity={0.7} />
                         <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#6b7280' }} tickFormatter={(v) => { try { return format(new Date(v), 'MMM d'); } catch { return v; } }} />
                         <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} tickFormatter={formatNumber} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="totalCount" stroke="#6366f1" strokeWidth={2} fill="url(#totalGrad)" name="Total" isAnimationActive={false} />
-                        <Area type="monotone" dataKey="successCount" stroke="#22c55e" strokeWidth={2} fill="url(#successGrad)" name="Success" isAnimationActive={false} />
-                        <Bar dataKey="failCount" fill="#ef4444" name="Failures" radius={[3, 3, 0, 0]} maxBarSize={16} opacity={0.8} isAnimationActive={false} />
-                        {report.dailyTrends.length > 7 && <Brush dataKey="date" height={20} stroke="#6366f1" fill="#f9fafb" />}
+                        <Area type="monotone" dataKey="totalCount" stroke="hsl(var(--accent-primary))" strokeWidth={2} fill="url(#totalGrad)" name="Total" isAnimationActive={false} />
+                        <Area type="monotone" dataKey="successCount" stroke="var(--e-mint)" strokeWidth={2} fill="url(#successGrad)" name="Success" isAnimationActive={false} />
+                        <Bar dataKey="failCount" fill="var(--e-red)" name="Failures" radius={[3, 3, 0, 0]} maxBarSize={16} opacity={0.8} isAnimationActive={false} />
+                        {report.dailyTrends.length > 7 && <Brush dataKey="date" height={20} stroke="hsl(var(--accent-primary))" fill="#f9fafb" />}
                       </ComposedChart>
                     </ResponsiveContainer>
                   </ChartCard>
@@ -504,11 +506,12 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                           innerRadius={50}
                           outerRadius={80}
                           paddingAngle={5}
-                          dataKey="value"
+                          cornerRadius={6}
+                                                                dataKey="value"
                           isAnimationActive={false}
                         >
-                          <Cell fill="#10b981" />
-                          <Cell fill="#ef4444" />
+                          <Cell fill="var(--e-mint)" />
+                          <Cell fill="var(--e-red)" />
                         </Pie>
                         <Tooltip wrapperStyle={{ zIndex: 9999 }} allowEscapeViewBox={{ x: true, y: true }} />
                       </RechartsPie>
@@ -540,7 +543,8 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                     <div className="flex items-center h-[240px] pdf-page-break-avoid">
                       <ResponsiveContainer width="55%" height="100%">
                         <RechartsPie>
-                          <Pie data={report.platformBreakdown as any[]} cx="50%" cy="50%" innerRadius={45} outerRadius={80} dataKey="count" nameKey="platformName" paddingAngle={2} isAnimationActive={false}>
+                          <Pie data={report.platformBreakdown as any[]} cx="50%" cy="50%" innerRadius={45} outerRadius={80} cornerRadius={6}
+                                                                dataKey="count" nameKey="platformName" paddingAngle={2} isAnimationActive={false}>
                             {report.platformBreakdown.map((_: PlatformMetrics, i: number) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                           </Pie>
                           <Tooltip content={({ active, payload }) => {
@@ -580,7 +584,7 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                           data={report.eventMetrics.sort((a, b) => b.totalCount - a.totalCount).slice(0, 8)}
                           margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
                         >
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" opacity={0.5} />
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--chart-grid)" opacity={0.5} />
                           <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} tickFormatter={formatNumber} />
                           <YAxis
                             type="category"
@@ -617,7 +621,8 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                     <div className="flex items-center h-[200px] pdf-page-break-avoid">
                       <ResponsiveContainer width="55%" height="100%">
                         <RechartsPie>
-                          <Pie data={report.sourceBreakdown as any[]} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="count" nameKey="sourceName" paddingAngle={2} isAnimationActive={false}>
+                          <Pie data={report.sourceBreakdown as any[]} cx="50%" cy="50%" innerRadius={40} outerRadius={70} cornerRadius={6}
+                                                                dataKey="count" nameKey="sourceName" paddingAngle={2} isAnimationActive={false}>
                             {report.sourceBreakdown.map((_: any, i: number) => <Cell key={i} fill={CHART_COLORS[(i + 4) % CHART_COLORS.length]} />)}
                           </Pie>
                           <Tooltip content={({ active, payload }) => {
@@ -657,7 +662,7 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                           .slice(0, 10)}
                         margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" opacity={0.5} />
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--chart-grid)" opacity={0.5} />
                         <XAxis type="number" domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: '#9ca3af' }} />
                         <YAxis
                           type="category"
@@ -774,8 +779,8 @@ export function FeatureReportModal({ isOpen, onClose, featureId, featureName, or
                       <XAxis dataKey="hour" tick={{ fontSize: 8, fill: '#6b7280' }} interval={2} />
                       <YAxis tick={{ fontSize: 8, fill: '#6b7280' }} tickFormatter={formatNumber} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="count" fill="#6366f1" radius={[3, 3, 0, 0]} name="Total" isAnimationActive={false} />
-                      <Bar dataKey="failCount" fill="#ef4444" radius={[3, 3, 0, 0]} name="Failures" isAnimationActive={false} />
+                      <Bar dataKey="count" fill="hsl(var(--accent-primary))" radius={[3, 3, 0, 0]} name="Total" isAnimationActive={false} />
+                      <Bar dataKey="failCount" fill="var(--e-red)" radius={[3, 3, 0, 0]} name="Failures" isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartCard>

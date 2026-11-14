@@ -388,15 +388,15 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
                             >
                                 <defs>
                                     <linearGradient id="totalUsersGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={TOTAL_USERS_COLOR} stopOpacity={0.3} />
+                                        <stop offset="5%" stopColor={TOTAL_USERS_COLOR} stopOpacity={0.26} />
                                         <stop offset="95%" stopColor={TOTAL_USERS_COLOR} stopOpacity={0.02} />
                                     </linearGradient>
                                     <linearGradient id="newUsersGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={NEW_USERS_COLOR} stopOpacity={0.3} />
+                                        <stop offset="5%" stopColor={NEW_USERS_COLOR} stopOpacity={0.26} />
                                         <stop offset="95%" stopColor={NEW_USERS_COLOR} stopOpacity={0.02} />
                                     </linearGradient>
                                     <linearGradient id="uniqueUsersGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={UNIQUE_USERS_COLOR} stopOpacity={0.3} />
+                                        <stop offset="5%" stopColor={UNIQUE_USERS_COLOR} stopOpacity={0.26} />
                                         <stop offset="95%" stopColor={UNIQUE_USERS_COLOR} stopOpacity={0.02} />
                                     </linearGradient>
                                 </defs>
@@ -505,7 +505,7 @@ export const UserFootfallCard = React.memo(({ graphData, eventKeys = [], events 
                                     isAnimationActive={true}
                                     hide={!visibleMetrics.unique}
                                 />
-                                <ReferenceLine y={userMetrics.peakUsers} stroke="#ef4444" strokeDasharray="3 3" strokeOpacity={0.3}>
+                                <ReferenceLine y={userMetrics.peakUsers} stroke="var(--e-red)" strokeDasharray="3 3" strokeOpacity={0.3}>
                                     <Label value="Peak" position="left" style={{ fontSize: '9px', fill: '#ef4444', fontWeight: 'bold' }} />
                                 </ReferenceLine>
                             </AreaChart>

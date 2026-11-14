@@ -31,9 +31,7 @@ const formatRupee = (num: number | null | undefined) => {
 
 // ─── Vivid palette (kept for export compat) — we now use useChartColors().palette
 export const PIE_COLORS = [
-    '#6c47ff', '#10b981', '#f59e0b', '#ef4444', '#06b6d4',
-    '#a855f7', '#f97316', '#84cc16', '#ec4899', '#3b82f6',
-    '#6366f1', '#14b8a6',
+    '#e5603f', '#2f6bff', '#14a35f', '#eba12b', '#7c6feb', '#e2477f', '#0ea5b7', '#f39a6a', '#5b8c3a', '#8a8880', '#c2410c', '#3d5a80',
 ];
 
 // ─── Premium glass tooltip ────────────────────────────────────────────────────
@@ -51,8 +49,8 @@ export const PieTooltip = ({
 
     return (
         <div
-            className="min-w-[148px] max-w-[240px] rounded-[10px] border-l-[3px] backdrop-blur-xl px-3.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
-            style={{ background: 'rgba(15,15,26,0.88)', borderLeftColor: color }}
+            className="min-w-[148px] max-w-[240px] rounded-[16px] backdrop-blur-xl px-3.5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
+            style={{ background: 'rgba(15,15,26,0.88)' }}
         >
             <div className="mb-1.5 flex items-center gap-2">
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
@@ -486,7 +484,8 @@ export function ExpandedPieChartModal({
                                                     innerRadius={isCompact ? "52%" : "58%"}
                                                     outerRadius={isCompact ? "80%" : "88%"}
                                                     paddingAngle={2}
-                                                    dataKey="value"
+                                                    cornerRadius={6}
+                                                                dataKey="value"
                                                     strokeWidth={2}
                                                     activeShape={activeShape}
                                                     onMouseEnter={handleMouseEnter}

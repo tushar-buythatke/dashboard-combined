@@ -488,13 +488,13 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                             <defs>
                                 {/* Normal stage gradient — accent top → tinted bottom */}
                                 <linearGradient id="funnelBarGradNormal" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={accentPrimary} stopOpacity={1} />
+                                    <stop offset="0%" stopColor={accentPrimary} stopOpacity={0.26} />
                                     <stop offset="100%" stopColor={accentPrimary} stopOpacity={0.42} />
                                 </linearGradient>
                                 {/* Problem/worst stage gradient — red */}
                                 <linearGradient id="funnelBarGradRed" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
-                                    <stop offset="100%" stopColor="#ef4444" stopOpacity={0.42} />
+                                    <stop offset="0%" stopColor="var(--e-red)" stopOpacity={0.26} />
+                                    <stop offset="100%" stopColor="var(--e-red)" stopOpacity={0.42} />
                                 </linearGradient>
                             </defs>
                         </svg>
@@ -1003,8 +1003,6 @@ export function FunnelGraph({ data, stages, multipleChildEvents, eventColors, ev
                     <div
                         className="rounded-2xl p-5 min-w-[280px] isolation-auto relative backdrop-blur-xl bg-white/95 dark:bg-[#10101c]/92 border border-black/[0.06] dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
                         style={{
-                            borderLeftWidth: '3px',
-                            borderLeftColor: worstStageIndex === funnelData.findIndex(s => s.eventId === hoveredStage.eventId) ? '#ef4444' : accentPrimary,
                         }}
                     >
                         {/* Tooltip Arrow */}

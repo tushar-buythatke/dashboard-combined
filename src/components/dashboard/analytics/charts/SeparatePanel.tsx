@@ -80,7 +80,7 @@ function MiniDonut({ pieData, palette, surfaceColor, title, chartId }: MiniDonut
                         <defs>
                             {palette.map((color, i) => (
                                 <radialGradient key={`rg-${chartId}-${i}`} id={`rg-${chartId}-${i}`} cx="50%" cy="50%" r="50%">
-                                    <stop offset="0%" stopColor={color} stopOpacity={0.9} />
+                                    <stop offset="0%" stopColor={color} stopOpacity={0.26} />
                                     <stop offset="100%" stopColor={color} stopOpacity={1} />
                                 </radialGradient>
                             ))}
@@ -92,7 +92,8 @@ function MiniDonut({ pieData, palette, surfaceColor, title, chartId }: MiniDonut
                             innerRadius="62%"
                             outerRadius="90%"
                             paddingAngle={2}
-                            dataKey="value"
+                            cornerRadius={6}
+                                                                dataKey="value"
                             activeShape={(props: any) => renderActiveShape(props, surfaceColor)}
                             onMouseEnter={(_: any, index: number) => setActiveIndex(index)}
                             onMouseLeave={() => setActiveIndex(null)}
@@ -224,7 +225,7 @@ export function SeparatePanel({ panel, data }: SeparatePanelProps) {
                             <LineChart data={graphData}>
                                 <defs>
                                     <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor={event?.color ?? colors.accentPrimary} stopOpacity={0.30} />
+                                        <stop offset="0%" stopColor={event?.color ?? colors.accentPrimary} stopOpacity={0.26} />
                                         <stop offset="100%" stopColor={event?.color ?? colors.accentPrimary} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>

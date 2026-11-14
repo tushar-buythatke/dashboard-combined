@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts';
-import { TrendingUp, Calendar, Clock } from 'lucide-react';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ComposedChart, Area } from 'recharts';
+import { Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ChartZoomControls } from './ChartZoomControls';
 import { useChartZoom } from '@/hooks/useChartZoom';
@@ -9,15 +9,7 @@ import { useChartColors, AXIS_TICK_STYLE, gridProps } from '@/lib/chartTheme';
 import { GlassTooltip } from '@/components/ui/GlassTooltip';
 
 // Color palette for different days
-const DAY_COLORS = [
-    '#8b5cf6', // purple
-    '#06b6d4', // cyan
-    '#f59e0b', // amber
-    '#10b981', // emerald
-    '#ef4444', // red
-    '#ec4899', // pink
-    '#6366f1', // indigo
-];
+const DAY_COLORS = ['#e5603f', '#2f6bff', '#14a35f', '#eba12b', '#7c6feb', '#e2477f', '#0ea5b7', '#8a8880'];
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -272,7 +264,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                         domain={[0, 'dataMax']}
                     />
                     <Tooltip content={<GlassTooltip formatter={(value, name, color) => (
-                        <span style={{ color: '#fff' }}>{formatNumber(typeof value === 'number' ? value : Number(value))}</span>
+                        <span>{formatNumber(typeof value === 'number' ? value : Number(value))}</span>
                     )} />} />
 
                     <Legend
@@ -335,7 +327,7 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                 stroke={strokeColor}
                                 strokeOpacity={strokeOpacity}
                                 strokeWidth={strokeWidth}
-                                dot={shouldShowSinglePointDot ? { r: isSelected ? 5 : 4, strokeWidth: 2, stroke: '#fff', fill: strokeColor } : false}
+                                dot={shouldShowSinglePointDot ? { r: isSelected ? 9 : 7, strokeWidth: 3, stroke: 'var(--e-surface)', fill: strokeColor } : false}
                                 connectNulls={false}
                                 activeDot={{
                                     r: isSelected ? 5 : 3,
@@ -438,24 +430,19 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
     }
 
     return (
-        <Card className="border border-indigo-200/60 dark:border-indigo-500/30 overflow-hidden shadow-lg rounded-2xl">
-            <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-gray-50/80 to-slate-50/60 dark:from-gray-800/20 dark:to-slate-800/10 border-b border-indigo-200/40 dark:border-indigo-500/20">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 flex items-center justify-center shadow-lg">
-                            <Calendar className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-base md:text-lg">8-Day Overlay Comparison</CardTitle>
-                            <p className="text-sm text-muted-foreground mt-0.5 font-medium">
-                                Compare patterns across different days
-                            </p>
-                        </div>
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-2 px-5 md:px-7 pt-6">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <CardTitle className="text-[22px] md:text-[26px] font-medium tracking-[-0.03em]">Day over day</CardTitle>
+                        <p className="text-[13px] mt-1" style={{ color: 'var(--e-ink-3)' }}>
+                            Each line is one day, plotted by hour
+                        </p>
                     </div>
 
                     {/* Event Stats Badges */}
                     {!headless && eventStats && eventStats.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-3">
+                        <div className="flex flex-wrap gap-2">
                             {eventStats
                                 .slice()
                                 .sort((a, b) => {
@@ -496,19 +483,13 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                                         <div
                                             key={stat.eventKey}
                                             onClick={() => onEventClick?.(stat.eventKey)}
-                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all ${isSelected
-                                                ? 'bg-gray-100 dark:bg-gray-700/40 border-2 border-gray-500 shadow-md scale-105'
-                                                : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-102'
-                                                }`}
+                                            className="inline-flex h-9 items-center gap-2 px-3.5 rounded-full cursor-pointer transition-colors text-[13px]"
+                                            style={isSelected ? { background: 'var(--e-ink-pill)', color: 'var(--e-canvas)' } : { background: 'var(--e-surface-2)', color: 'var(--e-ink-2)' }}
                                         >
                                             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: badgeColor }} />
-                                            <span className={`text-sm font-medium ${isSelected ? 'text-gray-900 dark:text-gray-100' : 'text-gray-700 dark:text-gray-300'}`}>
-                                                {eventNames[String(stat.eventId)] || stat.eventKey}
-                                            </span>
-                                            <span className={`text-sm font-bold ${isSelected ? 'text-gray-900 dark:text-gray-100' : 'text-gray-900 dark:text-white'}`}>{stat.total.toLocaleString()}</span>
-                                            <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-semibold">
-                                                {stat.successRate.toFixed(0)}%
-                                            </span>
+                                            <span className="font-bold">{eventNames[String(stat.eventId)] || stat.eventKey}</span>
+                                            <span className="tabular-nums opacity-80">{stat.total.toLocaleString()}</span>
+                                            <span className="tabular-nums text-[11.5px] font-bold" style={{ color: isSelected ? undefined : 'var(--e-mint)' }}>{stat.successRate.toFixed(0)}%</span>
                                         </div>
                                     );
                                 })}
@@ -516,17 +497,18 @@ export function DayWiseComparisonChart({ data, dateRange, eventKeys, eventColors
                     )}
                 </div>
             </CardHeader>
-            <CardContent className="p-4 md:p-6 bg-gradient-to-br from-gray-50/30 to-slate-50/20 dark:from-gray-800/10 dark:to-slate-800/5">
-                {/* Smart summary chips */}
-                <div className="mb-3 flex flex-wrap gap-2 text-sm relative">
+            <CardContent className="p-5 md:p-7">
+                <div className="mb-4 grid grid-cols-2 gap-3 md:max-w-md">
                     {peakHourTime && peakHourValue != null && (
-                        <div className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200 font-medium">
-                            Peak hour today: {peakHourTime} ({formatNumber(peakHourValue)})
+                        <div className="rounded-[18px] px-4 py-3" style={{ background: 'var(--e-surface-2)' }}>
+                            <p className="text-[11.5px]" style={{ color: 'var(--e-ink-3)' }}>Peak hour today</p>
+                            <p className="text-[20px] font-medium tracking-[-0.03em]" style={{ fontFamily: 'var(--font-display)', color: 'var(--e-ink)' }}>{peakHourTime} · {formatNumber(peakHourValue)}</p>
                         </div>
                     )}
                     {todayVsAvgPct != null && (
-                        <div className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200 font-medium">
-                            {todayVsAvgPct >= 0 ? '▲' : '▼'} Today vs 7-day avg: {todayVsAvgPct >= 0 ? '+' : ''}{todayVsAvgPct.toFixed(0)}%
+                        <div className="rounded-[18px] px-4 py-3" style={{ background: 'var(--e-surface-2)' }}>
+                            <p className="text-[11.5px]" style={{ color: 'var(--e-ink-3)' }}>Today vs 7-day avg</p>
+                            <p className="text-[20px] font-medium tracking-[-0.03em]" style={{ fontFamily: 'var(--font-display)', color: todayVsAvgPct >= 0 ? 'var(--e-mint)' : 'var(--e-red)' }}>{todayVsAvgPct >= 0 ? '+' : ''}{todayVsAvgPct.toFixed(0)}%</p>
                         </div>
                     )}
                     {/* Volatility chip intentionally removed for now */}
@@ -617,8 +599,8 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                             <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                                 <defs>
                                     <linearGradient id="deviationGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="var(--e-blue)" stopOpacity={0.26} />
+                                        <stop offset="95%" stopColor="var(--e-blue)" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid {...gridProps(grid)} />
@@ -641,7 +623,7 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                                     type="monotone"
                                     dataKey="avg"
                                     name="Average"
-                                    stroke="#06b6d4"
+                                    stroke="var(--e-blue)"
                                     strokeWidth={3}
                                     dot={{ r: 3, fill: '#06b6d4' }}
                                 />
@@ -649,7 +631,7 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                                     type="monotone"
                                     dataKey="max"
                                     name="Max"
-                                    stroke="#ef4444"
+                                    stroke="var(--e-red)"
                                     strokeWidth={2}
                                     strokeDasharray="5 5"
                                     dot={false}
@@ -658,7 +640,7 @@ export function HourlyDeviationChart({ data, dateRange, eventKeys, eventColors }
                                     type="monotone"
                                     dataKey="min"
                                     name="Min"
-                                    stroke="#10b981"
+                                    stroke="var(--e-mint)"
                                     strokeWidth={2}
                                     strokeDasharray="5 5"
                                     dot={false}
@@ -681,7 +663,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
 
     // Zoom functionality
     const { zoomLevel, zoomIn, zoomOut, resetZoom, handleWheel } = useChartZoom();
-    const { grid, axis, avg: avgColor } = useChartColors();
+    const { grid, axis, avg: avgColor, accentPrimary } = useChartColors();
 
     const daysDiff = Math.ceil((dateRange.to.getTime() - dateRange.from.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -734,6 +716,9 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
 
     // Calculate overall average
     const overallAvg = chartData.reduce((sum, d) => sum + d.value, 0) / chartData.length;
+    const peak = chartData.reduce((best, d) => (d.value > best.value ? d : best), chartData[0] ?? { date: '-', value: 0 });
+    const latest = chartData[chartData.length - 1];
+    const latestVsAvg = latest && overallAvg > 0 ? ((latest.value - overallAvg) / overallAvg) * 100 : 0;
 
     // Helper function to extract status code from event key
     const extractStatusCode = (eventKey: string): number => {
@@ -757,19 +742,14 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
     }, [sortedEventStats, selectedEventKey, onEventClick]);
 
     return (
-        <Card className="border border-emerald-200/60 dark:border-emerald-500/30 overflow-hidden shadow-lg rounded-2xl">
-            <CardHeader className="pb-2 px-4 md:px-6 bg-gradient-to-r from-emerald-50/80 to-green-50/60 dark:from-emerald-900/20 dark:to-green-900/10 border-b border-emerald-200/40 dark:border-emerald-500/20">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg">
-                            <TrendingUp className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-base md:text-lg">Daily Trends with Average Line</CardTitle>
-                            <p className="text-sm text-muted-foreground mt-0.5 font-medium">
-                                {daysDiff} days • Average: {overallAvg.toFixed(2)}
-                            </p>
-                        </div>
+        <Card className="overflow-hidden">
+            <CardHeader className="pb-2 px-5 md:px-7 pt-6">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <CardTitle className="text-[22px] md:text-[26px] font-medium tracking-[-0.03em]">Daily trend</CardTitle>
+                        <p className="text-[13px] mt-1" style={{ color: 'var(--e-ink-3)' }}>
+                            Last {daysDiff} days, averaged per day
+                        </p>
                     </div>
                     <ChartZoomControls
                         zoomLevel={zoomLevel}
@@ -777,6 +757,19 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                         onZoomOut={zoomOut}
                         onReset={resetZoom}
                     />
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    {[
+                        { k: 'Average / day', v: formatNumber(overallAvg) },
+                        { k: `Peak · ${peak?.date ?? '-'}`, v: formatNumber(peak?.value ?? 0) },
+                        { k: `Latest · ${latest?.date ?? '-'}`, v: formatNumber(latest?.value ?? 0) },
+                        { k: 'Latest vs average', v: `${latestVsAvg >= 0 ? '+' : ''}${latestVsAvg.toFixed(1)}%`, tone: latestVsAvg >= 0 ? 'var(--e-mint)' : 'var(--e-coral)' },
+                    ].map((x) => (
+                        <div key={x.k} className="rounded-[18px] px-4 py-3" style={{ background: 'var(--e-surface-2)' }}>
+                            <p className="truncate text-[11.5px]" style={{ color: 'var(--e-ink-3)' }}>{x.k}</p>
+                            <p className="mt-0.5 text-[22px] font-medium tabular-nums tracking-[-0.03em]" style={{ fontFamily: 'var(--font-display)', color: x.tone ?? 'var(--e-ink)' }}>{x.v}</p>
+                        </div>
+                    ))}
                 </div>
                 {/* Event badges for selection */}
                 {sortedEventStats && sortedEventStats.length > 0 && (
@@ -807,11 +800,10 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     key={stat.eventKey}
                                     onClick={() => onEventClick?.(stat.eventKey)}
                                     className={cn(
-                                        'px-4 py-2 rounded-lg border-2 text-sm font-medium transition-all duration-200',
-                                        'hover:scale-105 cursor-pointer',
+                                        'h-9 px-4 rounded-full border text-[13px] font-bold transition-all duration-200 cursor-pointer',
                                         isSelected
-                                            ? `${bgColor} ${borderColor} ${textColor} shadow-md`
-                                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 opacity-60 hover:opacity-100'
+                                            ? `${bgColor} ${borderColor} ${textColor}`
+                                            : 'border-transparent bg-[var(--e-surface-2)] text-[var(--e-ink-2)] hover:bg-[var(--e-surface-3)]'
                                     )}
                                 >
                                     <span className="font-semibold">{eventNames[String(stat.eventId)] || stat.eventKey}</span>
@@ -830,11 +822,11 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                         style={{ transform: `scale(${zoomLevel})`, width: `${zoomLevel * 100}%`, height: `${zoomLevel * 100}%` }}
                     >
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
+                            <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 50 }}>
                                 <defs>
                                     <linearGradient id="dailyGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                                        <stop offset="0%" stopColor={accentPrimary} stopOpacity={0.26} />
+                                        <stop offset="100%" stopColor={accentPrimary} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid {...gridProps(grid)} />
@@ -864,10 +856,7 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                         return (
                                             <div
                                                 className="min-w-[180px] overflow-hidden rounded-[12px] border border-black/[0.06] dark:border-white/10 bg-white/95 dark:bg-[#10101c]/90 px-3.5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.14)] dark:shadow-[0_10px_34px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-                                                style={{
-                                                    borderLeftColor: entry?.color || '#10b981',
-                                                    borderLeftWidth: '3px',
-                                                }}
+
                                             >
                                                 <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-white/55">{label}</div>
                                                 <div className="flex items-baseline justify-between gap-3">
@@ -883,8 +872,6 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                         );
                                     }}
                                 />
-                                <Legend />
-
                                 {/* Average reference line */}
                                 <ReferenceLine
                                     y={overallAvg}
@@ -900,26 +887,26 @@ export function DailyAverageChart({ data, dateRange, eventKeys, eventColors, eve
                                     }}
                                 />
 
-                                <Line
+                                <Area
                                     type="monotone"
                                     dataKey="value"
                                     name="Daily Value"
-                                    stroke="#10b981"
-                                    strokeWidth={3}
+                                    stroke={accentPrimary}
+                                    strokeWidth={2.5}
                                     fill="url(#dailyGradient)"
                                     dot={(dotProps: any) => {
                                         const isPartial = Boolean(dotProps?.payload?.isPartialLatestDay);
                                         const dotKey = dotProps?.key ?? `dot-${dotProps?.index ?? dotProps?.cx}-${dotProps?.cy}`;
                                         // Only highlight the partial latest-day point; hide all other dots for a clean line
                                         if (isPartial) {
-                                            return <circle key={dotKey} cx={dotProps?.cx} cy={dotProps?.cy} r={5} fill="#f59e0b" stroke="#10b981" strokeWidth={2} />;
+                                            return <circle key={dotKey} cx={dotProps?.cx} cy={dotProps?.cy} r={5} fill="var(--e-amber)" stroke={accentPrimary} strokeWidth={2} />;
                                         }
                                         return <circle key={dotKey} cx={dotProps?.cx} cy={dotProps?.cy} r={0} fill="none" />;
                                     }}
-                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: '#10b981' }}
+                                    activeDot={{ r: 6, strokeWidth: 3, stroke: '#fff', fill: accentPrimary }}
                                     isAnimationActive={false}
                                 />
-                            </LineChart>
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </div>
                 </div>

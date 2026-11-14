@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useAccentTheme } from '@/contexts/AccentThemeContext';
 
 interface HeroGradientHeaderProps {
     title: string;
@@ -28,15 +27,14 @@ export function HeroGradientHeader({
     children,
 }: HeroGradientHeaderProps) {
     const { isAutosnipe } = useTheme();
-    const { t: themeClasses } = useAccentTheme();
 
     return (
         <div
             className={cn(
-                'relative overflow-hidden rounded-2xl',
+                'relative overflow-hidden rounded-[28px] shadow-[0_30px_60px_-34px_hsl(var(--accent-primary)/0.6)]',
                 isAutosnipe
                     ? 'bg-gradient-to-br from-[#0a0a0a] via-[#052e16] to-[#0a0a0a]'
-                    : cn('bg-gradient-to-br', themeClasses.buttonGradient),
+                    : 'e-hero-card',
                 className
             )}
         >
@@ -62,7 +60,7 @@ export function HeroGradientHeader({
                         <div>
                             <h1
                                 className={cn(
-                                    "text-xl md:text-2xl font-bold tracking-tight text-white",
+                                    "text-2xl md:text-[2.4rem] font-medium leading-none tracking-[-0.03em] text-white",
                                     isAutosnipe && "text-green-400"
                                 )}
                             >
@@ -139,15 +137,14 @@ export function HeroGradientBanner({
     className,
 }: Omit<HeroGradientHeaderProps, 'stats' | 'actions' | 'children' | 'lastUpdated'>) {
     const { isAutosnipe } = useTheme();
-    const { t: themeClasses } = useAccentTheme();
 
     return (
         <div
             className={cn(
-                'relative overflow-hidden px-4 py-3 md:px-5 md:py-4 rounded-2xl',
+                'relative overflow-hidden px-4 py-3 md:px-5 md:py-4 rounded-[24px]',
                 isAutosnipe
                     ? 'bg-gradient-to-br from-[#0a0a0a] via-[#052e16] to-[#0a0a0a]'
-                    : cn('bg-gradient-to-br', themeClasses.buttonGradient),
+                    : 'e-hero-card',
                 className
             )}
         >

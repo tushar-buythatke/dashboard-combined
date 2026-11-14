@@ -3,6 +3,22 @@ import { createRoot } from 'react-dom/client'
 import * as Sentry from '@sentry/react'
 
 import './index.css'
+import './styles/ember.css'
+
+// Entrance animations play only for a moment after load/navigation (see ember.css).
+let introTimer: number | undefined
+const playIntro = () => {
+  const root = document.documentElement
+  root.classList.add('e-intro')
+  window.clearTimeout(introTimer)
+  introTimer = window.setTimeout(() => root.classList.remove('e-intro'), 2200)
+}
+playIntro()
+for (const k of ['pushState', 'replaceState'] as const) {
+  const orig = history[k].bind(history)
+  history[k] = ((...args: Parameters<History['pushState']>) => { const r = orig(...args); playIntro(); return r }) as History['pushState']
+}
+window.addEventListener('popstate', playIntro)
 import App from './App'
 import { ThemeProvider } from './components/theme/theme-provider'
 

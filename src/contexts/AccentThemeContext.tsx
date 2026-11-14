@@ -431,17 +431,17 @@ const THEME_CLASSES: Record<Exclude<AccentTheme, 'auto'>, ThemeClasses> = {
 
 // Theme display info for the selector
 export const THEME_INFO: Record<Exclude<AccentTheme, 'auto'>, { name: string; colors: [string, string, string] }> = {
-    indigo: { name: 'Tide', colors: ['#45b6ee', '#4fd6d6', '#74dab0'] },
-    aurora: { name: 'Bloom', colors: ['#f3866c', '#f08fc2', '#b3a0e6'] },
-    sunset: { name: 'Sunset', colors: ['#fb8b2c', '#f6b13c', '#f87a45'] },
-    forest: { name: 'Forest', colors: ['#2eb877', '#38c4a8', '#54c878'] },
-    midnight: { name: 'Midnight', colors: ['#7a64ef', '#a771ec', '#c47de6'] },
-    afterhours: { name: 'Cyber', colors: ['#84c452', '#37c794', '#38cfd6'] },
+    aurora: { name: 'Ember', colors: ['#e5603f', '#f3f3f1', '#141413'] },
+    indigo: { name: 'Tide', colors: ['#1f7ae0', '#eef3f7', '#0b2238'] },
+    sunset: { name: 'Saffron', colors: ['#d98a12', '#f6f2ea', '#2a1d08'] },
+    forest: { name: 'Matcha', colors: ['#3f8f5a', '#eff2ec', '#14251a'] },
+    midnight: { name: 'Ultraviolet', colors: ['#6d4cff', '#f1effa', '#170f33'] },
+    afterhours: { name: 'Ink', colors: ['#2f5bff', '#f2f2f2', '#0a0a0a'] },
 };
 
-export const CLASSIC_THEMES: Array<Exclude<AccentTheme, 'auto'>> = ['indigo', 'aurora', 'sunset', 'forest'];
+export const CLASSIC_THEMES: Array<Exclude<AccentTheme, 'auto'>> = ['aurora', 'indigo', 'sunset', 'forest', 'midnight', 'afterhours'];
 // Cyber/afterhours dropped from the active set (v4: 2 signature + 3 legacy).
-export const PREMIUM_THEMES: Array<Exclude<AccentTheme, 'auto'>> = ['midnight'];
+export const PREMIUM_THEMES: Array<Exclude<AccentTheme, 'auto'>> = [];
 
 interface AccentThemeContextType {
     accentTheme: AccentTheme;
@@ -555,12 +555,12 @@ export function AccentThemeProvider({ children }: { children: ReactNode }) {
 
     // Theme color definitions for CSS variables
     const THEME_COLORS: Record<Exclude<AccentTheme, 'auto'>, { primary: string; secondary: string; tertiary: string }> = {
-        indigo: { primary: '#45b6ee', secondary: '#4fd6d6', tertiary: '#74dab0' },
-        aurora: { primary: '#f3866c', secondary: '#f08fc2', tertiary: '#b3a0e6' },
-        sunset: { primary: '#fb8b2c', secondary: '#f6b13c', tertiary: '#f87a45' },
-        forest: { primary: '#2eb877', secondary: '#38c4a8', tertiary: '#54c878' },
-        midnight: { primary: '#7a64ef', secondary: '#a771ec', tertiary: '#c47de6' },
-        afterhours: { primary: '#84c452', secondary: '#37c794', tertiary: '#38cfd6' },
+        indigo: { primary: '#1f7ae0', secondary: '#1f7ae0', tertiary: '#5aa6f0' },
+        aurora: { primary: '#e5603f', secondary: '#e5603f', tertiary: '#f39a6a' },
+        sunset: { primary: '#d98a12', secondary: '#d98a12', tertiary: '#efb54a' },
+        forest: { primary: '#3f8f5a', secondary: '#3f8f5a', tertiary: '#74b88a' },
+        midnight: { primary: '#6d4cff', secondary: '#6d4cff', tertiary: '#9d86ff' },
+        afterhours: { primary: '#2f5bff', secondary: '#2f5bff', tertiary: '#6e8cff' },
     };
 
     useEffect(() => {

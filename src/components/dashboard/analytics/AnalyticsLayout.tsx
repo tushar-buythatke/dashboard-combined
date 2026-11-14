@@ -8,7 +8,7 @@ import { ModernFeatureSelector } from './ModernFeatureSelector';
 import { ProfileSidebar } from './ProfileSidebar';
 import { FeatureReportModal } from './FeatureReportModal';
 import { Button } from '@/components/ui/button';
-import { LogOut, ArrowLeft, Plus, Sun, Moon, Building2, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle, FileText, BellRing } from 'lucide-react';
+import { LogOut, ArrowLeft, Plus, Sun, Moon, ChevronDown, Check, Menu, X, Settings, Layers, ShieldAlert, UserPlus, Clock, CheckCircle, FileText, BellRing } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DashboardViewer } from './DashboardViewer';
 import { ProfileBuilder } from './admin/ProfileBuilder';
@@ -36,6 +36,7 @@ import { apiService, getFeatureName, getFeatureShortName } from '@/services/apiS
 import { useTheme } from '@/components/theme/theme-provider';
 import { GradientMeshBackground, AuroraMeshBackground } from '@/components/ui/animated-background';
 import { useScrolled } from '@/hooks/useScrolled';
+import { DotMatrix } from '@/components/ui/dot-matrix';
 import { CustomEventLabelsProvider } from '@/contexts/CustomEventLabelsContext';
 import { AccentThemeSelector } from '@/components/ui/accent-theme-selector';
 import { useAccentTheme } from '@/contexts/AccentThemeContext';
@@ -504,29 +505,27 @@ export function AnalyticsLayout() {
                 <header className="fixed top-0 left-0 right-0 z-[100] transition-all duration-300" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 12px))' }}>
                     <div
                         className={cn(
-                            "mx-3 lg:mx-6 px-3 lg:px-5 flex justify-between items-center rounded-2xl transition-all duration-300",
-                            headerScrolled
-                                ? "py-2 shadow-[0_8px_32px_rgba(0,0,0,0.10)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.28)]"
-                                : "py-2.5 lg:py-3 shadow-none"
+                            "mx-3 lg:mx-6 px-3 lg:px-4 py-2 flex justify-between items-center rounded-full transition-all duration-300"
                         )}
                         style={{
                             background: 'var(--dash-header-bg)',
                             backdropFilter: 'blur(16px) saturate(180%)',
                             WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                            border: '0.5px solid var(--dash-header-border)',
-                            boxShadow: headerScrolled ? '0 8px 32px rgba(0,0,0,0.10)' : '0 2px 12px rgba(0,0,0,0.04)',
+                            border: 'none',
+                            boxShadow: headerScrolled ? '0 0 0 1px var(--e-line), 0 18px 40px -24px rgba(0,0,0,0.35)' : 'none',
                         } as CSSProperties}
                     >
                         <div className="flex items-center gap-2 lg:gap-3">
-                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl p-1 overflow-hidden flex items-center justify-center" style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)' }}>
+                            <div className="h-10 w-10 shrink-0 rounded-full p-2 flex items-center justify-center" style={{ background: 'var(--e-ink-pill)' }}>
                                 <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                             </div>
                             <div className="flex flex-col">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <button className="flex items-center gap-1.5 font-bold text-sm lg:text-base leading-tight transition-colors outline-none focus:outline-none" style={{ color: 'var(--dash-text-primary)' }}>
-                                            <Building2 className="h-3.5 w-3.5" style={{ color: 'var(--dash-text-muted)' }} />
-                                            {selectedOrganization?.name || 'Select Organization'}
+                                            <span className="block h-8 w-[136px]" role="img" aria-label={selectedOrganization?.name || 'Select Organization'}>
+                                                <DotMatrix text={(selectedOrganization?.name || 'Select org').toLowerCase()} gap={3} variant="mark" />
+                                            </span>
                                             <ChevronDown className="h-3 w-3" style={{ color: 'var(--dash-text-muted)' }} />
                                         </button>
                                     </DropdownMenuTrigger>
@@ -616,10 +615,10 @@ export function AnalyticsLayout() {
                                 variant="outline"
                                 size="icon"
                                 onClick={toggleMode}
-                                className="rounded-lg h-8 w-8 transition-colors"
-                                style={{ background: 'var(--dash-surface)', border: '1px solid var(--dash-border)', color: 'var(--dash-text-muted)' }}
+                                className="e-round !border-0"
+                                aria-label="Toggle dark mode"
                             >
-                                {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-slate-500" />}
+                                {mode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                             </Button>
 
                             {/* New Config — gradient hero CTA + hover shimmer + glow */}
@@ -627,13 +626,9 @@ export function AnalyticsLayout() {
                                 <Button
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
-                                    className="group relative overflow-hidden gap-2 h-8 px-3 rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
-                                    style={{ background: 'var(--accent-gradient)', boxShadow: '0 2px 12px var(--theme-primary-alpha,rgba(99,102,241,0.2))' }}
+                                    className="gap-2 h-10 px-5 rounded-full text-white hover:opacity-90 active:scale-[0.97]"
+                                    style={{ background: 'var(--e-coral)', boxShadow: '0 10px 22px -10px hsl(var(--accent-primary) / 0.7)' }}
                                 >
-                                    {/* Shimmer sweep — only plays on hover via group-hover */}
-                                    <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
-                                        <span className="absolute inset-y-0 w-1/2 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-15deg] transition-none group-hover:animate-[shimmer-sweep_0.6s_ease-out_forwards]" />
-                                    </span>
                                     <Plus className="h-4 w-4 relative z-10" />
                                     <span className="hidden lg:inline relative z-10 text-xs font-semibold">New Config</span>
                                 </Button>
@@ -819,7 +814,7 @@ export function AnalyticsLayout() {
             <div className="flex flex-col relative min-h-screen theme-transition" style={{ background: 'var(--dash-bg)' }}>
                 <header
                     className={cn(
-                        "fixed top-0 left-0 right-0 h-14 lg:h-16 flex items-center px-3 lg:px-4 justify-between z-[100] transition-all duration-300",
+                        "fixed top-0 left-0 right-0 h-16 lg:h-[72px] flex items-center px-3 lg:px-6 justify-between z-[100] transition-all duration-300",
                     )}
                     style={{
                         paddingTop: 'env(safe-area-inset-top, 0px)',
@@ -827,7 +822,7 @@ export function AnalyticsLayout() {
                         backdropFilter: 'blur(16px) saturate(180%)',
                         WebkitBackdropFilter: 'blur(16px) saturate(180%)',
                         borderBottom: '0.5px solid var(--dash-header-border)',
-                        boxShadow: innerScrolled ? '0 4px 24px rgba(0,0,0,0.08)' : '0 1px 8px rgba(0,0,0,0.04)',
+                        boxShadow: innerScrolled ? '0 1px 0 var(--e-line)' : 'none',
                     } as CSSProperties}
                 >
                     <div className="flex items-center gap-2 lg:gap-4">
@@ -852,27 +847,27 @@ export function AnalyticsLayout() {
                                 setIsCreatingProfile(false);
                                 setFeatureSelectorKey(prev => prev + 1);
                             }}
-                            className="h-8 w-8 lg:h-9 lg:w-9 hover:scale-110 transition-transform"
-                            style={{ color: 'var(--dash-text-muted)' }}
+                            className="e-round !h-9 !w-9 sm:!h-[2.6rem] sm:!w-[2.6rem]"
+                            aria-label="Back to features"
                         >
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                         <div className="flex items-center gap-2 lg:gap-3">
-                            <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-xl p-1 shadow-md" style={{ background: 'var(--dash-bg-elevated)', border: '1px solid var(--dash-border)' }}>
+                            <div className="hidden sm:flex h-10 w-10 shrink-0 rounded-full p-2 flex items-center justify-center" style={{ background: 'var(--e-ink-pill)' }}>
                                 <img src="/assets/logo_512x512.png" alt="Buyhatke" className="w-full h-full object-contain" />
                             </div>
                             <div className="flex items-center gap-1.5 lg:gap-2">
-                                <span className="font-semibold text-sm lg:text-base stat-gradient-text font-display">
+                                <span className="truncate max-w-[34vw] sm:max-w-none text-[16px] lg:text-[19px] font-medium tracking-[-0.02em]" style={{ fontFamily: 'var(--font-display)', color: 'var(--e-ink)' }}>
                                     {selectedFeatureId ? getFeatureName(selectedFeatureId) : 'Analytics'}
                                 </span>
                                 <span className="text-xs hidden md:inline font-light opacity-30 select-none" style={{ color: 'var(--dash-text-muted)' }}>/</span>
-                                <span className="text-xs hidden md:inline font-medium" style={{ color: 'var(--dash-text-muted)' }}>
-                                    {selectedOrganization?.name || 'Organization'}
+                                <span className="hidden md:block h-7 w-[118px]" role="img" aria-label={selectedOrganization?.name || 'Organization'} title={selectedOrganization?.name || 'Organization'}>
+                                    <DotMatrix text={(selectedOrganization?.name || 'Organization').toLowerCase()} gap={2.6} variant="mark" />
                                 </span>
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-1.5 lg:gap-2">
+                    <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
                         {/* Accent Theme Selector */}
                         <AccentThemeSelector />
 
@@ -881,9 +876,10 @@ export function AnalyticsLayout() {
                             variant="outline"
                             size="icon"
                             onClick={toggleMode}
-                            className="rounded-full h-8 w-8 backdrop-blur-md bg-white/40 dark:bg-white/10 border border-white/30 dark:border-white/10 hover:scale-105 transition-transform"
+                            className="e-round !border-0"
+                            aria-label="Toggle dark mode"
                         >
-                            {mode === 'dark' ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-600" />}
+                            {mode === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                         </Button>
 
                         {/* Admin Access Panel Button */}
@@ -918,12 +914,7 @@ export function AnalyticsLayout() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowReportModal(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-emerald-700 dark:text-emerald-400 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_rgba(16,185,129,0.3)] group"
-                                style={{
-                                    border: '1px solid rgba(16,185,129,0.4)',
-                                }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, #10b981, #059669)'; (e.currentTarget as HTMLButtonElement).style.border = '1px solid transparent'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = ''; (e.currentTarget as HTMLButtonElement).style.border = '1px solid rgba(16,185,129,0.4)'; }}
+                                className="hidden sm:flex items-center gap-1.5 h-10 px-4 rounded-full border-0 bg-[var(--e-surface)] text-[var(--e-ink)] shadow-[0_0_0_1px_var(--e-line)] hover:bg-[var(--e-surface-3)]"
                             >
                                 <FileText className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold hidden lg:inline">Generate Report</span>
@@ -936,12 +927,7 @@ export function AnalyticsLayout() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setShowAlertsPanel(true)}
-                                className="hidden sm:flex items-center gap-1.5 h-8 px-3 rounded-xl text-fuchsia-700 dark:text-fuchsia-300 hover:text-white transition-all duration-200 hover:scale-[1.02] backdrop-blur-sm bg-white/30 dark:bg-transparent hover:shadow-[0_4px_16px_hsl(var(--accent-primary)/0.3)] group"
-                                style={{
-                                    border: '1px solid hsl(var(--accent-primary) / 0.35)',
-                                }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent-gradient)'; (e.currentTarget as HTMLButtonElement).style.border = '1px solid transparent'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = ''; (e.currentTarget as HTMLButtonElement).style.border = '1px solid hsl(var(--accent-primary) / 0.35)'; }}
+                                className="hidden sm:flex items-center gap-1.5 h-10 px-4 rounded-full border-0 bg-[var(--e-surface)] text-[var(--e-ink)] shadow-[0_0_0_1px_var(--e-line)] hover:bg-[var(--e-surface-3)]"
                             >
                                 <BellRing className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold hidden lg:inline">Alerts Panel</span>
@@ -953,30 +939,26 @@ export function AnalyticsLayout() {
                                 <Button
                                     onClick={() => setShowNewConfigModal(true)}
                                     size="sm"
-                                    className="group relative overflow-hidden gap-2 h-8 rounded-xl text-white transition-all duration-200 hover:scale-[1.03] hover:shadow-[0_6px_24px_var(--theme-primary-alpha,rgba(99,102,241,0.35))]"
-                                    style={{ background: 'var(--accent-gradient)', boxShadow: '0 2px 12px var(--theme-primary-alpha,rgba(99,102,241,0.2))' }}
+                                    className="gap-2 h-10 px-5 rounded-full text-white hover:opacity-90 active:scale-[0.97]"
+                                    style={{ background: 'var(--e-coral)', boxShadow: '0 10px 22px -10px hsl(var(--accent-primary) / 0.7)' }}
                                 >
-                                    {/* Shimmer — hover only, single sweep */}
-                                    <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl">
-                                        <span className="absolute inset-y-0 w-1/2 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-[-15deg] transition-none group-hover:animate-[shimmer-sweep_0.6s_ease-out_forwards]" />
-                                    </span>
                                     <Plus className="h-4 w-4 relative z-10" />
                                     <span className="hidden lg:inline font-semibold relative z-10">New Config</span>
                                 </Button>
                             </div>
                         )}
-                        <span className="text-xs lg:text-sm px-3 lg:px-4 py-1.5 rounded-xl font-bold hidden sm:inline-flex border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm text-gray-800 dark:text-gray-100 shadow-sm">
+                        <span className="text-[12px] h-10 items-center px-4 rounded-full font-bold hidden sm:inline-flex" style={{ background: 'var(--e-ink-pill)', color: 'var(--e-canvas)' }}>
                             {isAdmin ? 'Super Admin' : (hasWriteAccess(selectedFeatureId) ? 'Editor' : 'Viewer')}
                         </span>
-                        <Button variant="ghost" size="icon" onClick={logout} className="hidden md:flex hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 h-8 w-8 text-gray-500 dark:text-gray-400 hover:scale-105 transition-transform">
+                        <Button variant="ghost" size="icon" onClick={logout} aria-label="Log out" className="hidden md:inline-flex e-round !border-0 hover:!text-red-500">
                             <LogOut className="h-4 w-4" />
                         </Button>
                     </div>
                 </header>
                 {/* Spacer for fixed header */}
-                <div className="h-14 lg:h-16" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
+                <div className="h-16 lg:h-[72px]" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} />
 
-                <div className="flex min-h-[calc(100vh-3.5rem)] lg:min-h-[calc(100vh-4rem)]">
+                <div className="flex min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-72px)]">
                     {/* Mobile Sidebar Overlay - No animation, just show/hide */}
                     {mobileSidebarOpen && (
                         <>
@@ -984,7 +966,7 @@ export function AnalyticsLayout() {
                                 className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 md:hidden"
                                 onClick={() => setMobileSidebarOpen(false)}
                             />
-                            <div className="fixed left-0 bottom-0 w-[280px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-gray-700/60 z-50 md:hidden overflow-hidden shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50" style={{ top: 'calc(3.5rem + env(safe-area-inset-top, 0px))' }}>
+                            <div className="fixed left-0 bottom-0 w-[280px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200/80 dark:border-gray-700/60 z-50 md:hidden overflow-hidden shadow-xl shadow-gray-200/50 dark:shadow-gray-900/50" style={{ top: 'calc(4rem + env(safe-area-inset-top, 0px))' }}>
                                 <div className="absolute top-2 right-2">
                                     <Button
                                         variant="ghost"
@@ -1023,8 +1005,8 @@ export function AnalyticsLayout() {
                     {/* Desktop Sidebar - instant width change, no animation */}
                     <div className="hidden md:block flex-shrink-0">
                         <div
-                            className="sidebar-glass flex flex-col sticky top-14 lg:top-16"
-                            style={{ width: sidebarCollapsed ? 60 : 280 }}
+                            className="ml-4 flex flex-col sticky top-[80px] lg:top-[88px] h-[calc(100vh-96px)] lg:h-[calc(100vh-104px)] overflow-hidden rounded-[28px]"
+                            style={{ width: sidebarCollapsed ? 68 : 284, boxShadow: 'var(--dash-card-shadow)' }}
                         >
                             <ProfileSidebar
                                 featureId={selectedFeatureId}

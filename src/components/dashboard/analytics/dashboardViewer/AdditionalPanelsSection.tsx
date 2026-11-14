@@ -794,22 +794,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                             [panel.panelId]: !prev[panel.panelId]
                                                         }));
                                                     }}
-                                                    className="h-8 gap-1.5 pl-2.5 pr-2 rounded-full text-sm font-medium border transition-all duration-200 shadow-sm relative overflow-hidden group/chat hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2"
-                                                    style={{
-                                                        background: 'var(--theme-primary-alpha)',
-                                                        borderColor: 'color-mix(in srgb, var(--theme-primary) 25%, transparent)',
-                                                        color: 'var(--theme-primary)',
-                                                    }}
+                                                    className="h-9 gap-2 pl-3.5 pr-2 rounded-full text-[13px] font-bold border-0 transition-opacity hover:opacity-90 active:scale-[0.97]"
+                                                    style={{ background: 'var(--e-ink-pill)', color: 'var(--e-canvas)' }}
                                                 >
-                                                    <Sparkles className="h-3.5 w-3.5 group-hover/chat:scale-110 transition-transform" style={{ color: 'var(--theme-primary)' }} />
+                                                    <span className="relative flex h-2 w-2"><span className="absolute inset-0 animate-ping rounded-full bg-[var(--e-mint)] opacity-60" /><span className="relative h-2 w-2 rounded-full bg-[var(--e-mint)]" /></span>
                                                     <span className="hidden sm:inline">AI Chat</span>
                                                     <kbd
                                                         className="hidden sm:inline-flex items-center px-1.5 py-0.5 ml-0.5 rounded-md text-[10px] font-mono font-semibold leading-none select-none border"
-                                                        style={{
-                                                            background: 'color-mix(in srgb, var(--theme-primary) 16%, white)',
-                                                            borderColor: 'color-mix(in srgb, var(--theme-primary) 26%, transparent)',
-                                                            color: 'var(--theme-primary)',
-                                                        }}
+                                                        style={{ background: 'color-mix(in srgb, var(--e-canvas) 16%, transparent)', borderColor: 'transparent', color: 'var(--e-canvas)' }}
                                                     >⌘L</kbd>
                                                 </Button>
                                             </div>
@@ -2034,8 +2026,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         if (panelMetricView === 'timing-breakdown') {
                                                                             return (
                                                                                 <Fragment key={`pbreak_${panel.panelId}_${ek.eventKey}`}>
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="var(--e-red)" fill="var(--e-red)" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="var(--e-amber)" fill="var(--e-amber)" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
                                                                                 </Fragment>
                                                                             );
                                                                         }
@@ -2133,7 +2125,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 <div className="h-52">
                                                                     <ResponsiveContainer width="100%" height="100%">
                                                                         <PieChart>
-                                                                            <Pie data={statusData} cx="50%" cy="45%" innerRadius={35} outerRadius={65} paddingAngle={2} dataKey="value" strokeWidth={2} stroke="#fff" isAnimationActive={false}>
+                                                                            <Pie data={statusData} cx="50%" cy="45%" innerRadius={35} outerRadius={65} paddingAngle={2} cornerRadius={6}
+                                                                dataKey="value" strokeWidth={2} stroke="var(--e-surface)" isAnimationActive={false}>
                                                                                 {statusData.map((_: any, index: number) => (
                                                                                     <Cell key={`p_status_${panel.panelId}_${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                                                                 ))}
@@ -2166,7 +2159,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 <div className="h-52">
                                                                     <ResponsiveContainer width="100%" height="100%">
                                                                         <PieChart>
-                                                                            <Pie data={cacheStatusData} cx="50%" cy="45%" innerRadius={35} outerRadius={65} paddingAngle={2} dataKey="value" strokeWidth={2} stroke="#fff" isAnimationActive={false}>
+                                                                            <Pie data={cacheStatusData} cx="50%" cy="45%" innerRadius={35} outerRadius={65} paddingAngle={2} cornerRadius={6}
+                                                                dataKey="value" strokeWidth={2} stroke="var(--e-surface)" isAnimationActive={false}>
                                                                                 {cacheStatusData.map((_: any, index: number) => (
                                                                                     <Cell key={`p_cache_${panel.panelId}_${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                                                                 ))}
@@ -2415,8 +2409,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         if (panelMetricView === 'timing-breakdown') {
                                                                             return (
                                                                                 <Fragment key={`pbreak_fun_${panel.panelId}_${ek.eventKey}`}>
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="#ef4444" fill="#ef4444" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
-                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgServerToCloud`} name={`${ek.eventName} (Server)`} stroke="var(--e-red)" fill="var(--e-red)" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
+                                                                                    <Area type="monotone" dataKey={`${ek.eventKey}_avgCloudToUser`} name={`${ek.eventName} (Network)`} stroke="var(--e-amber)" fill="var(--e-amber)" fillOpacity={0.2} stackId={ek.eventKey} isAnimationActive={false} connectNulls={true} />
                                                                                 </Fragment>
                                                                             );
                                                                         }
@@ -2723,7 +2717,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                             return (
                                                                                 <linearGradient key={`normalGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`normalColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.26} />
                                                                                     <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                                                                                 </linearGradient>
                                                                             );
@@ -3092,8 +3086,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                             return (
                                                                                 <linearGradient key={`avgGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`avgColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                                                                                    <stop offset="5%" stopColor={color} stopOpacity={0.26} />
+                                                                                    <stop offset="95%" stopColor={color} stopOpacity={0} />
                                                                                 </linearGradient>
                                                                             );
                                                                         })}
@@ -3322,14 +3316,14 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                             const errorColor = ERROR_COLORS[index % ERROR_COLORS.length];
                                                                             return (
                                                                                 <linearGradient key={`errorGrad_${index}_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`errorColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                    <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
-                                                                                    <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
+                                                                                    <stop offset="5%" stopColor={errorColor} stopOpacity={0.26} />
+                                                                                    <stop offset="95%" stopColor={errorColor} stopOpacity={0} />
                                                                                 </linearGradient>
                                                                             );
                                                                         })}
                                                                         <linearGradient id={`errorSuccessGrad_${panel.panelId}`} x1="0" y1="0" x2="0" y2="1">
-                                                                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                                                                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                                                                            <stop offset="5%" stopColor="var(--e-mint)" stopOpacity={0.26} />
+                                                                            <stop offset="95%" stopColor="var(--e-mint)" stopOpacity={0} />
                                                                         </linearGradient>
                                                                     </defs>
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
@@ -3347,7 +3341,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                     type="monotone"
                                                                                     dataKey={`${eventKey}_success`}
                                                                                     name={`${eventKeyInfo.eventName} (Failed Count)`}
-                                                                                    stroke="#ef4444"
+                                                                                    stroke="var(--e-red)"
                                                                                     strokeWidth={3}
                                                                                     fill={`url(#errorColor_${panel.panelId}_${eventKey})`}
                                                                                     dot={false}
@@ -3448,8 +3442,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
                                                                     <defs>
                                                                         <linearGradient id={`avgGrad_sep_${panel.panelId}_${avgEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                            <stop offset="5%" stopColor={avgColor} stopOpacity={0.4} />
-                                                                            <stop offset="95%" stopColor={avgColor} stopOpacity={0.05} />
+                                                                            <stop offset="5%" stopColor={avgColor} stopOpacity={0.26} />
+                                                                            <stop offset="95%" stopColor={avgColor} stopOpacity={0} />
                                                                         </linearGradient>
                                                                     </defs>
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
@@ -3537,12 +3531,12 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                 <AreaChart data={filteredGraphData} margin={{ top: 20, right: 30, left: 10, bottom: 60 }}>
                                                                     <defs>
                                                                         <linearGradient id={`errorGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                            <stop offset="5%" stopColor={errorColor} stopOpacity={0.4} />
-                                                                            <stop offset="95%" stopColor={errorColor} stopOpacity={0.05} />
+                                                                            <stop offset="5%" stopColor={errorColor} stopOpacity={0.26} />
+                                                                            <stop offset="95%" stopColor={errorColor} stopOpacity={0} />
                                                                         </linearGradient>
                                                                         <linearGradient id={`errorSuccessGrad_sep_${panel.panelId}_${errorEventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                                                                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
+                                                                            <stop offset="5%" stopColor="var(--e-mint)" stopOpacity={0.26} />
+                                                                            <stop offset="95%" stopColor="var(--e-mint)" stopOpacity={0} />
                                                                         </linearGradient>
                                                                     </defs>
                                                                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
@@ -3604,7 +3598,7 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                         const color = event?.color || EVENT_COLORS[index % EVENT_COLORS.length];
                                                                         return (
                                                                             <linearGradient key={`fallbackGrad_${panel.panelId}_${eventKeyInfo.eventKey}`} id={`fallbackColor_${panel.panelId}_${eventKeyInfo.eventKey}`} x1="0" y1="0" x2="0" y2="1">
-                                                                                <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                                                                                <stop offset="5%" stopColor={color} stopOpacity={0.26} />
                                                                                 <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                                                                             </linearGradient>
                                                                         );
@@ -3739,7 +3733,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                 innerRadius={45}
                                                                                 outerRadius={70}
                                                                                 paddingAngle={2}
-                                                                                dataKey="value"
+                                                                                cornerRadius={6}
+                                                                dataKey="value"
                                                                                 isAnimationActive={false}
                                                                                 stroke="none"
                                                                             >
@@ -3900,7 +3895,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                                     innerRadius={45}
                                                                                                     outerRadius={70}
                                                                                                     paddingAngle={2}
-                                                                                                    dataKey="value"
+                                                                                                    cornerRadius={6}
+                                                                dataKey="value"
                                                                                                     isAnimationActive={false}
                                                                                                     stroke="none"
                                                                                                 >
@@ -4030,7 +4026,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                                 innerRadius={55}
                                                                                                 outerRadius={85}
                                                                                                 paddingAngle={2}
-                                                                                                dataKey="value"
+                                                                                                cornerRadius={6}
+                                                                dataKey="value"
                                                                                                 isAnimationActive={false}
                                                                                                 stroke="none"
                                                                                             >
@@ -4188,7 +4185,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                                             innerRadius={45}
                                                                                                             outerRadius={70}
                                                                                                             paddingAngle={2}
-                                                                                                            dataKey="value"
+                                                                                                            cornerRadius={6}
+                                                                dataKey="value"
                                                                                                             isAnimationActive={false}
                                                                                                             stroke="none"
                                                                                                         >
@@ -4317,7 +4315,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                                         innerRadius={55}
                                                                                                         outerRadius={85}
                                                                                                         paddingAngle={2}
-                                                                                                        dataKey="value"
+                                                                                                        cornerRadius={6}
+                                                                dataKey="value"
                                                                                                         isAnimationActive={false}
                                                                                                         stroke="none"
                                                                                                     >
@@ -4479,7 +4478,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                             innerRadius={55}
                                                                                             outerRadius={85}
                                                                                             paddingAngle={2}
-                                                                                            dataKey="value"
+                                                                                            cornerRadius={6}
+                                                                dataKey="value"
                                                                                             isAnimationActive={false}
                                                                                             stroke="none"
                                                                                         >
@@ -4665,7 +4665,8 @@ export const AdditionalPanelsSection = React.memo(function AdditionalPanelsSecti
                                                                                         innerRadius={55}
                                                                                         outerRadius={85}
                                                                                         paddingAngle={2}
-                                                                                        dataKey="value"
+                                                                                        cornerRadius={6}
+                                                                dataKey="value"
                                                                                         isAnimationActive={false}
                                                                                         stroke="none"
                                                                                     >
